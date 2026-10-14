@@ -1,4 +1,4 @@
-name: 작업
+name: 작업 이슈
 description: 일감 하나 (담당 1명, 1~2일 안에 끝나는 크기)
 title: "[영역] "
 body:
