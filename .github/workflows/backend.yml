@@ -16,7 +16,7 @@ defaults:
     working-directory: backend
 
 jobs:
-  check:
+  backend:
     runs-on: ubuntu-latest
     services:
       db:

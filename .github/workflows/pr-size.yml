@@ -9,7 +9,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  check:
+  pr-size:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
