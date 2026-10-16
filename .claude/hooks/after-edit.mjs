@@ -26,12 +26,15 @@ if (rel.startsWith('..') || SKIP.some((re) => re.test(rel))) process.exit(0);
 
 const failures = [];
 
+const isWindows = process.platform === 'win32';
+
 const run = (label, cmd, args, cwd) => {
-  const res = spawnSync(cmd, args, {
+  const shellArgs = isWindows ? args.map((a) => (/\s/.test(a) ? `"${a}"` : a)) : args;
+  const res = spawnSync(cmd, shellArgs, {
     cwd,
     encoding: 'utf8',
     timeout: TIMEOUT_MS,
-    shell: process.platform === 'win32',
+    shell: isWindows,
     env: { ...process.env, PYTHONUTF8: '1', FORCE_COLOR: '0', NO_COLOR: '1' },
   });
   if (res.status !== 0) {
@@ -72,10 +75,9 @@ if (rel.startsWith('frontend/')) {
   run('ruff format', 'uv', ['run', 'ruff', 'format', target], BACKEND);
 
   const name = path.basename(rel, '.py');
-  // 패키지 파일(gateway/__init__.py)은 폴더 이름으로 테스트를 찾습니다 → test_gateway.py
   const stem = name === '__init__' ? path.basename(path.dirname(rel)) : name;
   const tests = name.startsWith('test_') ? [target] : findPythonTests(stem).map((t) => path.relative(BACKEND, t));
-  if (tests.length > 0 && !rel.startsWith('backend/evals/')) {
+  if (tests.length > 0 && !rel.startsWith('backend/evals/') && !rel.startsWith('backend/tests/integration/')) {
     run('pytest', 'uv', ['run', 'pytest', '-q', '--color=no', '-m', 'not integration and not eval', ...tests], BACKEND);
   }
 }
