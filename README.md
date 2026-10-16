@@ -13,18 +13,45 @@
 
 ## 로컬 실행
 
-필요 도구: Node 22+, pnpm 10, uv, Docker
+도구 버전은 [`mise.toml`](mise.toml) 한 곳에서 관리합니다. (Node 22, pnpm 10.34, Python 3.14, uv 0.12)
+
+| 설치 | macOS | Windows (PowerShell) |
+| --- | --- | --- |
+| Git | 기본 설치 | Git for Windows |
+| mise | `brew install mise` | `winget install jdx.mise` |
+| Docker | Docker Desktop | Docker Desktop (WSL2 백엔드) |
+
+mise를 셸에 연결합니다(한 번). macOS(zsh)는 `~/.zshrc`에 `eval "$(mise activate zsh)"`, Windows는 PowerShell 프로필에 `(&mise activate pwsh) | Out-String | Invoke-Expression`을 추가하고 터미널을 다시 엽니다.
+
+명령은 macOS 터미널과 Windows PowerShell에서 똑같이 동작합니다. Docker Desktop을 켠 뒤 레포 루트에서 처음 한 번:
 
 ```bash
-pnpm install                           # 루트: lefthook 훅 설치
-cp .env.example backend/.env           # backend 항목만 남기고 값 채우기
-docker compose up -d db
-cd backend && uv sync && uv run alembic upgrade head && uv run uvicorn app.main:app --reload
+mise trust
 ```
 
 ```bash
-cd frontend && pnpm install && pnpm dev
+mise install
 ```
+
+```bash
+pnpm bootstrap
+```
+
+`mise install`이 Node·pnpm·Python·uv를 정해진 버전으로 설치합니다. 버전을 올릴 때 같이 맞춰야 하는 파일은 `AGENTS.md`에 정리돼 있습니다.
+
+의존성 설치(프론트·백엔드·Git 훅) → `backend/.env`, `frontend/.env.local` 생성(없을 때만, 각 폴더의 `.env.example` 복사) → DB 실행 → 마이그레이션까지 합니다. LLM 키는 `backend/.env`에 직접 채우세요. 비어 있으면 서버는 뜨고 시작할 때 경고만 합니다. `APP_ENV`가 `local`이 아니면 키가 없을 때 서버가 시작되지 않습니다.
+
+```bash
+pnpm dev:be           # http://localhost:8000/docs
+pnpm dev:fe           # http://localhost:3000
+```
+
+### Windows 참고
+
+- 줄바꿈은 `.gitattributes`로 LF 고정입니다. 처음 클론하기 전에 `git config --global core.autocrlf false`를 권장합니다. 이미 클론했다면 `git add --renormalize .`
+- Python이 한글 파일·로그를 UTF-8로 다루도록 `PYTHONUTF8=1` 환경변수를 설정하세요. (`setx PYTHONUTF8 1` 후 터미널 재시작)
+- Git 훅(lefthook)은 Git for Windows의 sh로 실행됩니다. Git for Windows를 설치하면 별도 설정이 필요 없습니다.
+- 경로가 긴 패키지 설치 오류가 나면 `git config --global core.longpaths true`
 
 ## 자주 쓰는 명령
 
@@ -36,12 +63,37 @@ cd frontend && pnpm install && pnpm dev
 | `uv run alembic revision --autogenerate -m "메시지"` (backend) | 마이그레이션 생성 |
 | `docker compose --profile full up -d --build` | DB + 백엔드 함께 실행 |
 
+## 테스트
+
+```bash
+pnpm dev:db        # integration 테스트용 DB
+pnpm test          # FE + BE 테스트
+pnpm check         # PR 전 전체 검사
+pnpm test:eval     # AI 평가 세트
+pnpm check:pr-size # PR 추가 줄 수(+1000 이내) 확인
+```
+
+자세한 구조는 `AGENTS.md`의 테스트 절을 참고하세요.
+
 ## Git 훅 (lefthook)
 
 - pre-commit: 스테이징된 파일에 ESLint·Prettier(frontend), ruff(backend) 자동 수정
 - commit-msg: `type(scope): 내용` 형식 검사
+- pre-push: 바뀐 영역의 단위 테스트(FE vitest, BE unit)
+
+## CI
+
+| 워크플로 | 검사 |
+| --- | --- |
+| frontend | 린트·포맷·타입·테스트·빌드 (`frontend/**` 변경 시) |
+| backend | uv.lock 동기화·ruff·마이그레이션·pytest, api.gen.ts 재생성 여부 (`backend/**` 변경 시) |
+| security | gitleaks로 커밋에 들어간 비밀값 검사 |
+| pr-title | PR 제목 `type(scope): 내용` |
+| pr-size | 추가 줄 수 +1000 이내 (lock·api.gen.ts·마이그레이션 제외) |
+
+같은 브랜치에 새로 push하면 진행 중인 이전 실행은 취소됩니다.
 
 ## 배포
 
 - 프론트: Vercel (Root Directory = `frontend`, "Include files outside the root directory" 켜둠 — `shared/` 사용)
-- 백엔드: main 머지 시 GitHub Actions → EC2 Docker Compose
+- 백엔드: GitHub Actions → EC2 Docker Compose. **아직 미사용** — AWS 준비 전까지 `deploy-ec2` 워크플로는 수동 실행만 켜져 있습니다.
