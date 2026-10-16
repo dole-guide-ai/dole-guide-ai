@@ -2,10 +2,10 @@ name: backend
 
 on:
   pull_request:
-    paths: ["backend/**", "mise.toml", ".github/workflows/backend.yml"]
+    paths: ["backend/**", "frontend/src/types/api.gen.ts", "frontend/package.json", "package.json", "pnpm-lock.yaml", "pnpm-workspace.yaml", "mise.toml", ".github/workflows/backend.yml"]
   push:
     branches: [main, develop]
-    paths: ["backend/**"]
+    paths: ["backend/**", "frontend/src/types/api.gen.ts", "frontend/package.json", "package.json", "pnpm-lock.yaml", "pnpm-workspace.yaml", "mise.toml", ".github/workflows/backend.yml"]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}

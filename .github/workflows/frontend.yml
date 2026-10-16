@@ -5,7 +5,7 @@ on:
     paths: ["frontend/**", "shared/**", "pnpm-lock.yaml", "pnpm-workspace.yaml", "mise.toml", ".github/workflows/frontend.yml"]
   push:
     branches: [main, develop]
-    paths: ["frontend/**", "shared/**", "pnpm-lock.yaml"]
+    paths: ["frontend/**", "shared/**", "pnpm-lock.yaml", "pnpm-workspace.yaml", "mise.toml", ".github/workflows/frontend.yml"]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}

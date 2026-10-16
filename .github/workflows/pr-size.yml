@@ -17,4 +17,6 @@ jobs:
           fetch-depth: 0
       # 도구 버전은 mise.toml에서 읽습니다.
       - uses: jdx/mise-action@v2
-      - run: node scripts/check-pr-size.mjs origin/${{ github.base_ref }}
+      - run: node scripts/check-pr-size.mjs "origin/$BASE_REF"
+        env:
+          BASE_REF: ${{ github.base_ref }}

@@ -1,14 +1,15 @@
-# 기본 규칙에 예외만 추가합니다.
+# 기본 규칙에 예외만 추가합니다. 테스트 폴더도 검사 대상입니다.
 [extend]
 useDefault = true
 
 [allowlist]
-description = "예시 설정과 테스트 합성 데이터"
+description = "예시 설정, lock 파일, 테스트용 합성 값"
 paths = [
   '''(^|/)\.env\.example$''',
-  '''^backend/tests/''',
-  '''^backend/evals/scenarios/''',
-  '''^frontend/src/test/''',
   '''(^|/)pnpm-lock\.yaml$''',
   '''(^|/)uv\.lock$''',
+]
+# 테스트에서 쓰는 합성 값은 이름에 synthetic을 넣습니다. (예: sk-test-synthetic-value)
+regexes = [
+  '''synthetic''',
 ]
