@@ -15,7 +15,7 @@
 - main, develop은 직접 push하지 않습니다. PR, 리뷰 2명 이상, CI 통과를 필수로 합니다.
 - 기능 브랜치 → develop, develop → main 모두 Merge commit으로 합니다. (Rebase, Squash Merge 사용 x)
 - main 머지 시 Vercel 운영 배포가 자동으로 실행됩니다. develop과 PR은 Vercel 미리보기로 확인합니다.
-- EC2 배포(GitHub Actions `deploy-ec2`)는 AWS 준비 전까지 수동 실행만 켜져 있고, 준비되면 main 머지 시 자동 실행으로 바꿉니다.
+- 백엔드 배포(GitHub Actions `deploy-server`, AWS Lightsail)는 첫 배포 확인 전까지 수동 실행만 켜져 있고, 확인되면 main 머지 시 자동 실행으로 바꿉니다.
 - main 머지 시 버전 태그(`v0.1.0`)를 붙입니다. 문제가 생기면 이전 태그로 되돌립니다.
 - 한 이슈에 한 PR, PR은 +1000줄 이내. 자동 생성 파일(`api.gen.ts`, lock 파일, 자동 생성 마이그레이션)은 줄 수에서 제외합니다.
 

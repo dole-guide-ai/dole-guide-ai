@@ -31,7 +31,7 @@ reviews:
     ## 리뷰 원칙
     - 런타임 에러, 타입 안전성, 비동기·스트리밍(SSE) 에러 처리에 집중
     - 스타일/포맷팅은 ESLint + Prettier, ruff가 처리하므로 지적하지 않기
-    - 이 프로젝트는 monorepo: frontend(Next.js App Router+TanStack Query, Vercel), backend(FastAPI+SQLAlchemy+Alembic+LangGraph, EC2)
+    - 이 프로젝트는 monorepo: frontend(Next.js App Router+TanStack Query, Vercel), backend(FastAPI+SQLAlchemy+Alembic+LangGraph, AWS Lightsail)
     - 중장년층 실업급여 서비스: 개인정보(이름, 연락처, 주민등록번호, 발화 원문)가 로그·LLM 전송·테스트 데이터에 들어가는지 반드시 확인
 
     ## 프론트·백엔드 동기화
