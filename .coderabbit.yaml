@@ -47,7 +47,7 @@ reviews:
     - path: "frontend/src/**/*.{ts,tsx}"
       instructions: |
         Next.js 규칙:
-        - 서버 렌더링·RSC 데이터 패칭·Next.js 캐시 사용 금지. 데이터는 'use client' 컴포넌트에서 TanStack Query로 FastAPI 호출
+        - 업무 로직·모델 호출은 FastAPI에 두고, 프론트는 TanStack Query로 호출
         - 'use client'는 상태·이벤트가 있는 컴포넌트에만
         - 라우트 파일 외 컴포넌트는 export const 화살표 함수, 한 파일 한 컴포넌트, Props는 {Component}Props interface
         - 쿼리 키는 lib/queryKeys.ts에서만 정의

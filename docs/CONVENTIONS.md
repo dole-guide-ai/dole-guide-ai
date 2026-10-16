@@ -77,7 +77,7 @@ feat(ai)!: 에이전트 상태 필드 구조 변경
 
 - 라우트 파일(`page.tsx`, `layout.tsx` 등)은 `export default function`. 그 외 컴포넌트는 화살표 함수 + `export const`, 한 파일에 한 컴포넌트.
 - Props는 구조 분해, early return 사용. `'use client'`는 상태·이벤트가 있는 컴포넌트에만.
-- 서버 렌더링·Next.js 캐시를 쓰지 않고, 업무 로직과 모델 호출은 FastAPI에 둡니다.
+- 업무 로직과 모델 호출은 FastAPI에 둡니다. 렌더링 방식(서버/클라이언트)은 아직 정하지 않았습니다.
 - API 타입은 `api.gen.ts`만, 쿼리 키는 `lib/queryKeys.ts`, SSE 이벤트 이름은 `shared/sse-events.json`.
 - 절대 경로(`@/`). import 순서(React·Next → 외부 → 내부 컴포넌트 → 유틸·타입 → 에셋)는 ESLint가, Tailwind 클래스 순서는 Prettier가 정렬합니다.
 - 라우팅은 `next/navigation`.

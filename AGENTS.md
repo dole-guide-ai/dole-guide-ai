@@ -52,7 +52,7 @@ uv run alembic upgrade head
 - `backend/experiments/` 코드를 서비스 코드에서 import하지 않습니다.
 - 로그·테스트 데이터에 실제 개인정보(이름, 연락처, 주민등록번호, 발화 원문)를 넣지 않습니다. 합성 데이터만 씁니다.
 - 비밀값을 저장소에 커밋하지 않습니다. `.env.example`에는 키 이름만 둡니다.
-- 프론트는 서버 렌더링·Next.js 캐시를 쓰지 않고, 업무 로직·모델 호출은 FastAPI에 둡니다.
+- 업무 로직·모델 호출은 FastAPI에 둡니다.
 
 ## 코드 스타일 요약
 
@@ -95,5 +95,5 @@ uv run alembic upgrade head
 - 자주 쓰는 검사 명령(`pnpm test`, `uv run pytest` 등)은 `permissions.allow`에 등록돼 승인 없이 실행됩니다.
 - 읽기 차단(`permissions.deny`): 실제 `.env`·`.env.local`, `node_modules`, `.next`, `.venv`, `coverage`, 캐시, lock 파일, `openapi.json`. `.env.example`은 읽을 수 있습니다.
 - 편집 후 훅(`.claude/hooks/after-edit.mjs`): 파일을 수정하면 그 파일만 ESLint·Prettier 또는 ruff로 정리하고, 관련 단위 테스트만 실행합니다(FE `vitest related`, BE 같은 이름의 `tests/unit/**/test_<파일명>.py`). 실패하면 결과가 바로 돌아오니 그 자리에서 고칩니다.
-- vercel 플러그인의 React 베스트 프랙티스 스킬은 클라이언트 렌더링·번들·리렌더 규칙만 따릅니다. 이 레포는 서버 렌더링·RSC 데이터 패칭·Next.js 캐시를 쓰지 않습니다.
+- vercel 플러그인의 React 베스트 프랙티스 스킬을 참고합니다. 렌더링 방식(서버/클라이언트)은 아직 정하지 않았습니다.
 - `.claude/launch.json`: 프론트(3000)·백엔드(8000) 실행 설정.
