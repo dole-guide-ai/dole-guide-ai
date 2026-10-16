@@ -57,3 +57,20 @@ def test_warning_does_not_log_secret_values(
         settings.warn_missing_keys()
 
     assert "sk-test-synthetic-value" not in caplog.text
+
+
+def test_cors_origin_regex_reads_env_and_empty_is_none(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("CORS_ORIGIN_REGEX", r"^https://dole-guide-[a-z0-9]+-team\.vercel\.app$")
+    assert Settings(_env_file=None).cors_origin_regex is not None
+
+    monkeypatch.setenv("CORS_ORIGIN_REGEX", "")
+    assert Settings(_env_file=None).cors_origin_regex is None
+
+
+def test_cors_origins_reads_json_list(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("CORS_ORIGINS", '["https://a.example.com","https://b.example.com"]')
+
+    assert Settings(_env_file=None).cors_origins == [
+        "https://a.example.com",
+        "https://b.example.com",
+    ]

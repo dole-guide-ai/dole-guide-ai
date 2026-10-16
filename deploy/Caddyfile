@@ -1,0 +1,9 @@
+# DOMAIN(.env)으로 HTTPS 인증서를 자동 발급·갱신하고 백엔드로 넘깁니다.
+{$DOMAIN} {
+	encode zstd gzip
+
+	reverse_proxy backend:8000 {
+		# SSE 스트리밍이 모아서 전송되지 않도록 바로 흘려보냅니다.
+		flush_interval -1
+	}
+}
