@@ -1,0 +1,36 @@
+# 루트에서 `pnpm install` 하면 훅이 설치됩니다.
+pre-commit:
+  parallel: true
+  commands:
+    frontend-lint:
+      root: "frontend/"
+      glob: "*.{ts,tsx,js,mjs}"
+      exclude:
+        - "src/types/api.gen.ts"
+      run: pnpm exec eslint --fix {staged_files}
+      stage_fixed: true
+    frontend-format:
+      root: "frontend/"
+      glob: "*.{ts,tsx,js,mjs,json,css,md}"
+      exclude:
+        - "src/types/api.gen.ts"
+      run: pnpm exec prettier --write --ignore-unknown {staged_files}
+      stage_fixed: true
+    backend-lint:
+      root: "backend/"
+      glob: "*.py"
+      run: uv run ruff check --fix {staged_files} && uv run ruff format {staged_files}
+      stage_fixed: true
+
+commit-msg:
+  commands:
+    conventional:
+      run: |
+        msg=$(head -n1 {1})
+        if ! echo "$msg" | grep -qE '^(feat|fix|refactor|style|design|docs|test|chore|ci)\((fe|be|ai|infra|docs)\)!?: .+'; then
+          if ! echo "$msg" | grep -qE '^(Merge|Revert)'; then
+            echo "커밋 메시지는 'type(scope): 무엇을 왜' 형식이어야 합니다. (docs/CONVENTIONS.md 참고)"
+            echo "입력값: $msg"
+            exit 1
+          fi
+        fi

@@ -16,6 +16,7 @@
 필요 도구: Node 22+, pnpm 10, uv, Docker
 
 ```bash
+pnpm install                           # 루트: lefthook 훅 설치
 cp .env.example backend/.env           # backend 항목만 남기고 값 채우기
 docker compose up -d db
 cd backend && uv sync && uv run alembic upgrade head && uv run uvicorn app.main:app --reload
@@ -34,3 +35,13 @@ cd frontend && pnpm install && pnpm dev
 | `uv run ruff check .` / `uv run ruff format .` / `uv run pytest` (backend) | 린트·포맷·테스트 |
 | `uv run alembic revision --autogenerate -m "메시지"` (backend) | 마이그레이션 생성 |
 | `docker compose --profile full up -d --build` | DB + 백엔드 함께 실행 |
+
+## Git 훅 (lefthook)
+
+- pre-commit: 스테이징된 파일에 ESLint·Prettier(frontend), ruff(backend) 자동 수정
+- commit-msg: `type(scope): 내용` 형식 검사
+
+## 배포
+
+- 프론트: Vercel (Root Directory = `frontend`, "Include files outside the root directory" 켜둠 — `shared/` 사용)
+- 백엔드: main 머지 시 GitHub Actions → EC2 Docker Compose
