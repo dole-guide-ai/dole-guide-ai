@@ -29,6 +29,8 @@ export interface components {
         HealthRead: {
             /** Status */
             status: string;
+            /** Db */
+            db: string;
         };
     };
     responses: never;
