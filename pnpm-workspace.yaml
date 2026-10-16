@@ -1,0 +1,6 @@
+packages:
+  - frontend
+
+onlyBuiltDependencies:
+  - lefthook
+  - unrs-resolver

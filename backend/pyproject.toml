@@ -1,0 +1,46 @@
+[project]
+name = "dole-guide-backend"
+version = "0.1.0"
+description = "실업급여 도우미 AI 백엔드"
+requires-python = ">=3.14,<3.15"
+dependencies = [
+    "alembic>=1.20.0",
+    "fastapi>=0.143.2",
+    "langchain>=1.4.6",
+    "langchain-openai>=1.7.2",
+    "langgraph>=1.2.15",
+    "pgvector>=0.5.1",
+    "psycopg[binary]>=3.3.6",
+    "pydantic-settings>=2.16.0",
+    "sqlalchemy>=2.0,<2.1",
+    "sse-starlette>=3.5.0",
+    "uvicorn[standard]>=0.54.0",
+]
+
+[dependency-groups]
+dev = [
+    "httpx>=0.28.1",
+    "pytest>=9.1.1",
+    "pytest-cov>=7.1.0",
+    "ruff>=0.17.1",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py314"
+extend-exclude = ["alembic/versions", "experiments"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "UP", "B", "SIM"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "--strict-markers -m 'not eval'"
+markers = [
+    "integration: Postgres가 필요한 테스트 (docker compose up -d db)",
+    "eval: AI 평가 세트. 기본 실행에서 제외, `uv run pytest evals -m eval`로 실행",
+]
+
+[tool.coverage.run]
+source = ["app"]

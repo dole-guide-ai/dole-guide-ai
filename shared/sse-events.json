@@ -1,0 +1,8 @@
+{
+  "TOKEN": "token",
+  "TOOL_CALL": "tool_call",
+  "ASK_USER": "ask_user",
+  "FORM_UPDATE": "form_update",
+  "DONE": "done",
+  "ERROR": "error"
+}
