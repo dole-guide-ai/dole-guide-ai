@@ -4,18 +4,20 @@ import os
 from collections.abc import Iterator
 
 import pytest
+from sqlalchemy.engine import make_url
 
 # 앱(엔진)을 import하기 전에 테스트 DB로 바꿉니다. 개발 DB를 건드리지 않습니다.
 TEST_DATABASE_URL = os.environ.get(
     "TEST_DATABASE_URL", "postgresql+psycopg://dole:dole@localhost:5432/dole_test"
 )
+if not (make_url(TEST_DATABASE_URL).database or "").endswith("_test"):
+    raise RuntimeError("TEST_DATABASE_URL의 DB 이름은 _test로 끝나야 합니다. (예: dole_test)")
 os.environ["DATABASE_URL"] = TEST_DATABASE_URL
 
 from alembic.config import Config  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
 from langchain_core.language_models.fake_chat_models import FakeListChatModel  # noqa: E402
 from sqlalchemy import create_engine, text  # noqa: E402
-from sqlalchemy.engine import make_url  # noqa: E402
 from sqlalchemy.exc import OperationalError  # noqa: E402
 from sqlalchemy.orm import Session  # noqa: E402
 
