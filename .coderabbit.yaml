@@ -1,0 +1,54 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+language: ko-KR
+early_access: false
+
+reviews:
+  profile: chill
+  request_changes_workflow: false
+  high_level_summary: true
+  poem: false
+  review_status: true
+  collapse_walkthrough: true
+  auto_review:
+    enabled: true
+    drafts: false
+    base_branches:
+      - develop
+      - main
+  path_filters:
+    - "!**/pnpm-lock.yaml"
+    - "!**/uv.lock"
+    - "!frontend/src/types/api.gen.ts"
+    - "!backend/experiments/**"
+  path_instructions:
+    - path: "frontend/**/*.{ts,tsx}"
+      instructions: |
+        docs/CONVENTIONS.md 4장 기준으로 검토하세요.
+        - 라우트 파일 외 컴포넌트는 export const 화살표 함수, 한 파일 한 컴포넌트, Props는 {Component}Props interface
+        - 'use client'는 상태·이벤트가 있는 컴포넌트에만
+        - 서버 렌더링·Next.js 캐시 사용 금지, 업무 로직은 백엔드에
+        - API 타입은 api.gen.ts만, 쿼리 키는 lib/queryKeys.ts, SSE 이름은 shared/sse-events.json
+        - 중장년 사용자 대상이므로 접근성(글자 크기, 대비, 키보드 조작)을 확인
+    - path: "backend/app/**/*.py"
+      instructions: |
+        docs/CONVENTIONS.md 5장 기준으로 검토하세요.
+        - 라우터 → 서비스 → 레포지토리 한 방향 호출, 라우터에는 HTTP 처리만
+        - 로그에 이름·연락처·주민등록번호·발화 원문 등 개인정보가 남는지 확인
+        - 비밀값 하드코딩 금지
+    - path: "backend/app/agent/**"
+      instructions: |
+        docs/CONVENTIONS.md 6장 기준으로 검토하세요.
+        - 프롬프트를 코드 문자열로 쓰지 말고 prompts/ 파일로
+        - 모델명 하드코딩 금지, LLM 호출은 gateway 경유
+        - 도구 이름은 동사_명사, 노드는 snake_case 동사형
+        - experiments/ import 금지
+        - LLM 전송 전 주민등록번호 마스킹 경로가 유지되는지 확인
+    - path: "backend/alembic/versions/**"
+      instructions: "마이그레이션 메시지, downgrade 구현, 데이터 손실 가능성을 확인하세요."
+    - path: "backend/data/rules/**"
+      instructions: "모든 행에 출처 URL·출처 날짜·검수자·검수일이 있는지 확인하세요."
+    - path: "backend/tests/**"
+      instructions: "실제 개인정보가 아닌 합성 데이터만 쓰는지 확인하세요."
+
+chat:
+  auto_reply: true
