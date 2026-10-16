@@ -1,0 +1,38 @@
+name: backend
+
+on:
+  pull_request:
+    paths: ["backend/**", ".github/workflows/backend.yml"]
+  push:
+    branches: [main, develop]
+    paths: ["backend/**"]
+
+defaults:
+  run:
+    working-directory: backend
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    services:
+      db:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: dole
+          POSTGRES_PASSWORD: dole
+          POSTGRES_DB: dole
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U dole" --health-interval 5s --health-retries 10
+    env:
+      DATABASE_URL: postgresql+psycopg://dole:dole@localhost:5432/dole
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - run: uv sync --frozen
+      - run: uv run ruff check .
+      - run: uv run ruff format --check .
+      - run: uv run alembic upgrade head
+      - run: uv run pytest

@@ -1,0 +1,25 @@
+# env
+.env
+.env.*
+!.env.example
+
+# node
+node_modules/
+.next/
+out/
+*.tsbuildinfo
+
+# python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+
+# generated
+openapi.json
+
+# os / editor
+.DS_Store
+.idea/
+.vscode/

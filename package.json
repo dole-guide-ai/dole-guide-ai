@@ -1,0 +1,8 @@
+{
+  "name": "dole-guide-ai",
+  "private": true,
+  "packageManager": "pnpm@10.18.2",
+  "scripts": {
+    "gen:api": "cd backend && uv run python scripts/export_openapi.py ../openapi.json && cd ../frontend && pnpm exec openapi-typescript ../openapi.json -o src/types/api.gen.ts"
+  }
+}
