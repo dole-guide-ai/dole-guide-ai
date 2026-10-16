@@ -1,0 +1,6 @@
+{
+  "id": "example-echo-001",
+  "description": "하네스 동작 확인용 예시. 실제 시나리오가 생기면 삭제합니다.",
+  "input": { "messages": ["안녕하세요"], "state": {} },
+  "expected": { "must_include": ["안녕하세요"] }
+}
