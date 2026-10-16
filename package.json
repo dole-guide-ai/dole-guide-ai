@@ -2,7 +2,7 @@
   "name": "dole-guide-ai",
   "private": true,
   "scripts": {
-    "prepare": "lefthook install",
+    "prepare": "node scripts/install-hooks.mjs",
     "bootstrap": "pnpm install && node scripts/bootstrap.mjs",
     "dev:db": "docker compose up -d db",
     "dev:fe": "pnpm --dir frontend dev",
