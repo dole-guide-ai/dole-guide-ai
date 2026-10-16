@@ -72,7 +72,9 @@ if (rel.startsWith('frontend/')) {
   run('ruff format', 'uv', ['run', 'ruff', 'format', target], BACKEND);
 
   const name = path.basename(rel, '.py');
-  const tests = name.startsWith('test_') ? [target] : findPythonTests(name).map((t) => path.relative(BACKEND, t));
+  // 패키지 파일(gateway/__init__.py)은 폴더 이름으로 테스트를 찾습니다 → test_gateway.py
+  const stem = name === '__init__' ? path.basename(path.dirname(rel)) : name;
+  const tests = name.startsWith('test_') ? [target] : findPythonTests(stem).map((t) => path.relative(BACKEND, t));
   if (tests.length > 0 && !rel.startsWith('backend/evals/')) {
     run('pytest', 'uv', ['run', 'pytest', '-q', '--color=no', '-m', 'not integration and not eval', ...tests], BACKEND);
   }
