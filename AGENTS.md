@@ -91,7 +91,7 @@ uv run alembic upgrade head
 ## 에이전트 도구 (Claude Code)
 
 - 플러그인: `.claude/settings.json`의 `enabledPlugins`. 레포를 열면 설치 안내가 뜹니다. (vercel, playwright, context7, pyright-lsp, typescript-lsp, deepeval, security-guidance, aws-core, langfuse-observability, pr-review-toolkit, github)
-- LSP 플러그인은 언어 서버가 필요합니다: `npm i -g pyright typescript-language-server typescript`
+- LSP 플러그인은 언어 서버가 필요합니다. mise로 전역 설치합니다: `mise use -g npm:pyright npm:typescript-language-server npm:typescript`
 - 자주 쓰는 검사 명령(`pnpm test`, `uv run pytest` 등)은 `permissions.allow`에 등록돼 승인 없이 실행됩니다.
 - 읽기 차단(`permissions.deny`): 실제 `.env`·`.env.local`, `node_modules`, `.next`, `.venv`, `coverage`, 캐시, lock 파일, `openapi.json`. `.env.example`은 읽을 수 있습니다.
 - 편집 후 훅(`.claude/hooks/after-edit.mjs`): 파일을 수정하면 그 파일만 ESLint·Prettier 또는 ruff로 정리하고, 관련 단위 테스트만 실행합니다(FE `vitest related`, BE 같은 이름의 `tests/unit/**/test_<파일명>.py`). 실패하면 결과가 바로 돌아오니 그 자리에서 고칩니다.

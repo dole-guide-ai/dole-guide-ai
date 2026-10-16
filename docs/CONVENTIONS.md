@@ -14,7 +14,8 @@
 
 - main, develop은 직접 push하지 않습니다. PR, 리뷰 2명 이상, CI 통과를 필수로 합니다.
 - 기능 브랜치 → develop, develop → main 모두 Merge commit으로 합니다. (Rebase, Squash Merge 사용 x)
-- main 머지 시 Vercel 운영 배포와 GitHub Actions의 EC2 배포가 실행됩니다. develop은 Vercel 미리보기로 확인합니다.
+- main 머지 시 Vercel 운영 배포가 자동으로 실행됩니다. develop과 PR은 Vercel 미리보기로 확인합니다.
+- EC2 배포(GitHub Actions `deploy-ec2`)는 AWS 준비 전까지 수동 실행만 켜져 있고, 준비되면 main 머지 시 자동 실행으로 바꿉니다.
 - main 머지 시 버전 태그(`v0.1.0`)를 붙입니다. 문제가 생기면 이전 태그로 되돌립니다.
 - 한 이슈에 한 PR, PR은 +1000줄 이내. 자동 생성 파일(`api.gen.ts`, lock 파일, 자동 생성 마이그레이션)은 줄 수에서 제외합니다.
 
@@ -54,7 +55,7 @@ feat(ai)!: 에이전트 상태 필드 구조 변경
 
 ## 3. 모노레포 규칙
 
-- CI는 경로 필터로 나눕니다. frontend 변경 시 FE 린트·빌드만, backend 변경 시 ruff·pytest만 실행합니다.
+- CI는 경로 필터로 나눕니다. frontend 변경 시 FE 린트·포맷·타입 검사·테스트·빌드를, backend 변경 시 uv.lock 동기화·ruff 린트·포맷·마이그레이션·pytest와 `api.gen.ts` 재생성 여부를 검사합니다.
 - 백엔드 API를 바꾸면 루트에서 `pnpm gen:api`로 `api.gen.ts`를 다시 생성해 같은 PR에 포함합니다.
 - 패키지 관리는 프론트 pnpm, 백엔드 uv로 고정합니다.
 - 한 PR은 한 영역. API 변경처럼 프론트·백엔드가 함께 바뀌는 경우만 한 PR에 담습니다.
