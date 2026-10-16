@@ -9,7 +9,9 @@ paths = [
   '''(^|/)pnpm-lock\.yaml$''',
   '''(^|/)uv\.lock$''',
 ]
-# 테스트에서 쓰는 합성 값은 이름에 synthetic을 넣습니다. (예: sk-test-synthetic-value)
+# 테스트용 합성 값은 sk-test-synthetic-<영소문자·숫자·하이픈> 형식으로 씁니다. (예: sk-test-synthetic-value)
+# 값 전체가 이 형식일 때만 제외합니다. 실제 비밀값에 synthetic이 섞여 있어도 걸러지지 않게 하려는 것입니다.
+regexTarget = "secret"
 regexes = [
-  '''synthetic''',
+  '''^sk-test-synthetic-[a-z0-9-]+$''',
 ]
