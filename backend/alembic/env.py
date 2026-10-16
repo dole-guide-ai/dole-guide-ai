@@ -15,7 +15,8 @@ config.set_main_option("sqlalchemy.url", get_settings().database_url)
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.
 if config.config_file_name is not None:
-    fileConfig(config.config_file_name)
+    # 앱 로거를 끄지 않도록 합니다. (테스트에서 마이그레이션을 같은 프로세스로 실행)
+    fileConfig(config.config_file_name, disable_existing_loggers=False)
 
 # add your model's MetaData object here
 # for 'autogenerate' support

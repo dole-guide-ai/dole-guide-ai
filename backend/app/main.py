@@ -7,6 +7,7 @@ from app.core.logging import setup_logging
 
 setup_logging()
 settings = get_settings()
+settings.warn_missing_keys()
 
 app = FastAPI(title="Dole Guide API")
 app.add_middleware(

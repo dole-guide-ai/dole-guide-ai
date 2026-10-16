@@ -1,10 +1,20 @@
+import logging
 from functools import lru_cache
 
+from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+logger = logging.getLogger(__name__)
+
+# local이 아닌 환경에서 비어 있으면 서버가 시작되지 않는 키
+REQUIRED_OUTSIDE_LOCAL = ("llm_api_key", "agent_model", "extract_model")
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+    # hide_input_in_errors: 검증 오류 메시지에 API 키 같은 입력값이 찍히지 않게 합니다.
+    model_config = SettingsConfigDict(
+        env_file=".env", env_file_encoding="utf-8", extra="ignore", hide_input_in_errors=True
+    )
 
     app_env: str = "local"
     database_url: str = "postgresql+psycopg://dole:dole@localhost:5432/dole"
@@ -16,6 +26,30 @@ class Settings(BaseSettings):
     llm_base_url: str | None = None
     agent_model: str = ""
     extract_model: str = ""
+
+    @field_validator("llm_base_url", mode="before")
+    @classmethod
+    def empty_base_url_to_none(cls, value: str | None) -> str | None:
+        # .env의 `LLM_BASE_URL=`(빈 값)은 기본 OpenAI 주소를 쓰도록 None으로 바꿉니다.
+        return value or None
+
+    @model_validator(mode="after")
+    def check_required_keys(self) -> Settings:
+        if not self.database_url:
+            raise ValueError("DATABASE_URL이 비어 있습니다. backend/.env를 확인하세요.")
+        if self.app_env != "local" and (missing := self.missing_llm_keys()):
+            names = ", ".join(name.upper() for name in missing)
+            raise ValueError(f"APP_ENV={self.app_env}에서는 {names} 값이 필요합니다.")
+        return self
+
+    def missing_llm_keys(self) -> list[str]:
+        return [name for name in REQUIRED_OUTSIDE_LOCAL if not getattr(self, name)]
+
+    def warn_missing_keys(self) -> None:
+        """local에서 비어 있는 키 이름만 경고합니다. 값은 로그에 남기지 않습니다."""
+        if missing := self.missing_llm_keys():
+            names = ", ".join(name.upper() for name in missing)
+            logger.warning("비어 있는 설정: %s — LLM 기능을 쓰려면 backend/.env에 채우세요.", names)
 
 
 @lru_cache
