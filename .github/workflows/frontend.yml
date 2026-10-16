@@ -2,10 +2,14 @@ name: frontend
 
 on:
   pull_request:
-    paths: ["frontend/**", "shared/**", ".github/workflows/frontend.yml"]
+    paths: ["frontend/**", "shared/**", "pnpm-lock.yaml", "pnpm-workspace.yaml", "mise.toml", ".github/workflows/frontend.yml"]
   push:
     branches: [main, develop]
-    paths: ["frontend/**", "shared/**"]
+    paths: ["frontend/**", "shared/**", "pnpm-lock.yaml"]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 defaults:
   run:
@@ -16,16 +20,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-        with:
-          package_json_file: frontend/package.json
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: pnpm
-          cache-dependency-path: frontend/pnpm-lock.yaml
+      # 도구 버전은 mise.toml에서 읽습니다.
+      - uses: jdx/mise-action@v2
       - run: pnpm install --frozen-lockfile
       - run: pnpm lint
       - run: pnpm format:check
       - run: pnpm typecheck
+      - run: pnpm test
       - run: pnpm build

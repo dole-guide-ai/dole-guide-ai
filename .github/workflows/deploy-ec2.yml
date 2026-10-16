@@ -1,10 +1,12 @@
 name: deploy-ec2
 
+# AWS(EC2) 배포 준비 전이라 수동 실행만 켜 둡니다.
+# 서버·Secrets(EC2_HOST, EC2_USER, EC2_SSH_KEY) 준비가 끝나면 아래 push 트리거 주석을 해제하세요.
 on:
-  push:
-    branches: [main]
-    paths: ["backend/**", "docker-compose.yml"]
   workflow_dispatch:
+  # push:
+  #   branches: [main]
+  #   paths: ["backend/**", "docker-compose.yml"]
 
 jobs:
   deploy:
@@ -20,4 +22,4 @@ jobs:
             git fetch --tags origin main
             git checkout main && git pull --ff-only
             docker compose --profile full up -d --build
-            docker compose exec -T backend uv run alembic upgrade head
+            docker compose exec -T backend uv run --no-dev alembic upgrade head

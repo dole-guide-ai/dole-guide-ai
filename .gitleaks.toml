@@ -1,0 +1,14 @@
+# 기본 규칙에 예외만 추가합니다.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "예시 설정과 테스트 합성 데이터"
+paths = [
+  '''(^|/)\.env\.example$''',
+  '''^backend/tests/''',
+  '''^backend/evals/scenarios/''',
+  '''^frontend/src/test/''',
+  '''(^|/)pnpm-lock\.yaml$''',
+  '''(^|/)uv\.lock$''',
+]

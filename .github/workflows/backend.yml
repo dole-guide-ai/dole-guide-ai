@@ -2,10 +2,14 @@ name: backend
 
 on:
   pull_request:
-    paths: ["backend/**", ".github/workflows/backend.yml"]
+    paths: ["backend/**", "mise.toml", ".github/workflows/backend.yml"]
   push:
     branches: [main, develop]
     paths: ["backend/**"]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 defaults:
   run:
@@ -16,7 +20,7 @@ jobs:
     runs-on: ubuntu-latest
     services:
       db:
-        image: pgvector/pgvector:pg16
+        image: pgvector/pgvector:pg17
         env:
           POSTGRES_USER: dole
           POSTGRES_PASSWORD: dole
@@ -26,13 +30,29 @@ jobs:
           --health-cmd "pg_isready -U dole" --health-interval 5s --health-retries 10
     env:
       DATABASE_URL: postgresql+psycopg://dole:dole@localhost:5432/dole
+      TEST_DATABASE_URL: postgresql+psycopg://dole:dole@localhost:5432/dole_test
     steps:
       - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v6
-        with:
-          enable-cache: true
+      # 도구 버전은 mise.toml에서 읽습니다.
+      - uses: jdx/mise-action@v2
+      - run: uv lock --check
       - run: uv sync --frozen
       - run: uv run ruff check .
       - run: uv run ruff format --check .
       - run: uv run alembic upgrade head
-      - run: uv run pytest
+      - run: uv run pytest --cov --cov-report=term-missing
+
+  # 백엔드 API를 바꾸고 api.gen.ts 재생성을 빠뜨리면 실패합니다. (pnpm gen:api 후 커밋)
+  api-types:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: .
+    steps:
+      - uses: actions/checkout@v4
+      # 도구 버전은 mise.toml에서 읽습니다.
+      - uses: jdx/mise-action@v2
+      - run: pnpm install --frozen-lockfile
+      - run: uv sync --frozen --directory backend
+      - run: pnpm gen:api
+      - run: git diff --exit-code frontend/src/types/api.gen.ts
