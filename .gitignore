@@ -23,3 +23,13 @@ openapi.json
 .DS_Store
 .idea/
 .vscode/
+.vercel
+
+.claude/settings.local.json
+
+# test
+.coverage
+coverage/
+htmlcov/
+
+.vscode
