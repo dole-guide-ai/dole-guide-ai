@@ -33,6 +33,11 @@ pre-commit:
       run: uv run ruff format {staged_files}
       stage_fixed: true
       priority: 4
+    backend-layers:
+      root: "backend/"
+      glob: "*.py"
+      run: uv run lint-imports
+      priority: 5
 
 commit-msg:
   commands:
