@@ -113,3 +113,34 @@ feat(ai)!: 에이전트 상태 필드 구조 변경
 | 평가 세트 | `evals/`에 시나리오별. 모델·프롬프트·규칙표 변경 PR에 평가 결과 첨부 |
 | 실험 코드 | `experiments/`, 서비스 코드에서 import 금지 |
 | 시험 데이터 | 실제 개인정보 금지, 합성 데이터만 |
+
+## 7. API 응답 · 에러 형식
+
+**성공**: 감싸지 않고 데이터 그대로(`response_model`). 성공·실패는 HTTP 상태 코드로 구분합니다. 목록은 `Page[T]`(`{items, total}`).
+
+**실패**: 모든 오류는 한 형식입니다.
+
+```json
+{ "code": "NOT_FOUND", "message": "찾는 정보가 없어요.", "details": null }
+```
+
+| 항목 | 규칙 |
+| --- | --- |
+| `code` | `ErrorCode`(`app/schemas/common.py`) 값, 대문자 스네이크. 새 코드는 여기에만 추가하고 `pnpm gen:api` |
+| `message` | 사용자에게 그대로 보일 쉬운 한국어. 입력값·개인정보·내부 내용 금지 |
+| `details` | 선택. 입력 검증 오류는 `[{field, type}]`(입력값은 넣지 않음) |
+
+| 상황 | 상태 | code |
+| --- | --- | --- |
+| 업무 오류 | 400·404·409 | `BAD_REQUEST`·`NOT_FOUND`·`CONFLICT` |
+| 입력 검증 실패 | 422 | `VALIDATION_ERROR` |
+| 호출 한도 초과 | 429 | `RATE_LIMITED` |
+| LLM 호출 실패 | 503 | `LLM_UNAVAILABLE` |
+| 예상 못 한 오류 | 500 | `INTERNAL_ERROR` (내부 내용 숨김) |
+
+- 백엔드: 서비스는 `app/core/errors.py`의 `AppError` 하위 예외(`NotFoundError` 등)만 던지고 `HTTPException`을 쓰지 않습니다. 변환은 전역 핸들러가 합니다. 새 업무 오류는 `AppError`를 상속해 `code`·`status`만 지정합니다.
+- 라우터는 `responses=error_responses(404, ...)`(`app/api/responses.py`)로 가능한 오류를 문서에 남깁니다.
+- 프론트: `lib/api.ts`의 `apiFetch`가 실패를 `ApiError(code, message, status, details, requestId)`로 던집니다. 화면은 `message`를 보여주고, 필요한 `code`만 분기합니다. 서버에 닿지 못하면 `NETWORK_ERROR`.
+- SSE 도중 오류는 `error` 이벤트로 같은 `{code, message}`를 보냅니다.
+- 모든 응답에 `X-Request-ID`가 붙습니다. 오류 로그에는 code·경로·요청 ID만 남깁니다(요청 본문·입력값 금지).
+- Swagger(`/docs`)·ReDoc·`/openapi.json`은 `APP_ENV=local`에서만 열립니다.
