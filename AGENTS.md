@@ -46,6 +46,8 @@ uv run alembic upgrade head
 - 패키지 관리자는 프론트 pnpm, 백엔드 uv만 씁니다. npm·pip·poetry를 쓰지 마세요.
 - `frontend/src/types/api.gen.ts`는 직접 수정하지 않습니다. 백엔드 API를 바꾸면 `pnpm gen:api`를 실행해 같은 변경에 포함하세요.
 - 백엔드 호출 방향은 라우터 → 서비스 → 레포지토리 한 방향입니다. 라우터에는 HTTP 처리만 둡니다.
+- 실패 응답은 `{code, message, details}` 한 형식입니다. 백엔드는 `app/core/errors.py`의 `AppError` 하위 예외만 던지고(`HTTPException` 금지), 프론트는 `lib/api.ts`의 `ApiError`로 받습니다. 성공 응답은 감싸지 않습니다. (`docs/CONVENTIONS.md` 7절)
+- 영역별 상세 규칙은 `.claude/rules/`(backend·frontend·ai)에 있습니다. 다른 에이전트도 해당 영역 작업 전에 읽으세요.
 - DB 스키마 변경은 Alembic 마이그레이션으로만 합니다. 새 모델은 `app/models/__init__.py`에서 import해야 autogenerate가 인식합니다.
 - 프롬프트는 코드 문자열이 아니라 `backend/app/agent/prompts/`의 파일로 둡니다.
 - 모델명은 코드에 쓰지 않고 `app/core/config.py` 설정(.env)에서만 지정하고, LLM 호출은 `app/agent/gateway`를 거칩니다.
