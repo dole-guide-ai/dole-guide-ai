@@ -1,12 +1,10 @@
 name: deploy-server
 
-# Lightsail 서버에 SSH로 접속해 push된 브랜치를 배포합니다.
-# 필요한 Secrets: SERVER_HOST(고정 IP), SERVER_USER(ubuntu), SERVER_SSH_KEY(배포 전용 개인 키)
-# TODO: 배포 확인이 끝나면 branches에서 feat/#34-backend-deploy를 지우고 main만 남깁니다.
+# Lightsail 서버에 SSH로 접속해 main 브랜치를 배포합니다.
 on:
   workflow_dispatch:
   push:
-    branches: [main, "feat/#34-backend-deploy"]
+    branches: [main]
     paths:
       - "backend/**"
       - "docker-compose.yml"
