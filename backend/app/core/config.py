@@ -19,6 +19,8 @@ class Settings(BaseSettings):
     app_env: str = "local"
     database_url: str = "postgresql+psycopg://dole:dole@localhost:5432/dole"
     cors_origins: list[str] = ["http://localhost:3000"]
+    # Vercel 미리보기처럼 주소가 바뀌는 프론트를 허용할 때 씁니다. 비우면 사용하지 않습니다.
+    cors_origin_regex: str | None = None
 
     # 모델명은 코드에 직접 쓰지 않고 여기(.env)에서만 지정합니다.
     llm_provider: str = "openai"
@@ -27,10 +29,10 @@ class Settings(BaseSettings):
     agent_model: str = ""
     extract_model: str = ""
 
-    @field_validator("llm_base_url", mode="before")
+    @field_validator("llm_base_url", "cors_origin_regex", mode="before")
     @classmethod
-    def empty_base_url_to_none(cls, value: str | None) -> str | None:
-        # .env의 `LLM_BASE_URL=`(빈 값)은 기본 OpenAI 주소를 쓰도록 None으로 바꿉니다.
+    def empty_to_none(cls, value: str | None) -> str | None:
+        # .env의 빈 값(`LLM_BASE_URL=`)은 "설정 안 함"(None)으로 봅니다.
         return value or None
 
     @model_validator(mode="after")
