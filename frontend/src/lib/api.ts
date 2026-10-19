@@ -35,7 +35,11 @@ const isErrorResponse = (body: unknown): body is ErrorResponse =>
   typeof (body as ErrorResponse).code === 'string' &&
   typeof (body as ErrorResponse).message === 'string';
 
-const toApiError = async (res: Response): Promise<ApiError> => {
+/** 서버에 닿지 못했을 때(네트워크 끊김 등) 던지는 오류. 호출부에서 공통으로 씁니다. */
+export const networkError = (): ApiError => new ApiError('NETWORK_ERROR', NETWORK_MESSAGE, 0);
+
+/** 실패 응답(`!res.ok`)을 공통 ApiError로 바꿉니다. 본문이 공통 형식이 아니면 INTERNAL_ERROR로 둡니다. */
+export const toApiError = async (res: Response): Promise<ApiError> => {
   const requestId = res.headers.get('X-Request-ID');
   const body: unknown = await res.json().catch(() => null);
   if (isErrorResponse(body)) {
@@ -55,7 +59,7 @@ export const apiFetch = async <T>(path: string, init?: RequestInit): Promise<T> 
       headers: { 'Content-Type': 'application/json', ...init?.headers },
     });
   } catch {
-    throw new ApiError('NETWORK_ERROR', NETWORK_MESSAGE, 0);
+    throw networkError();
   }
   if (!res.ok) throw await toApiError(res);
   return res.json() as Promise<T>;

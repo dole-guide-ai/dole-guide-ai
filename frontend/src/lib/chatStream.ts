@@ -1,6 +1,5 @@
-import { API_BASE_URL, IS_MOCK_API } from '@/lib/api';
-import { ApiError } from '@/lib/apiError';
-import { parseSseStream, type RawSseEvent } from '@/lib/sse';
+import { IS_MOCK_API } from '@/lib/api';
+import { openSseStream, type RawSseEvent } from '@/lib/sse';
 import type { ChatCreate, SseMessage } from '@/types/chat.types';
 import { mockChatStream } from '@/mocks/chatStream';
 
@@ -19,15 +18,10 @@ export const streamChat = async (
 ): Promise<AsyncIterable<SseMessage>> => {
   if (IS_MOCK_API) return mockChatStream(sessionId, body, signal);
 
-  const path = `/sessions/${sessionId}/chat`;
-  const res = await fetch(`${API_BASE_URL}${path}`, {
+  const events = await openSseStream(`/sessions/${sessionId}/chat`, {
     method: 'POST',
-    credentials: 'include',
-    headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream' },
     body: JSON.stringify(body),
     signal,
   });
-  if (!res.ok) throw new ApiError(res.status, path);
-  if (!res.body) throw new ApiError(res.status, path, '응답 본문이 없어요.');
-  return toMessages(parseSseStream(res.body));
+  return toMessages(events);
 };

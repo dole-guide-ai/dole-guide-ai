@@ -1,3 +1,5 @@
+import { API_BASE_URL, ApiError, networkError, toApiError } from '@/lib/api';
+
 import sseEvents from '../../../shared/sse-events.json';
 
 export const SSE_EVENTS = sseEvents;
@@ -8,6 +10,33 @@ export interface RawSseEvent {
   event: string;
   data: string;
 }
+
+/**
+ * POST로 SSE를 열고 이벤트 스트림을 돌려줍니다. 대화는 POST라 EventSource를 못 써서 여기서 fetch합니다.
+ * 실패는 `apiFetch`와 같은 ApiError로 통일합니다.
+ */
+export const openSseStream = async (
+  path: string,
+  init?: RequestInit,
+): Promise<AsyncGenerator<RawSseEvent>> => {
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE_URL}${path}`, {
+      ...init,
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'text/event-stream',
+        ...init?.headers,
+      },
+    });
+  } catch {
+    throw networkError();
+  }
+  if (!res.ok) throw await toApiError(res);
+  if (!res.body) throw new ApiError('INTERNAL_ERROR', '응답 본문이 없어요.', res.status);
+  return parseSseStream(res.body);
+};
 
 /**
  * SSE 본문을 이벤트 단위로 나눕니다. `event:`·`data:` 줄을 모으고 빈 줄에서 하나를 내보냅니다.
