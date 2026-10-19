@@ -13,7 +13,7 @@
     "test:eval": "uv run --directory backend pytest evals -m eval",
     "test": "pnpm test:fe && pnpm test:be",
     "check:fe": "pnpm --dir frontend lint && pnpm --dir frontend format:check && pnpm --dir frontend typecheck && pnpm --dir frontend test",
-    "check:be": "uv run --directory backend ruff check . && uv run --directory backend ruff format --check . && uv run --directory backend pytest",
+    "check:be": "uv run --directory backend ruff check . && uv run --directory backend ruff format --check . && uv run --directory backend lint-imports && uv run --directory backend pytest",
     "check": "pnpm check:fe && pnpm check:be",
     "check:pr-size": "node scripts/check-pr-size.mjs"
   },
