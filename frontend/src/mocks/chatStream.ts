@@ -19,7 +19,7 @@ export async function* mockChatStream(
 ): AsyncGenerator<SseMessage> {
   const personaId = personaFromSession(sessionId);
   const entryChoices = MOCK_ENTRIES[personaId]?.choices ?? [];
-  const events = buildMockChatEvents(personaId, body.message, entryChoices);
+  const events = buildMockChatEvents(personaId, body.message, entryChoices, body.file_ids);
 
   await wait(TOOL_DELAY_MS);
   for (const event of events) {

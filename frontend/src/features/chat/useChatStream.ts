@@ -1,12 +1,20 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 
 import { applyFormUpdateEvent } from '@/features/chat/applyFormUpdateEvent';
+import type { ChatAttachment } from '@/features/chat/chat.types';
 import { describeChatError } from '@/features/chat/chatErrors';
 import { chatReducer, initChatState } from '@/features/chat/chatReducer';
 
 import { streamChat } from '@/lib/chatStream';
 import type { ChatInputKind } from '@/types/chat.types';
 import type { SessionRead } from '@/types/demo.types';
+
+export interface SendOptions {
+  inputKind?: ChatInputKind;
+  /** 올린 파일 ID (2-0.4). 말풍선에는 파일 카드가 붙습니다. */
+  fileIds?: string[];
+  attachments?: ChatAttachment[];
+}
 
 /**
  * 대화 한 턴: 사용자 말을 보내고 SSE 이벤트를 받아 말풍선·선택지·패널 저장소에 반영합니다 (2-0.3·2-0.7).
@@ -26,21 +34,25 @@ export const useChatStream = (session: SessionRead) => {
 
   useEffect(() => () => abortRef.current?.abort(), [sessionId]);
 
+  /** 업로드 실패처럼 스트림 밖에서 생긴 오류를 말풍선으로 보여 줍니다. */
+  const notifySystem = useCallback((text: string) => dispatch({ type: 'system', text }), []);
+
   const send = useCallback(
-    async (text: string, inputKind: ChatInputKind = 'text') => {
+    async (text: string, options: SendOptions = {}) => {
+      const { inputKind = 'text', fileIds, attachments } = options;
       const message = text.trim();
       if (!message || abortRef.current) return;
 
       const controller = new AbortController();
       abortRef.current = controller;
-      dispatch({ type: 'user_sent', text: message, inputKind });
+      dispatch({ type: 'user_sent', text: message, inputKind, attachments });
       setInputText('');
       setIsStreaming(true);
 
       try {
         const stream = await streamChat(
           sessionId,
-          { message, input_kind: inputKind },
+          { message, input_kind: inputKind, file_ids: fileIds },
           controller.signal,
         );
         for await (const event of stream) {
@@ -91,5 +103,6 @@ export const useChatStream = (session: SessionRead) => {
     inputText,
     setInputText,
     send,
+    notifySystem,
   };
 };

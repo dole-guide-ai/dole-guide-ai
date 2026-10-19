@@ -64,3 +64,27 @@ export const apiFetch = async <T>(path: string, init?: RequestInit): Promise<T> 
   if (!res.ok) throw await toApiError(res);
   return res.json() as Promise<T>;
 };
+
+/**
+ * 파일 올리기 (`POST /files`, 2-0.4). multipart라 Content-Type을 직접 넣지 않습니다 (브라우저가 boundary를 붙임).
+ * 모의 모드에서는 FormData 그대로 `resolveMock`에 넘깁니다.
+ */
+export const apiUpload = async <T>(path: string, file: File, signal?: AbortSignal): Promise<T> => {
+  const form = new FormData();
+  form.append('file', file);
+  if (IS_MOCK_API) return resolveMock<T>(path, { method: 'POST', body: form, signal });
+
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE_URL}${path}`, {
+      method: 'POST',
+      credentials: 'include',
+      body: form,
+      signal,
+    });
+  } catch {
+    throw networkError();
+  }
+  if (!res.ok) throw await toApiError(res);
+  return res.json() as Promise<T>;
+};
