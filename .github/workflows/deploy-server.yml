@@ -14,6 +14,9 @@ on:
       - "deploy/**"
       - ".github/workflows/deploy-server.yml"
 
+# SSH로만 배포하므로 GITHUB_TOKEN 권한은 쓰지 않습니다.
+permissions: {}
+
 # 배포가 겹치지 않게 하나씩만 실행합니다. (진행 중인 배포는 취소하지 않음)
 concurrency:
   group: deploy-server
@@ -47,7 +50,8 @@ jobs:
 
             DOMAIN=$(grep '^DOMAIN=' .env | cut -d= -f2)
             for i in $(seq 1 30); do
-              if curl -fsS "https://$DOMAIN/health"; then echo; echo "배포 성공"; exit 0; fi
+              # /health는 DB가 죽어도 200을 주므로 db 값까지 확인합니다.
+              if curl -fsS "https://$DOMAIN/health" | grep -q '"db":"ok"'; then echo "배포 성공"; exit 0; fi
               sleep 2
             done
             echo "헬스 체크 실패: $COMPOSE logs backend 로 확인하세요" >&2
