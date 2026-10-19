@@ -20,6 +20,7 @@ dependencies = [
 [dependency-groups]
 dev = [
     "httpx>=0.28.1",
+    "import-linter>=2.15",
     "pytest>=9.1.1",
     "pytest-cov>=7.1.0",
     "ruff>=0.17.1",
@@ -44,3 +45,30 @@ markers = [
 
 [tool.coverage.run]
 source = ["app"]
+
+# 계층 규칙 검사: `uv run lint-imports` (pre-commit·CI에서 실행)
+[tool.importlinter]
+root_package = "app"
+
+[[tool.importlinter.contracts]]
+name = "계층은 router → service → repository → model 한 방향"
+type = "layers"
+layers = ["app.api", "app.services", "app.repositories", "app.models"]
+
+[[tool.importlinter.contracts]]
+name = "router는 repository·model을 직접 쓰지 않음 (service를 거침)"
+type = "forbidden"
+source_modules = ["app.api"]
+forbidden_modules = ["app.repositories", "app.models"]
+
+[[tool.importlinter.contracts]]
+name = "core·schemas는 업무 계층에 의존하지 않음"
+type = "forbidden"
+source_modules = ["app.core", "app.schemas"]
+forbidden_modules = ["app.api", "app.services", "app.repositories", "app.agent"]
+
+[[tool.importlinter.contracts]]
+name = "agent는 HTTP 계층을 모름"
+type = "forbidden"
+source_modules = ["app.agent"]
+forbidden_modules = ["app.api"]

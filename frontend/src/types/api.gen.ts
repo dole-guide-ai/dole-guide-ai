@@ -12,7 +12,7 @@ export interface paths {
             cookie?: never;
         };
         /** Get Health */
-        get: operations["get_health_health_get"];
+        get: operations["get_health"];
         put?: never;
         post?: never;
         delete?: never;
@@ -25,6 +25,23 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /**
+         * ErrorCode
+         * @description 프론트와 공유하는 오류 코드. 새 코드는 여기에만 추가합니다(대문자 스네이크).
+         * @enum {string}
+         */
+        ErrorCode: "BAD_REQUEST" | "VALIDATION_ERROR" | "UNAUTHORIZED" | "FORBIDDEN" | "NOT_FOUND" | "CONFLICT" | "RATE_LIMITED" | "LLM_UNAVAILABLE" | "INTERNAL_ERROR";
+        /**
+         * ErrorResponse
+         * @description 모든 실패 응답의 형식.
+         */
+        ErrorResponse: {
+            code: components["schemas"]["ErrorCode"];
+            /** Message */
+            message: string;
+            /** Details */
+            details?: unknown;
+        };
         /** HealthRead */
         HealthRead: {
             /** Status */
@@ -41,7 +58,7 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
-    get_health_health_get: {
+    get_health: {
         parameters: {
             query?: never;
             header?: never;
@@ -57,6 +74,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HealthRead"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
