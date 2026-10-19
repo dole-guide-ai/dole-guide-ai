@@ -7,7 +7,7 @@ AI 코딩 에이전트(Claude Code, Codex, Cursor 등)용 작업 안내입니다
 중장년층 실업급여 행정 도우미. 대화·음성·사진으로 고용24 이력서와 실업인정 신청서를 양식 그대로 완성합니다.
 
 - `frontend/`: Next.js 16(App Router) · React 19.2 · TypeScript · Tailwind · TanStack Query · pnpm → Vercel 배포
-- `backend/`: Python 3.14 · FastAPI · SQLAlchemy 2.0 · Alembic · LangGraph · uv → EC2 Docker Compose 배포
+- `backend/`: Python 3.14 · FastAPI · SQLAlchemy 2.0 · Alembic · LangGraph · uv → AWS Lightsail Docker Compose 배포
 - `shared/sse-events.json`: 프론트·백엔드 공통 SSE 이벤트 이름
 
 ## 명령
@@ -46,6 +46,8 @@ uv run alembic upgrade head
 - 패키지 관리자는 프론트 pnpm, 백엔드 uv만 씁니다. npm·pip·poetry를 쓰지 마세요.
 - `frontend/src/types/api.gen.ts`는 직접 수정하지 않습니다. 백엔드 API를 바꾸면 `pnpm gen:api`를 실행해 같은 변경에 포함하세요.
 - 백엔드 호출 방향은 라우터 → 서비스 → 레포지토리 한 방향입니다. 라우터에는 HTTP 처리만 둡니다.
+- 실패 응답은 `{code, message, details}` 한 형식입니다. 백엔드는 `app/core/errors.py`의 `AppError` 하위 예외만 던지고(`HTTPException` 금지), 프론트는 `lib/api.ts`의 `ApiError`로 받습니다. 성공 응답은 감싸지 않습니다. (`docs/CONVENTIONS.md` 7절)
+- 영역별 상세 규칙은 `.claude/rules/`(backend·frontend·ai)에 있습니다. 다른 에이전트도 해당 영역 작업 전에 읽으세요.
 - DB 스키마 변경은 Alembic 마이그레이션으로만 합니다. 새 모델은 `app/models/__init__.py`에서 import해야 autogenerate가 인식합니다.
 - 프롬프트는 코드 문자열이 아니라 `backend/app/agent/prompts/`의 파일로 둡니다.
 - 모델명은 코드에 쓰지 않고 `app/core/config.py` 설정(.env)에서만 지정하고, LLM 호출은 `app/agent/gateway`를 거칩니다.
@@ -65,6 +67,13 @@ uv run alembic upgrade head
   - 문법이 확실하지 않으면 context7으로 Tailwind v4 문서를 확인합니다.
 - 백엔드: snake_case 모듈·함수, PascalCase 클래스, 테이블은 snake_case 복수형, API 경로는 kebab-case 복수형, Pydantic 모델은 `Read`/`Create`/`Update` 접미사.
 - AI: 도구 이름은 `동사_명사`, 그래프 노드는 snake_case 동사형, 양식 스키마는 `app/schemas/forms/`에 양식당 한 파일, 규칙표 행마다 출처 URL·출처 날짜·검수자·검수일.
+
+## 배포
+
+- 운영 구성은 `docker-compose.yml` 위에 `docker-compose.prod.yml`을 덮어써서 띄웁니다. 운영에서 DB(5432)·앱(8000) 포트를 외부에 열지 않습니다(외부는 Caddy 80·443만).
+- 운영 값은 서버의 `/opt/dole-guide-ai/.env`에만 있습니다(템플릿 `deploy/.env.example`). 새 설정을 추가하면 `deploy/.env.example`과 `docker-compose.prod.yml`의 `backend.environment`에도 같이 추가합니다.
+- 배포는 `deploy-server` 워크플로(SSH)로만 합니다. self-hosted runner는 쓰지 않습니다(public 레포).
+- 컨테이너는 root가 아닌 사용자로 실행합니다(`backend/Dockerfile`).
 
 ## Git
 

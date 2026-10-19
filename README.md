@@ -96,4 +96,8 @@ pnpm check:pr-size # PR 추가 줄 수(+1000 이내) 확인
 ## 배포
 
 - 프론트: Vercel (Root Directory = `frontend`, "Include files outside the root directory" 켜둠 — `shared/` 사용)
-- 백엔드: GitHub Actions → EC2 Docker Compose. **아직 미사용** — AWS 준비 전까지 `deploy-ec2` 워크플로는 수동 실행만 켜져 있습니다.
+- 백엔드: AWS Lightsail 서버 한 대에 Docker Compose로 백엔드 + Postgres(pgvector) + Caddy(HTTPS)를 띄웁니다.
+  - 운영 구성: `docker-compose.yml` + `docker-compose.prod.yml` (DB·앱 포트는 외부 비공개, 80·443만 공개)
+  - 서버 첫 세팅: `deploy/server-setup.sh`, 서버 설정 템플릿: `deploy/.env.example`, HTTPS: `deploy/Caddyfile`
+  - 배포: GitHub Actions `deploy-server` (SSH → git pull → 빌드·재시작 → 마이그레이션 → 헬스 체크). 첫 배포 확인 전까지 수동 실행만 켜져 있습니다.
+  - 따라 하기 가이드: 노션 「백엔드 배포 가이드」

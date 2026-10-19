@@ -1,0 +1,57 @@
+name: deploy-server
+
+# Lightsail 서버에 SSH로 접속해 main 브랜치를 배포합니다.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "backend/**"
+      - "docker-compose.yml"
+      - "docker-compose.prod.yml"
+      - "deploy/**"
+      - ".github/workflows/deploy-server.yml"
+
+# SSH로만 배포하므로 GITHUB_TOKEN 권한은 쓰지 않습니다.
+permissions: {}
+
+# 배포가 겹치지 않게 하나씩만 실행합니다. (진행 중인 배포는 취소하지 않음)
+concurrency:
+  group: deploy-server
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: appleboy/ssh-action@7eaf76671a0d7eec5d98ee897acda4f968735a17 # v1.2.0 (SSH 키를 받으므로 커밋 SHA로 고정)
+        env:
+          DEPLOY_REF: ${{ github.ref_name }}
+        with:
+          envs: DEPLOY_REF
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          command_timeout: 20m
+          script: |
+            set -euo pipefail
+            cd /opt/dole-guide-ai
+            git fetch origin "$DEPLOY_REF"
+            git checkout -B "$DEPLOY_REF" "origin/$DEPLOY_REF"
+            echo "배포 커밋: $(git log --oneline -1)"
+
+            COMPOSE="docker compose -f docker-compose.yml -f docker-compose.prod.yml --profile full"
+            $COMPOSE up -d --build --remove-orphans
+            $COMPOSE exec -T backend alembic upgrade head
+            docker image prune -f
+
+            DOMAIN=$(grep '^DOMAIN=' .env | cut -d= -f2)
+            for i in $(seq 1 30); do
+              # /health는 DB가 죽어도 200을 주므로 db 값까지 확인합니다.
+              if curl -fsS "https://$DOMAIN/health" | grep -q '"db":"ok"'; then echo "배포 성공"; exit 0; fi
+              sleep 2
+            done
+            echo "헬스 체크 실패: $COMPOSE logs backend 로 확인하세요" >&2
+            $COMPOSE logs --tail 50 backend
+            exit 1
