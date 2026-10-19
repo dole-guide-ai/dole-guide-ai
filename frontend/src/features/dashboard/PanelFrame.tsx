@@ -1,11 +1,12 @@
 import { EvidenceLine } from '@/components/EvidenceLine';
 import { DdayCard } from '@/features/procedure/DdayCard';
+import { ResumePanel } from '@/features/resume/ResumePanel';
 
 import type { PanelId, SessionRead } from '@/types/demo.types';
 
 /**
- * 오른쪽 패널 틀 (1.1 패널 A/E/Q/B/C). 이 단계에서는 패널 제목과 상태 요약만 보여 주고,
- * 양식 칸(이력서·활동 목록·신청서)은 2-1 · 2-2 · 2-3 구현에서 채웁니다.
+ * 오른쪽 패널 틀 (1.1 패널 A/E/Q/B/C). 패널 A는 이력서(2-1), 나머지 양식 칸(활동 목록·신청서)은
+ * 2-2 · 2-3 구현에서 채웁니다.
  */
 const PANEL_INFO: Record<PanelId, { name: string; description: string }> = {
   A: { name: '이력서', description: '고용24 이력서 항목을 같은 순서로 채워요.' },
@@ -18,20 +19,15 @@ const PANEL_INFO: Record<PanelId, { name: string; description: string }> = {
   },
 };
 
-const RESUME_STATUS_TEXT: Record<SessionRead['state']['resume_status'], string> = {
-  none: '아직 이력서가 없어요. 대화로 함께 만들어요.',
-  outdated: '예전 이력서를 불러왔어요. 그 뒤로 바뀐 부분만 더해요.',
-  draft: '작성 중인 이력서가 있어요.',
-  ready: '이력서가 준비돼 있어요.',
-};
-
 const SOURCE_WORK24 = '고용24 실업급여(상용직)';
 
 interface PanelFrameProps {
   session: SessionRead;
+  /** 패널의 `고치기`를 누르면 "{항목} 고칠게요"를 입력창에 넣습니다 (2-0.6). */
+  onEditRequest?: (label: string) => void;
 }
 
-export const PanelFrame = ({ session }: PanelFrameProps) => {
+export const PanelFrame = ({ session, onEditRequest }: PanelFrameProps) => {
   const { entry, state, derived } = session;
   const panel = entry.panel;
 
@@ -60,14 +56,6 @@ export const PanelFrame = ({ session }: PanelFrameProps) => {
         <p className="text-muted text-base">{info.description}</p>
       </div>
 
-      {panel === 'A' && (
-        <p className="bg-canvas rounded-xl px-4 py-3 text-base">
-          {RESUME_STATUS_TEXT[state.resume_status]}
-        </p>
-      )}
-
-      {panel === 'B' && <DdayCard state={state} derived={derived} />}
-
       {showsVisitNotice && (
         <div className="border-warn/30 bg-warn-soft flex flex-col gap-2 rounded-xl border px-4 py-3">
           <p className="text-warn text-base font-semibold">신청 경로 안내</p>
@@ -79,9 +67,15 @@ export const PanelFrame = ({ session }: PanelFrameProps) => {
         </div>
       )}
 
-      <p className="text-muted text-sm">
-        양식 칸은 대화를 이어가며 채워져요. 최종 인정 여부는 관할 고용센터가 판단해요.
-      </p>
+      {panel === 'A' && <ResumePanel session={session} onEditRequest={onEditRequest} />}
+
+      {panel === 'B' && <DdayCard state={state} derived={derived} />}
+
+      {panel !== 'A' && (
+        <p className="text-muted text-sm">
+          양식 칸은 대화를 이어가며 채워져요. 최종 인정 여부는 관할 고용센터가 판단해요.
+        </p>
+      )}
     </aside>
   );
 };

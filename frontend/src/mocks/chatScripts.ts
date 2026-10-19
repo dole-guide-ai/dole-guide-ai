@@ -1,4 +1,4 @@
-import type { SseMessage } from '@/types/chat.types';
+import type { FormUpdateEvent, SseMessage } from '@/types/chat.types';
 
 /**
  * 모의 대화 스크립트. 선택지·짧은 말에 대한 응답을 상세기획 문구로 미리 적어 둔다.
@@ -32,6 +32,16 @@ const tool = (name: string): SseMessage[] => [
   { event: 'tool_call', data: { name, status: 'finished' } },
 ];
 
+type UpdateExtra = Omit<FormUpdateEvent, 'form' | 'path' | 'op'>;
+
+/** `form_update` 이벤트 (2-0.7). `value`가 undefined면 값은 두고 칸 상태만 바꿉니다. */
+const update = (
+  form: FormUpdateEvent['form'],
+  path: string,
+  op: FormUpdateEvent['op'],
+  extra: UpdateExtra = {},
+): SseMessage => ({ event: 'form_update', data: { form, path, op, ...extra } });
+
 const OVERVIEW =
   '전체 순서는 네 단계예요. 1) 구직등록: 고용24에 이력서를 올려요. 2) 온라인 교육: 수급자격 신청자 교육을 약 1시간 들어요. 3) 수급자격 신청: 고용센터 방문 또는 인터넷 사전제출로 신청해요. 4) 실업인정: 4주마다 재취업활동을 기록하고 신청해요.';
 
@@ -63,7 +73,99 @@ const PARK: Script = {
   '말로 할게요': () => [
     ask('resume.career_new', '가장 최근에 일하신 회사 이름과 다니신 기간을 말씀해 주세요.', []),
   ],
+  '네, 맞아요': () => [
+    update('resume', 'competencies.careers.career_001.main_duties', 'set', {
+      value: '프레스 라인 운영, 반장 업무, 신입 안전교육(2025-03~)',
+      status: 'confirmed',
+      source: 'conversation',
+      completeness: { done: 1, total: 5 },
+    }),
+    update('resume', 'next_question', 'set', { value: 'resume.license' }),
+    ask('resume.license', '가지고 계신 자격증이나 면허가 있으세요?', [
+      '있어요',
+      '없어요',
+      '사진 올릴게요',
+    ]),
+  ],
+  없어요: () => [
+    update('resume', 'competencies.certifications', 'set', {
+      value: [],
+      status: 'not_applicable',
+      source: 'conversation',
+      completeness: { done: 2, total: 5 },
+    }),
+    update('resume', 'next_question', 'set', { value: 'resume.education_level' }),
+    ask('resume.education_level', '마지막으로 다니신 학교는 어디까지세요?', [
+      '고등학교 졸업',
+      '대학교 졸업',
+      '말로 할게요',
+    ]),
+  ],
 };
+
+/** 박진수가 경력을 말로 알려 줄 때 (시안 2-1-1): 서류 없이 대화 값 + '작년 3월' 상대 날짜 확인. */
+const parkCareer = (): SseMessage[] => [
+  update('resume', 'competencies.careers', 'append', {
+    value: {
+      item_id: 'career_001',
+      company_name: 'OO산업',
+      start_date: '2004-03',
+      end_date: '2026-09',
+      position: '반장',
+      employment_status: null,
+      occupation: { code: null, name: '생산직(프레스)', status: 'needs_confirmation' },
+      main_duties: null,
+      monthly_salary: null,
+      additional_details: null,
+    },
+  }),
+  update('resume', 'competencies.careers.career_001.company_name', 'set', {
+    value: 'OO산업',
+    status: 'confirmed',
+    source: 'conversation',
+    evidence: { kind: 'utterance', date: '2026-10-12', quote: 'OO산업에서' },
+  }),
+  update('resume', 'competencies.careers.career_001.end_date', 'set', {
+    value: '2026-09',
+    status: 'confirmed',
+    source: 'conversation',
+    evidence: {
+      kind: 'utterance',
+      date: '2026-10-12',
+      quote: '그만둘 때까지',
+      note: '이직일 2026-09',
+    },
+  }),
+  update('resume', 'competencies.careers.career_001.position', 'set', {
+    value: '반장',
+    status: 'confirmed',
+    source: 'conversation',
+  }),
+  update('resume', 'competencies.careers.career_001.employment_status', 'set', {
+    value: '퇴직',
+    status: 'confirmed',
+    source: 'computed',
+  }),
+  update('resume', 'competencies.careers.career_001.main_duties', 'set', {
+    value: '프레스 라인 운영, 반장 업무, 신입 안전교육(2025-03~)',
+    status: 'extracted',
+    source: 'conversation',
+    transformed: true,
+    evidence: {
+      kind: 'utterance',
+      date: '2026-10-12',
+      quote: '작년 3월부터는 신입 안전교육도',
+      note: "'작년 3월' → 2025-03 (기준일 2026-10-12)",
+    },
+    completeness: { done: 0, total: 5 },
+  }),
+  update('resume', 'next_question', 'set', { value: 'resume.value_confirm' }),
+  ...say('OO산업 2004.03 ~ 2026.09 근무, 직급 반장으로 적었어요.'),
+  ask('resume.value_confirm', "'작년 3월'은 2025년 3월로 적을게요. 맞으면 '네'라고 말해 주세요.", [
+    '네, 맞아요',
+    '아니요, 다시 말할게요',
+  ]),
+];
 
 const CHOI: Script = {
   '네, 고칠게요': () => [
@@ -80,7 +182,83 @@ const CHOI: Script = {
   '네, 있어요': () => [
     ask('resume.career_new', '회사 이름과 다니신 기간(시작·끝 연월)을 말씀해 주세요.', []),
   ],
+  '네, 시설관리요': () => [
+    ...['desired_occupations', 'desired_regions', 'desired_salary', 'employment_contract_type'].map(
+      (key) =>
+        update('resume', `job_preferences.${key}`, 'set', {
+          value: CHOI_PREFS[key],
+          status: 'confirmed',
+          source: 'conversation',
+        }),
+    ),
+    update('resume', 'job_preferences.military_alternative', 'set', {
+      value: '해당 없음',
+      status: 'confirmed',
+      source: 'conversation',
+      completeness: { done: 5, total: 5 },
+    }),
+    update('resume', 'can_save', 'set', { value: true }),
+    update('resume', 'next_question', 'set', { value: 'resume.save_ready' }),
+    ...say('희망조건을 2019년 값 그대로 확정했어요. 꼭 묻는 5개가 다 채워졌어요.'),
+    ask(
+      'resume.save_ready',
+      "이력서를 다 채웠어요. 오른쪽에서 보시고, 맞으면 '확인하고 이력서 최신화'를 눌러 주세요.",
+      ['확인하고 저장할게요', '고칠 게 있어요'],
+    ),
+  ],
+  '확인하고 저장할게요': () => [
+    ...say("오른쪽 위 '확인하고 이력서 최신화' 버튼을 눌러 주시면 저장돼요."),
+  ],
 };
+
+const CHOI_PREFS: Record<string, unknown> = {
+  desired_occupations: [{ code: '1431', name: '시설관리', status: 'confirmed' }],
+  desired_regions: ['서울 노원구'],
+  desired_salary: { amount: 220, unit: 'monthly', negotiable: false },
+  employment_contract_type: '기간의 정함이 없는 근로계약',
+};
+
+/** 최영수가 2019년 이후 경력을 말할 때 (시안 2-1-2): 경력 2건째 추가 후 희망조건 확인으로 이어짐. */
+const choiCareer = (): SseMessage[] => [
+  update('resume', 'competencies.careers', 'append', {
+    value: {
+      item_id: 'career_002',
+      company_name: 'OO빌딩',
+      start_date: '2022-07',
+      end_date: '2026-09',
+      position: '시설관리 반장',
+      employment_status: '퇴직',
+      occupation: { code: null, name: '시설관리', status: 'needs_confirmation' },
+      main_duties: '빌딩 전기·소방 설비 점검, 야간 당직',
+      monthly_salary: null,
+      additional_details: null,
+    },
+  }),
+  ...['company_name', 'start_date', 'end_date', 'position', 'main_duties'].map((key) =>
+    update('resume', `competencies.careers.career_002.${key}`, 'set', {
+      value: undefined,
+      status: 'confirmed',
+      source: 'conversation',
+      evidence: { kind: 'utterance', date: '2026-10-12', quote: '2022년 7월부터 OO빌딩에서' },
+    }),
+  ),
+  update('resume', 'competencies.careers.career_002.employment_status', 'set', {
+    value: '퇴직',
+    status: 'confirmed',
+    source: 'computed',
+  }),
+  update('resume', 'competencies.careers', 'set', {
+    status: 'confirmed',
+    source: 'conversation',
+    completeness: { done: 4, total: 5 },
+  }),
+  update('resume', 'next_question', 'set', { value: 'resume.wish_job' }),
+  ...say('OO빌딩 2022.07 ~ 2026.09, 시설관리 반장으로 더했어요. 이제 경력은 2건이에요.'),
+  ask('resume.wish_job', '희망조건은 2019년 값이에요. 시설관리 일을 계속 찾으실까요?', [
+    '네, 시설관리요',
+    '다른 일이요',
+  ]),
+];
 
 const LEE: Script = {
   '부족한 활동 추천해 주세요': () => [
@@ -114,6 +292,8 @@ const LEE: Script = {
 };
 
 const RECORD_PATTERN = /고용24.*지원|지원.*고용24/;
+const PARK_CAREER_PATTERN = /OO산업|프레스|반장/;
+const CHOI_CAREER_PATTERN = /OO빌딩|2022/;
 
 const recordActivity = (): SseMessage[] => [
   {
@@ -156,6 +336,8 @@ export const buildMockChatEvents = (
   const script = BY_PERSONA[personaId]?.[key] ?? COMMON[key];
   if (script) return script(entryChoices);
   if (personaId === 'lee' && RECORD_PATTERN.test(key)) return recordActivity();
+  if (personaId === 'park' && PARK_CAREER_PATTERN.test(key)) return parkCareer();
+  if (personaId === 'choi' && CHOI_CAREER_PATTERN.test(key)) return choiCareer();
 
   return [
     ...say(

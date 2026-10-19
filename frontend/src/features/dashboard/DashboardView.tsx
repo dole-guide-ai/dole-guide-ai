@@ -75,7 +75,10 @@ export const DashboardView = ({ session, personaName }: DashboardViewProps) => {
           isStreaming={chat.isStreaming}
           statusText={statusText}
         />
-        <PanelFrame session={session} />
+        <PanelFrame
+          session={session}
+          onEditRequest={(label) => chat.setInputText(`${label} 고칠게요`)}
+        />
       </main>
     </div>
   );

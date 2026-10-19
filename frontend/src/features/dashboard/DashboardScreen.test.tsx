@@ -9,6 +9,7 @@ import { setSession } from '@/lib/sessionStore';
 import type { SseMessage } from '@/types/chat.types';
 import { buildMockSession } from '@/mocks/handlers';
 import { MOCK_PERSONAS } from '@/mocks/personas';
+import { MOCK_RESUMES } from '@/mocks/resumes';
 import { sseResponse } from '@/test/mockSse';
 import { renderWithProviders } from '@/test/renderWithProviders';
 
@@ -24,6 +25,7 @@ const mockApi = (chatEvents: SseMessage[] = []) =>
     const url = String(input);
     if (url.endsWith('/auth/demo')) return Response.json(cards);
     if (url.includes('/chat')) return sseResponse(chatEvents);
+    if (url.endsWith('/forms/resume')) return Response.json(MOCK_RESUMES.park);
     return new Response('{}', { status: 404 });
   });
 
