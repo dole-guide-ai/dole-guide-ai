@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { ApiError } from '@/lib/apiError';
+import { ApiError } from '@/lib/api';
 import type { PersonaCardRead, SessionRead } from '@/types/demo.types';
 import { resetMockAuth, resolveMock } from '@/mocks/handlers';
 

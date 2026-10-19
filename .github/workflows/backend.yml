@@ -39,6 +39,8 @@ jobs:
       - run: uv sync --frozen
       - run: uv run ruff check .
       - run: uv run ruff format --check .
+      # 계층 규칙 (router → service → repository → model)
+      - run: uv run lint-imports
       - run: uv run alembic upgrade head
       - run: uv run pytest --cov --cov-report=term-missing
 

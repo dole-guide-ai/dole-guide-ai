@@ -1,4 +1,4 @@
-import { ApiError } from '@/lib/apiError';
+import { ApiError } from '@/lib/api';
 import type { DemoAuthCreate, PersonaCardRead, SessionRead } from '@/types/demo.types';
 
 import { MOCK_ENTRIES } from './entries';
@@ -22,7 +22,7 @@ const parseBody = <T>(init?: RequestInit): T | undefined => {
 export const buildMockSession = (personaId: string): SessionRead => {
   const persona = findMockPersona(personaId);
   const entry = MOCK_ENTRIES[personaId];
-  if (!persona || !entry) throw new ApiError(404, '/sessions', `알 수 없는 계정: ${personaId}`);
+  if (!persona || !entry) throw new ApiError('NOT_FOUND', `알 수 없는 계정: ${personaId}`, 404);
   return {
     session_id: `mock-${personaId}-${Date.now()}`,
     persona_id: personaId,
@@ -56,15 +56,16 @@ export const resolveMock = async <T>(path: string, init?: RequestInit): Promise<
   if (method === 'POST' && path === '/auth/demo') {
     const body = parseBody<DemoAuthCreate>(init);
     const persona = body ? findMockPersona(body.persona_id) : undefined;
-    if (!persona) throw new ApiError(404, path, '알 수 없는 계정이에요.');
+    if (!persona) throw new ApiError('NOT_FOUND', '알 수 없는 계정이에요.', 404);
     authenticatedPersonaId = persona.persona_id;
     return { persona_id: persona.persona_id, display: persona.display } as T;
   }
 
   if (method === 'POST' && path === '/sessions') {
-    if (!authenticatedPersonaId) throw new ApiError(401, path, '먼저 계정을 골라 주세요.');
+    if (!authenticatedPersonaId)
+      throw new ApiError('UNAUTHORIZED', '먼저 계정을 골라 주세요.', 401);
     return buildMockSession(authenticatedPersonaId) as T;
   }
 
-  throw new ApiError(404, path, `모의 응답이 없는 경로: ${method} ${path}`);
+  throw new ApiError('NOT_FOUND', `모의 응답이 없는 경로: ${method} ${path}`, 404);
 };
