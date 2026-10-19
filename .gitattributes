@@ -1,0 +1,13 @@
+# 윈도우·맥 모두 LF로 저장합니다. (Prettier·ruff·셸 스크립트가 LF 기준)
+* text=auto eol=lf
+
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+*.png binary
+*.jpg binary
+*.ico binary
+*.pdf binary
+*.hwp binary
+*.hwpx binary

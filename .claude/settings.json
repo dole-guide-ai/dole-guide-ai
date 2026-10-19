@@ -1,0 +1,96 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pnpm lint:*)",
+      "Bash(pnpm format:*)",
+      "Bash(pnpm typecheck:*)",
+      "Bash(pnpm test:*)",
+      "Bash(pnpm build:*)",
+      "Bash(pnpm check:*)",
+      "Bash(pnpm gen:api:*)",
+      "Bash(uv run ruff:*)",
+      "Bash(uv run pytest:*)",
+      "Bash(uv run alembic current:*)",
+      "Bash(uv run alembic upgrade:*)",
+      "Bash(uv sync:*)",
+      "Bash(docker compose ps:*)",
+      "Bash(docker compose up -d db:*)",
+      "Bash(docker compose logs:*)",
+      "PowerShell(pnpm lint:*)",
+      "PowerShell(pnpm format:*)",
+      "PowerShell(pnpm typecheck:*)",
+      "PowerShell(pnpm test:*)",
+      "PowerShell(pnpm build:*)",
+      "PowerShell(pnpm check:*)",
+      "PowerShell(pnpm gen:api:*)",
+      "PowerShell(uv run ruff:*)",
+      "PowerShell(uv run pytest:*)",
+      "PowerShell(uv run alembic current:*)",
+      "PowerShell(uv run alembic upgrade:*)",
+      "PowerShell(uv sync:*)",
+      "PowerShell(docker compose ps:*)",
+      "PowerShell(docker compose up -d db:*)",
+      "PowerShell(docker compose logs:*)",
+      "Bash(uv run --directory backend pytest:*)",
+      "Bash(uv run --directory backend ruff:*)",
+      "Bash(uv run --directory backend alembic upgrade:*)",
+      "Bash(uv run --directory backend alembic current:*)",
+      "Bash(pnpm --dir frontend lint:*)",
+      "Bash(pnpm --dir frontend typecheck:*)",
+      "Bash(pnpm --dir frontend test:*)",
+      "Bash(pnpm --dir frontend build:*)",
+      "Bash(pnpm --dir frontend format:*)",
+      "PowerShell(uv run --directory backend pytest:*)",
+      "PowerShell(uv run --directory backend ruff:*)",
+      "PowerShell(uv run --directory backend alembic upgrade:*)",
+      "PowerShell(uv run --directory backend alembic current:*)",
+      "PowerShell(pnpm --dir frontend lint:*)",
+      "PowerShell(pnpm --dir frontend typecheck:*)",
+      "PowerShell(pnpm --dir frontend test:*)",
+      "PowerShell(pnpm --dir frontend build:*)",
+      "PowerShell(pnpm --dir frontend format:*)"
+    ],
+    "deny": [
+      "Read(./**/.env)",
+      "Read(./**/.env.local)",
+      "Read(./**/.env.*.local)",
+      "Read(./**/.env.production)",
+      "Read(./**/node_modules/**)",
+      "Read(./**/.next/**)",
+      "Read(./**/.venv/**)",
+      "Read(./**/coverage/**)",
+      "Read(./**/.pytest_cache/**)",
+      "Read(./**/.ruff_cache/**)",
+      "Read(./pnpm-lock.yaml)",
+      "Read(./backend/uv.lock)",
+      "Read(./openapi.json)"
+    ]
+  },
+  "enabledPlugins": {
+    "vercel@claude-plugins-official": true,
+    "playwright@claude-plugins-official": true,
+    "context7@claude-plugins-official": true,
+    "pyright-lsp@claude-plugins-official": true,
+    "typescript-lsp@claude-plugins-official": true,
+    "deepeval@claude-plugins-official": true,
+    "security-guidance@claude-plugins-official": true,
+    "aws-core@claude-plugins-official": true,
+    "langfuse-observability@claude-plugins-official": true,
+    "pr-review-toolkit@claude-plugins-official": true,
+    "github@claude-plugins-official": true
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/after-edit.mjs\"",
+            "timeout": 180
+          }
+        ]
+      }
+    ]
+  }
+}

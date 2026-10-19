@@ -1,0 +1,4 @@
+node_modules
+.next
+pnpm-lock.yaml
+src/types/api.gen.ts

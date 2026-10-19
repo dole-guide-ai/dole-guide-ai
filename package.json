@@ -1,0 +1,23 @@
+{
+  "name": "dole-guide-ai",
+  "private": true,
+  "scripts": {
+    "prepare": "node scripts/install-hooks.mjs",
+    "bootstrap": "pnpm install && node scripts/bootstrap.mjs",
+    "dev:db": "docker compose up -d db",
+    "dev:fe": "pnpm --dir frontend dev",
+    "dev:be": "uv run --directory backend uvicorn app.main:app --reload",
+    "gen:api": "uv run --directory backend python scripts/export_openapi.py ../openapi.json && pnpm --dir frontend exec openapi-typescript ../openapi.json -o src/types/api.gen.ts",
+    "test:fe": "pnpm --dir frontend test",
+    "test:be": "uv run --directory backend pytest",
+    "test:eval": "uv run --directory backend pytest evals -m eval",
+    "test": "pnpm test:fe && pnpm test:be",
+    "check:fe": "pnpm --dir frontend lint && pnpm --dir frontend format:check && pnpm --dir frontend typecheck && pnpm --dir frontend test",
+    "check:be": "uv run --directory backend ruff check . && uv run --directory backend ruff format --check . && uv run --directory backend lint-imports && uv run --directory backend pytest",
+    "check": "pnpm check:fe && pnpm check:be",
+    "check:pr-size": "node scripts/check-pr-size.mjs"
+  },
+  "devDependencies": {
+    "lefthook": "^2.2.2"
+  }
+}

@@ -1,0 +1,22 @@
+name: pr-size
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pr-size:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      # 도구 버전은 mise.toml에서 읽습니다.
+      - uses: jdx/mise-action@v2
+      - run: node scripts/check-pr-size.mjs "origin/$BASE_REF"
+        env:
+          BASE_REF: ${{ github.base_ref }}
