@@ -71,3 +71,47 @@ export const MOCK_ENTRIES: Record<string, EntryResult> = {
     rule_refs: ['ACT-025', 'ACT-026', 'ACT-055', 'ACT-110', 'ACT-040', 'DUE-090'],
   },
 };
+
+const EDUCATION_CHOICES = ['교육 다 들었어요', '어디서 들어요?', '꼭 들어야 해요?'];
+const WORK24_INPUT_HINT =
+  '고용24에 옮겨 적으실 때 참고하세요. 직무능력은 고용24에서 `직무능력 자동 추천`으로 골라 주세요. 희망임금은 금액 앞 선택 상자에서 월급 단위를 고르세요.';
+
+/** 이력서 저장(2-1.6) 뒤 진입 결과: 단계가 온라인 교육(E6)으로 넘어갑니다. */
+export const MOCK_AFTER_RESUME_ENTRIES: Record<string, EntryResult> = {
+  park: {
+    branch_id: 'E6',
+    panel: 'E',
+    progress: { current: 2, done: [1] },
+    title: '온라인 교육을 들어요',
+    next_step_text: '다음 할 일 : 온라인 교육 이수 후 수급자격 신청',
+    messages: [
+      {
+        template_id: 'T-SAVE-E7a',
+        text: '이력서를 저장해서 구직등록이 끝났어요. 다음은 수급자격 신청자 온라인 교육이에요. 약 1시간이고, 다 들으시면 오른쪽에서 이수를 확인해 주세요.',
+        cite: SOURCE_WORK24,
+      },
+      { template_id: 'T-WORK24-HINT', text: WORK24_INPUT_HINT },
+    ],
+    choices: EDUCATION_CHOICES,
+    ui: { big_text: false },
+    rule_refs: ['PROC-009', 'PROC-010'],
+  },
+  choi: {
+    branch_id: 'E6',
+    panel: 'E',
+    progress: { current: 2, done: [1] },
+    title: '온라인 교육을 들어요',
+    next_step_text: '다음 할 일 : 온라인 교육 → 고용센터 방문 신청',
+    messages: [
+      {
+        template_id: 'T-SAVE-E7b',
+        text: '이력서를 최신화해 저장했어요. 구직등록이 끝났어요. 다음은 온라인 교육이에요. 글씨를 크게 해 두었으니 천천히 들으시면 돼요.',
+        cite: SOURCE_WORK24,
+      },
+      { template_id: 'T-WORK24-HINT', text: WORK24_INPUT_HINT },
+    ],
+    choices: EDUCATION_CHOICES,
+    ui: { big_text: true },
+    rule_refs: ['PROC-009', 'PROC-010', 'PROC-048'],
+  },
+};
