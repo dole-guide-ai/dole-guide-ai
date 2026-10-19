@@ -10,26 +10,31 @@ import { MessageBubble } from '@/features/chat/MessageBubble';
 interface ChatPanelProps {
   messages: ChatMessage[];
   choices: string[];
+  inputText: string;
+  onInputChange: (text: string) => void;
   onChoice: (choice: string) => void;
   onSend: (text: string) => void;
-  isInputDisabled?: boolean;
-  inputDisabledReason?: string;
+  isStreaming?: boolean;
+  statusText?: string | null;
 }
 
 export const ChatPanel = ({
   messages,
   choices,
+  inputText,
+  onInputChange,
   onChoice,
   onSend,
-  isInputDisabled = false,
-  inputDisabledReason,
+  isStreaming = false,
+  statusText,
 }: ChatPanelProps) => {
   const bottomRef = useRef<HTMLDivElement>(null);
+  const lastText = messages[messages.length - 1]?.text;
 
   useEffect(() => {
     // jsdom(테스트)에는 scrollIntoView가 없어서 있을 때만 호출합니다.
     bottomRef.current?.scrollIntoView?.({ block: 'end' });
-  }, [messages.length, choices.length]);
+  }, [messages.length, choices.length, lastText]);
 
   return (
     <section
@@ -40,13 +45,19 @@ export const ChatPanel = ({
         {messages.map((message) => (
           <MessageBubble key={message.id} message={message} />
         ))}
-        <ChoiceButtons choices={choices} onSelect={onChoice} />
+        {statusText && (
+          <p role="status" className="text-muted text-sm">
+            {statusText}
+          </p>
+        )}
+        <ChoiceButtons choices={choices} onSelect={onChoice} isDisabled={isStreaming} />
         <div ref={bottomRef} />
       </div>
       <ChatInput
+        value={inputText}
+        onChange={onInputChange}
         onSend={onSend}
-        isDisabled={isInputDisabled}
-        disabledReason={inputDisabledReason}
+        isDisabled={isStreaming}
       />
     </section>
   );

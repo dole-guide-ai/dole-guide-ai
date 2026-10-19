@@ -1,6 +1,6 @@
-export type ChatRole = 'assistant' | 'user';
+import type { ChatInputKind } from '@/types/chat.types';
 
-export type ChatInputKind = 'text' | 'voice' | 'choice';
+export type ChatRole = 'assistant' | 'user' | 'system';
 
 export interface ChatMessage {
   id: string;
