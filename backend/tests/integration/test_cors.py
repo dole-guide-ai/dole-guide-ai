@@ -5,7 +5,7 @@ from fastapi.testclient import TestClient
 
 pytestmark = pytest.mark.integration
 
-PREVIEW_REGEX = r"^https://dole-guide-ai-[a-z0-9-]+-team\.vercel\.app$"
+PREVIEW_REGEX = r"^https://dole-guide-[a-z0-9-]+-team\.vercel\.app$"
 
 
 def make_client() -> TestClient:
@@ -25,7 +25,7 @@ def make_client() -> TestClient:
     ("origin", "allowed"),
     [
         ("https://dole-guide-ai.vercel.app", True),
-        ("https://dole-guide-ai-abc123xyz-team.vercel.app", True),
+        ("https://dole-guide-j83bvlf4h-team.vercel.app", True),
         ("https://dole-guide-ai-git-feat-34-backend-deploy-team.vercel.app", True),
         ("https://evil.example.com", False),
         ("https://dole-guide-ai-abc123-team.vercel.app.evil.com", False),
