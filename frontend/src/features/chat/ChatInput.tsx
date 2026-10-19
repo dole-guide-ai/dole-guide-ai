@@ -29,7 +29,17 @@ export const ChatInput = ({ onSend, isDisabled = false, disabledReason }: ChatIn
 
   return (
     <div className="border-line bg-surface flex flex-col gap-2 border-t p-3">
-      <div className="flex items-end gap-2">
+      <textarea
+        value={text}
+        onChange={(event) => setText(event.target.value)}
+        onKeyDown={handleKeyDown}
+        disabled={isDisabled}
+        rows={2}
+        placeholder={isDisabled && disabledReason ? disabledReason : '여기에 말씀하듯 적어 주세요'}
+        aria-label="메시지 입력"
+        className="border-line focus-visible:border-brand focus-visible:ring-brand/40 disabled:bg-neutral-soft w-full resize-none rounded-xl border px-4 py-3 text-base focus-visible:ring-3 focus-visible:outline-hidden"
+      />
+      <div className="flex flex-wrap items-center gap-2">
         <Button
           variant="secondary"
           size="lg"
@@ -48,19 +58,12 @@ export const ChatInput = ({ onSend, isDisabled = false, disabledReason }: ChatIn
         >
           📷 사진
         </Button>
-        <textarea
-          value={text}
-          onChange={(event) => setText(event.target.value)}
-          onKeyDown={handleKeyDown}
-          disabled={isDisabled}
-          rows={1}
-          placeholder={
-            isDisabled && disabledReason ? disabledReason : '여기에 말씀하듯 적어 주세요'
-          }
-          aria-label="메시지 입력"
-          className="border-line focus-visible:border-brand focus-visible:ring-brand/40 disabled:bg-neutral-soft min-h-12 flex-1 resize-none rounded-xl border px-4 py-3 text-base focus-visible:ring-3 focus-visible:outline-hidden"
-        />
-        <Button size="lg" onClick={handleSend} disabled={isDisabled || !text.trim()}>
+        <Button
+          size="lg"
+          onClick={handleSend}
+          disabled={isDisabled || !text.trim()}
+          className="ml-auto"
+        >
           보내기
         </Button>
       </div>
