@@ -1,3 +1,5 @@
+import Image from 'next/image';
+
 import { EvidenceLine } from '@/components/EvidenceLine';
 import type { ChatMessage } from '@/features/chat/chat.types';
 
@@ -19,8 +21,8 @@ export const MessageBubble = ({ message }: MessageBubbleProps) => {
 
   const isUser = message.role === 'user';
 
-  return (
-    <div className={`flex flex-col gap-1 ${isUser ? 'items-end' : 'items-start'}`}>
+  const bubble = (
+    <div className={`flex min-w-0 flex-1 flex-col gap-1 ${isUser ? 'items-end' : 'items-start'}`}>
       {isUser && message.inputKind === 'voice' && (
         <span className="text-muted text-xs">음성 입력</span>
       )}
@@ -42,6 +44,23 @@ export const MessageBubble = ({ message }: MessageBubbleProps) => {
         {message.text}
       </div>
       {!isUser && message.cite && <EvidenceLine cite={message.cite} />}
+    </div>
+  );
+
+  if (isUser) return bubble;
+
+  // AI 말풍선 옆에는 길잡이 아바타를 둡니다 (꾸밈 이미지라 alt는 비움).
+  return (
+    <div className="flex items-start gap-2">
+      <Image
+        src="/brand/avatar.svg"
+        alt=""
+        width={36}
+        height={36}
+        unoptimized
+        className="mt-1 shrink-0"
+      />
+      {bubble}
     </div>
   );
 };

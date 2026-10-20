@@ -1,5 +1,7 @@
 'use client';
 
+import Image from 'next/image';
+
 import { Button } from '@/components/Button';
 import { BigTextToggle } from '@/features/bigText/BigTextToggle';
 
@@ -11,7 +13,15 @@ interface DashboardHeaderProps {
 export const DashboardHeader = ({ personaName, onSwitchAccount }: DashboardHeaderProps) => (
   <header className="border-line bg-surface flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3 sm:px-6">
     <div className="flex items-baseline gap-3">
-      <span className="text-brand text-lg font-bold">실업급여 길잡이</span>
+      <Image
+        src="/brand/logo.svg"
+        alt="실업급여 길잡이"
+        width={141}
+        height={32}
+        priority
+        unoptimized
+        className="self-center"
+      />
       <span className="text-muted text-base">{personaName}님</span>
     </div>
     <nav className="flex flex-wrap items-center gap-2" aria-label="화면 설정">

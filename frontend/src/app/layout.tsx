@@ -5,7 +5,7 @@ import { Providers } from '@/app/providers';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: '실업급여 도우미 AI',
+  title: '실업급여 길잡이',
   description: '말로 이야기하면 고용24 서류를 완성해 주는 실업급여 행정 도우미',
 };
 
