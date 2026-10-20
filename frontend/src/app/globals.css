@@ -1,1 +1,44 @@
 @import 'tailwindcss';
+
+/* 디자인 토큰. 색 이름은 역할(brand·ok·warn·info·neutral)로 두고, 칩 색(2-0.6)도 여기서 가져옵니다. */
+@theme {
+  --font-sans:
+    'Pretendard Variable', Pretendard, 'Apple SD Gothic Neo', 'Malgun Gothic', 'Noto Sans KR',
+    system-ui, sans-serif;
+
+  --color-brand: #1d4ed8;
+  --color-brand-strong: #1e40af;
+  --color-brand-soft: #dbeafe;
+
+  --color-canvas: #f4f6f9;
+  --color-surface: #ffffff;
+  --color-line: #e2e6ec;
+  --color-ink: #1f2937;
+  --color-muted: #6b7280;
+
+  /* 칩: 파랑(서류·불러오기) · 초록(확정) · 주황(확인 필요) · 회색(자동·없음) */
+  --color-info: #1d4ed8;
+  --color-info-soft: #dbeafe;
+  --color-ok: #15803d;
+  --color-ok-soft: #dcfce7;
+  --color-warn: #c2410c;
+  --color-warn-soft: #ffedd5;
+  --color-neutral: #4b5563;
+  --color-neutral-soft: #f1f3f6;
+  --color-danger: #b91c1c;
+  --color-danger-soft: #fee2e2;
+}
+
+/* 중장년층 대상이라 기본 글자를 조금 크게 두고, `글자 크게`(M4)는 루트 크기만 키웁니다. */
+html {
+  font-size: 17px;
+}
+
+html[data-big-text='true'] {
+  font-size: 20px;
+}
+
+body {
+  background-color: var(--color-canvas);
+  color: var(--color-ink);
+}
