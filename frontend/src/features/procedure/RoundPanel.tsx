@@ -26,7 +26,7 @@ interface RoundPanelProps {
 }
 
 export const RoundPanel = ({ session, onOpenForm }: RoundPanelProps) => {
-  const query = useRoundCheck(session.session_id);
+  const query = useRoundCheck(session.session_id, session.derived.current_round);
   const draft = useRoundDraft();
   const [isAskingShort, setIsAskingShort] = useState(false);
 

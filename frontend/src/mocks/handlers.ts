@@ -3,10 +3,17 @@ import { getSession } from '@/lib/sessionStore';
 import type { FormPatchCreate, FormUpdateEvent } from '@/types/chat.types';
 import type { DemoAuthCreate, PersonaCardRead, SessionRead } from '@/types/demo.types';
 import type { ProcedurePatchCreate } from '@/types/procedure.types';
+import type { RecognitionConfirmCreate } from '@/types/recognition.types';
 
-import { MOCK_PLANNED_ACTIVITIES, MOCK_RECOMMENDATIONS, MOCK_ROUND_CHECKS } from './activities';
+import {
+  MOCK_NEXT_ROUND_CHECKS,
+  MOCK_PLANNED_ACTIVITIES,
+  MOCK_RECOMMENDATIONS,
+  MOCK_ROUND_CHECKS,
+} from './activities';
 import { MOCK_AFTER_RESUME_ENTRIES, MOCK_ENTRIES } from './entries';
 import { findMockPersona, MOCK_PERSONAS } from './personas';
+import { MOCK_RECOGNITION_FORMS } from './recognition';
 import { MOCK_RESUMES } from './resumes';
 
 /**
@@ -101,7 +108,11 @@ export const resolveMock = async <T>(path: string, init?: RequestInit): Promise<
   }
 
   if (method === 'GET' && path === '/procedure/current-round/check') {
-    const check = personaId ? MOCK_ROUND_CHECKS[personaId] : undefined;
+    const round = getSession()?.derived.current_round;
+    const check = personaId
+      ? ((round ? MOCK_NEXT_ROUND_CHECKS[personaId]?.[round] : undefined) ??
+        MOCK_ROUND_CHECKS[personaId])
+      : undefined;
     if (!check) throw new ApiError('NOT_FOUND', '이번 회차 정보가 없어요.', 404);
     return check as T;
   }
@@ -110,6 +121,26 @@ export const resolveMock = async <T>(path: string, init?: RequestInit): Promise<
     const recommendations = personaId ? MOCK_RECOMMENDATIONS[personaId] : undefined;
     if (!recommendations) throw new ApiError('NOT_FOUND', '추천할 활동이 없어요.', 404);
     return recommendations as T;
+  }
+
+  if (method === 'GET' && path === '/forms/recognition') {
+    const form = personaId ? MOCK_RECOGNITION_FORMS[personaId] : undefined;
+    if (!form) throw new ApiError('NOT_FOUND', '실업인정 신청서 초안이 없어요.', 404);
+    return form as T;
+  }
+
+  if (method === 'POST' && path === '/forms/recognition/confirm') {
+    const body = parseBody<RecognitionConfirmCreate>(init);
+    const form = personaId ? MOCK_RECOGNITION_FORMS[personaId] : undefined;
+    if (!form || !body || body.submit_mode !== form.submit_mode) {
+      throw new ApiError('CONFLICT', '지금은 이 방법으로 낼 수 없어요.', 409);
+    }
+    // 실제 제출이 아니므로 `submitted`로 바꾸지 않고 `mock_submission`에만 적습니다 (2-3.7).
+    return {
+      ...form,
+      status: 'finalized',
+      mock_submission: body.submit_mode === 'attend' ? 'attend_ready' : 'sent',
+    } as T;
   }
 
   if (method === 'PATCH' && path === '/procedure') {

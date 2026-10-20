@@ -4,6 +4,9 @@ export const queryKeys = {
   forms: ['forms'] as const,
   resumeForm: (sessionId: string) => ['forms', 'resume', sessionId] as const,
   procedure: ['procedure'] as const,
-  roundCheck: (sessionId: string) => ['procedure', 'check', sessionId] as const,
+  roundCheck: (sessionId: string, round: number | null) =>
+    ['procedure', 'check', sessionId, round] as const,
+  recognitionForm: (sessionId: string, round: number | null) =>
+    ['forms', 'recognition', sessionId, round] as const,
   roundRecommendations: (sessionId: string) => ['procedure', 'recommendations', sessionId] as const,
 };
