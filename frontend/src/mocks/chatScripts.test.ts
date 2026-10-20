@@ -33,4 +33,47 @@ describe('이정호 신청서 모의 대화', () => {
     expect(byPath.derived).toMatchObject({ current_round: 5, d_day: 28 });
     expect(byPath['entry.panel']).toBe('B');
   });
+
+  it('고용24에서 불러올게요는 입사지원 목록을 열고, 고른 OO물산은 활동으로 기록된다 (2-2.5)', () => {
+    const open = buildMockChatEvents('lee', '고용24에서 불러올게요', []);
+    const recorded = buildMockChatEvents(
+      'lee',
+      '고용24에서 고른 1건 넣어 주세요',
+      [],
+      [],
+      ['wa_003'],
+    );
+
+    expect(open.at(-1)).toMatchObject({
+      event: 'ask_user',
+      data: { import_kind: 'work24-activities' },
+    });
+    expect(updates(recorded)).toContainEqual(
+      expect.objectContaining({ form: 'activities', path: 'activities', op: 'append' }),
+    );
+  });
+});
+
+describe('박진수 통합경력증명 불러오기', () => {
+  it('고른 경력·직업훈련만 넣고, 직급을 이어서 묻는다 (2-1.5)', () => {
+    const events = buildMockChatEvents(
+      'park',
+      '고용24에서 고른 2건 넣어 주세요',
+      [],
+      [],
+      ['cc_career_001', 'cc_training_001'],
+    );
+    const paths = updates(events).map((update) => update.path);
+
+    expect(paths).toContain('competencies.careers');
+    expect(paths).toContain('competencies.vocational_training');
+    expect(paths).not.toContain('competencies.certifications');
+    expect(updates(events).find((u) => u.path.endsWith('company_name'))).toMatchObject({
+      source: 'work24_import',
+    });
+    expect(events.at(-1)).toMatchObject({
+      event: 'ask_user',
+      data: { choices: ['말로 할게요', '없었어요'] },
+    });
+  });
 });

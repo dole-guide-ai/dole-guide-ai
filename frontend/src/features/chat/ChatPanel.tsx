@@ -6,10 +6,17 @@ import { ChoiceButtons } from '@/components/ChoiceButtons';
 import type { ChatMessage } from '@/features/chat/chat.types';
 import { ChatInput } from '@/features/chat/ChatInput';
 import { MessageBubble } from '@/features/chat/MessageBubble';
+import { ImportPicker } from '@/features/imports/ImportPicker';
+
+import type { ImportKind } from '@/types/imports.types';
 
 interface ChatPanelProps {
   messages: ChatMessage[];
   choices: string[];
+  /** 마지막 질문이 연 고용24 불러오기 목록 (2-0.4) */
+  importKind?: ImportKind | null;
+  sessionId?: string;
+  onImport?: (importIds: string[]) => void;
   inputText: string;
   onInputChange: (text: string) => void;
   onChoice: (choice: string) => void;
@@ -23,6 +30,9 @@ interface ChatPanelProps {
 export const ChatPanel = ({
   messages,
   choices,
+  importKind,
+  sessionId,
+  onImport,
   inputText,
   onInputChange,
   onChoice,
@@ -61,6 +71,15 @@ export const ChatPanel = ({
           </p>
         )}
         <ChoiceButtons choices={choices} onSelect={onChoice} isDisabled={isStreaming} />
+        {importKind && sessionId && onImport && (
+          <ImportPicker
+            key={`${importKind}-${messages.length}`}
+            kind={importKind}
+            sessionId={sessionId}
+            isDisabled={isStreaming}
+            onApply={onImport}
+          />
+        )}
       </div>
       <ChatInput
         value={inputText}

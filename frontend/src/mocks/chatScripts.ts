@@ -2,6 +2,7 @@ import { OPEN_FORM_MESSAGE } from '@/features/procedure/activityLabels';
 import { CONFIRMED_MESSAGE } from '@/features/recognition/recognitionLabels';
 
 import type { FormUpdateEvent, SseMessage } from '@/types/chat.types';
+import type { ImportKind } from '@/types/imports.types';
 
 import { MOCK_PERSONAS } from './personas';
 
@@ -27,10 +28,22 @@ const say = (text: string, cite?: string, rule_refs?: string[]): SseMessage[] =>
   { event: 'done', data: { cite, rule_refs } },
 ];
 
-const ask = (question_id: string, text: string, choices: string[]): SseMessage => ({
+const ask = (
+  question_id: string,
+  text: string,
+  choices: string[],
+  import_kind?: ImportKind,
+): SseMessage => ({
   event: 'ask_user',
-  data: { question_id, text, choices },
+  data: { question_id, text, choices, ...(import_kind ? { import_kind } : {}) },
 });
+
+/** 고용24 불러오기 목록을 대화창 안에 엽니다 (2-0.4). 고른 것만 `import_ids`로 돌아옵니다. */
+const openImport = (kind: ImportKind, text: string): SseMessage[] => [
+  ask(`import.${kind}`, text, [], kind),
+];
+
+const CAREER_IMPORT_TEXT = '통합경력증명에서 이력서에 넣을 항목을 골라 주세요. 고른 것만 넣어요.';
 
 const tool = (name: string): SseMessage[] => [
   { event: 'tool_call', data: { name, status: 'started' } },
@@ -60,6 +73,7 @@ const COMMON: Script = {
 };
 
 const PARK: Script = {
+  '고용24에서 불러올게요': () => openImport('career-certificate', CAREER_IMPORT_TEXT),
   '이력서 만들기 시작할게요': () => [
     ask(
       'resume.career_new',
@@ -173,6 +187,7 @@ const parkCareer = (): SseMessage[] => [
 ];
 
 const CHOI: Script = {
+  '고용24에서 불러올게요': () => openImport('career-certificate', CAREER_IMPORT_TEXT),
   '네, 고칠게요': () => [
     ...say('예전 이력서에서 제목·학력·자격면허를 가져왔어요. 경력과 희망조건은 다시 확인할게요.'),
     ask('resume.career_since_old', '2019년 이후로 일하신 곳이 있나요?', ['네, 있어요', '없어요']),
@@ -443,7 +458,15 @@ const LEE: Script = {
       '새 활동 기록할게요',
     ]),
   ],
-  '새 활동 기록할게요': () => [ask('activity.date', '언제 하셨어요?', ['오늘', '어제', '다른 날'])],
+  '새 활동 기록할게요': () => [
+    ask('activity.date', '언제 하셨어요? 고용24로 지원하셨으면 불러올 수도 있어요.', [
+      '오늘',
+      '어제',
+      '고용24에서 불러올게요',
+    ]),
+  ],
+  '고용24에서 불러올게요': () =>
+    openImport('work24-activities', '고용24 입사지원 내역에서 이번 회차 활동을 골라 주세요.'),
   오늘: () => [ask('activity.category', '어떤 활동이었어요?', ['입사지원', '면접', '다른 활동'])],
   입사지원: () => [ask('activity.org_name', '어느 회사(기관)였어요?', [])],
   '고용24 입사지원 할게요': () => [
@@ -569,12 +592,102 @@ const documentFallback = (entryChoices: string[]): SseMessage[] => [
   ]),
 ];
 
+const W24 = { status: 'extracted', source: 'work24_import' } as const;
+
+/**
+ * 불러오기에서 고른 항목을 넣습니다 (2-1.5 · 2-2.5). 고용24처럼 경력은 회사명·재직기간만 들어오고
+ * 직급/직책·주요 직무는 이어서 묻습니다.
+ */
+const importEvents = (personaId: string, importIds: string[]): SseMessage[] => {
+  if (personaId === 'lee') {
+    return importIds.includes('wa_003') ? recordActivity() : [];
+  }
+  const events: SseMessage[] = [];
+  const names: string[] = [];
+  const careers: Record<string, [string, string, string, string]> = {
+    cc_career_001: ['career_001', 'OO산업', '2004-03', '2026-09'],
+    cc_career_002: ['career_002', 'OO빌딩', '2022-07', '2026-09'],
+  };
+  const firstCareer = importIds.map((id) => careers[id]).find(Boolean);
+  for (const id of importIds) {
+    const career = careers[id];
+    if (career) {
+      const [itemId, company, start, end] = career;
+      events.push(
+        update('resume', 'competencies.careers', 'append', {
+          value: {
+            item_id: itemId,
+            company_name: company,
+            start_date: start,
+            end_date: end,
+            position: null,
+            employment_status: '퇴직',
+            occupation: null,
+            main_duties: null,
+            monthly_salary: null,
+            additional_details: null,
+          },
+        }),
+        ...['company_name', 'start_date', 'end_date'].map((key) =>
+          update('resume', `competencies.careers.${itemId}.${key}`, 'set', W24),
+        ),
+        update('resume', `competencies.careers.${itemId}.employment_status`, 'set', {
+          status: 'confirmed',
+          source: 'computed',
+        }),
+      );
+      names.push(`${company} ${start.replace('-', '.')} ~ ${end.replace('-', '.')} 근무`);
+    }
+    if (id === 'cc_license_001' && personaId === 'park') {
+      events.push(
+        update('resume', 'competencies.certifications', 'append', {
+          value: {
+            item_id: 'cert_001',
+            certificate_name: '지게차운전기능사',
+            issuing_organization: '한국산업인력공단',
+            acquired_date: '2011-05-20',
+          },
+        }),
+        update('resume', 'competencies.certifications.cert_001.certificate_name', 'set', {
+          ...W24,
+          completeness: { done: 1, total: 5 },
+        }),
+      );
+      names.push('지게차운전기능사 자격');
+    }
+    if (id === 'cc_training_001') {
+      events.push(
+        update('resume', 'competencies.vocational_training', 'set', {
+          value: [{ item_id: 'training_001', name: '용접 기초 과정', period: '2009.03 ~ 2009.06' }],
+          ...W24,
+        }),
+      );
+      names.push('직업훈련 이수이력(용접 기초 과정)');
+    }
+  }
+  events.push(...say(`고용24에서 고르신 ${names.join(', ')}을 넣었어요.`));
+  if (firstCareer) {
+    const [itemId, company] = firstCareer;
+    events.push(
+      update('resume', 'next_question', 'set', { value: 'resume.career_position' }),
+      ask(
+        `resume.career_position.${itemId}`,
+        `${company}에서 직급이나 직책이 있으셨어요? 없으면 '없음'으로 적어요.`,
+        ['말로 할게요', '없었어요'],
+      ),
+    );
+  }
+  return events;
+};
+
 export const buildMockChatEvents = (
   personaId: string,
   message: string,
   entryChoices: string[],
   fileIds?: string[],
+  importIds?: string[],
 ): SseMessage[] => {
+  if (importIds?.length) return importEvents(personaId, importIds);
   if (fileIds?.length) {
     return personaId === 'park' ? parkDocument() : documentFallback(entryChoices);
   }

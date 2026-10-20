@@ -18,6 +18,7 @@ import { ApiError } from '@/lib/api';
 import { needsCheck } from '@/lib/fieldChip';
 import type { FieldMeta } from '@/lib/formStore';
 import type { SessionRead } from '@/types/demo.types';
+import type { ResumeCompetencies } from '@/types/resume.types';
 
 /**
  * 패널 A: 고용24 이력서 항목을 같은 순서로 보여 주고, 완성도(꼭 묻는 5개)와 저장 버튼을 둡니다 (2-1.2 · 2-1.6).
@@ -38,6 +39,16 @@ const hasCheck = (fields: Record<string, FieldMeta>, prefix: string) =>
   Object.entries(fields).some(([path, meta]) => path.startsWith(prefix) && needsCheck(meta));
 
 const listText = (items: string[] | undefined) => (items?.length ? items.join(', ') : null);
+
+/** 그 밖의 보유역량 한 영역의 값 (불러오기·대화로 들어온 항목 이름). 비어 있으면 null. */
+const sectionText = (section: unknown) => {
+  if (!Array.isArray(section) || section.length === 0) return null;
+  return section
+    .map((item) =>
+      typeof item === 'object' && item && 'name' in item ? String(item.name) : String(item),
+    )
+    .join(', ');
+};
 
 export const ResumePanel = ({ session, onEditRequest, isReadOnly = false }: ResumePanelProps) => {
   const query = useResumeForm(session.session_id);
@@ -282,7 +293,7 @@ export const ResumePanel = ({ session, onEditRequest, isReadOnly = false }: Resu
           <FieldRow
             key={key}
             label={label}
-            value={null}
+            value={sectionText(values.competencies?.[key as keyof ResumeCompetencies])}
             meta={fields[`competencies.${key}`]}
             chip={fields[`competencies.${key}`] ? undefined : OPTIONAL_CHIP}
           />

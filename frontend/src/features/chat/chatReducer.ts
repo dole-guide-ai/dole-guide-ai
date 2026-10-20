@@ -2,6 +2,7 @@ import type { ChatAttachment, ChatMessage } from '@/features/chat/chat.types';
 
 import type { ChatInputKind } from '@/types/chat.types';
 import type { SessionRead } from '@/types/demo.types';
+import type { ImportKind } from '@/types/imports.types';
 
 /**
  * 말풍선 목록·선택지·스트리밍 중인 말풍선을 다루는 순수 리듀서.
@@ -12,6 +13,8 @@ export interface ChatState {
   sessionId: string;
   messages: ChatMessage[];
   choices: string[];
+  /** 마지막 질문이 고용24 불러오기 목록을 열었으면 그 종류 (2-0.4) */
+  importKind: ImportKind | null;
   streamingId: string | null;
   nextId: number;
 }
@@ -20,7 +23,7 @@ export type ChatAction =
   | { type: 'reset'; session: SessionRead }
   | { type: 'user_sent'; text: string; inputKind: ChatInputKind; attachments?: ChatAttachment[] }
   | { type: 'token'; text: string }
-  | { type: 'ask_user'; text: string; choices: string[] }
+  | { type: 'ask_user'; text: string; choices: string[]; importKind?: ImportKind }
   | { type: 'done'; cite?: string }
   | { type: 'system'; text: string };
 
@@ -33,6 +36,7 @@ export const initChatState = (session: SessionRead): ChatState => ({
     cite: message.cite,
   })),
   choices: session.entry.choices,
+  importKind: null,
   streamingId: null,
   nextId: 1,
 });
@@ -66,6 +70,7 @@ export const chatReducer = (state: ChatState, action: ChatAction): ChatState => 
           attachments: action.attachments,
         }),
         choices: [],
+        importKind: null,
       };
 
     case 'token': {
@@ -87,6 +92,7 @@ export const chatReducer = (state: ChatState, action: ChatAction): ChatState => 
       return {
         ...push(closeStreaming(state), { role: 'assistant', text: action.text }),
         choices: action.choices,
+        importKind: action.importKind ?? null,
       };
 
     case 'done': {

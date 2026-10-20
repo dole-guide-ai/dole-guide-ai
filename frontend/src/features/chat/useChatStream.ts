@@ -14,6 +14,8 @@ export interface SendOptions {
   /** 올린 파일 ID (2-0.4). 말풍선에는 파일 카드가 붙습니다. */
   fileIds?: string[];
   attachments?: ChatAttachment[];
+  /** 고용24 불러오기에서 고른 항목 (2-0.4) */
+  importIds?: string[];
 }
 
 /**
@@ -39,7 +41,7 @@ export const useChatStream = (session: SessionRead) => {
 
   const send = useCallback(
     async (text: string, options: SendOptions = {}) => {
-      const { inputKind = 'text', fileIds, attachments } = options;
+      const { inputKind = 'text', fileIds, attachments, importIds } = options;
       const message = text.trim();
       if (!message || abortRef.current) return;
 
@@ -52,7 +54,7 @@ export const useChatStream = (session: SessionRead) => {
       try {
         const stream = await streamChat(
           sessionId,
-          { message, input_kind: inputKind, file_ids: fileIds },
+          { message, input_kind: inputKind, file_ids: fileIds, import_ids: importIds },
           controller.signal,
         );
         for await (const event of stream) {
@@ -65,7 +67,12 @@ export const useChatStream = (session: SessionRead) => {
               setActiveTool(event.data.status === 'started' ? event.data.name : null);
               break;
             case 'ask_user':
-              dispatch({ type: 'ask_user', text: event.data.text, choices: event.data.choices });
+              dispatch({
+                type: 'ask_user',
+                text: event.data.text,
+                choices: event.data.choices,
+                importKind: event.data.import_kind,
+              });
               break;
             case 'form_update':
               applyFormUpdateEvent(event.data);
@@ -98,6 +105,7 @@ export const useChatStream = (session: SessionRead) => {
   return {
     messages: state.messages,
     choices: state.choices,
+    importKind: state.importKind,
     isStreaming,
     activeTool,
     inputText,
