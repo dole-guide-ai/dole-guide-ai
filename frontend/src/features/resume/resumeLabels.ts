@@ -1,0 +1,78 @@
+import type { OccupationRef, ResumeEducation } from '@/types/resume.types';
+
+/** `next_question` ID → 패널에 보여 줄 "AI가 물어볼 것" 문구 (상세기획 2-1.3 질문 19개). */
+export const QUESTION_LABEL: Record<string, string> = {
+  'resume.doc_retry': '서류 다시 올리기',
+  'resume.value_confirm': '바꾼 값 확인',
+  'resume.career_new': '가장 최근에 일하신 곳',
+  'resume.career_since_old': '예전 이력서 이후 경력',
+  'resume.career_duties': '주로 하신 일',
+  'resume.career_position': '직급·직책',
+  'resume.career_end_check': '그만두신 시기 확인',
+  'resume.license': '자격증·면허',
+  'resume.education_level': '학력',
+  'resume.education_detail': '학교 이름·기간',
+  'resume.wish_job': '하고 싶은 일(희망 직종)',
+  'resume.wish_experience': '희망 직종 경력 합계 확인',
+  'resume.wish_region': '희망 근무지역',
+  'resume.wish_wage': '희망 월급',
+  'resume.wish_employment': '고용형태',
+  'resume.wish_military': '병역대체 근무 희망 확인',
+  'resume.resume_title': '이력서 제목',
+  'resume.optional_sections': '그 밖의 보유역량',
+  'resume.save_ready': '저장 확인',
+};
+
+/** `YYYY-MM` → `YYYY.MM`, `YYYY-MM-DD` → `YYYY.MM.DD` */
+export const formatYm = (value: string | null | undefined) =>
+  value ? value.replaceAll('-', '.') : null;
+
+export const formatPeriod = (start: string | null | undefined, end: string | null | undefined) => {
+  if (!start && !end) return null;
+  return `${formatYm(start) ?? '?'} ~ ${formatYm(end) ?? '?'}`;
+};
+
+/**
+ * 직종 이름 + 코드 확정 여부. 공통코드로 확정되지 않은 직종(데이터 설계 7.7 `needs_confirmation`)은
+ * 확정 코드처럼 보이지 않게 뒤에 표시를 붙입니다.
+ */
+export const occupationText = (occupation: OccupationRef | null | undefined) => {
+  if (!occupation) return null;
+  if (occupation.status === 'needs_confirmation') return `${occupation.name} (직종 확인 필요)`;
+  if (occupation.status === 'name_only') return `${occupation.name} (고용24에서 직종 선택)`;
+  return occupation.name;
+};
+
+/**
+ * 학력 한 줄 값 (2-1.2): 학교 · 졸업상태 · 기간 · 전공 · 학점/총점 · 최종학력.
+ * 대학 이상은 고용24에서 학점/총점이 필수라, 비어 있으면 고용24 입력 때 필요하다고 남깁니다 (2-1.8).
+ */
+export const educationText = (item: ResumeEducation) => {
+  const isCollege = !!item.level?.includes('대학');
+  const gpaText = item.gpa
+    ? `학점/총점 ${item.gpa}`
+    : isCollege
+      ? '학점 빈칸 (고용24 입력 때 필요)'
+      : null;
+  return [
+    item.school_name,
+    item.graduation_status,
+    formatPeriod(item.start_date, item.end_date),
+    item.major && `전공 ${item.major}`,
+    gpaText,
+    item.is_final && '최종학력',
+  ]
+    .filter(Boolean)
+    .join(' · ');
+};
+
+/** 그 밖의 보유역량 8개 (2-1.2). 값이 들어온 항목만 켜집니다. */
+export const OPTIONAL_SECTIONS: { key: string; label: string }[] = [
+  { key: 'projects', label: '참여 프로젝트' },
+  { key: 'activities_awards', label: '주요활동 및 수상경력' },
+  { key: 'vocational_training', label: '직업훈련 이수이력' },
+  { key: 'computer_skills', label: '컴퓨터 활용' },
+  { key: 'languages', label: '외국어 능력' },
+  { key: 'overseas_experiences', label: '해외경험' },
+  { key: 'completed_courses', label: '이수 교육 과정' },
+];
