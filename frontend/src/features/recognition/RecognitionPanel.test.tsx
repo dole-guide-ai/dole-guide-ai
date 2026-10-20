@@ -159,7 +159,8 @@ describe('RecognitionPanel', () => {
     expect(screen.getByText('8시간')).toBeInTheDocument();
     expect(screen.getByText('100,000원')).toBeInTheDocument();
     expect(screen.getByText('소득수령(예정)일')).toBeInTheDocument();
-    expect(screen.getByText(/일한 날은 신청서에 꼭 적어야 해요/)).toBeInTheDocument();
+    expect(screen.getByText(/SNS·블로그 수익도 포함돼요/)).toBeInTheDocument();
+    expect(screen.getByText(/월 60시간 또는 주 15시간 이상/)).toBeInTheDocument();
   });
 
   it('구직 외 활동이 있으면 과정·세부내역 카드를 보여 준다 (2-3.2)', async () => {

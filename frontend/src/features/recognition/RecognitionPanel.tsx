@@ -171,10 +171,17 @@ export const RecognitionPanel = ({
               isRequired
               chip={prevChip(workPath('work_details.income_amount'), work.answered_on)}
             />
-            <p className="text-muted py-1 text-sm">
-              일한 날은 신청서에 꼭 적어야 해요. 일한 시간이 길면 취업으로 볼 수도 있어요.
-              고용센터에 확인해 주세요.
-            </p>
+            {/* DUE-011~021 · DUE-102: 취업으로 보는 기준과 신고 범위 */}
+            <div className="text-muted flex flex-col gap-1 py-1 text-sm">
+              <p>
+                금액·명칭과 상관없이 일한 날과 소득은 모두 적어야 해요. 배달·아르바이트, SNS·블로그
+                수익도 포함돼요.
+              </p>
+              <p>
+                월 60시간 또는 주 15시간 이상 일하기로 했거나, 3개월 이상 계속 일하거나, 하루 대가가
+                구직급여일액 이상이면 취업으로 볼 수 있어요. 해당하면 고용센터에 먼저 확인해 주세요.
+              </p>
+            </div>
           </div>
         )}
         <FieldRow
