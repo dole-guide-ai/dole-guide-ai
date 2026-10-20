@@ -97,6 +97,15 @@ export const resolveMock = async <T>(path: string, init?: RequestInit): Promise<
     return resume as T;
   }
 
+  if (
+    method === 'POST' &&
+    path === '/forms/resume/confirm' &&
+    getSession()?.state.resume_status === 'ready'
+  ) {
+    // 이미 저장한 이력서를 고쳐 다시 저장: 이력서 ID·단계는 그대로이고 확정 스냅샷만 새로 남깁니다.
+    return getSession() as T;
+  }
+
   if (method === 'POST' && path === '/forms/resume/confirm') {
     const entry = personaId ? MOCK_AFTER_RESUME_ENTRIES[personaId] : undefined;
     if (!personaId || !entry) throw new ApiError('NOT_FOUND', '저장할 이력서가 없어요.', 404);
@@ -205,7 +214,15 @@ export const resolveMock = async <T>(path: string, init?: RequestInit): Promise<
   if (method === 'PATCH' && path === '/forms/resume') {
     const body = parseBody<FormPatchCreate>(init);
     if (!body?.path) throw new ApiError('VALIDATION_ERROR', '고칠 칸을 알 수 없어요.', 422);
-    return { updates: [mockPatchUpdate(body)] } as T;
+    const updates = [mockPatchUpdate(body)];
+    // 저장한 이력서를 고치면 `draft`로 돌아가고 `다시 저장하기`로 재확정합니다 (2-1.6).
+    if (personaId && MOCK_RESUMES[personaId]?.status === 'finalized') {
+      updates.push(
+        { form: 'resume', path: 'status', op: 'set', value: 'draft' },
+        { form: 'resume', path: 'can_save', op: 'set', value: true },
+      );
+    }
+    return { updates } as T;
   }
 
   throw new ApiError('NOT_FOUND', `모의 응답이 없는 경로: ${method} ${path}`, 404);

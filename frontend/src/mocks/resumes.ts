@@ -42,6 +42,23 @@ const park: ResumeDraftRead = {
   field_states: {},
   completeness: { done: 0, total: 5 },
   next_question: 'resume.career_new',
+  question_queue: [
+    'resume.career_new',
+    'resume.career_duties',
+    'resume.career_position',
+    'resume.license',
+    'resume.education_level',
+    'resume.education_detail',
+    'resume.wish_job',
+    'resume.wish_experience',
+    'resume.wish_region',
+    'resume.wish_wage',
+    'resume.wish_employment',
+    'resume.wish_military',
+    'resume.resume_title',
+    'resume.optional_sections',
+    'resume.save_ready',
+  ],
   can_save: false,
 };
 
@@ -133,6 +150,14 @@ const choi: ResumeDraftRead = {
   },
   completeness: { done: 3, total: 5 },
   next_question: 'resume.career_since_old',
+  question_queue: [
+    'resume.career_since_old',
+    'resume.wish_job',
+    'resume.wish_experience',
+    'resume.wish_military',
+    'resume.optional_sections',
+    'resume.save_ready',
+  ],
   can_save: false,
 };
 
@@ -157,6 +182,7 @@ const lee: ResumeDraftRead = {
   job_preferences: {
     ...emptyValues().job_preferences,
     desired_occupations: [{ code: null, name: '일반 사무', status: 'confirmed' }],
+    experience_summary: '경력 25년 5개월',
     desired_regions: ['서울 강서구'],
     desired_salary: { amount: 250, unit: 'monthly', negotiable: false },
     employment_contract_type: '기간의 정함이 없는 근로계약',
@@ -192,6 +218,7 @@ const lee: ResumeDraftRead = {
     resume_title: SAVED,
     'education.edu_001.school_name': SAVED,
     'job_preferences.desired_occupations': SAVED,
+    'job_preferences.experience_summary': SAVED,
     'job_preferences.desired_regions': SAVED,
     'job_preferences.desired_salary': SAVED,
     'job_preferences.employment_contract_type': SAVED,

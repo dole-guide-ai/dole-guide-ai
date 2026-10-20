@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ResumePanel } from '@/features/resume/ResumePanel';
 
-import { applyFormUpdate, resetForms } from '@/lib/formStore';
+import { applyFormUpdate, getFormDrafts, resetForms } from '@/lib/formStore';
 import { getSession, setSession } from '@/lib/sessionStore';
 import { MOCK_AFTER_RESUME_ENTRIES } from '@/mocks/entries';
 import { buildMockSession } from '@/mocks/handlers';
@@ -52,7 +52,9 @@ describe('ResumePanel', () => {
 
     expect(await screen.findByLabelText('완성도')).toHaveTextContent('0 / 5');
     expect(screen.getAllByText('필수')).toHaveLength(5);
-    expect(screen.getByText(/AI가 이어서 물어볼 것 · 가장 최근에 일하신 곳/)).toBeInTheDocument();
+    const order = screen.getByRole('region', { name: 'AI가 물어볼 순서' });
+    expect(within(order).getByText('1. 가장 최근에 일하신 곳 (지금)')).toBeInTheDocument();
+    expect(within(order).getByText('4. 자격증·면허')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '확인하고 이력서 저장' })).toBeDisabled();
   });
 
@@ -108,5 +110,33 @@ describe('ResumePanel', () => {
 
     await vi.waitFor(() => expect(getSession()?.entry.branch_id).toBe('E6'));
     expect(getSession()?.entry.panel).toBe('E');
+  });
+
+  it('저장한 이력서는 고치면 다시 저장하기로 재확정하고, 단계는 그대로 둔다 (2-1.6)', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
+      const url = String(input);
+      if (url.endsWith('/forms/resume')) return Response.json(MOCK_RESUMES.lee);
+      if (url.endsWith('/forms/resume/confirm') && init?.method === 'POST') {
+        return Response.json(buildMockSession('lee'));
+      }
+      return Response.json({ code: 'NOT_FOUND', message: '없는 경로예요.' }, { status: 404 });
+    });
+    setSession(buildMockSession('lee'));
+    const onSaved = vi.fn();
+
+    renderWithProviders(
+      <ResumePanel session={getSession()!} saveLabel="다시 저장하기" onSaved={onSaved} />,
+    );
+    await screen.findByLabelText('완성도');
+    act(() => {
+      applyFormUpdate({ form: 'resume', path: 'status', op: 'set', value: 'draft' });
+      applyFormUpdate({ form: 'resume', path: 'can_save', op: 'set', value: true });
+    });
+    await userEvent.click(screen.getByRole('button', { name: '다시 저장하기' }));
+
+    await vi.waitFor(() => expect(onSaved).toHaveBeenCalled());
+    expect(getFormDrafts().resume.values.status).toBe('finalized');
+    expect(getSession()?.state.stage).toBe('recognition');
+    expect(screen.getByText('경력 25년 5개월')).toBeInTheDocument();
   });
 });
