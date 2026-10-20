@@ -1,4 +1,4 @@
-import type { OccupationRef } from '@/types/resume.types';
+import type { OccupationRef, ResumeEducation } from '@/types/resume.types';
 
 /** `next_question` ID → 패널에 보여 줄 "AI가 물어볼 것" 문구 (상세기획 2-1.3 질문 19개). */
 export const QUESTION_LABEL: Record<string, string> = {
@@ -41,6 +41,29 @@ export const occupationText = (occupation: OccupationRef | null | undefined) => 
   if (occupation.status === 'needs_confirmation') return `${occupation.name} (직종 확인 필요)`;
   if (occupation.status === 'name_only') return `${occupation.name} (고용24에서 직종 선택)`;
   return occupation.name;
+};
+
+/**
+ * 학력 한 줄 값 (2-1.2): 학교 · 졸업상태 · 기간 · 전공 · 학점/총점 · 최종학력.
+ * 대학 이상은 고용24에서 학점/총점이 필수라, 비어 있으면 고용24 입력 때 필요하다고 남깁니다 (2-1.8).
+ */
+export const educationText = (item: ResumeEducation) => {
+  const isCollege = !!item.level?.includes('대학');
+  const gpaText = item.gpa
+    ? `학점/총점 ${item.gpa}`
+    : isCollege
+      ? '학점 빈칸 (고용24 입력 때 필요)'
+      : null;
+  return [
+    item.school_name,
+    item.graduation_status,
+    formatPeriod(item.start_date, item.end_date),
+    item.major && `전공 ${item.major}`,
+    gpaText,
+    item.is_final && '최종학력',
+  ]
+    .filter(Boolean)
+    .join(' · ');
 };
 
 /** 그 밖의 보유역량 8개 (2-1.2). 값이 들어온 항목만 켜집니다. */

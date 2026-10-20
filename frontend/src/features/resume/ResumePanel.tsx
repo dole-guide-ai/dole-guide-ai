@@ -3,6 +3,7 @@
 import { Button } from '@/components/Button';
 import { FieldRow } from '@/features/resume/FieldRow';
 import {
+  educationText,
   formatPeriod,
   formatYm,
   occupationText,
@@ -196,15 +197,7 @@ export const ResumePanel = ({
           <FieldRow
             key={item.item_id}
             label={item.level ?? '학력'}
-            value={[
-              item.school_name,
-              item.graduation_status,
-              formatPeriod(item.start_date, item.end_date),
-              item.major && `전공 ${item.major}`,
-              item.gpa && `학점 ${item.gpa}`,
-            ]
-              .filter(Boolean)
-              .join(' · ')}
+            value={educationText(item)}
             rawValue={item.school_name}
             meta={
               fields[`education.${item.item_id}.school_name`] ??
