@@ -2,6 +2,7 @@ import { EvidenceLine } from '@/components/EvidenceLine';
 import { FieldRow } from '@/features/resume/FieldRow';
 
 import { formatShortDate } from '@/lib/dateFormat';
+import { citeOf } from '@/lib/sources';
 import type { UserState } from '@/types/demo.types';
 
 /**
@@ -12,7 +13,7 @@ interface FirstDatePanelProps {
   state: UserState;
 }
 
-const SOURCE = '찾기쉬운 생활법령정보';
+const SOURCE = citeOf('SRC-011', 'SRC-013');
 
 export const FirstDatePanel = ({ state }: FirstDatePanelProps) => (
   <div className="flex flex-col gap-4">

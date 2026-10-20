@@ -1,11 +1,12 @@
+import { citeOf } from '@/lib/sources';
 import type { EntryResult } from '@/types/demo.types';
 
 /**
  * 계정별 진입 결과 스냅샷 (상세기획 1.6 분기 표 · 1.7 템플릿 · 1.11 예시).
  * 분기 계산은 백엔드 순수 함수가 하고, 여기는 그 결과만 둡니다.
  */
-const SOURCE_WORK24 = '고용24 실업급여(상용직)';
-const SOURCE_2026_NOTICE = '실업인정 인정기준 안내문(2026.3.1~ 신청자) · 취업드림수첩 2025';
+const SOURCE_WORK24 = citeOf('SRC-001');
+const SOURCE_2026_NOTICE = citeOf('SRC-008', 'SRC-016');
 
 export const MOCK_ENTRIES: Record<string, EntryResult> = {
   // E7a: 이력서 없음

@@ -1,6 +1,7 @@
 import { EvidenceLine } from '@/components/EvidenceLine';
 import { FieldRow } from '@/features/resume/FieldRow';
 
+import { citeOf } from '@/lib/sources';
 import type { DerivedState, UserState } from '@/types/demo.types';
 
 /**
@@ -13,7 +14,7 @@ interface EligibilityPanelProps {
   isReadOnly?: boolean;
 }
 
-const SOURCE = '고용24 실업급여(상용직) · 찾기쉬운 생활법령정보';
+const SOURCE = citeOf('SRC-001', 'SRC-011', 'SRC-013');
 
 /** 인터넷 사전제출 조건 (PROC-048). 모두 맞아야 하고, 나이 외에는 서비스가 확인하지 않습니다. */
 const PRESUBMIT_CONDITIONS = [

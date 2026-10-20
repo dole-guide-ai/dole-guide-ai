@@ -1,6 +1,7 @@
 import { EvidenceLine } from '@/components/EvidenceLine';
 import { FieldRow } from '@/features/resume/FieldRow';
 
+import { citeOf } from '@/lib/sources';
 import type { UserState } from '@/types/demo.types';
 
 /**
@@ -12,7 +13,7 @@ interface EducationPanelProps {
   isReadOnly?: boolean;
 }
 
-const SOURCE_WORK24 = '고용24 실업급여(상용직)';
+const SOURCE_WORK24 = citeOf('SRC-001');
 
 export const EducationPanel = ({ state, isReadOnly = false }: EducationPanelProps) => {
   const isVisit = state.age_at_separation >= 65;

@@ -10,6 +10,7 @@ import { EligibilityPanel } from '@/features/steps/EligibilityPanel';
 import { FirstDatePanel } from '@/features/steps/FirstDatePanel';
 
 import { patchSession } from '@/lib/sessionStore';
+import { citeOf } from '@/lib/sources';
 import type { PanelId, ProgressStep, SessionRead } from '@/types/demo.types';
 
 /**
@@ -27,7 +28,7 @@ const PANEL_INFO: Record<PanelId, { name: string; description: string }> = {
   },
 };
 
-const SOURCE_WORK24 = '고용24 실업급여(상용직)';
+const SOURCE_WORK24 = citeOf('SRC-001');
 
 interface PanelFrameProps {
   session: SessionRead;

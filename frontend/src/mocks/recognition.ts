@@ -1,3 +1,4 @@
+import { citeOf } from '@/lib/sources';
 import type { RecognitionFormRead } from '@/types/recognition.types';
 
 /**
@@ -5,7 +6,7 @@ import type { RecognitionFormRead } from '@/types/recognition.types';
  * 본인 답변(근로·취업·산재)과 다음 출석일까지 활동은 비어 있고, 실업크레딧·통지방법은 3차(11.24) 답이 남아 있습니다.
  * 제출 버튼 상태·제출 가능 여부는 백엔드 `submit_mode`·`can_submit` 결과를 흉내 낸 값입니다.
  */
-const SOURCE_FORM = '고용24 실업급여(상용직) · 취업드림수첩 2025';
+const SOURCE_FORM = citeOf('SRC-001', 'SRC-016');
 
 const SELF = { status: 'confirmed', source: 'self_answer' } as const;
 const WORK24 = { status: 'extracted', source: 'work24_import' } as const;
