@@ -1,5 +1,12 @@
 import { formatShortDate } from '@/lib/dateFormat';
-import type { AttendItem, ChecklistKey, SubmitMode } from '@/types/recognition.types';
+import type { ChipSpec } from '@/lib/fieldChip';
+import type { FieldSource } from '@/types/chat.types';
+import type {
+  AttendItem,
+  ChecklistKey,
+  ExcludedActivity,
+  SubmitMode,
+} from '@/types/recognition.types';
 
 /**
  * 패널 C 화면 문구 (2-3.6 표). 어떤 모드인지·낼 수 있는지는 서버 값(`submit_mode`·`can_submit`)을 그대로 쓰고,
@@ -56,6 +63,28 @@ export const CHECKLIST_LABEL: Record<ChecklistKey, string> = {
 export const ATTEND_ITEM_LABEL: Record<AttendItem, string> = {
   id_card: '신분증',
   eligibility_card: '수급자격증',
+};
+
+/** 계산에서 뺀 활동의 이유 (2-2.6 계산 결과와 같은 이름). */
+export const EXCLUDED_REASON_LABEL: Record<ExcludedActivity['reason'], string> = {
+  same_day: '같은 날',
+  out_of_period: '기간 밖',
+  not_allowed: '불인정',
+};
+
+/**
+ * 활동 한 건의 증빙 칩. 고용24로 지원한 건(불러오기)은 별도 증빙이 필요 없고(ACT-132),
+ * 취업 사이트·이메일·면접 등은 증빙이 있어야 해요(ACT-133~141).
+ */
+export const activityEvidenceChip = (activity: {
+  attachment_ids: string[];
+  source: FieldSource;
+}): ChipSpec => {
+  if (activity.attachment_ids.length > 0) return { label: '증빙 있음', tone: 'ok' };
+  if (activity.source === 'work24_import') {
+    return { label: '증빙 불필요 (고용24 지원)', tone: 'neutral' };
+  }
+  return { label: '증빙 필요', tone: 'warn' };
 };
 
 /** 예·아니오 본인 답변 표시. null이면 아직 답하지 않음. */

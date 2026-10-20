@@ -73,7 +73,10 @@ describe('RecognitionPanel', () => {
     expect(screen.getByText('11.25 ~ 12.22')).toBeInTheDocument();
     expect(screen.getByRole('article', { name: '구직활동 OO물류' })).toBeInTheDocument();
     expect(screen.getByRole('article', { name: '구직활동 OO물산' })).toBeInTheDocument();
-    expect(screen.getByText(/같은 날이라 계산에서 뺀 활동 1건/)).toBeInTheDocument();
+    expect(screen.getByText(/계산에서 뺀 활동 1건/)).toBeInTheDocument();
+    expect(screen.getByText(/OO상사 · 같은 날/)).toBeInTheDocument();
+    // 고용24로 지원한 건은 증빙이 따로 필요 없어요 (ACT-132)
+    expect(screen.getAllByText('증빙 불필요 (고용24 지원)')).toHaveLength(2);
     expect(screen.getByText(/출석 회차라 인터넷으로 내지 않아요/)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '출석 준비 확인 (모의)' })).toBeDisabled();
     expect(
@@ -172,7 +175,7 @@ describe('RecognitionPanel', () => {
             course: '온라인 취업특강 프로그램',
             details: null,
             attachment_ids: [],
-            source: 'work24_import',
+            source: 'conversation',
           },
         ],
       },
@@ -184,6 +187,8 @@ describe('RecognitionPanel', () => {
       name: '구직 외 활동 온라인 취업특강 프로그램',
     });
     expect(within(card).getByText('답변 필요')).toBeInTheDocument();
+    // 대화로 더한 활동은 첨부가 없으면 증빙이 필요하다고 보여 줍니다
+    expect(within(card).getByText('증빙 필요')).toBeInTheDocument();
     expect(screen.queryByText('구직활동 외 활동사항 · 없음')).not.toBeInTheDocument();
   });
 });

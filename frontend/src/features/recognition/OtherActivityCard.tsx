@@ -1,4 +1,5 @@
 import { Chip } from '@/components/Chip';
+import { activityEvidenceChip } from '@/features/recognition/recognitionLabels';
 
 import { fieldChip } from '@/lib/fieldChip';
 import type { OtherActivity } from '@/types/recognition.types';
@@ -26,7 +27,7 @@ export const OtherActivityCard = ({ activity }: OtherActivityCardProps) => {
       <div className="flex flex-wrap items-center gap-2">
         <h4 className="text-base font-bold">{activity.course ?? '과정은 고용24에서 골라요'}</h4>
         <Chip {...chip} />
-        <Chip label={activity.attachment_ids.length ? '증빙 있음' : '첨부 없음'} tone="neutral" />
+        <Chip {...activityEvidenceChip(activity)} />
       </div>
       <dl className="flex flex-col gap-1 text-sm">
         {rows.map(([label, value]) => (

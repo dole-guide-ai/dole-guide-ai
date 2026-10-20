@@ -4,7 +4,7 @@ import { Button } from '@/components/Button';
 import { EvidenceLine } from '@/components/EvidenceLine';
 import { JobSearchCard } from '@/features/recognition/JobSearchCard';
 import { OtherActivityCard } from '@/features/recognition/OtherActivityCard';
-import { yesNo } from '@/features/recognition/recognitionLabels';
+import { EXCLUDED_REASON_LABEL, yesNo } from '@/features/recognition/recognitionLabels';
 import { SubmitBox } from '@/features/recognition/SubmitBox';
 import { useConfirmRecognition } from '@/features/recognition/useConfirmRecognition';
 import { useRecognitionDraft } from '@/features/recognition/useRecognitionDraft';
@@ -229,13 +229,13 @@ export const RecognitionPanel = ({
             {activity.excluded.length > 0 && (
               <details className="text-muted text-sm">
                 <summary className="cursor-pointer">
-                  참고 · 같은 날이라 계산에서 뺀 활동 {activity.excluded.length}건 (신청서에 넣지
-                  않아요)
+                  참고 · 계산에서 뺀 활동 {activity.excluded.length}건 (신청서에 넣지 않아요)
                 </summary>
                 <ul className="mt-1 pl-4">
                   {activity.excluded.map((item) => (
                     <li key={item.item_id}>
-                      {formatShortDate(item.activity_date)} {item.company_name}
+                      {formatShortDate(item.activity_date)} {item.company_name} ·{' '}
+                      {EXCLUDED_REASON_LABEL[item.reason]}
                     </li>
                   ))}
                 </ul>
