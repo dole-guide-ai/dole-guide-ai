@@ -1,23 +1,22 @@
 'use client';
 
-import { type KeyboardEvent, useState } from 'react';
+import type { KeyboardEvent } from 'react';
 
 import { Button } from '@/components/Button';
 
-/** 입력창 (2-0.4·2-0.5). 글·말·사진 세 가지와 개인정보 안내가 늘 보입니다. */
+/** 입력창 (2-0.4·2-0.5). 글·말·사진 세 가지와 개인정보 안내가 늘 보입니다. 글자 상태는 부모가 가집니다. */
 interface ChatInputProps {
+  value: string;
+  onChange: (value: string) => void;
   onSend: (text: string) => void;
   isDisabled?: boolean;
-  disabledReason?: string;
 }
 
-export const ChatInput = ({ onSend, isDisabled = false, disabledReason }: ChatInputProps) => {
-  const [text, setText] = useState('');
+export const ChatInput = ({ value, onChange, onSend, isDisabled = false }: ChatInputProps) => {
+  const canSend = !isDisabled && value.trim().length > 0;
 
   const handleSend = () => {
-    if (isDisabled || !text.trim()) return;
-    onSend(text);
-    setText('');
+    if (canSend) onSend(value);
   };
 
   const handleKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -30,12 +29,12 @@ export const ChatInput = ({ onSend, isDisabled = false, disabledReason }: ChatIn
   return (
     <div className="border-line bg-surface flex flex-col gap-2 border-t p-3">
       <textarea
-        value={text}
-        onChange={(event) => setText(event.target.value)}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
         onKeyDown={handleKeyDown}
         disabled={isDisabled}
         rows={2}
-        placeholder={isDisabled && disabledReason ? disabledReason : '여기에 말씀하듯 적어 주세요'}
+        placeholder={isDisabled ? '답을 만드는 중이에요…' : '여기에 말씀하듯 적어 주세요'}
         aria-label="메시지 입력"
         className="border-line focus-visible:border-brand focus-visible:ring-brand/40 disabled:bg-neutral-soft w-full resize-none rounded-xl border px-4 py-3 text-base focus-visible:ring-3 focus-visible:outline-hidden"
       />
@@ -44,7 +43,7 @@ export const ChatInput = ({ onSend, isDisabled = false, disabledReason }: ChatIn
           variant="secondary"
           size="lg"
           disabled
-          title="음성 입력은 다음 단계에서 연결돼요"
+          title="음성 입력은 서버 음성 인식 경로를 정한 뒤 연결돼요"
           aria-label="눌러서 말하기"
         >
           🎤 말하기
@@ -53,17 +52,12 @@ export const ChatInput = ({ onSend, isDisabled = false, disabledReason }: ChatIn
           variant="secondary"
           size="lg"
           disabled
-          title="사진 올리기는 다음 단계에서 연결돼요"
+          title="사진 올리기는 이력서 단계에서 열려요"
           aria-label="사진 올리기"
         >
           📷 사진
         </Button>
-        <Button
-          size="lg"
-          onClick={handleSend}
-          disabled={isDisabled || !text.trim()}
-          className="ml-auto"
-        >
+        <Button size="lg" onClick={handleSend} disabled={!canSend} className="ml-auto">
           보내기
         </Button>
       </div>

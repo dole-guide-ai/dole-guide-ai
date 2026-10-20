@@ -6,6 +6,17 @@ interface MessageBubbleProps {
 }
 
 export const MessageBubble = ({ message }: MessageBubbleProps) => {
+  if (message.role === 'system') {
+    return (
+      <p
+        role="alert"
+        className="bg-danger-soft text-danger self-center rounded-xl px-4 py-2 text-center text-sm"
+      >
+        {message.text}
+      </p>
+    );
+  }
+
   const isUser = message.role === 'user';
 
   return (
