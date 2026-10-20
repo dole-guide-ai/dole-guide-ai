@@ -54,6 +54,35 @@ describe('ResumePanel', () => {
     expect(await screen.findAllByText('시설관리 (직종 확인 필요)')).toHaveLength(2);
   });
 
+  it('학력은 최종학력을 표시하고, 대학 이상인데 학점이 비면 고용24 입력 때 필요하다고 남긴다 (2-1.2 · 2-1.8)', async () => {
+    const choi = MOCK_RESUMES.choi;
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async () =>
+      Response.json({
+        ...choi,
+        education: [
+          ...choi.education,
+          {
+            item_id: 'edu_002',
+            level: '대학교(4년제)',
+            graduation_status: '졸업',
+            school_name: 'OO대학교',
+            start_date: '1979-03',
+            end_date: '1983-02',
+            major: '경영학',
+            gpa: null,
+          },
+        ],
+      }),
+    );
+
+    renderWithProviders(<ResumePanel session={buildMockSession('choi')} />);
+
+    expect(
+      await screen.findByText('OO고등학교 · 졸업 · 1975.03 ~ 1978.02 · 최종학력'),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/전공 경영학 · 학점 빈칸 \(고용24 입력 때 필요\)/)).toBeInTheDocument();
+  });
+
   it('컴퓨터 활용(객체)과 기타자격을 보여 준다', async () => {
     const park = MOCK_RESUMES.park;
     vi.spyOn(globalThis, 'fetch').mockImplementation(async () =>
