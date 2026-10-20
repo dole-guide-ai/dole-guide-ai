@@ -23,9 +23,20 @@ export interface UnemploymentCredit {
   answered_on: string | null;
 }
 
+/** 근로 있음 상세 (2-3.3, 고용24 칸): 일한 날·총 근로시간·소득수령(예정)일·소득수령(예정)액 */
+export interface WorkDetails {
+  work_dates: string | null;
+  total_hours: number | null;
+  income_date: string | null;
+  /** 원 단위 */
+  income_amount: number | null;
+}
+
 /** 근로 및 취업내역 (2-3.3). 기본값이 없고, 답하기 전에는 null. */
 export interface WorkAndEmployment {
   has_work_or_service: boolean | null;
+  /** 근로 있음일 때만 */
+  work_details?: WorkDetails | null;
   has_employment: boolean | null;
   has_industrial_accident_benefit_right: boolean | null;
   answered_on: string | null;

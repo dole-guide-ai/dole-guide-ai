@@ -330,8 +330,103 @@ const consentAnswer = (value: 'agree' | 'disagree' | 'decide_on_work24') => (): 
   ),
 ];
 
+const ASK_EMPLOYMENT = ask(
+  'form.employment',
+  '같은 기간에 취업했거나 취업이 정해졌나요? 개인 사업을 시작한 것도 포함이에요.',
+  ['아니요, 안 했어요', '네, 취업했어요'],
+);
+
+/** 근로 있음 상세 (2-3.3): 고용24 칸대로 일한 날 → 총 근로시간 → 소득수령(예정)일 → 금액을 하나씩 묻습니다. */
+const workDetail = (path: string, value: unknown) =>
+  answer(`work_and_employment.work_details.${path}`, value);
+
+/** 작성을 멈추는 답 (2-3.3 질문 2·3): 패널 C를 잠그고 고용센터 문의를 안내합니다. */
+const lockForm = (
+  path: string,
+  reason: 'employment' | 'industrial_accident',
+  text: string,
+): SseMessage[] => [
+  answer(path, true),
+  update('recognition', 'locked_reason', 'set', { value: reason }),
+  ...say(text, SOURCE_FORM, reason === 'employment' ? ['PROC-079'] : ['ACT-086']),
+];
+
+const LEE_WORK: Script = {
+  있어요: () => [
+    answer('work_and_employment.has_work_or_service', true),
+    update('recognition', 'work_and_employment.work_details', 'set', {
+      value: { work_dates: null, total_hours: null, income_date: null, income_amount: null },
+    }),
+    ...say('일한 날은 신청서에 꼭 적어야 해요. 고용24 칸대로 하나씩 여쭤볼게요.'),
+    ask('form.work_dates', '언제 일하셨어요? 일한 날을 모두 말해 주세요.', ['12월 5일 하루요']),
+  ],
+  '12월 5일 하루요': () => [
+    workDetail('work_dates', '2026-12-05 (1일)'),
+    ask('form.work_hours', '그날 모두 몇 시간 일하셨어요?', ['8시간이요']),
+  ],
+  '8시간이요': () => [
+    workDetail('total_hours', 8),
+    ask('form.income_date', '돈은 언제 받으셨어요? 아직이면 받기로 한 날을 알려 주세요.', [
+      '12월 10일에 받았어요',
+    ]),
+  ],
+  '12월 10일에 받았어요': () => [
+    workDetail('income_date', '2026-12-10'),
+    ask('form.income_amount', '얼마를 받으셨어요?', ['10만 원이요']),
+  ],
+  '10만 원이요': () => [
+    workDetail('income_amount', 100000),
+    update('recognition', 'work_and_employment.answered_on', 'set', { value: ANSWERED }),
+    ...say(
+      '12월 5일 8시간, 12월 10일에 10만 원으로 적었어요. 일한 시간이 길면 취업으로 볼 수도 있어요. 고용센터에 확인해 주세요.',
+      SOURCE_FORM,
+      ['DUE-045', 'DUE-102'],
+    ),
+    ASK_EMPLOYMENT,
+  ],
+  '잘 모르겠어요': () => [
+    ...say(
+      '하루라도 아르바이트나 일용직을 했거나, 수당을 받고 회의에 나갔거나, 블로그·유튜브로 수익이 났다면 모두 신고해야 해요. 금액이나 이름과 관계없어요.',
+      SOURCE_FORM,
+      ['DUE-102'],
+    ),
+    ask('form.work_retry', '이 중에 해당하는 게 있었나요?', [
+      '없어요',
+      '있어요',
+      '그래도 모르겠어요',
+    ]),
+  ],
+  '그래도 모르겠어요': () => [
+    update('recognition', 'work_and_employment.has_work_or_service', 'set', {
+      value: null,
+      status: 'conflict',
+      source: 'self_answer',
+      evidence: { kind: 'utterance', date: ANSWERED, note: '본인이 잘 모르겠다고 답함' },
+    }),
+    ...say(
+      '그럼 이 칸은 확인 필요로 둘게요. 제출 전에 관할 고용센터에 꼭 확인해 주세요. 이 칸이 정해지기 전에는 제출할 수 없어요.',
+      SOURCE_FORM,
+      ['DUE-002'],
+    ),
+    ASK_EMPLOYMENT,
+  ],
+  '네, 취업했어요': () =>
+    lockForm(
+      'work_and_employment.has_employment',
+      'employment',
+      '취업을 축하드려요. 실업인정일 전에 관할 고용센터에 먼저 문의해 주세요. 신청서와 근로계약서(재직증명서)는 취업일로부터 2개월 안에 내야 해요. 고용24 `취업사실 신고` 메뉴에서 신고할 수 있어요.',
+    ),
+  '네, 받고 있어요': () =>
+    lockForm(
+      'work_and_employment.has_industrial_accident_benefit_right',
+      'industrial_accident',
+      '이 경우는 인터넷으로 실업인정을 신청할 수 없어요. 출석일 전에 관할 고용센터에 문의해 주세요.',
+    ),
+};
+
 /** 신청서 본인 답변 → 출석 준비 확인 → 다음 실업인정일 (시안 2-3-1 → 2-3-2 → 5차 첫 화면). */
 const LEE_FORM: Script = {
+  ...LEE_WORK,
   [OPEN_FORM_MESSAGE]: () => openForm(),
   '신청서 볼게요': () => openForm(),
   '네, 볼게요': () => openForm(),
