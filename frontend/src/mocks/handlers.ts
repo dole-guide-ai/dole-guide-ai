@@ -2,6 +2,7 @@ import { ApiError } from '@/lib/api';
 import { getSession } from '@/lib/sessionStore';
 import type { FormPatchCreate, FormUpdateEvent } from '@/types/chat.types';
 import type { DemoAuthCreate, PersonaCardRead, SessionRead } from '@/types/demo.types';
+import type { ImportKind } from '@/types/imports.types';
 import type { MyDataDelete, MyDataRead } from '@/types/myData.types';
 import type { ProcedurePatchCreate } from '@/types/procedure.types';
 import type { RecognitionConfirmCreate } from '@/types/recognition.types';
@@ -13,6 +14,7 @@ import {
   MOCK_ROUND_CHECKS,
 } from './activities';
 import { MOCK_AFTER_RESUME_ENTRIES, MOCK_ENTRIES } from './entries';
+import { MOCK_IMPORTS } from './imports';
 import { MOCK_MY_DATA, MOCK_MY_DATA_DELETE_UPDATES, MOCK_NOT_STORED } from './myData';
 import { findMockPersona, MOCK_PERSONAS } from './personas';
 import { MOCK_RECOGNITION_FORMS } from './recognition';
@@ -127,6 +129,12 @@ export const resolveMock = async <T>(path: string, init?: RequestInit): Promise<
     const recommendations = personaId ? MOCK_RECOMMENDATIONS[personaId] : undefined;
     if (!recommendations) throw new ApiError('NOT_FOUND', '추천할 활동이 없어요.', 404);
     return recommendations as T;
+  }
+
+  const importMatch = /^\/imports\/(career-certificate|work24-activities)$/.exec(path);
+  if (method === 'GET' && importMatch) {
+    const list = personaId ? MOCK_IMPORTS[importMatch[1] as ImportKind][personaId] : undefined;
+    return (list ?? { items: [], source_note: '불러올 내역이 없어요.' }) as T;
   }
 
   if (method === 'GET' && path === '/me/data') {

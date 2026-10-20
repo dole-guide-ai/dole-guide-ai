@@ -3,6 +3,8 @@
  * 백엔드 API가 올라오면 `api.gen.ts` 타입으로 바꿉니다.
  */
 
+import type { ImportKind } from '@/types/imports.types';
+
 export type ChatInputKind = 'text' | 'voice' | 'choice';
 
 /** POST /sessions/{session_id}/chat 본문 */
@@ -10,6 +12,8 @@ export interface ChatCreate {
   message: string;
   input_kind: ChatInputKind;
   file_ids?: string[];
+  /** 고용24 불러오기 목록에서 고른 항목 (2-0.4). 고른 것만 보냅니다. */
+  import_ids?: string[];
 }
 
 export interface TokenEvent {
@@ -25,6 +29,8 @@ export interface AskUserEvent {
   question_id: string;
   text: string;
   choices: string[];
+  /** 고용24 불러오기 목록을 열 때 (2-0.4). 대화창 안에서 고르게 합니다. */
+  import_kind?: ImportKind;
 }
 
 export type FormKind = 'resume' | 'activities' | 'recognition' | 'procedure';
