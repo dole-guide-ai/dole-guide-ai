@@ -1,6 +1,9 @@
 import { OPEN_FORM_MESSAGE } from '@/features/procedure/activityLabels';
+import { CONFIRMED_MESSAGE } from '@/features/recognition/recognitionLabels';
 
 import type { FormUpdateEvent, SseMessage } from '@/types/chat.types';
+
+import { MOCK_PERSONAS } from './personas';
 
 /**
  * 모의 대화 스크립트. 선택지·짧은 말에 대한 응답을 상세기획 문구로 미리 적어 둔다.
@@ -262,6 +265,169 @@ const choiCareer = (): SseMessage[] => [
   ]),
 ];
 
+const SOURCE_FORM = '고용24 실업급여(상용직) · 취업드림수첩 2025';
+const ANSWERED = '2026-12-16';
+const SELF_ANSWER = {
+  status: 'confirmed',
+  source: 'self_answer',
+  evidence: { kind: 'utterance', date: ANSWERED },
+} as const;
+
+/** 본인 답변 칸 하나를 채웁니다 (2-3.3: 기본값 없이 사용자가 답한 값만). */
+const answer = (path: string, value: unknown) =>
+  update('recognition', path, 'set', { value, ...SELF_ANSWER });
+
+const checklist = (done: { self_answers?: boolean; next_activity?: boolean }) =>
+  update('recognition', 'checklist', 'set', {
+    value: [
+      { key: 'self_answers', done: done.self_answers ?? false, blocking: true },
+      { key: 'job_search_fields', done: true, blocking: true },
+      { key: 'notification', done: true, blocking: true },
+      { key: 'next_activity', done: done.next_activity ?? false, blocking: true },
+      { key: 'unemployment_credit', done: true, blocking: false },
+      { key: 'requirement_met', done: true, blocking: false },
+      { key: 'evidence_ok', done: true, blocking: false },
+    ],
+  });
+
+/** 패널 B → C (2-2.9 → 2-3): 서버가 시작 패널을 C로 바꾸고 본인 답변 질문부터 합니다 (시안 2-3-1). */
+const openForm = (): SseMessage[] => [
+  update('procedure', 'entry.panel', 'set', { value: 'C' }),
+  update('procedure', 'entry.title', 'set', { value: '실업인정 신청서 검토' }),
+  ...say(
+    '4차 신청서를 고용24 순서대로 정리했어요. 구직활동 2건은 고용24 불러오기라 칸이 다 차 있고, 같은 날 뺀 OO상사는 참고로만 보여 드려요. 이제 본인이 꼭 답해야 하는 질문을 할게요.',
+  ),
+  ...say(
+    '11월 25일(수)부터 12월 22일(화) 사이에 하루라도 일하거나 돈을 번 적이 있나요? 아르바이트, 일용직, 수당 받는 회의 참석, 블로그·유튜브 수익도 포함이에요.',
+    SOURCE_FORM,
+    ['DUE-002', 'DUE-102'],
+  ),
+  ask('form.work', '답을 골라 주세요. 기본값은 없어요.', ['없어요', '있어요', '잘 모르겠어요']),
+];
+
+const consentAnswer = (value: 'agree' | 'disagree' | 'decide_on_work24') => (): SseMessage[] => [
+  answer('personal_information_consent', { value, answered_on: ANSWERED }),
+  update('recognition', 'can_submit', 'set', { value: true }),
+  ...say(
+    "제출 전 확인을 다 마쳤어요. 4차는 고용센터에 직접 가는 출석 회차라 인터넷으로 내지 않아요. 오른쪽에서 신분증과 수급자격증을 챙겼는지 체크하고 '출석 준비 확인 (모의)'를 눌러 주세요. 신청은 본인이 직접 해요.",
+    SOURCE_FORM,
+    ['ACT-040', 'PROC-076', 'DUE-001'],
+  ),
+];
+
+/** 신청서 본인 답변 → 출석 준비 확인 → 다음 실업인정일 (시안 2-3-1 → 2-3-2 → 5차 첫 화면). */
+const LEE_FORM: Script = {
+  [OPEN_FORM_MESSAGE]: () => openForm(),
+  '신청서 볼게요': () => openForm(),
+  '네, 볼게요': () => openForm(),
+  없어요: () => [
+    answer('work_and_employment.has_work_or_service', false),
+    ask(
+      'form.employment',
+      '같은 기간에 취업했거나 취업이 정해졌나요? 개인 사업을 시작한 것도 포함이에요.',
+      ['아니요, 안 했어요', '네, 취업했어요'],
+    ),
+  ],
+  '아니요, 안 했어요': () => [
+    answer('work_and_employment.has_employment', false),
+    ask('form.accident', '산재 휴업급여를 받고 있거나 받을 권리가 있나요?', [
+      '아니요, 해당 없어요',
+      '네, 받고 있어요',
+    ]),
+  ],
+  '아니요, 해당 없어요': () => [
+    answer('work_and_employment.has_industrial_accident_benefit_right', false),
+    update('recognition', 'work_and_employment.answered_on', 'set', { value: ANSWERED }),
+    checklist({ self_answers: true }),
+    ask(
+      'form.notification',
+      "구직급여 지급 결정 통지는 지난번처럼 '휴대전화 문자메시지'로 둘까요?",
+      ['그대로 둘게요', '바꿀게요'],
+    ),
+  ],
+  '그대로 둘게요': () => [
+    answer('notification_and_plan.payment_notification_method', '휴대전화 문자메시지'),
+    ...say(
+      '5차는 4주에 활동 2건, 그중 구직활동 1건이 꼭 있어야 해요. 다음 출석일까지 할 활동은 고용24 선택지에서 하나를 골라 적어요.',
+      SOURCE_2026_NOTICE,
+      ['ACT-027', 'ACT-028'],
+    ),
+    ask('form.next_activity', "'구직활동'에 메모 '입사지원'으로 적을까요?", [
+      '네, 그렇게 할게요',
+      '다른 활동이요',
+    ]),
+  ],
+  '네, 그렇게 할게요': () => [
+    answer('notification_and_plan.next_activity', {
+      value: '구직활동',
+      memo: '입사지원',
+      answered_on: ANSWERED,
+    }),
+    checklist({ self_answers: true, next_activity: true }),
+    ask(
+      'form.consent',
+      '실업급여 제도 안내 연락 같은 개인정보 이용 동의는 선택이에요. 어떻게 할까요?',
+      ['동의해요', '안 할래요', '고용24에서 고를게요'],
+    ),
+  ],
+  동의해요: consentAnswer('agree'),
+  '안 할래요': consentAnswer('disagree'),
+  '고용24에서 고를게요': consentAnswer('decide_on_work24'),
+  [CONFIRMED_MESSAGE.attend]: () => [
+    ...say(
+      '12월 22일(화)에 고용센터에 다녀오시면 다음 실업인정일을 알려 주세요. 다음 회차 준비를 이어서 도와드릴게요.',
+    ),
+    ask('procedure.next_date', '다음 실업인정일을 안내받으면 말씀해 주세요.', [
+      '다음은 1월 19일이래요',
+    ]),
+  ],
+};
+
+const LEE_PERSONA = MOCK_PERSONAS.find((persona) => persona.persona_id === 'lee');
+
+/**
+ * "다음은 1월 19일이래요" (2-3.7 · 평가 form-005): 백엔드 `advance_round` 결과를 흉내 내 세션의
+ * 상태·파생값·진입 결과를 5차로 바꿉니다. 시연 계정은 기준일도 이번 인정일(12.22)로 옮깁니다.
+ */
+const advanceRound = (): SseMessage[] => {
+  if (!LEE_PERSONA) return [];
+  return [
+    ...tool('update_procedure_state'),
+    update('procedure', 'state', 'set', {
+      value: {
+        ...LEE_PERSONA.state,
+        completed_rounds: 4,
+        last_recognition_date: '2026-12-22',
+        next_recognition_date: '2027-01-19',
+        demo_today: '2026-12-22',
+      },
+    }),
+    update('procedure', 'derived', 'set', {
+      value: {
+        ...LEE_PERSONA.derived,
+        current_round: 5,
+        d_day: 28,
+        period: { start: '2026-12-23', end: '2027-01-19' },
+        is_attendance_round: false,
+      },
+    }),
+    update('procedure', 'entry.panel', 'set', { value: 'B' }),
+    update('procedure', 'entry.title', 'set', { value: '이번 회차 할 일' }),
+    update('procedure', 'entry.next_step_text', 'set', {
+      value: '다음 기한 : 5차 실업인정일 1.19(화)',
+    }),
+    ...say(
+      '이정호님, 4차 실업인정까지 받으셨네요. 이제 5차 실업인정 준비를 시작해 볼까요? 1월 19일(화)까지 28일 남았어요.',
+    ),
+    ...say(
+      '5차는 4주에 활동 2건, 그중 구직활동 1건이 꼭 있어야 해요. 지금 기록된 활동은 0건이라 2건이 더 필요해요. 5차는 인터넷으로 신청할 수 있어요.',
+      SOURCE_2026_NOTICE,
+      ['ACT-027', 'ACT-028', 'DUE-044', 'DUE-090'],
+    ),
+    ask('entry.choices', '무엇부터 할까요?', ['부족한 활동 추천해 주세요', '새 활동 기록할게요']),
+  ];
+};
+
 const LEE: Script = {
   '부족한 활동 추천해 주세요': () => [
     ...tool('check_activity_rules'),
@@ -285,11 +451,7 @@ const LEE: Script = {
       '고용24 채용정보에서 일반 사무 공고를 골라 지원해 주세요. 지원하시면 여기서 "방금 고용24로 OO물산에 지원했어요"처럼 말씀해 주세요.',
     ),
   ],
-  [OPEN_FORM_MESSAGE]: () => [
-    ...say(
-      '이번 회차 활동으로 실업인정 신청서를 고용24 순서대로 정리할게요. 신청서 화면(패널 C)은 다음 단계에서 열려요.',
-    ),
-  ],
+  ...LEE_FORM,
   '신청서 미리 볼래요': () => [
     ...say('아직 1건이 부족해요. 그래도 신청서를 볼까요?'),
     ask('round.open_form', '신청서를 열면 본인 답변 질문부터 시작해요.', [
@@ -300,6 +462,7 @@ const LEE: Script = {
 };
 
 const RECORD_PATTERN = /고용24.*지원|지원.*고용24/;
+const NEXT_DATE_PATTERN = /1월\s*19일/;
 const PARK_CAREER_PATTERN = /OO산업|프레스|반장/;
 const CHOI_CAREER_PATTERN = /OO빌딩|2022/;
 
@@ -340,7 +503,7 @@ const recordActivity = (): SseMessage[] => [
     SOURCE_2026_NOTICE,
     ['ACT-132', 'ACT-025', 'ACT-026'],
   ),
-  ask('round.satisfied', '다음으로 무엇을 할까요?', ['신청서 미리 볼래요', '활동 더 기록할게요']),
+  ask('round.satisfied', '다음으로 무엇을 할까요?', ['신청서 볼게요', '활동 더 기록할게요']),
 ];
 
 const BY_PERSONA: Record<string, Script> = { park: PARK, choi: CHOI, lee: LEE };
@@ -419,6 +582,7 @@ export const buildMockChatEvents = (
   const script = BY_PERSONA[personaId]?.[key] ?? COMMON[key];
   if (script) return script(entryChoices);
   if (personaId === 'lee' && RECORD_PATTERN.test(key)) return recordActivity();
+  if (personaId === 'lee' && NEXT_DATE_PATTERN.test(key)) return advanceRound();
   if (personaId === 'park' && PARK_CAREER_PATTERN.test(key)) return parkCareer();
   if (personaId === 'choi' && CHOI_CAREER_PATTERN.test(key)) return choiCareer();
 

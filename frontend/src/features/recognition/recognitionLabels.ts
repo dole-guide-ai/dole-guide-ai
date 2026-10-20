@@ -61,3 +61,9 @@ export const ATTEND_ITEM_LABEL: Record<AttendItem, string> = {
 /** 예·아니오 본인 답변 표시. null이면 아직 답하지 않음. */
 export const yesNo = (value: boolean | null | undefined) =>
   value === null || value === undefined ? null : value ? '있음' : '없음';
+
+/** 모의 제출·출석 준비 확인 뒤 다음 안내(2-3.7)를 이어 가려고 대화로 보내는 말 */
+export const CONFIRMED_MESSAGE = {
+  attend: '출석 준비 확인했어요',
+  send: '신청서 제출했어요',
+} as const;
