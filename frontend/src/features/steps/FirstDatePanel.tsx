@@ -36,6 +36,11 @@ export const FirstDatePanel = ({ state }: FirstDatePanelProps) => (
         value={state.next_recognition_date ? formatShortDate(state.next_recognition_date) : null}
       />
     </dl>
+    {/* DUE-057: 대기기간은 실업 신고일부터 셉니다 (건설일용 예외는 별도). */}
+    <p className="bg-canvas text-ink rounded-xl px-4 py-3 text-base">
+      실업 신고일부터 7일은 대기기간이라 구직급여가 나오지 않아요. 1차 실업인정 때 받는 금액이
+      생각보다 적을 수 있어요.
+    </p>
     <EvidenceLine cite={SOURCE} />
   </div>
 );

@@ -52,6 +52,25 @@ describe('패널 E · Q · E5b (정적)', () => {
     expect(screen.getByText('신분증')).toBeInTheDocument();
   });
 
+  it('Q 수급자격 신청: 65세 미만은 인터넷 사전제출 조건 4개와 수급기간 12개월을 안내한다', () => {
+    renderWithProviders(
+      <PanelFrame
+        session={withPanel(
+          'park',
+          'Q',
+          { stage: 'eligibility_application' },
+          { can_presubmit_online: true },
+        )}
+      />,
+    );
+
+    const conditions = screen.getByRole('region', { name: '인터넷 사전제출 조건' });
+    expect(conditions.querySelectorAll('li')).toHaveLength(4);
+    expect(screen.getByText(/180일 이상/)).toBeInTheDocument();
+    expect(screen.getByText(/그다음 고용센터에 한 번 가야 해요/)).toBeInTheDocument();
+    expect(screen.getByText(/12개월 안에서만 받을 수 있어요/)).toBeInTheDocument();
+  });
+
   it('E5b: 신청을 마친 단계의 패널 B는 1차 실업인정일 입력을 요청한다', () => {
     renderWithProviders(
       <PanelFrame
@@ -64,6 +83,7 @@ describe('패널 E · Q · E5b (정적)', () => {
 
     expect(screen.getByText('1차 실업인정일을 알려 주세요')).toBeInTheDocument();
     expect(screen.getByText('9.15(화)')).toBeInTheDocument();
+    expect(screen.getByText(/7일은 대기기간이라/)).toBeInTheDocument();
     expect(screen.queryByLabelText('필요 활동 결과')).not.toBeInTheDocument();
   });
 });

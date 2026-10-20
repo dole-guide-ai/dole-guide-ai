@@ -97,6 +97,13 @@ export const SubmitBox = ({
       {!isDone && remaining.length === 0 && !hasAllItems && (
         <p className="text-muted text-sm">준비물을 챙겼는지 체크해 주세요.</p>
       )}
+      {/* PROC-080·081: 전송 뒤 처리 상태 확인, 회수해서 고치면 다시 전송 */}
+      {isDone && mode === 'send' && (
+        <p className="bg-brand-soft text-brand rounded-xl px-4 py-3 text-base">
+          고용24 마이페이지 → 민원처리현황에서 신청 완료가 됐는지 꼭 확인해 주세요. 신청서를
+          회수해서 고쳤다면 반드시 다시 전송해야 해요.
+        </p>
+      )}
     </section>
   );
 };
