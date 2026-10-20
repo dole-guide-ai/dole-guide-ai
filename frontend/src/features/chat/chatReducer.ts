@@ -1,4 +1,4 @@
-import type { ChatMessage } from '@/features/chat/chat.types';
+import type { ChatAttachment, ChatMessage } from '@/features/chat/chat.types';
 
 import type { ChatInputKind } from '@/types/chat.types';
 import type { SessionRead } from '@/types/demo.types';
@@ -18,7 +18,7 @@ export interface ChatState {
 
 export type ChatAction =
   | { type: 'reset'; session: SessionRead }
-  | { type: 'user_sent'; text: string; inputKind: ChatInputKind }
+  | { type: 'user_sent'; text: string; inputKind: ChatInputKind; attachments?: ChatAttachment[] }
   | { type: 'token'; text: string }
   | { type: 'ask_user'; text: string; choices: string[] }
   | { type: 'done'; cite?: string }
@@ -63,6 +63,7 @@ export const chatReducer = (state: ChatState, action: ChatAction): ChatState => 
           role: 'user',
           text: action.text,
           inputKind: action.inputKind,
+          attachments: action.attachments,
         }),
         choices: [],
       };

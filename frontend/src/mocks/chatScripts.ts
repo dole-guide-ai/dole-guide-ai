@@ -327,11 +327,76 @@ const recordActivity = (): SseMessage[] => [
 
 const BY_PERSONA: Record<string, Script> = { park: PARK, choi: CHOI, lee: LEE };
 
+const DOC = { status: 'extracted', source: 'document' } as const;
+const CERT_DOC_EVIDENCE = { kind: 'document', note: '경력증명서 사진' };
+
+/** 박진수가 경력증명서 사진을 올렸을 때 (시안 2-1-1 ①): 주민등록번호 가림 안내 + 서류 값 + 다음 질문. */
+const parkDocument = (): SseMessage[] => [
+  ...tool('parse_file'),
+  update('resume', 'competencies.careers', 'append', {
+    value: {
+      item_id: 'career_001',
+      company_name: 'OO산업',
+      start_date: '2004-03',
+      end_date: '2026-09',
+      position: null,
+      employment_status: '퇴직',
+      occupation: { code: null, name: '생산직(프레스)', status: 'needs_confirmation' },
+      main_duties: null,
+      monthly_salary: null,
+      additional_details: null,
+    },
+  }),
+  ...['company_name', 'start_date', 'end_date'].map((key) =>
+    update('resume', `competencies.careers.career_001.${key}`, 'set', {
+      ...DOC,
+      evidence: CERT_DOC_EVIDENCE,
+    }),
+  ),
+  update('resume', 'competencies.careers.career_001.employment_status', 'set', {
+    status: 'confirmed',
+    source: 'computed',
+  }),
+  update('resume', 'competencies.certifications', 'append', {
+    value: {
+      item_id: 'cert_001',
+      certificate_name: '지게차운전기능사',
+      issuing_organization: null,
+      acquired_date: null,
+    },
+  }),
+  update('resume', 'competencies.certifications.cert_001.certificate_name', 'set', {
+    ...DOC,
+    evidence: { kind: 'document', note: '자격증 사진' },
+    completeness: { done: 1, total: 5 },
+  }),
+  update('resume', 'next_question', 'set', { value: 'resume.career_duties' }),
+  ...say(
+    '주민등록번호가 보여 가리고 읽었어요(저장하지 않아요). OO산업 2004.03 ~ 2026.09 근무와 지게차운전기능사 자격을 확인했어요.',
+  ),
+  ask('resume.career_duties', 'OO산업에서 주로 어떤 일을 하셨어요?', []),
+];
+
+const documentFallback = (entryChoices: string[]): SseMessage[] => [
+  ...say(
+    '이 사진에서는 이력서에 쓸 내용을 못 찾았어요. 경력증명서·자격증·예전 이력서 사진이면 다시 올려 주세요.',
+  ),
+  ask('resume.doc_retry', '어떻게 할까요?', [
+    '다시 찍을게요',
+    '말로 할게요',
+    ...entryChoices.slice(0, 1),
+  ]),
+];
+
 export const buildMockChatEvents = (
   personaId: string,
   message: string,
   entryChoices: string[],
+  fileIds?: string[],
 ): SseMessage[] => {
+  if (fileIds?.length) {
+    return personaId === 'park' ? parkDocument() : documentFallback(entryChoices);
+  }
   const key = message.trim();
   const script = BY_PERSONA[personaId]?.[key] ?? COMMON[key];
   if (script) return script(entryChoices);

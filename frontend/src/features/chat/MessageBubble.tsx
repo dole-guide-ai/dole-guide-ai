@@ -24,6 +24,14 @@ export const MessageBubble = ({ message }: MessageBubbleProps) => {
       {isUser && message.inputKind === 'voice' && (
         <span className="text-muted text-xs">음성 입력</span>
       )}
+      {message.attachments?.map((attachment) => (
+        <span
+          key={attachment.name}
+          className="border-line bg-surface text-ink rounded-lg border px-3 py-1 text-sm"
+        >
+          📎 {attachment.name} · 읽기 요청
+        </span>
+      ))}
       <div
         className={`max-w-[85%] rounded-2xl px-4 py-3 text-base leading-relaxed whitespace-pre-line ${
           isUser

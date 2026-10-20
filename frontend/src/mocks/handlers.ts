@@ -1,5 +1,6 @@
 import { ApiError } from '@/lib/api';
 import { getSession } from '@/lib/sessionStore';
+import type { FormPatchCreate, FormUpdateEvent } from '@/types/chat.types';
 import type { DemoAuthCreate, PersonaCardRead, SessionRead } from '@/types/demo.types';
 
 import { MOCK_AFTER_RESUME_ENTRIES, MOCK_ENTRIES } from './entries';
@@ -89,5 +90,52 @@ export const resolveMock = async <T>(path: string, init?: RequestInit): Promise<
     } as T;
   }
 
+  if (method === 'POST' && path === '/files') {
+    if (!(init?.body instanceof FormData) || !init.body.get('file')) {
+      throw new ApiError('VALIDATION_ERROR', '파일이 없어요.', 422);
+    }
+    const stamp = Date.now();
+    return { file_id: `file-${stamp}`, job_id: `job-${stamp}` } as T;
+  }
+
+  if (method === 'PATCH' && path === '/forms/resume') {
+    const body = parseBody<FormPatchCreate>(init);
+    if (!body?.path) throw new ApiError('VALIDATION_ERROR', '고칠 칸을 알 수 없어요.', 422);
+    return { updates: [mockPatchUpdate(body)] } as T;
+  }
+
   throw new ApiError('NOT_FOUND', `모의 응답이 없는 경로: ${method} ${path}`, 404);
+};
+
+const YEAR_MONTH = /^\d{4}-(0[1-9]|1[0-2])$/;
+
+/** 직접 입력 값 정리 흉내 (2-1.4): 날짜 칸은 연-월 형식만 받고, 그 밖에는 `직접 입력`으로 확정합니다. */
+const mockPatchUpdate = (body: FormPatchCreate): FormUpdateEvent => {
+  const value = typeof body.value === 'string' ? body.value.trim() : body.value;
+  if (body.op === 'remove') return { form: 'resume', path: body.path, op: 'remove' };
+  if (value === '' || value === undefined) {
+    throw new ApiError('VALIDATION_ERROR', '값을 적어 주세요.', 422);
+  }
+  if (/(start|end|acquired)_date$/.test(body.path) && typeof value === 'string') {
+    const normalized = value.replaceAll('.', '-').replace(/-(\d)$/, '-0$1');
+    if (!YEAR_MONTH.test(normalized)) {
+      throw new ApiError('VALIDATION_ERROR', '날짜는 2004-03처럼 연-월로 적어 주세요.', 422);
+    }
+    return {
+      form: 'resume',
+      path: body.path,
+      op: 'set',
+      value: normalized,
+      status: 'confirmed',
+      source: 'manual',
+    };
+  }
+  return {
+    form: 'resume',
+    path: body.path,
+    op: 'set',
+    value,
+    status: 'confirmed',
+    source: 'manual',
+  };
 };

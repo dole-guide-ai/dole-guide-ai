@@ -14,7 +14,9 @@ interface ChatPanelProps {
   onInputChange: (text: string) => void;
   onChoice: (choice: string) => void;
   onSend: (text: string) => void;
+  onFileSelect?: (file: File) => void;
   isStreaming?: boolean;
+  isUploading?: boolean;
   statusText?: string | null;
 }
 
@@ -25,7 +27,9 @@ export const ChatPanel = ({
   onInputChange,
   onChoice,
   onSend,
+  onFileSelect,
   isStreaming = false,
+  isUploading = false,
   statusText,
 }: ChatPanelProps) => {
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -57,7 +61,9 @@ export const ChatPanel = ({
         value={inputText}
         onChange={onInputChange}
         onSend={onSend}
+        onFileSelect={onFileSelect}
         isDisabled={isStreaming}
+        isUploading={isUploading}
       />
     </section>
   );

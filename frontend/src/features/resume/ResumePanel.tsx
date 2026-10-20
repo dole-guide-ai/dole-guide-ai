@@ -10,6 +10,7 @@ import {
 } from '@/features/resume/resumeLabels';
 import { ResumeSection } from '@/features/resume/ResumeSection';
 import { useConfirmResume } from '@/features/resume/useConfirmResume';
+import { usePatchResumeField } from '@/features/resume/usePatchResumeField';
 import { useResumeDraft } from '@/features/resume/useResumeDraft';
 import { useResumeForm } from '@/features/resume/useResumeForm';
 
@@ -21,6 +22,7 @@ import type { SessionRead } from '@/types/demo.types';
 /**
  * 패널 A: 고용24 이력서 항목을 같은 순서로 보여 주고, 완성도(꼭 묻는 5개)와 저장 버튼을 둡니다 (2-1.2 · 2-1.6).
  * 값·칩은 양식 저장소에서 읽고, 완성도·저장 가능 여부는 서버 값을 그대로 씁니다 (계산은 백엔드).
+ * 글자 칸은 `직접 입력`으로 패널에서 바로 고칠 수 있습니다 (2-0.6, 본인 답변 칸 제외).
  */
 interface ResumePanelProps {
   session: SessionRead;
@@ -39,6 +41,7 @@ export const ResumePanel = ({ session, onEditRequest }: ResumePanelProps) => {
   const query = useResumeForm(session.session_id);
   const { values, fields, completeness } = useResumeDraft();
   const confirm = useConfirmResume();
+  const patch = usePatchResumeField();
 
   if (query.isPending) return <p className="text-muted text-base">이력서를 불러오는 중…</p>;
   if (query.isError) {
@@ -52,6 +55,7 @@ export const ResumePanel = ({ session, onEditRequest }: ResumePanelProps) => {
   }
 
   const edit = (label: string) => (onEditRequest ? () => onEditRequest(label) : undefined);
+  const direct = (path: string) => (value: string) => patch.mutateAsync({ path, op: 'set', value });
   const education = values.education ?? [];
   const prefs = values.job_preferences;
   const careers = values.competencies?.careers ?? [];
@@ -117,9 +121,11 @@ export const ResumePanel = ({ session, onEditRequest }: ResumePanelProps) => {
         <FieldRow
           label="제목"
           value={values.resume_title}
+          rawValue={values.resume_title}
           meta={fields.resume_title}
           isRequired
           onEdit={edit('이력서 제목')}
+          onDirectSave={direct('resume_title')}
         />
       </ResumeSection>
 
@@ -140,12 +146,14 @@ export const ResumePanel = ({ session, onEditRequest }: ResumePanelProps) => {
             ]
               .filter(Boolean)
               .join(' · ')}
+            rawValue={item.school_name}
             meta={
               fields[`education.${item.item_id}.school_name`] ??
               fields[`education.${item.item_id}.level`]
             }
             isRequired
             onEdit={edit('학력')}
+            onDirectSave={direct(`education.${item.item_id}.school_name`)}
           />
         ))}
       </ResumeSection>
@@ -191,28 +199,33 @@ export const ResumePanel = ({ session, onEditRequest }: ResumePanelProps) => {
         {careers.length === 0 && <FieldRow label="회사명" isRequired onEdit={edit('경력')} />}
         {careers.map((career) => {
           const base = `competencies.careers.${career.item_id}`;
+          const name = career.company_name ?? '경력';
           return (
             <div key={career.item_id} className="py-1">
               <FieldRow
                 label="회사명"
                 value={career.company_name}
+                rawValue={career.company_name}
                 meta={fields[`${base}.company_name`]}
                 isRequired
-                onEdit={edit(`${career.company_name ?? '경력'} 회사명`)}
+                onEdit={edit(`${name} 회사명`)}
+                onDirectSave={direct(`${base}.company_name`)}
               />
               <FieldRow
                 label="재직기간"
                 value={formatPeriod(career.start_date, career.end_date)}
                 meta={fields[`${base}.end_date`] ?? fields[`${base}.start_date`]}
                 isRequired
-                onEdit={edit(`${career.company_name ?? '경력'} 재직기간`)}
+                onEdit={edit(`${name} 재직기간`)}
               />
               <FieldRow
                 label="직급/직책"
                 value={career.position}
+                rawValue={career.position}
                 meta={fields[`${base}.position`]}
                 isRequired
-                onEdit={edit(`${career.company_name ?? '경력'} 직급`)}
+                onEdit={edit(`${name} 직급`)}
+                onDirectSave={direct(`${base}.position`)}
               />
               <FieldRow
                 label="재직여부"
@@ -223,8 +236,10 @@ export const ResumePanel = ({ session, onEditRequest }: ResumePanelProps) => {
               <FieldRow
                 label="주요 직무"
                 value={career.main_duties}
+                rawValue={career.main_duties}
                 meta={fields[`${base}.main_duties`]}
-                onEdit={edit(`${career.company_name ?? '경력'} 주요 직무`)}
+                onEdit={edit(`${name} 주요 직무`)}
+                onDirectSave={direct(`${base}.main_duties`)}
               />
             </div>
           );
