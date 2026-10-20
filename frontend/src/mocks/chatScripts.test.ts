@@ -76,4 +76,15 @@ describe('박진수 통합경력증명 불러오기', () => {
       data: { choices: ['말로 할게요', '없었어요'] },
     });
   });
+
+  it('이정호가 지원 완료 캡처를 올리면 활동 1건을 더하고 충족으로 바뀐다 (2-2.5)', () => {
+    const events = buildMockChatEvents('lee', '사진을 올렸어요. 읽어 주세요.', [], ['file-1']);
+    const byPath = Object.fromEntries(updates(events).map((update) => [update.path, update]));
+
+    expect(byPath.activities).toMatchObject({
+      op: 'append',
+      value: { org_name: 'OO기획', evidence: { attached: ['지원완료_캡처.png'] } },
+    });
+    expect(byPath.status).toMatchObject({ value: 'satisfied' });
+  });
 });

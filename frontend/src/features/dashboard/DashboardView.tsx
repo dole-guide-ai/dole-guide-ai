@@ -32,8 +32,8 @@ const TOOL_LABEL: Record<string, string> = {
   search_guide: '근거 자료를 찾는 중…',
 };
 
-/** 사진·문서는 이력서 단계(패널 A)에서만 받습니다. 2-2 활동 증빙 캡처는 패널 B 구현에서 엽니다. */
-const UPLOAD_PANELS = new Set(['A']);
+/** 사진·문서는 이력서(패널 A, 2-1.5)와 회차 할 일(패널 B, 2-2.5 지원 캡처·증빙)에서 받습니다. */
+const UPLOAD_PANELS = new Set(['A', 'B']);
 
 /** 대시보드 본문 (1.5): 진행바 · 다음 할 일 · 대화 · 패널. */
 export const DashboardView = ({ session, personaName }: DashboardViewProps) => {

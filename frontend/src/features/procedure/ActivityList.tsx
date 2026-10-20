@@ -1,3 +1,8 @@
+'use client';
+
+import { useState } from 'react';
+
+import { Button } from '@/components/Button';
 import { Chip } from '@/components/Chip';
 import {
   evidenceChip,
@@ -13,13 +18,22 @@ import type { RoundActivity, RoundWarning } from '@/types/procedure.types';
 /**
  * 이번 회차 활동 목록 (2-2.9): 날짜 · 회사 · 구분 · 경로 · 칩(계산 결과, 증빙, 출처).
  * 경고(2-2.7)가 걸린 활동은 `주의` 칩을 달고, 목록 아래에 경고 문구를 한 줄씩 보여 줍니다.
+ * `빼기`는 한 번 더 물은 뒤 지웁니다 (2-2.11 활동을 빼 달라고 함 → 삭제 후 다시 계산).
  */
 interface ActivityListProps {
   activities: RoundActivity[];
   warnings: RoundWarning[];
+  onRemove?: (itemId: string) => void;
+  isRemoving?: boolean;
 }
 
-export const ActivityList = ({ activities, warnings }: ActivityListProps) => {
+export const ActivityList = ({
+  activities,
+  warnings,
+  onRemove,
+  isRemoving = false,
+}: ActivityListProps) => {
+  const [confirmingId, setConfirmingId] = useState<string | null>(null);
   const warned = new Set(warnings.flatMap((warning) => warning.item_ids));
 
   if (activities.length === 0) {
@@ -56,7 +70,35 @@ export const ActivityList = ({ activities, warnings }: ActivityListProps) => {
                 />
                 <Chip {...source} />
                 {warned.has(activity.item_id) && <Chip label="주의" tone="warn" />}
+                {onRemove && confirmingId !== activity.item_id && (
+                  <button
+                    type="button"
+                    onClick={() => setConfirmingId(activity.item_id)}
+                    className="text-muted hover:text-danger ml-auto text-sm font-medium"
+                    aria-label={`${activity.org_name} 활동 빼기`}
+                  >
+                    빼기
+                  </button>
+                )}
               </div>
+              {onRemove && confirmingId === activity.item_id && (
+                <div className="bg-canvas flex flex-wrap items-center gap-2 rounded-lg px-3 py-2">
+                  <span className="text-base">이 활동을 목록에서 뺄까요? 다시 계산해요.</span>
+                  <Button
+                    variant="secondary"
+                    disabled={isRemoving}
+                    onClick={() => {
+                      onRemove(activity.item_id);
+                      setConfirmingId(null);
+                    }}
+                  >
+                    뺄게요
+                  </Button>
+                  <Button variant="ghost" onClick={() => setConfirmingId(null)}>
+                    취소
+                  </Button>
+                </div>
+              )}
             </li>
           );
         })}

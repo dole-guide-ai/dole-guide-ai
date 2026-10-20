@@ -1,3 +1,4 @@
+import type { FormUpdateEvent } from '@/types/chat.types';
 import type {
   RecommendationsRead,
   RoundActivity,
@@ -180,4 +181,27 @@ export const MOCK_PLANNED_ACTIVITIES: Record<string, Omit<RoundActivity, 'item_i
     source: 'conversation',
     status: 'planned',
   },
+};
+
+const set = (path: string, value: unknown): FormUpdateEvent => ({
+  form: 'activities',
+  path,
+  op: 'set',
+  value,
+});
+
+/**
+ * 활동 빼기 (2-2.11 "활동을 빼 달라고 함" → 삭제 후 다시 계산)의 모의 결과. 백엔드가 `check_round`를
+ * 다시 계산해 돌려줄 값을 이정호 활동별로 적어 둡니다. 표에 없는 활동(예정 등)은 목록에서만 뺍니다.
+ */
+export const MOCK_ACTIVITY_REMOVALS: Record<string, FormUpdateEvent[]> = {
+  // 같은 날 대표였던 OO물류를 빼면 OO상사가 대표가 되어 인정 건수는 그대로예요.
+  a1: [set('activities.a2.status', 'counted'), set('warnings', [])],
+  a2: [set('warnings', [])],
+  a3: [
+    set('counted', 1),
+    set('counted_job_search', 1),
+    set('shortfall', 1),
+    set('status', 'short'),
+  ],
 };

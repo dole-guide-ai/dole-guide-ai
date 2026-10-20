@@ -8,6 +8,7 @@ import type { ProcedurePatchCreate } from '@/types/procedure.types';
 import type { RecognitionConfirmCreate } from '@/types/recognition.types';
 
 import {
+  MOCK_ACTIVITY_REMOVALS,
   MOCK_NEXT_ROUND_CHECKS,
   MOCK_PLANNED_ACTIVITIES,
   MOCK_RECOMMENDATIONS,
@@ -181,6 +182,11 @@ export const resolveMock = async <T>(path: string, init?: RequestInit): Promise<
 
   if (method === 'PATCH' && path === '/procedure') {
     const body = parseBody<ProcedurePatchCreate>(init);
+    if (body?.op === 'remove' && body.path.startsWith('activities.')) {
+      const itemId = body.path.slice('activities.'.length);
+      const removed: FormUpdateEvent = { form: 'activities', path: body.path, op: 'remove' };
+      return { updates: [removed, ...(MOCK_ACTIVITY_REMOVALS[itemId] ?? [])] } as T;
+    }
     const recommendationId = (body?.value as { recommendation_id?: string } | undefined)
       ?.recommendation_id;
     const planned = recommendationId ? MOCK_PLANNED_ACTIVITIES[recommendationId] : undefined;
