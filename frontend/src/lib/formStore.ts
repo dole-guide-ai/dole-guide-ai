@@ -66,8 +66,10 @@ export const applyFormUpdateToDraft = (draft: FormDraft, event: FormUpdateEvent)
   let values = draft.values;
   const fields = { ...draft.fields };
 
-  if (op === 'set') values = setPath(values, path, value);
-  else if (op === 'append') values = appendPath(values, path, value);
+  // `set`에 값이 없으면 값은 두고 칸 상태(칩)만 바꿉니다 (예: 확인 질문에 "네" → confirmed).
+  if (op === 'set') {
+    if (value !== undefined) values = setPath(values, path, value);
+  } else if (op === 'append') values = appendPath(values, path, value);
   else {
     values = removePath(values, path);
     delete fields[path];

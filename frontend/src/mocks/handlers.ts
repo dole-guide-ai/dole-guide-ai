@@ -1,8 +1,10 @@
 import { ApiError } from '@/lib/api';
+import { getSession } from '@/lib/sessionStore';
 import type { DemoAuthCreate, PersonaCardRead, SessionRead } from '@/types/demo.types';
 
-import { MOCK_ENTRIES } from './entries';
+import { MOCK_AFTER_RESUME_ENTRIES, MOCK_ENTRIES } from './entries';
 import { findMockPersona, MOCK_PERSONAS } from './personas';
+import { MOCK_RESUMES } from './resumes';
 
 /**
  * `NEXT_PUBLIC_USE_MOCK=1`일 때 `apiFetch`가 쓰는 모의 응답.
@@ -65,6 +67,26 @@ export const resolveMock = async <T>(path: string, init?: RequestInit): Promise<
     if (!authenticatedPersonaId)
       throw new ApiError('UNAUTHORIZED', '먼저 계정을 골라 주세요.', 401);
     return buildMockSession(authenticatedPersonaId) as T;
+  }
+
+  // 새로 고침 뒤에는 모듈 상태가 비므로, 저장된 세션의 계정으로 이어 갑니다 (모의 전용).
+  const personaId = authenticatedPersonaId ?? getSession()?.persona_id ?? null;
+
+  if (method === 'GET' && path === '/forms/resume') {
+    const resume = personaId ? MOCK_RESUMES[personaId] : undefined;
+    if (!resume) throw new ApiError('NOT_FOUND', '이력서 초안이 없어요.', 404);
+    return resume as T;
+  }
+
+  if (method === 'POST' && path === '/forms/resume/confirm') {
+    const entry = personaId ? MOCK_AFTER_RESUME_ENTRIES[personaId] : undefined;
+    if (!personaId || !entry) throw new ApiError('NOT_FOUND', '저장할 이력서가 없어요.', 404);
+    const session = buildMockSession(personaId);
+    return {
+      ...session,
+      state: { ...session.state, resume_status: 'ready', stage: 'education' },
+      entry,
+    } as T;
   }
 
   throw new ApiError('NOT_FOUND', `모의 응답이 없는 경로: ${method} ${path}`, 404);
