@@ -100,5 +100,7 @@ export interface ResumeDraftRead extends ResumeValues {
   field_states: Record<string, ResumeFieldState>;
   completeness: Completeness;
   next_question: string | null;
+  /** 남은 질문 순서 (2-1.3). 패널의 "AI가 물어볼 순서" 미리 보기에 씁니다. */
+  question_queue?: string[];
   can_save: boolean;
 }

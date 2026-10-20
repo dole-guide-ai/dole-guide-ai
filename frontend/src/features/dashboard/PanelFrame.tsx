@@ -1,3 +1,5 @@
+import { useState } from 'react';
+
 import { Button } from '@/components/Button';
 import { EvidenceLine } from '@/components/EvidenceLine';
 import { RoundPanel } from '@/features/procedure/RoundPanel';
@@ -57,20 +59,44 @@ export const PanelFrame = ({
   const { entry, state } = session;
   const panel = entry.panel;
   const reviewPanel = reviewStep ? STEP_PANEL[reviewStep] : undefined;
+  const [isEditingResume, setIsEditingResume] = useState(false);
 
   if (reviewPanel) {
     const info = PANEL_INFO[reviewPanel];
     return (
       <aside className={ASIDE_CLASS} aria-label={`패널 ${info.name} (읽기 전용)`}>
         <div className="bg-ok-soft flex flex-wrap items-center justify-between gap-2 rounded-xl px-4 py-3">
-          <p className="text-ok text-base font-semibold">완료한 단계 · {info.name} (읽기 전용)</p>
-          {onExitReview && (
-            <Button variant="secondary" onClick={onExitReview}>
-              이번 단계로 돌아가기
-            </Button>
-          )}
+          <p className="text-ok text-base font-semibold">
+            완료한 단계 · {info.name} {isEditingResume ? '(고치는 중)' : '(읽기 전용)'}
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {reviewPanel === 'A' && !isEditingResume && (
+              <Button variant="secondary" onClick={() => setIsEditingResume(true)}>
+                이력서 고치기
+              </Button>
+            )}
+            {onExitReview && (
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  setIsEditingResume(false);
+                  onExitReview();
+                }}
+              >
+                이번 단계로 돌아가기
+              </Button>
+            )}
+          </div>
         </div>
-        {reviewPanel === 'A' && <ResumePanel session={session} isReadOnly />}
+        {reviewPanel === 'A' && (
+          <ResumePanel
+            session={session}
+            isReadOnly={!isEditingResume}
+            onEditRequest={onEditRequest}
+            saveLabel="다시 저장하기"
+            onSaved={() => setIsEditingResume(false)}
+          />
+        )}
         {reviewPanel === 'E' && <EducationPanel state={state} isReadOnly />}
         {reviewPanel === 'Q' && (
           <EligibilityPanel state={state} derived={session.derived} isReadOnly />

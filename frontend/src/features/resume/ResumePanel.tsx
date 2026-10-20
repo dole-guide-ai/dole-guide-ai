@@ -30,6 +30,9 @@ interface ResumePanelProps {
   onEditRequest?: (label: string) => void;
   /** 완료한 단계를 다시 볼 때(1.8): 저장·고치기·직접 입력을 숨깁니다. */
   isReadOnly?: boolean;
+  /** 저장한 이력서를 다시 고칠 때(2-1.6): 버튼 이름 `다시 저장하기` */
+  saveLabel?: string;
+  onSaved?: () => void;
 }
 
 const WORK24_CHIP = { label: '고용24에서', tone: 'neutral' } as const;
@@ -39,6 +42,21 @@ const hasCheck = (fields: Record<string, FieldMeta>, prefix: string) =>
   Object.entries(fields).some(([path, meta]) => path.startsWith(prefix) && needsCheck(meta));
 
 const listText = (items: string[] | undefined) => (items?.length ? items.join(', ') : null);
+
+const yesNoText = (value: boolean | null | undefined) =>
+  value === null || value === undefined ? null : value ? '예' : '아니오';
+
+/**
+ * AI가 물어볼 순서 (2-1.3 `next_resume_question` 순서): 서버가 준 남은 질문 목록에서 지금 질문부터 보여 줍니다.
+ * 목록이 없으면 지금 질문 하나만.
+ */
+const questionQueue = (next: string | null | undefined, queue: string[] | undefined) => {
+  if (!next) return [];
+  const ids = queue?.length ? queue : [next];
+  const start = ids.indexOf(next);
+  const ordered = start === -1 ? [next, ...ids] : ids.slice(start);
+  return ordered.map((id) => QUESTION_LABEL[id]).filter(Boolean);
+};
 
 /** 그 밖의 보유역량 한 영역의 값 (불러오기·대화로 들어온 항목 이름). 비어 있으면 null. */
 const sectionText = (section: unknown) => {
@@ -50,7 +68,13 @@ const sectionText = (section: unknown) => {
     .join(', ');
 };
 
-export const ResumePanel = ({ session, onEditRequest, isReadOnly = false }: ResumePanelProps) => {
+export const ResumePanel = ({
+  session,
+  onEditRequest,
+  isReadOnly = false,
+  saveLabel: saveLabelOverride,
+  onSaved,
+}: ResumePanelProps) => {
   const query = useResumeForm(session.session_id);
   const { values, fields, completeness } = useResumeDraft();
   const confirm = useConfirmResume();
@@ -102,9 +126,11 @@ export const ResumePanel = ({ session, onEditRequest, isReadOnly = false }: Resu
   };
 
   const isUpdate = session.entry.branch_id === 'E7b';
-  const saveLabel = isUpdate ? '확인하고 이력서 최신화' : '확인하고 이력서 저장';
+  const saveLabel =
+    saveLabelOverride ?? (isUpdate ? '확인하고 이력서 최신화' : '확인하고 이력서 저장');
   const canSave = values.can_save === true && !confirm.isPending;
-  const nextQuestion = values.next_question ? QUESTION_LABEL[values.next_question] : null;
+  const queue = questionQueue(values.next_question, values.question_queue);
+  const careerYears = prefs?.experience_summary;
 
   return (
     <div className="flex flex-col gap-4">
@@ -117,7 +143,10 @@ export const ResumePanel = ({ session, onEditRequest, isReadOnly = false }: Resu
         </div>
         {!isReadOnly && (
           <div className="flex flex-col items-end gap-1">
-            <Button onClick={() => confirm.mutate()} disabled={!canSave}>
+            <Button
+              onClick={() => confirm.mutate(undefined, { onSuccess: onSaved })}
+              disabled={!canSave}
+            >
               {confirm.isPending ? '저장하는 중…' : saveLabel}
             </Button>
             {!canSave && (
@@ -160,6 +189,8 @@ export const ResumePanel = ({ session, onEditRequest, isReadOnly = false }: Resu
               item.school_name,
               item.graduation_status,
               formatPeriod(item.start_date, item.end_date),
+              item.major && `전공 ${item.major}`,
+              item.gpa && `학점 ${item.gpa}`,
             ]
               .filter(Boolean)
               .join(' · ')}
@@ -182,6 +213,19 @@ export const ResumePanel = ({ session, onEditRequest, isReadOnly = false }: Resu
           meta={fields['job_preferences.desired_occupations']}
           isRequired
           onEdit={edit('희망 직종')}
+        />
+        <FieldRow
+          label="경력여부"
+          value={careerYears}
+          meta={fields['job_preferences.experience_summary']}
+          isRequired
+          onEdit={edit('희망 직종 경력')}
+        />
+        <FieldRow
+          label="희망직무내용"
+          value={prefs?.desired_duties}
+          meta={fields['job_preferences.desired_duties']}
+          chip={prefs?.desired_duties ? undefined : OPTIONAL_CHIP}
         />
         <FieldRow
           label="희망근무지역"
@@ -209,6 +253,30 @@ export const ResumePanel = ({ session, onEditRequest, isReadOnly = false }: Resu
           value={prefs?.military_alternative}
           meta={fields['job_preferences.military_alternative']}
           isRequired
+        />
+        <FieldRow
+          label="근무형태 세부"
+          value={listText(prefs?.work_arrangements)}
+          meta={fields['job_preferences.work_arrangements']}
+          chip={prefs?.work_arrangements?.length ? undefined : OPTIONAL_CHIP}
+        />
+        <FieldRow
+          label="희망근무시간"
+          value={prefs?.desired_working_hours}
+          meta={fields['job_preferences.desired_working_hours']}
+          chip={prefs?.desired_working_hours ? undefined : OPTIONAL_CHIP}
+        />
+        <FieldRow
+          label="그 밖의 희망사항"
+          value={prefs?.other_preferences}
+          meta={fields['job_preferences.other_preferences']}
+          chip={prefs?.other_preferences ? undefined : OPTIONAL_CHIP}
+        />
+        <FieldRow
+          label="검색키워드"
+          value={listText(prefs?.search_keywords)}
+          meta={fields['job_preferences.search_keywords']}
+          chip={prefs?.search_keywords?.length ? undefined : OPTIONAL_CHIP}
         />
       </ResumeSection>
 
@@ -257,6 +325,25 @@ export const ResumePanel = ({ session, onEditRequest, isReadOnly = false }: Resu
                 meta={fields[`${base}.main_duties`]}
                 onEdit={edit(`${name} 주요 직무`)}
                 onDirectSave={direct(`${base}.main_duties`)}
+              />
+              <FieldRow
+                label="직종"
+                value={career.occupation?.name}
+                meta={fields[`${base}.occupation`]}
+              />
+              <FieldRow
+                label="급여(월)"
+                value={career.monthly_salary ? `${career.monthly_salary}만원` : null}
+                meta={fields[`${base}.monthly_salary`]}
+                chip={career.monthly_salary ? undefined : OPTIONAL_CHIP}
+              />
+              <FieldRow
+                label="기타 사항"
+                value={career.additional_details}
+                rawValue={career.additional_details}
+                meta={fields[`${base}.additional_details`]}
+                chip={career.additional_details ? undefined : OPTIONAL_CHIP}
+                onDirectSave={direct(`${base}.additional_details`)}
               />
             </div>
           );
@@ -308,21 +395,31 @@ export const ResumePanel = ({ session, onEditRequest, isReadOnly = false }: Resu
       <ResumeSection title="운전 및 차량소유">
         <FieldRow
           label="운전가능"
-          value={
-            values.additional_info?.can_drive == null
-              ? null
-              : values.additional_info.can_drive
-                ? '예'
-                : '아니오'
-          }
+          value={yesNoText(values.additional_info?.can_drive)}
           meta={fields['additional_info.can_drive']}
+        />
+        <FieldRow
+          label="차량소지"
+          value={yesNoText(values.additional_info?.owns_vehicle)}
+          meta={fields['additional_info.owns_vehicle']}
         />
       </ResumeSection>
 
-      {nextQuestion && !isReadOnly && (
-        <p className="bg-brand-soft text-brand rounded-xl px-4 py-2 text-sm">
-          AI가 이어서 물어볼 것 · {nextQuestion}
-        </p>
+      {queue.length > 0 && !isReadOnly && (
+        <section
+          className="bg-brand-soft text-brand rounded-xl px-4 py-3"
+          aria-label="AI가 물어볼 순서"
+        >
+          <p className="text-sm font-semibold">AI가 이어서 물어볼 순서</p>
+          <ol className="mt-1 flex flex-col gap-0.5 text-sm">
+            {queue.map((label, index) => (
+              <li key={label} className={index === 0 ? 'font-bold' : undefined}>
+                {index + 1}. {label}
+                {index === 0 && ' (지금)'}
+              </li>
+            ))}
+          </ol>
+        </section>
       )}
     </div>
   );
