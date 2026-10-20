@@ -8,9 +8,14 @@ import { BigTextToggle } from '@/features/bigText/BigTextToggle';
 interface DashboardHeaderProps {
   personaName: string;
   onSwitchAccount: () => void;
+  onOpenMyData?: () => void;
 }
 
-export const DashboardHeader = ({ personaName, onSwitchAccount }: DashboardHeaderProps) => (
+export const DashboardHeader = ({
+  personaName,
+  onSwitchAccount,
+  onOpenMyData,
+}: DashboardHeaderProps) => (
   <header className="border-line bg-surface flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3 sm:px-6">
     <div className="flex items-baseline gap-3">
       <Image
@@ -26,7 +31,7 @@ export const DashboardHeader = ({ personaName, onSwitchAccount }: DashboardHeade
     </div>
     <nav className="flex flex-wrap items-center gap-2" aria-label="화면 설정">
       <BigTextToggle />
-      <Button variant="secondary" disabled title="내 정보는 다음 단계에서 열려요">
+      <Button variant="secondary" onClick={onOpenMyData} disabled={!onOpenMyData}>
         내 정보
       </Button>
       <Button variant="ghost" onClick={onSwitchAccount}>

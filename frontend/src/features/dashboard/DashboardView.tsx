@@ -10,6 +10,7 @@ import { useChatStream } from '@/features/chat/useChatStream';
 import { useFileUpload } from '@/features/chat/useFileUpload';
 import { DashboardHeader } from '@/features/dashboard/DashboardHeader';
 import { PanelFrame } from '@/features/dashboard/PanelFrame';
+import { MyDataDialog } from '@/features/myData/MyDataDialog';
 import { OPEN_FORM_MESSAGE } from '@/features/procedure/activityLabels';
 import { CONFIRMED_MESSAGE } from '@/features/recognition/recognitionLabels';
 
@@ -42,6 +43,7 @@ export const DashboardView = ({ session, personaName }: DashboardViewProps) => {
   // 진행바에서 고른 완료 단계 (1.8 읽기 전용 다시 보기). 세션이 바뀌면 지금 단계로 돌아옵니다.
   const [review, setReview] = useState<{ sessionId: string; step: ProgressStep } | null>(null);
   const reviewStep = review?.sessionId === session.session_id ? review.step : null;
+  const [isMyDataOpen, setIsMyDataOpen] = useState(false);
   const upload = useFileUpload();
   const { entry } = session;
   const bigTextDefault = entry.ui.big_text;
@@ -83,7 +85,14 @@ export const DashboardView = ({ session, personaName }: DashboardViewProps) => {
   return (
     // 넓은 화면은 화면 높이에 고정하고 대화·패널이 각자 스크롤됩니다. 좁은 화면(세로로 쌓임)은 페이지가 스크롤됩니다.
     <div className="flex min-h-dvh flex-col lg:h-dvh lg:overflow-hidden">
-      <DashboardHeader personaName={personaName} onSwitchAccount={handleSwitchAccount} />
+      <DashboardHeader
+        personaName={personaName}
+        onSwitchAccount={handleSwitchAccount}
+        onOpenMyData={() => setIsMyDataOpen(true)}
+      />
+      {isMyDataOpen && (
+        <MyDataDialog sessionId={session.session_id} onClose={() => setIsMyDataOpen(false)} />
+      )}
 
       <section className="border-line bg-surface flex flex-col gap-3 border-b px-4 py-4 sm:px-6">
         <ProgressBar
