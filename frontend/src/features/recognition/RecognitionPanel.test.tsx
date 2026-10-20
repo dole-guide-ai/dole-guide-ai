@@ -133,4 +133,57 @@ describe('RecognitionPanel', () => {
     await userEvent.click(screen.getByRole('button', { name: '활동 다시 보기' }));
     expect(onBackToRound).toHaveBeenCalledTimes(1);
   });
+
+  it('근로 있음이면 고용24 칸대로 상세 4칸을 보여 준다 (2-3.3)', async () => {
+    const lee = MOCK_RECOGNITION_FORMS.lee;
+    mockApi({
+      ...lee,
+      work_and_employment: {
+        ...lee.work_and_employment,
+        has_work_or_service: true,
+        work_details: {
+          work_dates: '2026-12-05 (1일)',
+          total_hours: 8,
+          income_date: null,
+          income_amount: 100000,
+        },
+      },
+    });
+
+    renderWithProviders(<RecognitionPanel session={buildMockSession('lee')} />);
+
+    expect(await screen.findByText('2026-12-05 (1일)')).toBeInTheDocument();
+    expect(screen.getByText('8시간')).toBeInTheDocument();
+    expect(screen.getByText('100,000원')).toBeInTheDocument();
+    expect(screen.getByText('소득수령(예정)일')).toBeInTheDocument();
+    expect(screen.getByText(/일한 날은 신청서에 꼭 적어야 해요/)).toBeInTheDocument();
+  });
+
+  it('구직 외 활동이 있으면 과정·세부내역 카드를 보여 준다 (2-3.2)', async () => {
+    const lee = MOCK_RECOGNITION_FORMS.lee;
+    mockApi({
+      ...lee,
+      reemployment_activity: {
+        ...lee.reemployment_activity,
+        has_other_reemployment_activity: true,
+        other_reemployment_activities: [
+          {
+            item_id: 'other_001',
+            course: '온라인 취업특강 프로그램',
+            details: null,
+            attachment_ids: [],
+            source: 'work24_import',
+          },
+        ],
+      },
+    });
+
+    renderWithProviders(<RecognitionPanel session={buildMockSession('lee')} />);
+
+    const card = await screen.findByRole('article', {
+      name: '구직 외 활동 온라인 취업특강 프로그램',
+    });
+    expect(within(card).getByText('답변 필요')).toBeInTheDocument();
+    expect(screen.queryByText('구직활동 외 활동사항 · 없음')).not.toBeInTheDocument();
+  });
 });

@@ -3,6 +3,7 @@
 import { Button } from '@/components/Button';
 import { EvidenceLine } from '@/components/EvidenceLine';
 import { JobSearchCard } from '@/features/recognition/JobSearchCard';
+import { OtherActivityCard } from '@/features/recognition/OtherActivityCard';
 import { yesNo } from '@/features/recognition/recognitionLabels';
 import { SubmitBox } from '@/features/recognition/SubmitBox';
 import { useConfirmRecognition } from '@/features/recognition/useConfirmRecognition';
@@ -132,6 +133,50 @@ export const RecognitionPanel = ({
           isRequired
           chip={prevChip(workPath('has_work_or_service'), work.answered_on)}
         />
+        {work.has_work_or_service && (
+          <div className="bg-canvas my-1 rounded-xl px-3 py-1">
+            <FieldRow
+              label="근로내역(일한 날)"
+              value={work.work_details?.work_dates}
+              isRequired
+              chip={prevChip(workPath('work_details.work_dates'), work.answered_on)}
+            />
+            <FieldRow
+              label="총 근로시간"
+              value={
+                work.work_details?.total_hours != null
+                  ? `${work.work_details.total_hours}시간`
+                  : null
+              }
+              isRequired
+              chip={prevChip(workPath('work_details.total_hours'), work.answered_on)}
+            />
+            <FieldRow
+              label="소득수령(예정)일"
+              value={
+                work.work_details?.income_date
+                  ? formatShortDate(work.work_details.income_date)
+                  : null
+              }
+              isRequired
+              chip={prevChip(workPath('work_details.income_date'), work.answered_on)}
+            />
+            <FieldRow
+              label="소득수령(예정)액"
+              value={
+                work.work_details?.income_amount != null
+                  ? `${work.work_details.income_amount.toLocaleString('ko-KR')}원`
+                  : null
+              }
+              isRequired
+              chip={prevChip(workPath('work_details.income_amount'), work.answered_on)}
+            />
+            <p className="text-muted py-1 text-sm">
+              일한 날은 신청서에 꼭 적어야 해요. 일한 시간이 길면 취업으로 볼 수도 있어요.
+              고용센터에 확인해 주세요.
+            </p>
+          </div>
+        )}
         <FieldRow
           label="취업·개인 사업"
           value={yesNo(work.has_employment)}
@@ -196,7 +241,11 @@ export const RecognitionPanel = ({
                 </ul>
               </details>
             )}
-            {!activity.has_other_reemployment_activity && (
+            {activity.has_other_reemployment_activity ? (
+              activity.other_reemployment_activities.map((item) => (
+                <OtherActivityCard key={item.item_id} activity={item} />
+              ))
+            ) : (
               <p className="text-muted text-sm">구직활동 외 활동사항 · 없음</p>
             )}
           </section>

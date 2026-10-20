@@ -87,4 +87,22 @@ describe('박진수 통합경력증명 불러오기', () => {
     });
     expect(byPath.status).toMatchObject({ value: 'satisfied' });
   });
+
+  it('근로 있음은 일한 날부터 금액까지 묻고, 취업했다고 하면 신청서를 잠근다 (2-3.3)', () => {
+    const started = buildMockChatEvents('lee', '있어요', []);
+    const finished = buildMockChatEvents('lee', '10만 원이요', []);
+    const locked = buildMockChatEvents('lee', '네, 취업했어요', []);
+
+    expect(started.at(-1)).toMatchObject({ data: { question_id: 'form.work_dates' } });
+    expect(updates(finished)).toContainEqual(
+      expect.objectContaining({
+        path: 'work_and_employment.work_details.income_amount',
+        value: 100000,
+        source: 'self_answer',
+      }),
+    );
+    expect(updates(locked)).toContainEqual(
+      expect.objectContaining({ path: 'locked_reason', value: 'employment' }),
+    );
+  });
 });
