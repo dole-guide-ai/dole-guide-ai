@@ -1,9 +1,10 @@
+import { setPath } from '@/lib/objectPath';
 import type { SessionRead } from '@/types/demo.types';
 
 /**
  * 로그인 뒤 받은 세션(상태·파생값·진입 결과)을 보관하는 작은 외부 저장소.
  * 새로 고침에도 남도록 sessionStorage에 같이 적고, `계정 바꾸기`에서 비웁니다 (1.4).
- * 이후 `form_update`(form: "procedure")로 상태가 바뀌면 여기서 갱신합니다.
+ * `form_update`(form: "procedure")로 절차 상태가 바뀌면 `patchSession`으로 갱신합니다.
  */
 const STORAGE_KEY = 'dole-guide.session';
 
@@ -41,6 +42,13 @@ export const setSession = (session: SessionRead | null) => {
   current = session;
   writeStorage(session);
   listeners.forEach((listener) => listener());
+};
+
+/** 세션의 한 값만 바꿉니다. 경로는 `state.next_recognition_date`처럼 세션 객체 기준입니다. */
+export const patchSession = (path: string, value: unknown) => {
+  const session = getSession();
+  if (!session) return;
+  setSession(setPath(session, path, value));
 };
 
 export const subscribeSession = (listener: () => void) => {
