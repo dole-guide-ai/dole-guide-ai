@@ -33,3 +33,6 @@ coverage/
 htmlcov/
 
 .vscode
+
+# crawled knowledge data (not committed)
+backend/data/knowledge/
