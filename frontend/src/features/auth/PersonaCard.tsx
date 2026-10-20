@@ -9,6 +9,8 @@ interface PersonaCardProps {
 
 export const PersonaCard = ({ persona, onSelect, isDisabled = false }: PersonaCardProps) => {
   const { name, age, job, quote, summary } = persona.display;
+  // 버튼 이름은 "{이름} 계정으로 시작"으로 짧게 두고, 나이·직종·한마디·상태 요약은 설명으로 읽게 합니다.
+  const descriptionId = `persona-${persona.persona_id}-description`;
 
   return (
     <button
@@ -16,6 +18,7 @@ export const PersonaCard = ({ persona, onSelect, isDisabled = false }: PersonaCa
       disabled={isDisabled}
       onClick={() => onSelect(persona.persona_id)}
       aria-label={`${name} 계정으로 시작`}
+      aria-describedby={descriptionId}
       className="border-line bg-surface hover:border-brand focus-visible:ring-brand/40 flex w-full items-start gap-4 rounded-2xl border p-5 text-left shadow-xs transition hover:shadow-sm focus-visible:ring-3 focus-visible:outline-hidden disabled:cursor-wait disabled:opacity-60"
     >
       <span
@@ -24,7 +27,7 @@ export const PersonaCard = ({ persona, onSelect, isDisabled = false }: PersonaCa
       >
         {name.charAt(0)}
       </span>
-      <span className="flex min-w-0 flex-col gap-2">
+      <span id={descriptionId} className="flex min-w-0 flex-col gap-2">
         <span className="text-xl font-bold">
           {name}
           <span className="text-muted ml-2 text-base font-normal">
