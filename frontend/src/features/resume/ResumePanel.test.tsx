@@ -45,6 +45,34 @@ describe('ResumePanel', () => {
     expect(screen.getByRole('button', { name: '확인하고 이력서 최신화' })).toBeDisabled();
   });
 
+  it('공통코드로 확정되지 않은 직종은 확인 필요 표시를 붙인다 (데이터 설계 7.7)', async () => {
+    mockApi('choi');
+
+    renderWithProviders(<ResumePanel session={buildMockSession('choi')} />);
+
+    // 희망직종과 경력의 직종 두 곳
+    expect(await screen.findAllByText('시설관리 (직종 확인 필요)')).toHaveLength(2);
+  });
+
+  it('컴퓨터 활용(객체)과 기타자격을 보여 준다', async () => {
+    const park = MOCK_RESUMES.park;
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async () =>
+      Response.json({
+        ...park,
+        competencies: {
+          ...park.competencies,
+          computer_skills: { selected_skills: ['문서작성', '표계산'], other_skills: '한글' },
+          other_certifications: ['민간 OO자격'],
+        },
+      }),
+    );
+
+    renderWithProviders(<ResumePanel session={buildMockSession('park')} />);
+
+    expect(await screen.findByText('문서작성, 표계산, 한글')).toBeInTheDocument();
+    expect(screen.getByText('민간 OO자격')).toBeInTheDocument();
+  });
+
   it('박진수(E7a): 빈 양식은 필수 5개가 모두 남고 다음 질문이 보인다', async () => {
     mockApi('park');
 

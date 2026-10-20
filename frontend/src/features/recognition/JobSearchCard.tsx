@@ -1,4 +1,5 @@
 import { Chip } from '@/components/Chip';
+import { activityEvidenceChip } from '@/features/recognition/recognitionLabels';
 
 import { formatShortDate } from '@/lib/dateFormat';
 import { fieldChip } from '@/lib/fieldChip';
@@ -37,10 +38,7 @@ export const JobSearchCard = ({ activity, meta }: JobSearchCardProps) => {
           {formatShortDate(activity.activity_date)} {activity.company_name}
         </h4>
         <Chip {...chip} />
-        <Chip
-          label={activity.attachment_ids.length ? '증빙 있음' : '첨부 없음 (고용24 불러오기)'}
-          tone="neutral"
-        />
+        <Chip {...activityEvidenceChip(activity)} />
       </div>
       <dl className="grid grid-cols-1 gap-x-4 gap-y-1 text-sm sm:grid-cols-2">
         {rows.map(([label, value, isRequired]) => (

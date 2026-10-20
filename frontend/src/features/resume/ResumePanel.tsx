@@ -5,6 +5,7 @@ import { FieldRow } from '@/features/resume/FieldRow';
 import {
   formatPeriod,
   formatYm,
+  occupationText,
   OPTIONAL_SECTIONS,
   QUESTION_LABEL,
 } from '@/features/resume/resumeLabels';
@@ -58,8 +59,16 @@ const questionQueue = (next: string | null | undefined, queue: string[] | undefi
   return ordered.map((id) => QUESTION_LABEL[id]).filter(Boolean);
 };
 
-/** 그 밖의 보유역량 한 영역의 값 (불러오기·대화로 들어온 항목 이름). 비어 있으면 null. */
+/**
+ * 그 밖의 보유역량 한 영역의 값 (불러오기·대화로 들어온 항목 이름). 비어 있으면 null.
+ * 컴퓨터 활용만 배열이 아니라 `{ selected_skills, other_skills }` 객체입니다 (데이터 설계 3.11).
+ */
 const sectionText = (section: unknown) => {
+  if (section && typeof section === 'object' && 'selected_skills' in section) {
+    const { selected_skills, other_skills } = section as ResumeCompetencies['computer_skills'];
+    const parts = [...(selected_skills ?? []), other_skills].filter(Boolean);
+    return parts.length ? parts.join(', ') : null;
+  }
   if (!Array.isArray(section) || section.length === 0) return null;
   return section
     .map((item) =>
@@ -99,6 +108,8 @@ export const ResumePanel = ({
   const prefs = values.job_preferences;
   const careers = values.competencies?.careers ?? [];
   const certifications = values.competencies?.certifications ?? [];
+  // 고용24에서 조회되지 않는 민간등록자격 등은 기타자격으로 따로 둡니다 (데이터 설계 3.9).
+  const otherCertifications = values.competencies?.other_certifications ?? [];
   const certMeta = fields['competencies.certifications'];
   const isCertNone = certMeta?.status === 'not_applicable';
   const salary = prefs?.desired_salary;
@@ -209,7 +220,9 @@ export const ResumePanel = ({
       <ResumeSection title="희망조건" isRequired isDone={done.prefs}>
         <FieldRow
           label="희망직종"
-          value={listText(prefs?.desired_occupations?.map((o) => o.name))}
+          value={listText(
+            prefs?.desired_occupations?.map((o) => occupationText(o)).filter((v) => v !== null),
+          )}
           meta={fields['job_preferences.desired_occupations']}
           isRequired
           onEdit={edit('희망 직종')}
@@ -328,7 +341,7 @@ export const ResumePanel = ({
               />
               <FieldRow
                 label="직종"
-                value={career.occupation?.name}
+                value={occupationText(career.occupation)}
                 meta={fields[`${base}.occupation`]}
               />
               <FieldRow
@@ -373,6 +386,12 @@ export const ResumePanel = ({
             />
           );
         })}
+        <FieldRow
+          label="기타자격"
+          value={listText(otherCertifications)}
+          meta={fields['competencies.other_certifications']}
+          chip={otherCertifications.length ? undefined : OPTIONAL_CHIP}
+        />
       </ResumeSection>
 
       <ResumeSection title="그 밖의 보유역량" hint="있으면 말해 주세요">

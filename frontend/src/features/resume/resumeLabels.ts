@@ -1,3 +1,5 @@
+import type { OccupationRef } from '@/types/resume.types';
+
 /** `next_question` ID → 패널에 보여 줄 "AI가 물어볼 것" 문구 (상세기획 2-1.3 질문 19개). */
 export const QUESTION_LABEL: Record<string, string> = {
   'resume.doc_retry': '서류 다시 올리기',
@@ -28,6 +30,17 @@ export const formatYm = (value: string | null | undefined) =>
 export const formatPeriod = (start: string | null | undefined, end: string | null | undefined) => {
   if (!start && !end) return null;
   return `${formatYm(start) ?? '?'} ~ ${formatYm(end) ?? '?'}`;
+};
+
+/**
+ * 직종 이름 + 코드 확정 여부. 공통코드로 확정되지 않은 직종(데이터 설계 7.7 `needs_confirmation`)은
+ * 확정 코드처럼 보이지 않게 뒤에 표시를 붙입니다.
+ */
+export const occupationText = (occupation: OccupationRef | null | undefined) => {
+  if (!occupation) return null;
+  if (occupation.status === 'needs_confirmation') return `${occupation.name} (직종 확인 필요)`;
+  if (occupation.status === 'name_only') return `${occupation.name} (고용24에서 직종 선택)`;
+  return occupation.name;
 };
 
 /** 그 밖의 보유역량 8개 (2-1.2). 값이 들어온 항목만 켜집니다. */
