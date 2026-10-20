@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 import { ProgressBar } from '@/components/ProgressBar';
@@ -16,7 +16,7 @@ import { CONFIRMED_MESSAGE } from '@/features/recognition/recognitionLabels';
 import { ApiError } from '@/lib/api';
 import { resetForms } from '@/lib/formStore';
 import { setSession } from '@/lib/sessionStore';
-import type { SessionRead } from '@/types/demo.types';
+import type { ProgressStep, SessionRead } from '@/types/demo.types';
 
 interface DashboardViewProps {
   session: SessionRead;
@@ -39,6 +39,9 @@ export const DashboardView = ({ session, personaName }: DashboardViewProps) => {
   const router = useRouter();
   const { setIsBig } = useBigText();
   const chat = useChatStream(session);
+  // 진행바에서 고른 완료 단계 (1.8 읽기 전용 다시 보기). 세션이 바뀌면 지금 단계로 돌아옵니다.
+  const [review, setReview] = useState<{ sessionId: string; step: ProgressStep } | null>(null);
+  const reviewStep = review?.sessionId === session.session_id ? review.step : null;
   const upload = useFileUpload();
   const { entry } = session;
   const bigTextDefault = entry.ui.big_text;
@@ -83,7 +86,11 @@ export const DashboardView = ({ session, personaName }: DashboardViewProps) => {
       <DashboardHeader personaName={personaName} onSwitchAccount={handleSwitchAccount} />
 
       <section className="border-line bg-surface flex flex-col gap-3 border-b px-4 py-4 sm:px-6">
-        <ProgressBar current={entry.progress.current} done={entry.progress.done} />
+        <ProgressBar
+          current={entry.progress.current}
+          done={entry.progress.done}
+          onStepClick={(step) => setReview({ sessionId: session.session_id, step })}
+        />
         <div>
           <h1 className="text-2xl font-bold">{entry.title}</h1>
           <p className="text-muted text-base">{entry.next_step_text}</p>
@@ -109,6 +116,8 @@ export const DashboardView = ({ session, personaName }: DashboardViewProps) => {
           session={session}
           onEditRequest={(label) => chat.setInputText(`${label} 고칠게요`)}
           onOpenForm={() => void chat.send(OPEN_FORM_MESSAGE, { inputKind: 'choice' })}
+          reviewStep={reviewStep}
+          onExitReview={() => setReview(null)}
           onFormConfirmed={(mode) =>
             void chat.send(CONFIRMED_MESSAGE[mode], { inputKind: 'choice' })
           }
