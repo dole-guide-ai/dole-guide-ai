@@ -63,7 +63,9 @@ describe('DashboardScreen', () => {
     ).toBeInTheDocument();
     expect(screen.getByLabelText('실업인정 현재 단계')).toBeInTheDocument();
     expect(screen.getByText(/3차 실업인정까지 받으셨네요/)).toBeInTheDocument();
-    expect(screen.getAllByText(/실업인정 인정기준 안내문/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/실업인정 인정기준 · 2026.3.1 신청자부터/).length).toBeGreaterThan(
+      0,
+    );
     expect(screen.getByRole('button', { name: '부족한 활동 추천해 주세요' })).toBeInTheDocument();
     expect(await screen.findByText('D-6')).toBeInTheDocument();
     expect(screen.getByText('11.25 ~ 12.22')).toBeInTheDocument();

@@ -1,3 +1,4 @@
+import { citeOf } from '@/lib/sources';
 import type { FormUpdateEvent } from '@/types/chat.types';
 import type {
   RecommendationsRead,
@@ -10,7 +11,7 @@ import type {
  * 패널 B 모의 스냅샷 (상세기획 2-2.6 이정호 계산 예 · 2-2.8 추천 결과 · 2-2.12 `check_round` 예시).
  * 같은 날 대표 고르기·인정 건수 같은 계산은 백엔드 `check_round`가 맡고, 여기서는 결과만 둡니다.
  */
-const SOURCE_2026_NOTICE = '실업인정 인정기준 안내문(2026.3.1~ 신청자) · 취업드림수첩 2025';
+const SOURCE_2026_NOTICE = citeOf('SRC-008', 'SRC-016');
 
 const LEE_MARKERS: RoundMarker[] = [
   { round: 1, state: 'done', is_attendance: true },

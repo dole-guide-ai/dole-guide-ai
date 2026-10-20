@@ -1,6 +1,7 @@
 import { OPEN_FORM_MESSAGE } from '@/features/procedure/activityLabels';
 import { CONFIRMED_MESSAGE } from '@/features/recognition/recognitionLabels';
 
+import { citeOf } from '@/lib/sources';
 import type { FormUpdateEvent, SseMessage } from '@/types/chat.types';
 import type { ImportKind } from '@/types/imports.types';
 
@@ -10,8 +11,8 @@ import { MOCK_PERSONAS } from './personas';
  * 모의 대화 스크립트. 선택지·짧은 말에 대한 응답을 상세기획 문구로 미리 적어 둔다.
  * 실제 LLM·규칙 함수는 백엔드가 맡고, 여기서는 이벤트 순서(token → form_update → ask_user → done)만 흉내 낸다.
  */
-const SOURCE_WORK24 = '고용24 실업급여(상용직)';
-const SOURCE_2026_NOTICE = '실업인정 인정기준 안내문(2026.3.1~ 신청자) · 취업드림수첩 2025';
+const SOURCE_WORK24 = citeOf('SRC-001');
+const SOURCE_2026_NOTICE = citeOf('SRC-008', 'SRC-016');
 
 const TOKEN_SIZE = 6;
 
@@ -280,7 +281,7 @@ const choiCareer = (): SseMessage[] => [
   ]),
 ];
 
-const SOURCE_FORM = '고용24 실업급여(상용직) · 취업드림수첩 2025';
+const SOURCE_FORM = citeOf('SRC-001', 'SRC-016');
 const ANSWERED = '2026-12-16';
 const SELF_ANSWER = {
   status: 'confirmed',
