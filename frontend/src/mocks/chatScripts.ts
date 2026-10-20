@@ -581,6 +581,45 @@ const parkDocument = (): SseMessage[] => [
   ask('resume.career_duties', 'OO산업에서 주로 어떤 일을 하셨어요?', []),
 ];
 
+/**
+ * 이정호가 지원 완료 캡처를 올렸을 때 (2-2.5: 캡처에서 활동을 뽑고, 경로별 증빙을 정함).
+ * 날짜·회사·경로를 읽어 활동 1건을 더하고 다시 계산한 결과를 흉내 냅니다.
+ */
+const leeCapture = (): SseMessage[] => [
+  ...tool('parse_file'),
+  update('activities', 'activities', 'append', {
+    value: {
+      item_id: 'a4',
+      round: 4,
+      date: '2026-12-15',
+      category: '입사지원',
+      kind: 'job_search',
+      route: 'company_site',
+      org_name: 'OO기획',
+      job_title: null,
+      evidence: { required: ['채용공고', '지원 완료 화면 캡처'], attached: ['지원완료_캡처.png'] },
+      source: 'document',
+      status: 'counted',
+      rule_refs: ['ACT-001', 'ACT-136'],
+    },
+  }),
+  ...tool('check_activity_rules'),
+  ...(
+    [
+      ['counted', 2],
+      ['counted_job_search', 2],
+      ['shortfall', 0],
+      ['status', 'satisfied'],
+    ] as const
+  ).map(([path, value]) => update('activities', path, 'set', { value })),
+  ...say(
+    '지원 완료 화면에서 12월 15일 OO기획 홈페이지 지원 1건을 읽었어요. 회사 홈페이지 지원은 채용공고와 날짜가 보이는 지원 완료 화면이 증빙이에요. 채용공고도 같이 남겨 두세요. 이제 인정 2건으로 이번 회차 필요 활동을 채웠어요.',
+    SOURCE_2026_NOTICE,
+    ['ACT-136', 'ACT-025', 'ACT-026'],
+  ),
+  ask('round.satisfied', '다음으로 무엇을 할까요?', ['신청서 볼게요', '활동 더 기록할게요']),
+];
+
 const documentFallback = (entryChoices: string[]): SseMessage[] => [
   ...say(
     '이 사진에서는 이력서에 쓸 내용을 못 찾았어요. 경력증명서·자격증·예전 이력서 사진이면 다시 올려 주세요.',
@@ -689,7 +728,8 @@ export const buildMockChatEvents = (
 ): SseMessage[] => {
   if (importIds?.length) return importEvents(personaId, importIds);
   if (fileIds?.length) {
-    return personaId === 'park' ? parkDocument() : documentFallback(entryChoices);
+    if (personaId === 'park') return parkDocument();
+    return personaId === 'lee' ? leeCapture() : documentFallback(entryChoices);
   }
   const key = message.trim();
   const script = BY_PERSONA[personaId]?.[key] ?? COMMON[key];

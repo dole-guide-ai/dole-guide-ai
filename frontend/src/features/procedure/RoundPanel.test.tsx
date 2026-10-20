@@ -5,7 +5,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { RoundPanel } from '@/features/procedure/RoundPanel';
 
 import { applyFormUpdate, resetForms } from '@/lib/formStore';
-import { MOCK_RECOMMENDATIONS, MOCK_ROUND_CHECKS } from '@/mocks/activities';
+import {
+  MOCK_ACTIVITY_REMOVALS,
+  MOCK_RECOMMENDATIONS,
+  MOCK_ROUND_CHECKS,
+} from '@/mocks/activities';
 import { buildMockSession } from '@/mocks/handlers';
 import { renderWithProviders } from '@/test/renderWithProviders';
 
@@ -24,6 +28,14 @@ const mockApi = (options: { checkStatus?: number } = {}) =>
       return Response.json(MOCK_RECOMMENDATIONS.lee);
     }
     if (url.endsWith('/procedure') && init?.method === 'PATCH') {
+      if (String(init.body).includes('"op":"remove"')) {
+        return Response.json({
+          updates: [
+            { form: 'activities', path: 'activities.a2', op: 'remove' },
+            ...MOCK_ACTIVITY_REMOVALS.a2,
+          ],
+        });
+      }
       return Response.json({
         updates: [
           {
@@ -135,5 +147,28 @@ describe('RoundPanel', () => {
 
     await userEvent.click(screen.getByRole('button', { name: '그래도 볼게요' }));
     expect(onOpenForm).toHaveBeenCalledTimes(1);
+  });
+
+  it('활동 빼기는 한 번 묻고, 다시 계산한 결과로 목록·경고를 바꾼다 (2-2.11)', async () => {
+    mockApi();
+    renderWithProviders(<RoundPanel session={session()} />);
+
+    await userEvent.click(await screen.findByRole('button', { name: 'OO상사 활동 빼기' }));
+    expect(screen.getByText('이 활동을 목록에서 뺄까요? 다시 계산해요.')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: '뺄게요' }));
+
+    await vi.waitFor(() => expect(screen.queryByText('OO상사')).not.toBeInTheDocument());
+    expect(screen.queryByRole('list', { name: '경고' })).not.toBeInTheDocument();
+  });
+
+  it('인정일이 지났으면 변경 신청 안내를 맨 위에 보여 준다 (E2)', async () => {
+    mockApi();
+    const lee = session();
+    renderWithProviders(
+      <RoundPanel session={{ ...lee, derived: { ...lee.derived, d_day: -2 } }} />,
+    );
+
+    expect(await screen.findByText('12월 22일(화) 실업인정일이 지났어요.')).toBeInTheDocument();
+    expect(screen.getByText(/14일 안에 고용센터에 가서 변경 신청/)).toBeInTheDocument();
   });
 });

@@ -9,10 +9,12 @@ import { DdayCard } from '@/features/procedure/DdayCard';
 import { RecommendationBox } from '@/features/procedure/RecommendationBox';
 import { RequirementCard } from '@/features/procedure/RequirementCard';
 import { RoundProgress } from '@/features/procedure/RoundProgress';
+import { useRemoveActivity } from '@/features/procedure/useRemoveActivity';
 import { useRoundCheck } from '@/features/procedure/useRoundCheck';
 import { useRoundDraft } from '@/features/procedure/useRoundDraft';
 
 import { ApiError } from '@/lib/api';
+import { formatKoreanDate } from '@/lib/dateFormat';
 import type { SessionRead } from '@/types/demo.types';
 
 /**
@@ -29,6 +31,7 @@ export const RoundPanel = ({ session, onOpenForm }: RoundPanelProps) => {
   const query = useRoundCheck(session.session_id, session.derived.current_round);
   const draft = useRoundDraft();
   const [isAskingShort, setIsAskingShort] = useState(false);
+  const remove = useRemoveActivity();
 
   if (query.isPending) return <p className="text-muted text-base">이번 회차 활동을 불러오는 중…</p>;
   if (query.isError) {
@@ -43,6 +46,7 @@ export const RoundPanel = ({ session, onOpenForm }: RoundPanelProps) => {
 
   // 저장소가 아직 채워지기 전(첫 렌더) 에는 받은 응답을 그대로 씁니다.
   const check = { ...query.data, ...draft };
+  const isOverdue = (session.derived.d_day ?? 0) < 0;
   const plannedIds = check.activities
     .filter((activity) => activity.status === 'planned')
     .map((activity) => activity.item_id);
@@ -58,13 +62,35 @@ export const RoundPanel = ({ session, onOpenForm }: RoundPanelProps) => {
 
   return (
     <div className="flex flex-col gap-4">
+      {/* E2 (1.6): 인정일이 지났으면 변경 신청 안내를 맨 위에 둡니다 (DUE-089, DUE-094). */}
+      {isOverdue && session.state.next_recognition_date && (
+        <div role="alert" className="bg-danger-soft text-danger rounded-xl px-4 py-3">
+          <p className="text-base font-semibold">
+            {formatKoreanDate(session.state.next_recognition_date)} 실업인정일이 지났어요.
+          </p>
+          <p className="text-base">
+            날짜를 착각했거나 개인 사정이었다면 인정일부터 14일 안에 고용센터에 가서 변경 신청을 할
+            수 있어요(수급기간 중 1회). 활동 기록은 계속할 수 있어요.
+          </p>
+        </div>
+      )}
       <DdayCard state={session.state} derived={session.derived} />
       <RequirementCard check={check} />
       <RoundProgress markers={check.round_markers} />
 
       <section className="flex flex-col gap-2">
         <h3 className="text-base font-bold">이번 회차 활동</h3>
-        <ActivityList activities={check.activities} warnings={check.warnings} />
+        <ActivityList
+          activities={check.activities}
+          warnings={check.warnings}
+          onRemove={(itemId) => remove.mutate(itemId)}
+          isRemoving={remove.isPending}
+        />
+        {remove.isError && (
+          <p role="alert" className="text-danger text-sm">
+            {remove.error instanceof ApiError ? remove.error.message : '활동을 빼지 못했어요.'}
+          </p>
+        )}
       </section>
 
       {check.recommendations_open && (
