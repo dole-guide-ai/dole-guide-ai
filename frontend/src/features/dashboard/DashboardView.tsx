@@ -77,7 +77,8 @@ export const DashboardView = ({ session, personaName }: DashboardViewProps) => {
         : null;
 
   return (
-    <div className="flex min-h-screen flex-col">
+    // 넓은 화면은 화면 높이에 고정하고 대화·패널이 각자 스크롤됩니다. 좁은 화면(세로로 쌓임)은 페이지가 스크롤됩니다.
+    <div className="flex min-h-dvh flex-col lg:h-dvh lg:overflow-hidden">
       <DashboardHeader personaName={personaName} onSwitchAccount={handleSwitchAccount} />
 
       <section className="border-line bg-surface flex flex-col gap-3 border-b px-4 py-4 sm:px-6">
@@ -88,7 +89,7 @@ export const DashboardView = ({ session, personaName }: DashboardViewProps) => {
         </div>
       </section>
 
-      <main className="grid flex-1 gap-4 p-4 sm:p-6 lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
+      <main className="grid flex-1 gap-4 p-4 sm:p-6 lg:min-h-0 lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
         <ChatPanel
           messages={chat.messages}
           choices={chat.choices}

@@ -32,20 +32,26 @@ export const ChatPanel = ({
   isUploading = false,
   statusText,
 }: ChatPanelProps) => {
-  const bottomRef = useRef<HTMLDivElement>(null);
+  const logRef = useRef<HTMLDivElement>(null);
   const lastText = messages[messages.length - 1]?.text;
 
   useEffect(() => {
-    // jsdom(테스트)에는 scrollIntoView가 없어서 있을 때만 호출합니다.
-    bottomRef.current?.scrollIntoView?.({ block: 'end' });
-  }, [messages.length, choices.length, lastText]);
+    // 페이지가 아니라 대화 목록 칸만 맨 아래로 내립니다.
+    const log = logRef.current;
+    if (log) log.scrollTop = log.scrollHeight;
+  }, [messages.length, choices.length, lastText, statusText]);
 
   return (
     <section
       aria-label="대화"
-      className="border-line bg-canvas flex min-h-[60vh] flex-col overflow-hidden rounded-2xl border"
+      className="border-line bg-canvas flex h-[70dvh] flex-col overflow-hidden rounded-2xl border lg:h-auto lg:min-h-0"
     >
-      <div className="flex flex-1 flex-col gap-4 overflow-y-auto p-4" role="log" aria-live="polite">
+      <div
+        ref={logRef}
+        className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-4"
+        role="log"
+        aria-live="polite"
+      >
         {messages.map((message) => (
           <MessageBubble key={message.id} message={message} />
         ))}
@@ -55,7 +61,6 @@ export const ChatPanel = ({
           </p>
         )}
         <ChoiceButtons choices={choices} onSelect={onChoice} isDisabled={isStreaming} />
-        <div ref={bottomRef} />
       </div>
       <ChatInput
         value={inputText}

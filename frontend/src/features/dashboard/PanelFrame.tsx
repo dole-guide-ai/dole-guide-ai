@@ -35,7 +35,10 @@ export const PanelFrame = ({ session, onEditRequest, onOpenForm }: PanelFramePro
 
   if (!panel) {
     return (
-      <aside className="border-line bg-surface rounded-2xl border p-5" aria-label="패널">
+      <aside
+        className="border-line bg-surface rounded-2xl border p-5 lg:min-h-0 lg:overflow-y-auto"
+        aria-label="패널"
+      >
         <p className="text-muted text-base">지금 단계를 알려 주시면 맞는 화면을 보여 드릴게요.</p>
       </aside>
     );
@@ -49,7 +52,7 @@ export const PanelFrame = ({ session, onEditRequest, onOpenForm }: PanelFramePro
 
   return (
     <aside
-      className="border-line bg-surface flex flex-col gap-4 rounded-2xl border p-5"
+      className="border-line bg-surface flex flex-col gap-4 rounded-2xl border p-5 lg:min-h-0 lg:overflow-y-auto"
       aria-label={`패널 ${info.name}`}
     >
       <div>
