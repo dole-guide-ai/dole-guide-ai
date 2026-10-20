@@ -2,6 +2,7 @@ import { ApiError } from '@/lib/api';
 import { getSession } from '@/lib/sessionStore';
 import type { FormPatchCreate, FormUpdateEvent } from '@/types/chat.types';
 import type { DemoAuthCreate, PersonaCardRead, SessionRead } from '@/types/demo.types';
+import type { MyDataDelete, MyDataRead } from '@/types/myData.types';
 import type { ProcedurePatchCreate } from '@/types/procedure.types';
 import type { RecognitionConfirmCreate } from '@/types/recognition.types';
 
@@ -12,6 +13,7 @@ import {
   MOCK_ROUND_CHECKS,
 } from './activities';
 import { MOCK_AFTER_RESUME_ENTRIES, MOCK_ENTRIES } from './entries';
+import { MOCK_MY_DATA, MOCK_MY_DATA_DELETE_UPDATES, MOCK_NOT_STORED } from './myData';
 import { findMockPersona, MOCK_PERSONAS } from './personas';
 import { MOCK_RECOGNITION_FORMS } from './recognition';
 import { MOCK_RESUMES } from './resumes';
@@ -23,6 +25,8 @@ import { MOCK_RESUMES } from './resumes';
 const MOCK_DELAY_MS = 150;
 
 let authenticatedPersonaId: string | null = null;
+/** 내 정보에서 지운 줄 (계정을 다시 고르면 seed로 초기화, 1.4) */
+const deletedMyData = new Set<string>();
 
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -47,6 +51,7 @@ export const buildMockSession = (personaId: string): SessionRead => {
 /** 테스트에서 인증 상태를 초기화할 때 씁니다. */
 export const resetMockAuth = () => {
   authenticatedPersonaId = null;
+  deletedMyData.clear();
 };
 
 export const resolveMock = async <T>(path: string, init?: RequestInit): Promise<T> => {
@@ -70,6 +75,7 @@ export const resolveMock = async <T>(path: string, init?: RequestInit): Promise<
     const persona = body ? findMockPersona(body.persona_id) : undefined;
     if (!persona) throw new ApiError('NOT_FOUND', '알 수 없는 계정이에요.', 404);
     authenticatedPersonaId = persona.persona_id;
+    deletedMyData.clear();
     return { persona_id: persona.persona_id, display: persona.display } as T;
   }
 
@@ -121,6 +127,28 @@ export const resolveMock = async <T>(path: string, init?: RequestInit): Promise<
     const recommendations = personaId ? MOCK_RECOMMENDATIONS[personaId] : undefined;
     if (!recommendations) throw new ApiError('NOT_FOUND', '추천할 활동이 없어요.', 404);
     return recommendations as T;
+  }
+
+  if (method === 'GET' && path === '/me/data') {
+    const items = (personaId ? MOCK_MY_DATA[personaId] : undefined) ?? [];
+    const read: MyDataRead = {
+      items: items.filter((item) => !deletedMyData.has(item.item_id)),
+      not_stored: MOCK_NOT_STORED,
+    };
+    return read as T;
+  }
+
+  if (method === 'DELETE' && path === '/me/data') {
+    const body = parseBody<MyDataDelete>(init);
+    const item = personaId
+      ? MOCK_MY_DATA[personaId]?.find((row) => row.item_id === body?.item_id)
+      : undefined;
+    if (!item || deletedMyData.has(item.item_id)) {
+      throw new ApiError('NOT_FOUND', '지울 정보를 찾지 못했어요.', 404);
+    }
+    if (!item.is_deletable) throw new ApiError('CONFLICT', '이 정보는 지울 수 없어요.', 409);
+    deletedMyData.add(item.item_id);
+    return { updates: MOCK_MY_DATA_DELETE_UPDATES[item.item_id] ?? [] } as T;
   }
 
   if (method === 'GET' && path === '/forms/recognition') {
