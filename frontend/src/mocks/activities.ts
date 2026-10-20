@@ -81,6 +81,33 @@ const lee: RoundCheckRead = {
 
 export const MOCK_ROUND_CHECKS: Record<string, RoundCheckRead> = { lee };
 
+/**
+ * 4차 출석 준비 확인 뒤 "다음은 1월 19일이래요"로 넘어간 5차 첫 화면 (2-3.7, 평가 form-005).
+ * 5차 `general` = 4주 2건 · 구직활동 1건 포함, 온라인 회차, 대상 기간 12.23 ~ 01.19.
+ */
+const lee5: RoundCheckRead = {
+  ...lee,
+  round: 5,
+  period: { start: '2026-12-23', end: '2027-01-19', days: 28 },
+  counted: 0,
+  counted_job_search: 0,
+  shortfall: 2,
+  shortfall_job_search: 1,
+  activities: [],
+  warnings: [],
+  round_markers: [
+    ...LEE_MARKERS.map((marker) => ({ ...marker, state: 'done' as const })),
+    { round: 5, state: 'current', is_attendance: false },
+  ],
+  rule_refs: ['ACT-027', 'ACT-028', 'DUE-044', 'DUE-090'],
+  recommendations_open: false,
+};
+
+/** 회차가 넘어간 뒤의 점검 결과 (계정 → 회차 → 결과). */
+export const MOCK_NEXT_ROUND_CHECKS: Record<string, Record<number, RoundCheckRead>> = {
+  lee: { 5: lee5 },
+};
+
 export const MOCK_RECOMMENDATIONS: Record<string, RecommendationsRead> = {
   lee: {
     items: [

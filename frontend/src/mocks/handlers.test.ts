@@ -4,6 +4,7 @@ import { ApiError } from '@/lib/api';
 import type { FormPatchRead } from '@/types/chat.types';
 import type { PersonaCardRead, SessionRead } from '@/types/demo.types';
 import type { RoundCheckRead } from '@/types/procedure.types';
+import type { RecognitionFormRead } from '@/types/recognition.types';
 import { resetMockAuth, resolveMock } from '@/mocks/handlers';
 
 describe('모의 API', () => {
@@ -71,5 +72,27 @@ describe('모의 API', () => {
         body: JSON.stringify({ path: 'x', op: 'set' }),
       }),
     ).rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
+  });
+
+  it('이정호 4차 신청서는 출석 모드이고, 모드가 맞을 때만 모의 확정된다', async () => {
+    await resolveMock('/auth/demo', {
+      method: 'POST',
+      body: JSON.stringify({ persona_id: 'lee' }),
+    });
+    const form = await resolveMock<RecognitionFormRead>('/forms/recognition');
+    const confirmed = await resolveMock<RecognitionFormRead>('/forms/recognition/confirm', {
+      method: 'POST',
+      body: JSON.stringify({ submit_mode: 'attend' }),
+    });
+
+    expect(form.submit_mode).toBe('attend');
+    expect(form.work_and_employment.has_work_or_service).toBeNull();
+    expect(confirmed).toMatchObject({ status: 'finalized', mock_submission: 'attend_ready' });
+    await expect(
+      resolveMock('/forms/recognition/confirm', {
+        method: 'POST',
+        body: JSON.stringify({ submit_mode: 'send' }),
+      }),
+    ).rejects.toMatchObject({ code: 'CONFLICT' });
   });
 });
