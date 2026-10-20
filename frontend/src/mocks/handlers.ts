@@ -2,7 +2,9 @@ import { ApiError } from '@/lib/api';
 import { getSession } from '@/lib/sessionStore';
 import type { FormPatchCreate, FormUpdateEvent } from '@/types/chat.types';
 import type { DemoAuthCreate, PersonaCardRead, SessionRead } from '@/types/demo.types';
+import type { ProcedurePatchCreate } from '@/types/procedure.types';
 
+import { MOCK_PLANNED_ACTIVITIES, MOCK_RECOMMENDATIONS, MOCK_ROUND_CHECKS } from './activities';
 import { MOCK_AFTER_RESUME_ENTRIES, MOCK_ENTRIES } from './entries';
 import { findMockPersona, MOCK_PERSONAS } from './personas';
 import { MOCK_RESUMES } from './resumes';
@@ -96,6 +98,35 @@ export const resolveMock = async <T>(path: string, init?: RequestInit): Promise<
     }
     const stamp = Date.now();
     return { file_id: `file-${stamp}`, job_id: `job-${stamp}` } as T;
+  }
+
+  if (method === 'GET' && path === '/procedure/current-round/check') {
+    const check = personaId ? MOCK_ROUND_CHECKS[personaId] : undefined;
+    if (!check) throw new ApiError('NOT_FOUND', '이번 회차 정보가 없어요.', 404);
+    return check as T;
+  }
+
+  if (method === 'GET' && path === '/procedure/current-round/recommendations') {
+    const recommendations = personaId ? MOCK_RECOMMENDATIONS[personaId] : undefined;
+    if (!recommendations) throw new ApiError('NOT_FOUND', '추천할 활동이 없어요.', 404);
+    return recommendations as T;
+  }
+
+  if (method === 'PATCH' && path === '/procedure') {
+    const body = parseBody<ProcedurePatchCreate>(init);
+    const recommendationId = (body?.value as { recommendation_id?: string } | undefined)
+      ?.recommendation_id;
+    const planned = recommendationId ? MOCK_PLANNED_ACTIVITIES[recommendationId] : undefined;
+    if (body?.path !== 'activities' || body.op !== 'append' || !planned) {
+      throw new ApiError('VALIDATION_ERROR', '바꿀 내용을 알 수 없어요.', 422);
+    }
+    const update: FormUpdateEvent = {
+      form: 'activities',
+      path: 'activities',
+      op: 'append',
+      value: { item_id: `planned_${recommendationId}`, ...planned },
+    };
+    return { updates: [update] } as T;
   }
 
   if (method === 'PATCH' && path === '/forms/resume') {

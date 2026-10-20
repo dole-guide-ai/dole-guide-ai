@@ -1,7 +1,9 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { ApiError } from '@/lib/api';
+import type { FormPatchRead } from '@/types/chat.types';
 import type { PersonaCardRead, SessionRead } from '@/types/demo.types';
+import type { RoundCheckRead } from '@/types/procedure.types';
 import { resetMockAuth, resolveMock } from '@/mocks/handlers';
 
 describe('모의 API', () => {
@@ -40,5 +42,34 @@ describe('모의 API', () => {
 
     expect(session.entry.branch_id).toBe('E7b');
     expect(session.entry.ui.big_text).toBe(true);
+  });
+
+  it('이정호 회차 점검과 추천 선택(PATCH /procedure)은 예정 활동 form_update를 돌려준다', async () => {
+    await resolveMock('/auth/demo', {
+      method: 'POST',
+      body: JSON.stringify({ persona_id: 'lee' }),
+    });
+    const check = await resolveMock<RoundCheckRead>('/procedure/current-round/check');
+    const { updates } = await resolveMock<FormPatchRead>('/procedure', {
+      method: 'PATCH',
+      body: JSON.stringify({
+        path: 'activities',
+        op: 'append',
+        value: { recommendation_id: 'rec_step_online' },
+      }),
+    });
+
+    expect(check.shortfall).toBe(1);
+    expect(updates[0]).toMatchObject({
+      form: 'activities',
+      op: 'append',
+      value: { item_id: 'planned_rec_step_online', status: 'planned' },
+    });
+    await expect(
+      resolveMock('/procedure', {
+        method: 'PATCH',
+        body: JSON.stringify({ path: 'x', op: 'set' }),
+      }),
+    ).rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
   });
 });
