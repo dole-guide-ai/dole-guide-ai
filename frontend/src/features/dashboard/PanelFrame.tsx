@@ -1,3 +1,4 @@
+import { Button } from '@/components/Button';
 import { EvidenceLine } from '@/components/EvidenceLine';
 import { RoundPanel } from '@/features/procedure/RoundPanel';
 import { RecognitionPanel } from '@/features/recognition/RecognitionPanel';
@@ -7,7 +8,7 @@ import { EligibilityPanel } from '@/features/steps/EligibilityPanel';
 import { FirstDatePanel } from '@/features/steps/FirstDatePanel';
 
 import { patchSession } from '@/lib/sessionStore';
-import type { PanelId, SessionRead } from '@/types/demo.types';
+import type { PanelId, ProgressStep, SessionRead } from '@/types/demo.types';
 
 /**
  * 오른쪽 패널 틀 (1.1 패널 A/E/Q/B/C): A 이력서(2-1), B 회차 할 일(2-2), C 신청서(2-3),
@@ -34,16 +35,49 @@ interface PanelFrameProps {
   onOpenForm?: () => void;
   /** 패널 C 모의 제출·출석 준비 확인이 끝났을 때 (2-3.7) */
   onFormConfirmed?: (mode: 'send' | 'attend') => void;
+  /** 진행바에서 고른 완료 단계 (1.8): 그 단계 패널을 읽기 전용으로 보여 줍니다. */
+  reviewStep?: ProgressStep | null;
+  onExitReview?: () => void;
 }
+
+/** 완료 단계 → 그 단계의 패널. 4단계(실업인정)는 늘 현재 단계라 다시 보기가 없습니다. */
+const STEP_PANEL: Partial<Record<ProgressStep, PanelId>> = { 1: 'A', 2: 'E', 3: 'Q' };
+
+const ASIDE_CLASS =
+  'border-line bg-surface flex flex-col gap-4 rounded-2xl border p-5 lg:min-h-0 lg:overflow-y-auto';
 
 export const PanelFrame = ({
   session,
   onEditRequest,
   onOpenForm,
   onFormConfirmed,
+  reviewStep,
+  onExitReview,
 }: PanelFrameProps) => {
   const { entry, state } = session;
   const panel = entry.panel;
+  const reviewPanel = reviewStep ? STEP_PANEL[reviewStep] : undefined;
+
+  if (reviewPanel) {
+    const info = PANEL_INFO[reviewPanel];
+    return (
+      <aside className={ASIDE_CLASS} aria-label={`패널 ${info.name} (읽기 전용)`}>
+        <div className="bg-ok-soft flex flex-wrap items-center justify-between gap-2 rounded-xl px-4 py-3">
+          <p className="text-ok text-base font-semibold">완료한 단계 · {info.name} (읽기 전용)</p>
+          {onExitReview && (
+            <Button variant="secondary" onClick={onExitReview}>
+              이번 단계로 돌아가기
+            </Button>
+          )}
+        </div>
+        {reviewPanel === 'A' && <ResumePanel session={session} isReadOnly />}
+        {reviewPanel === 'E' && <EducationPanel state={state} isReadOnly />}
+        {reviewPanel === 'Q' && (
+          <EligibilityPanel state={state} derived={session.derived} isReadOnly />
+        )}
+      </aside>
+    );
+  }
 
   if (!panel) {
     return (
@@ -63,10 +97,7 @@ export const PanelFrame = ({
     ['job_registration', 'education', 'eligibility_application'].includes(state.stage);
 
   return (
-    <aside
-      className="border-line bg-surface flex flex-col gap-4 rounded-2xl border p-5 lg:min-h-0 lg:overflow-y-auto"
-      aria-label={`패널 ${info.name}`}
-    >
+    <aside className={ASIDE_CLASS} aria-label={`패널 ${info.name}`}>
       <div>
         <p className="text-brand text-sm font-semibold">패널 {panel}</p>
         <h2 className="text-xl font-bold">{info.name}</h2>

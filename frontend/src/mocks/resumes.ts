@@ -136,4 +136,79 @@ const choi: ResumeDraftRead = {
   can_save: false,
 };
 
-export const MOCK_RESUMES: Record<string, ResumeDraftRead> = { park, choi };
+const SAVED = { status: 'confirmed', source: 'conversation' } as const;
+
+/** 이정호는 구직등록을 마친 계정이라 저장된(`finalized`) 이력서를 둡니다. 완료 단계 다시 보기(1.8)에 씁니다. */
+const lee: ResumeDraftRead = {
+  ...emptyValues(),
+  status: 'finalized',
+  resume_title: '일반 사무 · 행정지원 경력 이력서',
+  education: [
+    {
+      item_id: 'edu_001',
+      level: '고등학교',
+      graduation_status: '졸업',
+      school_name: 'OO고등학교',
+      start_date: '1984-03',
+      end_date: '1987-02',
+      is_final: true,
+    },
+  ],
+  job_preferences: {
+    ...emptyValues().job_preferences,
+    desired_occupations: [{ code: null, name: '일반 사무', status: 'confirmed' }],
+    desired_regions: ['서울 강서구'],
+    desired_salary: { amount: 250, unit: 'monthly', negotiable: false },
+    employment_contract_type: '기간의 정함이 없는 근로계약',
+    military_alternative: '해당 없음',
+  },
+  competencies: {
+    ...emptyValues().competencies,
+    careers: [
+      {
+        item_id: 'career_001',
+        company_name: 'OO유통',
+        start_date: '2001-04',
+        end_date: '2026-08',
+        position: '과장',
+        employment_status: '퇴직',
+        occupation: { code: null, name: '일반 사무', status: 'confirmed' },
+        main_duties: '거래처 서류 관리, 사내 행정 지원',
+        monthly_salary: null,
+        additional_details: null,
+      },
+    ],
+    certifications: [
+      {
+        item_id: 'cert_001',
+        certificate_name: '워드프로세서',
+        issuing_organization: '대한상공회의소',
+        acquired_date: '2003-06-13',
+      },
+    ],
+  },
+  enabled_sections: ['careers', 'certifications'],
+  field_states: {
+    resume_title: SAVED,
+    'education.edu_001.school_name': SAVED,
+    'job_preferences.desired_occupations': SAVED,
+    'job_preferences.desired_regions': SAVED,
+    'job_preferences.desired_salary': SAVED,
+    'job_preferences.employment_contract_type': SAVED,
+    'job_preferences.military_alternative': SAVED,
+    'competencies.careers.career_001.company_name': SAVED,
+    'competencies.careers.career_001.end_date': SAVED,
+    'competencies.careers.career_001.position': SAVED,
+    'competencies.careers.career_001.employment_status': {
+      status: 'confirmed',
+      source: 'computed',
+    },
+    'competencies.careers.career_001.main_duties': SAVED,
+    'competencies.certifications.cert_001.certificate_name': SAVED,
+  },
+  completeness: { done: 5, total: 5 },
+  next_question: null,
+  can_save: false,
+};
+
+export const MOCK_RESUMES: Record<string, ResumeDraftRead> = { park, choi, lee };

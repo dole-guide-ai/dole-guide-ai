@@ -27,6 +27,8 @@ import type { SessionRead } from '@/types/demo.types';
 interface ResumePanelProps {
   session: SessionRead;
   onEditRequest?: (label: string) => void;
+  /** 완료한 단계를 다시 볼 때(1.8): 저장·고치기·직접 입력을 숨깁니다. */
+  isReadOnly?: boolean;
 }
 
 const WORK24_CHIP = { label: '고용24에서', tone: 'neutral' } as const;
@@ -37,7 +39,7 @@ const hasCheck = (fields: Record<string, FieldMeta>, prefix: string) =>
 
 const listText = (items: string[] | undefined) => (items?.length ? items.join(', ') : null);
 
-export const ResumePanel = ({ session, onEditRequest }: ResumePanelProps) => {
+export const ResumePanel = ({ session, onEditRequest, isReadOnly = false }: ResumePanelProps) => {
   const query = useResumeForm(session.session_id);
   const { values, fields, completeness } = useResumeDraft();
   const confirm = useConfirmResume();
@@ -54,8 +56,10 @@ export const ResumePanel = ({ session, onEditRequest }: ResumePanelProps) => {
     );
   }
 
-  const edit = (label: string) => (onEditRequest ? () => onEditRequest(label) : undefined);
-  const direct = (path: string) => (value: string) => patch.mutateAsync({ path, op: 'set', value });
+  const edit = (label: string) =>
+    onEditRequest && !isReadOnly ? () => onEditRequest(label) : undefined;
+  const direct = (path: string) =>
+    isReadOnly ? undefined : (value: string) => patch.mutateAsync({ path, op: 'set', value });
   const education = values.education ?? [];
   const prefs = values.job_preferences;
   const careers = values.competencies?.careers ?? [];
@@ -100,16 +104,18 @@ export const ResumePanel = ({ session, onEditRequest }: ResumePanelProps) => {
             {completeness?.done ?? 0} / {completeness?.total ?? 5}
           </p>
         </div>
-        <div className="flex flex-col items-end gap-1">
-          <Button onClick={() => confirm.mutate()} disabled={!canSave}>
-            {confirm.isPending ? '저장하는 중…' : saveLabel}
-          </Button>
-          {!canSave && (
-            <span className="text-muted text-xs">
-              필수 항목을 다 채우고 확인 필요가 없어야 해요
-            </span>
-          )}
-        </div>
+        {!isReadOnly && (
+          <div className="flex flex-col items-end gap-1">
+            <Button onClick={() => confirm.mutate()} disabled={!canSave}>
+              {confirm.isPending ? '저장하는 중…' : saveLabel}
+            </Button>
+            {!canSave && (
+              <span className="text-muted text-xs">
+                필수 항목을 다 채우고 확인 필요가 없어야 해요
+              </span>
+            )}
+          </div>
+        )}
       </div>
       {confirm.isError && (
         <p role="alert" className="text-danger text-sm">
@@ -302,7 +308,7 @@ export const ResumePanel = ({ session, onEditRequest }: ResumePanelProps) => {
         />
       </ResumeSection>
 
-      {nextQuestion && (
+      {nextQuestion && !isReadOnly && (
         <p className="bg-brand-soft text-brand rounded-xl px-4 py-2 text-sm">
           AI가 이어서 물어볼 것 · {nextQuestion}
         </p>
