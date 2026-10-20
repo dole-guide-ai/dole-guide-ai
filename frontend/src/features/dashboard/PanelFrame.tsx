@@ -2,13 +2,16 @@ import { EvidenceLine } from '@/components/EvidenceLine';
 import { RoundPanel } from '@/features/procedure/RoundPanel';
 import { RecognitionPanel } from '@/features/recognition/RecognitionPanel';
 import { ResumePanel } from '@/features/resume/ResumePanel';
+import { EducationPanel } from '@/features/steps/EducationPanel';
+import { EligibilityPanel } from '@/features/steps/EligibilityPanel';
+import { FirstDatePanel } from '@/features/steps/FirstDatePanel';
 
 import { patchSession } from '@/lib/sessionStore';
 import type { PanelId, SessionRead } from '@/types/demo.types';
 
 /**
- * 오른쪽 패널 틀 (1.1 패널 A/E/Q/B/C). 패널 A는 이력서(2-1), 나머지 양식 칸(활동 목록·신청서)은
- * 2-2 · 2-3 구현에서 채웁니다.
+ * 오른쪽 패널 틀 (1.1 패널 A/E/Q/B/C): A 이력서(2-1), B 회차 할 일(2-2), C 신청서(2-3),
+ * E 온라인 교육·Q 수급자격 신청·E5b 1차 인정일 입력(기획 "예정", 정적 화면).
  */
 const PANEL_INFO: Record<PanelId, { name: string; description: string }> = {
   A: { name: '이력서', description: '고용24 이력서 항목을 같은 순서로 채워요.' },
@@ -83,7 +86,13 @@ export const PanelFrame = ({
 
       {panel === 'A' && <ResumePanel session={session} onEditRequest={onEditRequest} />}
 
-      {panel === 'B' && <RoundPanel session={session} onOpenForm={onOpenForm} />}
+      {panel === 'B' &&
+        (state.stage === 'eligibility_applied' || !state.next_recognition_date ? (
+          // E5b · 1.10 예외: 인정일을 모르면 회차 점검 대신 1차 실업인정일을 먼저 받습니다.
+          <FirstDatePanel state={state} />
+        ) : (
+          <RoundPanel session={session} onOpenForm={onOpenForm} />
+        ))}
 
       {panel === 'C' && (
         <RecognitionPanel
@@ -94,11 +103,9 @@ export const PanelFrame = ({
         />
       )}
 
-      {(panel === 'E' || panel === 'Q') && (
-        <p className="text-muted text-sm">
-          양식 칸은 대화를 이어가며 채워져요. 최종 인정 여부는 관할 고용센터가 판단해요.
-        </p>
-      )}
+      {panel === 'E' && <EducationPanel state={state} />}
+
+      {panel === 'Q' && <EligibilityPanel state={state} derived={session.derived} />}
     </aside>
   );
 };
