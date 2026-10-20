@@ -10,6 +10,7 @@ import { useChatStream } from '@/features/chat/useChatStream';
 import { useFileUpload } from '@/features/chat/useFileUpload';
 import { DashboardHeader } from '@/features/dashboard/DashboardHeader';
 import { PanelFrame } from '@/features/dashboard/PanelFrame';
+import { OPEN_FORM_MESSAGE } from '@/features/procedure/activityLabels';
 
 import { ApiError } from '@/lib/api';
 import { resetForms } from '@/lib/formStore';
@@ -105,6 +106,7 @@ export const DashboardView = ({ session, personaName }: DashboardViewProps) => {
         <PanelFrame
           session={session}
           onEditRequest={(label) => chat.setInputText(`${label} 고칠게요`)}
+          onOpenForm={() => void chat.send(OPEN_FORM_MESSAGE, { inputKind: 'choice' })}
         />
       </main>
     </div>

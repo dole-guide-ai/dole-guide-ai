@@ -1,3 +1,5 @@
+import { OPEN_FORM_MESSAGE } from '@/features/procedure/activityLabels';
+
 import type { FormUpdateEvent, SseMessage } from '@/types/chat.types';
 
 /**
@@ -263,6 +265,7 @@ const choiCareer = (): SseMessage[] => [
 const LEE: Script = {
   '부족한 활동 추천해 주세요': () => [
     ...tool('check_activity_rules'),
+    update('activities', 'recommendations_open', 'set', { value: true }),
     ...say(
       '지금 인정되는 활동은 1건이고 구직활동은 이미 1건 있어요. 12월 8일이 아닌 다른 날 활동이 1건 더 필요해요. 증빙이 쉬운 순서로 추천할게요. 1) 고용24로 희망 직종 공고에 입사지원(증빙 불필요) 2) 온라인 취업특강 1과정을 끝까지(증빙 불필요) 3) 잡힌 면접이 있으면 면접(면접확인서 + 명함). 인정일 전날 12월 21일(월)까지 하시길 권해요.',
       SOURCE_2026_NOTICE,
@@ -282,6 +285,11 @@ const LEE: Script = {
       '고용24 채용정보에서 일반 사무 공고를 골라 지원해 주세요. 지원하시면 여기서 "방금 고용24로 OO물산에 지원했어요"처럼 말씀해 주세요.',
     ),
   ],
+  [OPEN_FORM_MESSAGE]: () => [
+    ...say(
+      '이번 회차 활동으로 실업인정 신청서를 고용24 순서대로 정리할게요. 신청서 화면(패널 C)은 다음 단계에서 열려요.',
+    ),
+  ],
   '신청서 미리 볼래요': () => [
     ...say('아직 1건이 부족해요. 그래도 신청서를 볼까요?'),
     ask('round.open_form', '신청서를 열면 본인 답변 질문부터 시작해요.', [
@@ -295,28 +303,38 @@ const RECORD_PATTERN = /고용24.*지원|지원.*고용24/;
 const PARK_CAREER_PATTERN = /OO산업|프레스|반장/;
 const CHOI_CAREER_PATTERN = /OO빌딩|2022/;
 
+/**
+ * 이정호가 "방금 고용24로 OO물산에 지원했어요"라고 말할 때 (시안 2-2-2): 활동 추가 → `check_round` 다시 계산 →
+ * 필요 활동 카드가 충족으로 바뀜. 숫자는 백엔드 계산 결과를 흉내 낸 값입니다.
+ */
 const recordActivity = (): SseMessage[] => [
-  {
-    event: 'form_update',
-    data: {
-      form: 'activities',
-      path: 'items',
-      op: 'append',
-      value: {
-        item_id: 'a3',
-        date: '2026-12-16',
-        category: '입사지원',
-        org_name: 'OO물산',
-        route: 'work24',
-        kind: 'job_search',
-        status: 'counted',
-      },
-      status: 'extracted',
+  update('activities', 'activities', 'append', {
+    value: {
+      item_id: 'a3',
+      round: 4,
+      date: '2026-12-16',
+      category: '입사지원',
+      kind: 'job_search',
+      route: 'work24',
+      org_name: 'OO물산',
+      job_title: '사무보조',
+      evidence: { required: [], attached: [] },
       source: 'work24_import',
-      evidence: { kind: 'utterance', date: '2026-12-16', quote: '고용24로 OO물산' },
+      status: 'counted',
+      rule_refs: ['ACT-001', 'ACT-132'],
     },
-  },
+    evidence: { kind: 'utterance', date: '2026-12-16', quote: '고용24로 OO물산' },
+  }),
   ...tool('check_activity_rules'),
+  ...(
+    [
+      ['counted', 2],
+      ['counted_job_search', 2],
+      ['shortfall', 0],
+      ['status', 'satisfied'],
+      ['recommendations_open', false],
+    ] as const
+  ).map(([path, value]) => update('activities', path, 'set', { value })),
   ...say(
     '12월 16일 OO물산 고용24 입사지원을 기록했어요. 고용24 경로는 신청할 때 불러오기로 확인하니 증빙이 필요 없어요. 이제 인정 2건(구직활동 2건)으로 이번 회차 필요 활동을 채웠어요.',
     SOURCE_2026_NOTICE,

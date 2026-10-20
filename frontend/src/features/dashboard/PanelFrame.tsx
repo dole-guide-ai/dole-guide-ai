@@ -1,5 +1,5 @@
 import { EvidenceLine } from '@/components/EvidenceLine';
-import { DdayCard } from '@/features/procedure/DdayCard';
+import { RoundPanel } from '@/features/procedure/RoundPanel';
 import { ResumePanel } from '@/features/resume/ResumePanel';
 
 import type { PanelId, SessionRead } from '@/types/demo.types';
@@ -25,10 +25,12 @@ interface PanelFrameProps {
   session: SessionRead;
   /** 패널의 `고치기`를 누르면 "{항목} 고칠게요"를 입력창에 넣습니다 (2-0.6). */
   onEditRequest?: (label: string) => void;
+  /** 패널 B `활동 정리 끝 · 신청서 만들기` (2-2.9) */
+  onOpenForm?: () => void;
 }
 
-export const PanelFrame = ({ session, onEditRequest }: PanelFrameProps) => {
-  const { entry, state, derived } = session;
+export const PanelFrame = ({ session, onEditRequest, onOpenForm }: PanelFrameProps) => {
+  const { entry, state } = session;
   const panel = entry.panel;
 
   if (!panel) {
@@ -69,9 +71,9 @@ export const PanelFrame = ({ session, onEditRequest }: PanelFrameProps) => {
 
       {panel === 'A' && <ResumePanel session={session} onEditRequest={onEditRequest} />}
 
-      {panel === 'B' && <DdayCard state={state} derived={derived} />}
+      {panel === 'B' && <RoundPanel session={session} onOpenForm={onOpenForm} />}
 
-      {panel !== 'A' && (
+      {panel !== 'A' && panel !== 'B' && (
         <p className="text-muted text-sm">
           양식 칸은 대화를 이어가며 채워져요. 최종 인정 여부는 관할 고용센터가 판단해요.
         </p>

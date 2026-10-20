@@ -7,6 +7,7 @@ import { DashboardScreen } from '@/features/dashboard/DashboardScreen';
 import { getFormDrafts, resetForms } from '@/lib/formStore';
 import { setSession } from '@/lib/sessionStore';
 import type { SseMessage } from '@/types/chat.types';
+import { MOCK_ROUND_CHECKS } from '@/mocks/activities';
 import { buildMockSession } from '@/mocks/handlers';
 import { MOCK_PERSONAS } from '@/mocks/personas';
 import { MOCK_RESUMES } from '@/mocks/resumes';
@@ -26,6 +27,7 @@ const mockApi = (chatEvents: SseMessage[] = []) =>
     if (url.endsWith('/auth/demo')) return Response.json(cards);
     if (url.includes('/chat')) return sseResponse(chatEvents);
     if (url.endsWith('/forms/resume')) return Response.json(MOCK_RESUMES.park);
+    if (url.endsWith('/procedure/current-round/check')) return Response.json(MOCK_ROUND_CHECKS.lee);
     return new Response('{}', { status: 404 });
   });
 
@@ -61,9 +63,9 @@ describe('DashboardScreen', () => {
     ).toBeInTheDocument();
     expect(screen.getByLabelText('실업인정 현재 단계')).toBeInTheDocument();
     expect(screen.getByText(/3차 실업인정까지 받으셨네요/)).toBeInTheDocument();
-    expect(screen.getByText(/실업인정 인정기준 안내문/)).toBeInTheDocument();
+    expect(screen.getAllByText(/실업인정 인정기준 안내문/).length).toBeGreaterThan(0);
     expect(screen.getByRole('button', { name: '부족한 활동 추천해 주세요' })).toBeInTheDocument();
-    expect(screen.getByText('D-6')).toBeInTheDocument();
+    expect(await screen.findByText('D-6')).toBeInTheDocument();
     expect(screen.getByText('11.25 ~ 12.22')).toBeInTheDocument();
     expect(screen.getByText('고용센터 출석')).toBeInTheDocument();
     expect(document.documentElement.dataset.bigText).toBe('false');
@@ -92,7 +94,17 @@ describe('DashboardScreen', () => {
       { event: 'token', data: { text: '입사지원을 기록했어요.' } },
       {
         event: 'form_update',
-        data: { form: 'activities', path: 'items', op: 'append', value: { item_id: 'a3' } },
+        data: {
+          form: 'activities',
+          path: 'activities',
+          op: 'append',
+          value: {
+            ...MOCK_ROUND_CHECKS.lee.activities[0],
+            item_id: 'a3',
+            date: '2026-12-16',
+            org_name: 'OO물산',
+          },
+        },
       },
       { event: 'done', data: { cite: '시험용 출처 자료' } },
       {
@@ -103,7 +115,9 @@ describe('DashboardScreen', () => {
     setSession(buildMockSession('lee'));
 
     renderWithProviders(<DashboardScreen />);
-    await userEvent.click(await screen.findByRole('button', { name: '새 활동 기록할게요' }));
+    // 패널 B 점검 결과가 저장소에 들어간 뒤 보내야 스트림의 append가 덮어써지지 않습니다.
+    expect(await screen.findByText('OO상사')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: '새 활동 기록할게요' }));
 
     expect(await screen.findByText('12월 16일 OO물산 입사지원을 기록했어요.')).toBeInTheDocument();
     expect(await screen.findByRole('button', { name: '신청서 볼게요' })).toBeInTheDocument();
@@ -111,7 +125,8 @@ describe('DashboardScreen', () => {
     expect(
       screen.queryByRole('button', { name: '부족한 활동 추천해 주세요' }),
     ).not.toBeInTheDocument();
-    expect(getFormDrafts().activities.values).toEqual({ items: [{ item_id: 'a3' }] });
+    const activities = getFormDrafts().activities.values.activities as { item_id: string }[];
+    expect(activities.map((activity) => activity.item_id)).toEqual(['a1', 'a2', 'a3']);
 
     const chatCall = fetchSpy.mock.calls.find(([input]) => String(input).includes('/chat'));
     expect(chatCall?.[1]?.body).toBe(
