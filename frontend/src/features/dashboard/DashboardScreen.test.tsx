@@ -77,10 +77,8 @@ describe('DashboardScreen', () => {
 
     expect(await screen.findByText(/2019년에 쓰신 이력서가 있네요/)).toBeInTheDocument();
     expect(screen.getByText('신청 경로 안내')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '글자 보통' })).toHaveAttribute(
-      'aria-pressed',
-      'true',
-    );
+    // 크게 켜져 있으면 버튼 문구가 다음 동작인 `글자 보통`으로 보입니다.
+    expect(screen.getByRole('button', { name: '글자 보통' })).toBeInTheDocument();
     expect(document.documentElement.dataset.bigText).toBe('true');
   });
 
