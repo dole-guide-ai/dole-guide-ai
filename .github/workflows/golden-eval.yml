@@ -29,6 +29,9 @@ jobs:
   golden:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    # 코드 읽기만 합니다. 보고서 올리기(upload-artifact)는 저장소 쓰기 권한이 필요 없습니다.
+    permissions:
+      contents: read
     env:
       LLM_PROVIDER: ${{ vars.LLM_PROVIDER || 'openai' }}
       LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
@@ -38,6 +41,8 @@ jobs:
       JUDGE_MODEL: ${{ vars.JUDGE_MODEL }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       # 도구 버전은 mise.toml에서 읽습니다.
       - uses: jdx/mise-action@v2
       - run: uv sync --frozen

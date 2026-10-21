@@ -61,16 +61,24 @@ def test_golden(case, golden_options, golden_report, model_inputs) -> None:
         pytest.skip("영역 선택에서 빠짐")
 
     mode = golden_options.agent
+    # 예상 못 한 예외는 보고서에 '건너뜀'이 아니라 오류로 남깁니다.
+    # 예외 메시지에는 입력값이 섞일 수 있어 종류 이름만 적습니다.
     try:
         result = run_agent(case) if mode == "real" else run_selftest(case, broken=mode == "broken")
+        if not result.model_inputs:
+            result.model_inputs = list(model_inputs)
+        failures = grading.check(case, result)
     except AgentNotReadyError as error:
         record.skip(str(error))
         pytest.skip(str(error))
-    if not result.model_inputs:
-        result.model_inputs = list(model_inputs)
-
-    failures = grading.check(case, result)
-    verdict = judge(case, result.replies, mode, golden_options.threshold)
+    except Exception as error:
+        record.finish([f"실행 오류: {type(error).__name__}"], None)
+        raise
+    try:
+        verdict = judge(case, result.replies, mode, golden_options.threshold)
+    except Exception as error:
+        record.finish([*failures, f"LLM 판정 오류: {type(error).__name__}"], None)
+        raise
     if verdict.passed is False:
         score = f"{verdict.score or 0:.2f}점 (기준 {golden_options.threshold})"
         failures.append(f"LLM 판정: {score} {verdict.reason}")

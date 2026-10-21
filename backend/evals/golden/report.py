@@ -17,6 +17,11 @@ ORDER = ["통과", "실패", "참고 실패", "판정 건너뜀", "건너뜀"]
 AREA_NAMES = {"procedure": "절차", "form_fill": "서류", "grounding": "근거", "masking": "개인정보"}
 
 
+def _cell(value: Any) -> str:
+    """표 한 칸에 넣을 글. 정규식의 |나 줄바꿈이 표를 깨지 않게 바꿉니다."""
+    return " ".join(str(value).replace("|", "\\|").splitlines())
+
+
 @dataclass
 class Record:
     case: dict[str, Any]
@@ -78,8 +83,12 @@ class Report:
                     "| ID | 설명 | 이유 |",
                     "| --- | --- | --- |",
                 ]
-                lines += [f"| {r.case['id']} | {r.case['description']} | {'<br>'.join(r.reasons)} |"
-                          for r in rows]  # fmt: skip
+                lines += [
+                    f"| {_cell(r.case['id'])} | {_cell(r.case['description'])} | "
+                    + "<br>".join(_cell(reason) for reason in r.reasons)
+                    + " |"
+                    for r in rows
+                ]
         skipped = Counter(r.reasons[0] for r in self.records if r.status == "건너뜀" and r.reasons)
         if skipped:
             lines += ["", "## 건너뛴 이유", ""] + [f"- {why}: {n}개" for why, n in skipped.items()]

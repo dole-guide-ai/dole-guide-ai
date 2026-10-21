@@ -12,7 +12,8 @@ from typing import Any
 from app.agent import gateway
 from app.core.config import get_settings
 
-os.environ.setdefault("DEEPEVAL_TELEMETRY_OPT_OUT", "1")  # 평가 데이터를 외부 통계로 보내지 않음
+# 평가 데이터를 외부 통계로 보내지 않음. 다른 값이 있어도 항상 끕니다.
+os.environ["DEEPEVAL_TELEMETRY_OPT_OUT"] = "1"
 
 DEFAULT_THRESHOLD = 0.7
 
