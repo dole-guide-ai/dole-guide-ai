@@ -15,6 +15,8 @@ export interface ChatState {
   choices: string[];
   /** 마지막 질문이 고용24 불러오기 목록을 열었으면 그 종류 (2-0.4) */
   importKind: ImportKind | null;
+  /** 마지막 질문이 서류·사진을 요청했는지 (2-0.4 `accepts_file`). 이때만 파일 올리기를 켭니다. */
+  acceptsFile: boolean;
   streamingId: string | null;
   nextId: number;
 }
@@ -23,7 +25,13 @@ export type ChatAction =
   | { type: 'reset'; session: SessionRead }
   | { type: 'user_sent'; text: string; inputKind: ChatInputKind; attachments?: ChatAttachment[] }
   | { type: 'token'; text: string }
-  | { type: 'ask_user'; text: string; choices: string[]; importKind?: ImportKind }
+  | {
+      type: 'ask_user';
+      text: string;
+      choices: string[];
+      importKind?: ImportKind;
+      acceptsFile?: boolean;
+    }
   | { type: 'done'; cite?: string }
   | { type: 'system'; text: string };
 
@@ -37,6 +45,7 @@ export const initChatState = (session: SessionRead): ChatState => ({
   })),
   choices: session.entry.choices,
   importKind: null,
+  acceptsFile: session.entry.accepts_file ?? false,
   streamingId: null,
   nextId: 1,
 });
@@ -71,6 +80,7 @@ export const chatReducer = (state: ChatState, action: ChatAction): ChatState => 
         }),
         choices: [],
         importKind: null,
+        acceptsFile: false,
       };
 
     case 'token': {
@@ -93,6 +103,7 @@ export const chatReducer = (state: ChatState, action: ChatAction): ChatState => 
         ...push(closeStreaming(state), { role: 'assistant', text: action.text }),
         choices: action.choices,
         importKind: action.importKind ?? null,
+        acceptsFile: action.acceptsFile ?? false,
       };
 
     case 'done': {

@@ -76,7 +76,7 @@ describe('RecognitionPanel', () => {
     expect(screen.getByText(/계산에서 뺀 활동 1건/)).toBeInTheDocument();
     expect(screen.getByText(/OO상사 · 같은 날/)).toBeInTheDocument();
     // 고용24로 지원한 건은 증빙이 따로 필요 없어요 (ACT-132)
-    expect(screen.getAllByText('증빙 불필요 (고용24 지원)')).toHaveLength(2);
+    expect(screen.getAllByText('증빙 불필요 (고용24 기록)')).toHaveLength(2);
     expect(screen.getByText(/출석 회차라 인터넷으로 내지 않아요/)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '출석 준비 확인 (모의)' })).toBeDisabled();
     expect(
@@ -155,7 +155,8 @@ describe('RecognitionPanel', () => {
 
     renderWithProviders(<RecognitionPanel session={buildMockSession('lee')} />);
 
-    expect(await screen.findByText('2026-12-05 (1일)')).toBeInTheDocument();
+    // 다른 날짜 칸과 같은 형식으로 보입니다 (PPT 점검 N3).
+    expect(await screen.findByText('12.5(토) (1일)')).toBeInTheDocument();
     expect(screen.getByText('8시간')).toBeInTheDocument();
     expect(screen.getByText('100,000원')).toBeInTheDocument();
     expect(screen.getByText('소득수령(예정)일')).toBeInTheDocument();

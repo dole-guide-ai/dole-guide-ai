@@ -9,7 +9,9 @@ import { ChatPanel } from '@/features/chat/ChatPanel';
 import { useChatStream } from '@/features/chat/useChatStream';
 import { useFileUpload } from '@/features/chat/useFileUpload';
 import { DashboardHeader } from '@/features/dashboard/DashboardHeader';
+import { NoticeToast } from '@/features/dashboard/NoticeToast';
 import { PanelFrame } from '@/features/dashboard/PanelFrame';
+import { sessionNotices } from '@/features/dashboard/sessionNotices';
 import { MyDataDialog } from '@/features/myData/MyDataDialog';
 import { OPEN_FORM_MESSAGE } from '@/features/procedure/activityLabels';
 import { CONFIRMED_MESSAGE } from '@/features/recognition/recognitionLabels';
@@ -32,10 +34,7 @@ const TOOL_LABEL: Record<string, string> = {
   search_guide: '근거 자료를 찾는 중…',
 };
 
-/** 사진·문서는 이력서(패널 A, 2-1.5)와 회차 할 일(패널 B, 2-2.5 지원 캡처·증빙)에서 받습니다. */
-const UPLOAD_PANELS = new Set(['A', 'B']);
-
-/** 대시보드 본문 (1.5): 진행바 · 다음 할 일 · 대화 · 패널. */
+/** 대시보드 본문 (1.5): 상단 한 줄(진행바 · 다음 할 일) · 대화 · 패널. */
 export const DashboardView = ({ session, personaName }: DashboardViewProps) => {
   const router = useRouter();
   const { setIsBig } = useBigText();
@@ -63,7 +62,7 @@ export const DashboardView = ({ session, personaName }: DashboardViewProps) => {
   const handleFileSelect = (file: File) => {
     upload.mutate(file, {
       onSuccess: ({ file_id }) =>
-        void chat.send('사진을 올렸어요. 읽어 주세요.', {
+        void chat.send('파일을 올렸어요. 읽어 주세요.', {
           fileIds: [file_id],
           attachments: [{ name: file.name }],
         }),
@@ -79,7 +78,7 @@ export const DashboardView = ({ session, personaName }: DashboardViewProps) => {
     : chat.isStreaming
       ? '답을 만드는 중…'
       : upload.isPending
-        ? '사진을 올리는 중…'
+        ? '파일을 올리는 중…'
         : null;
 
   return (
@@ -87,24 +86,23 @@ export const DashboardView = ({ session, personaName }: DashboardViewProps) => {
     <div className="flex min-h-dvh flex-col lg:h-dvh lg:overflow-hidden">
       <DashboardHeader
         personaName={personaName}
+        title={entry.title}
+        nextStepText={entry.next_step_text}
+        progress={
+          <ProgressBar
+            current={entry.progress.current}
+            done={entry.progress.done}
+            onStepClick={(step) => setReview({ sessionId: session.session_id, step })}
+            isCompact
+          />
+        }
         onSwitchAccount={handleSwitchAccount}
         onOpenMyData={() => setIsMyDataOpen(true)}
       />
+      <NoticeToast key={session.session_id} notices={sessionNotices(session)} />
       {isMyDataOpen && (
         <MyDataDialog sessionId={session.session_id} onClose={() => setIsMyDataOpen(false)} />
       )}
-
-      <section className="border-line bg-surface flex flex-col gap-3 border-b px-4 py-4 sm:px-6">
-        <ProgressBar
-          current={entry.progress.current}
-          done={entry.progress.done}
-          onStepClick={(step) => setReview({ sessionId: session.session_id, step })}
-        />
-        <div>
-          <h1 className="text-2xl font-bold">{entry.title}</h1>
-          <p className="text-muted text-base">{entry.next_step_text}</p>
-        </div>
-      </section>
 
       <main className="grid flex-1 gap-4 p-4 sm:p-6 lg:min-h-0 lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
         <ChatPanel
@@ -122,9 +120,8 @@ export const DashboardView = ({ session, personaName }: DashboardViewProps) => {
           onInputChange={chat.setInputText}
           onChoice={(choice) => chat.send(choice, { inputKind: 'choice' })}
           onSend={(text) => chat.send(text)}
-          onFileSelect={
-            entry.panel && UPLOAD_PANELS.has(entry.panel) ? handleFileSelect : undefined
-          }
+          onFileSelect={handleFileSelect}
+          isFileRequested={chat.acceptsFile}
           isStreaming={chat.isStreaming}
           isUploading={upload.isPending}
           statusText={statusText}

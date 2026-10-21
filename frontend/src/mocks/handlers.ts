@@ -1,4 +1,5 @@
 import { ApiError } from '@/lib/api';
+import { getFormDrafts } from '@/lib/formStore';
 import { getSession } from '@/lib/sessionStore';
 import type { FormPatchCreate, FormUpdateEvent } from '@/types/chat.types';
 import type { DemoAuthCreate, PersonaCardRead, SessionRead } from '@/types/demo.types';
@@ -14,11 +15,12 @@ import {
   MOCK_RECOMMENDATIONS,
   MOCK_ROUND_CHECKS,
 } from './activities';
+import { resetMockChat } from './chatScripts';
 import { MOCK_AFTER_RESUME_ENTRIES, MOCK_ENTRIES } from './entries';
-import { MOCK_IMPORTS } from './imports';
+import { MOCK_IMPORTS, mockImportList } from './imports';
 import { MOCK_MY_DATA, MOCK_MY_DATA_DELETE_UPDATES, MOCK_NOT_STORED } from './myData';
 import { findMockPersona, MOCK_PERSONAS } from './personas';
-import { MOCK_RECOGNITION_FORMS } from './recognition';
+import { mockRecognitionForm } from './recognition';
 import { MOCK_RESUMES } from './resumes';
 
 /**
@@ -54,6 +56,7 @@ export const buildMockSession = (personaId: string): SessionRead => {
 /** 테스트에서 인증 상태를 초기화할 때 씁니다. */
 export const resetMockAuth = () => {
   authenticatedPersonaId = null;
+  resetMockChat();
   deletedMyData.clear();
 };
 
@@ -79,6 +82,7 @@ export const resolveMock = async <T>(path: string, init?: RequestInit): Promise<
     if (!persona) throw new ApiError('NOT_FOUND', '알 수 없는 계정이에요.', 404);
     authenticatedPersonaId = persona.persona_id;
     deletedMyData.clear();
+    resetMockChat();
     return { persona_id: persona.persona_id, display: persona.display } as T;
   }
 
@@ -112,6 +116,8 @@ export const resolveMock = async <T>(path: string, init?: RequestInit): Promise<
     const session = buildMockSession(personaId);
     return {
       ...session,
+      // 같은 대화 세션이라 ID를 유지합니다. 바뀌면 닫은 주의 토스트가 다시 뜹니다 (시연 검증 4번).
+      session_id: getSession()?.session_id ?? session.session_id,
       state: { ...session.state, resume_status: 'ready', stage: 'education' },
       entry,
     } as T;
@@ -144,7 +150,9 @@ export const resolveMock = async <T>(path: string, init?: RequestInit): Promise<
   const importMatch = /^\/imports\/(career-certificate|work24-activities)$/.exec(path);
   if (method === 'GET' && importMatch) {
     const list = personaId ? MOCK_IMPORTS[importMatch[1] as ImportKind][personaId] : undefined;
-    return (list ?? { items: [], source_note: '불러올 내역이 없어요.' }) as T;
+    if (!list) return { items: [], source_note: '불러올 내역이 없어요.' } as T;
+    const drafts = getFormDrafts();
+    return mockImportList(list, drafts.resume.values, drafts.activities.values) as T;
   }
 
   if (method === 'GET' && path === '/me/data') {
@@ -170,14 +178,18 @@ export const resolveMock = async <T>(path: string, init?: RequestInit): Promise<
   }
 
   if (method === 'GET' && path === '/forms/recognition') {
-    const form = personaId ? MOCK_RECOGNITION_FORMS[personaId] : undefined;
+    const form = personaId
+      ? mockRecognitionForm(personaId, getFormDrafts().activities.values)
+      : undefined;
     if (!form) throw new ApiError('NOT_FOUND', '실업인정 신청서 초안이 없어요.', 404);
     return form as T;
   }
 
   if (method === 'POST' && path === '/forms/recognition/confirm') {
     const body = parseBody<RecognitionConfirmCreate>(init);
-    const form = personaId ? MOCK_RECOGNITION_FORMS[personaId] : undefined;
+    const form = personaId
+      ? mockRecognitionForm(personaId, getFormDrafts().activities.values)
+      : undefined;
     if (!form || !body || body.submit_mode !== form.submit_mode) {
       throw new ApiError('CONFLICT', '지금은 이 방법으로 낼 수 없어요.', 409);
     }
@@ -229,6 +241,8 @@ export const resolveMock = async <T>(path: string, init?: RequestInit): Promise<
 };
 
 const YEAR_MONTH = /^\d{4}-(0[1-9]|1[0-2])$/;
+const YEAR_MONTH_DAY = /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
+const MANUAL = { status: 'confirmed', source: 'manual' } as const;
 
 /** 직접 입력 값 정리 흉내 (2-1.4): 날짜 칸은 연-월 형식만 받고, 그 밖에는 `직접 입력`으로 확정합니다. */
 const mockPatchUpdate = (body: FormPatchCreate): FormUpdateEvent => {
@@ -237,7 +251,19 @@ const mockPatchUpdate = (body: FormPatchCreate): FormUpdateEvent => {
   if (value === '' || value === undefined) {
     throw new ApiError('VALIDATION_ERROR', '값을 적어 주세요.', 422);
   }
-  if (/(start|end|acquired)_date$/.test(body.path) && typeof value === 'string') {
+  if (/acquired_date$/.test(body.path) && typeof value === 'string') {
+    // 자격 취득일은 고용24 칸이 연-월-일입니다 (2-1.4).
+    const normalized = value.replaceAll('.', '-');
+    if (!YEAR_MONTH_DAY.test(normalized)) {
+      throw new ApiError(
+        'VALIDATION_ERROR',
+        '취득일은 2011-05-20처럼 연-월-일로 적어 주세요.',
+        422,
+      );
+    }
+    return { form: 'resume', path: body.path, op: 'set', value: normalized, ...MANUAL };
+  }
+  if (/(start|end)_date$/.test(body.path) && typeof value === 'string') {
     const normalized = value.replaceAll('.', '-').replace(/-(\d)$/, '-0$1');
     if (!YEAR_MONTH.test(normalized)) {
       throw new ApiError('VALIDATION_ERROR', '날짜는 2004-03처럼 연-월로 적어 주세요.', 422);

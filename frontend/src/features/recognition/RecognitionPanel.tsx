@@ -4,7 +4,11 @@ import { Button } from '@/components/Button';
 import { EvidenceLine } from '@/components/EvidenceLine';
 import { JobSearchCard } from '@/features/recognition/JobSearchCard';
 import { OtherActivityCard } from '@/features/recognition/OtherActivityCard';
-import { EXCLUDED_REASON_LABEL, yesNo } from '@/features/recognition/recognitionLabels';
+import {
+  EXCLUDED_REASON_LABEL,
+  formatWorkDates,
+  yesNo,
+} from '@/features/recognition/recognitionLabels';
 import { SubmitBox } from '@/features/recognition/SubmitBox';
 import { useConfirmRecognition } from '@/features/recognition/useConfirmRecognition';
 import { useRecognitionDraft } from '@/features/recognition/useRecognitionDraft';
@@ -137,7 +141,7 @@ export const RecognitionPanel = ({
           <div className="bg-canvas my-1 rounded-xl px-3 py-1">
             <FieldRow
               label="근로내역(일한 날)"
-              value={work.work_details?.work_dates}
+              value={formatWorkDates(work.work_details?.work_dates)}
               isRequired
               chip={prevChip(workPath('work_details.work_dates'), work.answered_on)}
             />

@@ -26,6 +26,12 @@ interface FieldRowProps {
   onDirectSave?: (value: string) => Promise<unknown>;
   /** 직접 입력 칸의 시작 값 (value가 ReactNode라 따로 받음) */
   rawValue?: string | null;
+  /** 직접 입력 방식: 글(기본) · 숫자 · 고용24 선택지 (시연 개선 8번) */
+  inputKind?: 'text' | 'number' | 'select';
+  /** `select`일 때 고용24 화면의 선택지 */
+  options?: readonly string[];
+  /** 글 칸 입력 예시 (예: 2004-03 ~ 2026-09) */
+  placeholder?: string;
 }
 
 const evidenceText = (meta?: FieldMeta) => {
@@ -39,6 +45,9 @@ const evidenceText = (meta?: FieldMeta) => {
   return parts.join(' · ');
 };
 
+const INPUT_CLASS =
+  'border-line focus-visible:border-brand focus-visible:ring-brand/40 min-w-40 flex-1 rounded-lg border px-3 py-1.5 text-base focus-visible:ring-3 focus-visible:outline-hidden';
+
 const LINK_CLASS =
   'text-sm font-medium text-brand hover:underline focus-visible:ring-3 focus-visible:ring-brand/40 focus-visible:outline-hidden disabled:text-muted';
 
@@ -51,13 +60,19 @@ export const FieldRow = ({
   onEdit,
   onDirectSave,
   rawValue,
+  inputKind = 'text',
+  options = [],
+  placeholder,
 }: FieldRowProps) => {
   const [draft, setDraft] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
-  const spec = chip ?? fieldChip(meta);
   const isEmpty = value === null || value === undefined || value === '';
+  // 값은 있는데 저장 상태가 없는 칸(예: 직종 이름)은 '아직 없음' 칩을 달지 않습니다 (PPT 점검 N1).
+  const spec = chip ?? (meta || isEmpty ? fieldChip(meta) : null);
+  // '없어요'로 답한 칸은 '아직 없음'이 아니라 '없음'으로 보입니다 (PPT 점검 N2).
+  const emptyText = meta?.status === 'not_applicable' ? '없음' : '아직 없음';
   const evidence = evidenceText(meta);
   const isEditing = draft !== null;
 
@@ -88,17 +103,39 @@ export const FieldRow = ({
         </dt>
         {isEditing ? (
           <dd className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
-            <input
-              value={draft}
-              onChange={(event) => setDraft(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter' && !event.nativeEvent.isComposing) void handleSave();
-                if (event.key === 'Escape') setDraft(null);
-              }}
-              disabled={isSaving}
-              aria-label={`${label} 직접 입력`}
-              className="border-line focus-visible:border-brand focus-visible:ring-brand/40 min-w-40 flex-1 rounded-lg border px-3 py-1.5 text-base focus-visible:ring-3 focus-visible:outline-hidden"
-            />
+            {inputKind === 'select' ? (
+              <select
+                value={draft}
+                onChange={(event) => setDraft(event.target.value)}
+                disabled={isSaving}
+                aria-label={`${label} 직접 입력`}
+                className={INPUT_CLASS}
+              >
+                <option value="" disabled>
+                  골라 주세요
+                </option>
+                {options.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <input
+                type={inputKind === 'number' ? 'number' : 'text'}
+                inputMode={inputKind === 'number' ? 'numeric' : undefined}
+                value={draft}
+                placeholder={placeholder}
+                onChange={(event) => setDraft(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' && !event.nativeEvent.isComposing) void handleSave();
+                  if (event.key === 'Escape') setDraft(null);
+                }}
+                disabled={isSaving}
+                aria-label={`${label} 직접 입력`}
+                className={INPUT_CLASS}
+              />
+            )}
             <button
               type="button"
               onClick={() => void handleSave()}
@@ -118,10 +155,10 @@ export const FieldRow = ({
           </dd>
         ) : (
           <dd className={`min-w-0 flex-1 text-base ${isEmpty ? 'text-muted' : 'text-ink'}`}>
-            {isEmpty ? '아직 없음' : value}
+            {isEmpty ? emptyText : value}
           </dd>
         )}
-        <Chip label={spec.label} tone={spec.tone} />
+        {spec && <Chip label={spec.label} tone={spec.tone} />}
         {!isEditing && onEdit && (
           <button type="button" onClick={onEdit} className={LINK_CLASS}>
             고치기

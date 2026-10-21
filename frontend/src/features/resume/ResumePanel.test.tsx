@@ -40,7 +40,8 @@ describe('ResumePanel', () => {
     expect(screen.getAllByText('예전 이력서').length).toBeGreaterThan(0);
     expect(screen.getAllByText('확인 필요').length).toBeGreaterThan(0);
     expect(screen.getByText('OO아파트 관리사무소')).toBeInTheDocument();
-    expect(screen.getByText('전기기능사 · 한국산업인력공단 · 2009.11.20')).toBeInTheDocument();
+    expect(screen.getByText('전기기능사')).toBeInTheDocument();
+    expect(screen.getByText('2009.11.20')).toBeInTheDocument();
     expect(screen.getAllByText('필수')).toHaveLength(2);
     expect(screen.getByRole('button', { name: '확인하고 이력서 최신화' })).toBeDisabled();
   });
@@ -77,10 +78,97 @@ describe('ResumePanel', () => {
 
     renderWithProviders(<ResumePanel session={buildMockSession('choi')} />);
 
-    expect(
-      await screen.findByText('OO고등학교 · 졸업 · 1975.03 ~ 1978.02 · 최종학력'),
-    ).toBeInTheDocument();
-    expect(screen.getByText(/전공 경영학 · 학점 빈칸 \(고용24 입력 때 필요\)/)).toBeInTheDocument();
+    expect(await screen.findByText('고등학교 · 최종학력')).toBeInTheDocument();
+    expect(screen.getByText('1975.03 ~ 1978.02')).toBeInTheDocument();
+    expect(screen.getByText('경영학')).toBeInTheDocument();
+    expect(screen.getByText('빈칸 (고용24 입력 때 필요)')).toBeInTheDocument();
+  });
+
+  it('선택형 칸은 고용24 선택지에서 골라 직접 저장하고, 선택 항목 칩은 `선택`이다 (시연 개선 8·9번)', async () => {
+    const fetchSpy = mockApi('choi');
+    fetchSpy.mockImplementation(async (input, init) => {
+      const url = String(input);
+      if (url.endsWith('/forms/resume') && init?.method === 'PATCH') {
+        const body = JSON.parse(String(init.body)) as { path: string; value: unknown };
+        return Response.json({
+          updates: [
+            {
+              form: 'resume',
+              path: body.path,
+              op: 'set',
+              value: body.value,
+              status: 'confirmed',
+              source: 'manual',
+            },
+          ],
+        });
+      }
+      return Response.json(MOCK_RESUMES.choi);
+    });
+
+    renderWithProviders(<ResumePanel session={buildMockSession('choi')} />);
+
+    const contract = (await screen.findByText('고용형태')).closest('div')!;
+    await userEvent.click(within(contract).getByRole('button', { name: '직접 입력' }));
+    await userEvent.selectOptions(screen.getByLabelText('고용형태 직접 입력'), '관계없음');
+    await userEvent.click(within(contract).getByRole('button', { name: '저장' }));
+
+    expect(await within(contract).findByText('관계없음')).toBeInTheDocument();
+    expect(within(contract).getByText('직접 입력', { selector: 'span' })).toBeInTheDocument();
+    expect(screen.getAllByText('선택').length).toBeGreaterThan(0);
+    expect(screen.queryByText('있으면', { selector: 'span' })).not.toBeInTheDocument();
+  });
+
+  it('학력이 비어 있어도 학력을 골라 첫 학력 줄을 만들고 하위 칸이 보인다 (시연 검증 5번)', async () => {
+    const fetchSpy = mockApi('park');
+    fetchSpy.mockImplementation(async (input, init) => {
+      if (String(input).endsWith('/forms/resume') && init?.method === 'PATCH') {
+        const body = JSON.parse(String(init.body)) as { path: string; value: unknown };
+        return Response.json({
+          updates: [{ form: 'resume', path: body.path, op: 'set', value: body.value }],
+        });
+      }
+      return Response.json(MOCK_RESUMES.park);
+    });
+
+    renderWithProviders(<ResumePanel session={buildMockSession('park')} />);
+
+    const row = (await screen.findByText('학력')).closest('div')!;
+    await userEvent.click(within(row).getByRole('button', { name: '직접 입력' }));
+    await userEvent.selectOptions(screen.getByLabelText('학력 직접 입력'), '고등학교');
+    await userEvent.click(within(row).getByRole('button', { name: '저장' }));
+
+    expect(await screen.findByText('고등학교 · 최종학력')).toBeInTheDocument();
+    expect(screen.getByText('졸업상태')).toBeInTheDocument();
+    const patch = fetchSpy.mock.calls.find(([, init]) => init?.method === 'PATCH');
+    expect(JSON.parse(String(patch?.[1]?.body))).toMatchObject({
+      path: 'education',
+      op: 'set',
+      value: [{ item_id: 'edu_001', level: '고등학교', is_final: true }],
+    });
+  });
+
+  it('운전·차량은 비어 있으면 `선택` 칩이다 (시연 검증 7번)', async () => {
+    mockApi('park');
+
+    renderWithProviders(<ResumePanel session={buildMockSession('park')} />);
+
+    for (const label of ['운전가능', '차량소지']) {
+      const row = (await screen.findByText(label)).closest('div')!;
+      expect(within(row).getByText('선택')).toBeInTheDocument();
+      expect(within(row).queryByText('아직 없음', { selector: 'span' })).not.toBeInTheDocument();
+    }
+  });
+
+  it('직종처럼 값만 있고 저장 상태가 없는 칸에는 `아직 없음` 칩을 달지 않는다 (PPT 점검 N1)', async () => {
+    mockApi('choi');
+
+    renderWithProviders(<ResumePanel session={buildMockSession('choi')} />);
+
+    const occupationRow = (await screen.findAllByText('시설관리 (직종 확인 필요)'))[1].closest(
+      'div',
+    )!;
+    expect(within(occupationRow).queryByText('아직 없음')).not.toBeInTheDocument();
   });
 
   it('컴퓨터 활용(객체)과 기타자격을 보여 준다', async () => {

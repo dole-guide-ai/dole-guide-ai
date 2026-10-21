@@ -1,4 +1,4 @@
-import { screen } from '@testing-library/react';
+import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -80,7 +80,10 @@ describe('DashboardScreen', () => {
     renderWithProviders(<DashboardScreen />);
 
     expect(await screen.findByText(/2019년에 쓰신 이력서가 있네요/)).toBeInTheDocument();
-    expect(screen.getByText('신청 경로 안내')).toBeInTheDocument();
+    // 패널 상자와 함께 처음 한 번은 토스트로도 알립니다 (시연 개선 6번). 확인을 누르면 토스트만 닫힙니다.
+    expect(screen.getAllByText('신청 경로 안내')).toHaveLength(2);
+    await userEvent.click(within(screen.getByRole('status')).getByRole('button', { name: '확인' }));
+    expect(screen.getAllByText('신청 경로 안내')).toHaveLength(1);
     // 크게 켜져 있으면 버튼 문구가 다음 동작인 `글자 보통`으로 보입니다.
     expect(screen.getByRole('button', { name: '글자 보통' })).toBeInTheDocument();
     expect(document.documentElement.dataset.bigText).toBe('true');
@@ -117,7 +120,7 @@ describe('DashboardScreen', () => {
     renderWithProviders(<DashboardScreen />);
     // 패널 B 점검 결과가 저장소에 들어간 뒤 보내야 스트림의 append가 덮어써지지 않습니다.
     expect(await screen.findByText('OO상사')).toBeInTheDocument();
-    await userEvent.click(screen.getByRole('button', { name: '새 활동 기록할게요' }));
+    await userEvent.click(screen.getByRole('button', { name: '이미 한 활동 기록할게요' }));
 
     expect(await screen.findByText('12월 16일 OO물산 입사지원을 기록했어요.')).toBeInTheDocument();
     expect(await screen.findByRole('button', { name: '신청서 볼게요' })).toBeInTheDocument();
@@ -130,7 +133,7 @@ describe('DashboardScreen', () => {
 
     const chatCall = fetchSpy.mock.calls.find(([input]) => String(input).includes('/chat'));
     expect(chatCall?.[1]?.body).toBe(
-      JSON.stringify({ message: '새 활동 기록할게요', input_kind: 'choice' }),
+      JSON.stringify({ message: '이미 한 활동 기록할게요', input_kind: 'choice' }),
     );
   });
 

@@ -48,12 +48,20 @@ const update = (node: unknown, segments: string[], fn: (current: unknown) => unk
 export const setPath = <T>(root: T, path: string, value: unknown): T =>
   update(root, path.split('.'), () => value) as T;
 
-/** 경로의 배열 끝에 항목을 더합니다. 배열이 없으면 새로 만듭니다. */
+/**
+ * 경로의 배열 끝에 항목을 더합니다. 배열이 없으면 새로 만듭니다.
+ * 같은 `item_id`가 이미 있으면 새로 더하지 않고 그 항목에 합칩니다 (같은 경력이 두 번 들어가지 않게).
+ */
 export const appendPath = <T>(root: T, path: string, value: unknown): T =>
-  update(root, path.split('.'), (current) => [
-    ...(Array.isArray(current) ? current : []),
-    value,
-  ]) as T;
+  update(root, path.split('.'), (current) => {
+    const list = Array.isArray(current) ? current : [];
+    const itemId = isObject(value) ? value[ITEM_ID] : undefined;
+    const index = typeof itemId === 'string' ? findIndex(list, itemId) : -1;
+    if (index === -1) return [...list, value];
+    const next = [...list];
+    next[index] = { ...(next[index] as Record<string, unknown>), ...(value as object) };
+    return next;
+  }) as T;
 
 /** 경로의 값을 지웁니다. 부모가 배열이면 그 항목을 빼고, 객체면 키를 없앱니다. */
 export const removePath = <T>(root: T, path: string): T => {
