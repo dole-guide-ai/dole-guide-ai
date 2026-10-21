@@ -43,6 +43,16 @@ describe('objectPath', () => {
     expect(getPath(next, 'competencies.certifications')).toEqual([{ item_id: 'cert_001' }]);
   });
 
+  it('같은 item_id를 다시 append하면 새로 더하지 않고 기존 항목에 합친다', () => {
+    const next = appendPath(draft, 'competencies.careers', {
+      item_id: 'career_001',
+      position: '반장',
+    });
+    const careers = getPath(next, 'competencies.careers') as Record<string, unknown>[];
+    expect(careers).toHaveLength(2);
+    expect(careers[0]).toMatchObject({ item_id: 'career_001', position: '반장' });
+  });
+
   it('remove는 배열 항목과 객체 키를 지운다', () => {
     const withoutItem = removePath(draft, 'competencies.careers.career_001');
     expect(getPath(withoutItem, 'competencies.careers')).toHaveLength(1);

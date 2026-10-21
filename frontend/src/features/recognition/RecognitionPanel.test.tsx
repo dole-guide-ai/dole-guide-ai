@@ -155,7 +155,8 @@ describe('RecognitionPanel', () => {
 
     renderWithProviders(<RecognitionPanel session={buildMockSession('lee')} />);
 
-    expect(await screen.findByText('2026-12-05 (1일)')).toBeInTheDocument();
+    // 다른 날짜 칸과 같은 형식으로 보입니다 (PPT 점검 N3).
+    expect(await screen.findByText('12.5(토) (1일)')).toBeInTheDocument();
     expect(screen.getByText('8시간')).toBeInTheDocument();
     expect(screen.getByText('100,000원')).toBeInTheDocument();
     expect(screen.getByText('소득수령(예정)일')).toBeInTheDocument();

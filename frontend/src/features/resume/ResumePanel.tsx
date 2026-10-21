@@ -3,12 +3,20 @@
 import { Button } from '@/components/Button';
 import { FieldRow } from '@/features/resume/FieldRow';
 import {
-  educationText,
+  CONTRACT_TYPES,
+  EDUCATION_LEVELS,
+  EMPLOYMENT_STATUSES,
   formatPeriod,
   formatYm,
+  gpaText,
+  GRADUATION_STATUSES,
+  isCollegeLevel,
+  MILITARY_OPTIONS,
   occupationText,
   OPTIONAL_SECTIONS,
   QUESTION_LABEL,
+  splitPeriod,
+  YES_NO,
 } from '@/features/resume/resumeLabels';
 import { ResumeSection } from '@/features/resume/ResumeSection';
 import { useConfirmResume } from '@/features/resume/useConfirmResume';
@@ -25,7 +33,8 @@ import type { ResumeCompetencies } from '@/types/resume.types';
 /**
  * 패널 A: 고용24 이력서 항목을 같은 순서로 보여 주고, 완성도(꼭 묻는 5개)와 저장 버튼을 둡니다 (2-1.2 · 2-1.6).
  * 값·칩은 양식 저장소에서 읽고, 완성도·저장 가능 여부는 서버 값을 그대로 씁니다 (계산은 백엔드).
- * 글자 칸은 `직접 입력`으로 패널에서 바로 고칠 수 있습니다 (2-0.6, 본인 답변 칸 제외).
+ * 공통코드가 필요한 칸(희망직종·희망지역·직종)을 빼고는 `직접 입력`으로 패널에서 바로 고칠 수 있습니다
+ * (2-0.6, 시연 개선 8번). 선택형 칸은 고용24 선택지에서 고릅니다.
  */
 interface ResumePanelProps {
   session: SessionRead;
@@ -38,7 +47,8 @@ interface ResumePanelProps {
 }
 
 const WORK24_CHIP = { label: '고용24에서', tone: 'neutral' } as const;
-const OPTIONAL_CHIP = { label: '있으면', tone: 'neutral' } as const;
+// 고르지 않아도 되는 칸 (시연 개선 9번: '있으면' → '선택')
+const OPTIONAL_CHIP = { label: '선택', tone: 'neutral' } as const;
 
 const hasCheck = (fields: Record<string, FieldMeta>, prefix: string) =>
   Object.entries(fields).some(([path, meta]) => path.startsWith(prefix) && needsCheck(meta));
@@ -47,6 +57,24 @@ const listText = (items: string[] | undefined) => (items?.length ? items.join(',
 
 const yesNoText = (value: boolean | null | undefined) =>
   value === null || value === undefined ? null : value ? '예' : '아니오';
+
+/** 직접 입력 글을 저장 값으로 바꿉니다 (시연 개선 8번). 형식 검사는 서버 값 정리가 합니다. */
+const toList = (text: string) =>
+  text
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+const toYesNo = (text: string) => text === '예';
+
+const toMonthlyWage = (text: string) => ({
+  amount: Number(text),
+  unit: 'monthly',
+  negotiable: false,
+});
+
+const periodRaw = (start: string | null | undefined, end: string | null | undefined) =>
+  start || end ? `${start ?? ''} ~ ${end ?? ''}` : null;
 
 /**
  * AI가 물어볼 순서 (2-1.3 `next_resume_question` 순서): 서버가 준 남은 질문 목록에서 지금 질문부터 보여 줍니다.
@@ -103,8 +131,19 @@ export const ResumePanel = ({
 
   const edit = (label: string) =>
     onEditRequest && !isReadOnly ? () => onEditRequest(label) : undefined;
-  const direct = (path: string) =>
-    isReadOnly ? undefined : (value: string) => patch.mutateAsync({ path, op: 'set', value });
+  const direct = (path: string, toValue: (text: string) => unknown = (text) => text) =>
+    isReadOnly
+      ? undefined
+      : (text: string) => patch.mutateAsync({ path, op: 'set', value: toValue(text) });
+  /** 기간은 한 칸에 '시작 ~ 끝'으로 적고 시작·끝을 따로 고칩니다. */
+  const directPeriod = (base: string) =>
+    isReadOnly
+      ? undefined
+      : async (text: string) => {
+          const { start, end } = splitPeriod(text);
+          await patch.mutateAsync({ path: `${base}.start_date`, op: 'set', value: start });
+          await patch.mutateAsync({ path: `${base}.end_date`, op: 'set', value: end });
+        };
   const education = values.education ?? [];
   const prefs = values.job_preferences;
   const careers = values.competencies?.careers ?? [];
@@ -193,24 +232,75 @@ export const ResumePanel = ({
 
       <ResumeSection title="학력사항" isRequired isDone={done.education}>
         {education.length === 0 && <FieldRow label="학력" isRequired onEdit={edit('학력')} />}
-        {education.map((item) => (
-          <FieldRow
-            key={item.item_id}
-            label={item.level ?? '학력'}
-            value={educationText(item)}
-            rawValue={item.school_name}
-            meta={
-              fields[`education.${item.item_id}.school_name`] ??
-              fields[`education.${item.item_id}.level`]
-            }
-            isRequired
-            onEdit={edit('학력')}
-            onDirectSave={direct(`education.${item.item_id}.school_name`)}
-          />
-        ))}
+        {education.map((item) => {
+          const base = `education.${item.item_id}`;
+          return (
+            <div key={item.item_id} className="py-1">
+              <FieldRow
+                label="학력"
+                value={item.level && (item.is_final ? `${item.level} · 최종학력` : item.level)}
+                rawValue={item.level}
+                meta={fields[`${base}.level`]}
+                isRequired
+                onEdit={edit('학력')}
+                onDirectSave={direct(`${base}.level`)}
+                inputKind="select"
+                options={EDUCATION_LEVELS}
+              />
+              <FieldRow
+                label="졸업상태"
+                value={item.graduation_status}
+                rawValue={item.graduation_status}
+                meta={fields[`${base}.graduation_status`]}
+                isRequired
+                onDirectSave={direct(`${base}.graduation_status`)}
+                inputKind="select"
+                options={GRADUATION_STATUSES}
+              />
+              <FieldRow
+                label="학교명"
+                value={item.school_name}
+                rawValue={item.school_name}
+                meta={fields[`${base}.school_name`]}
+                isRequired
+                onDirectSave={direct(`${base}.school_name`)}
+              />
+              <FieldRow
+                label="재학기간"
+                value={formatPeriod(item.start_date, item.end_date)}
+                rawValue={periodRaw(item.start_date, item.end_date)}
+                meta={fields[`${base}.end_date`] ?? fields[`${base}.start_date`]}
+                onDirectSave={directPeriod(base)}
+                placeholder="1975-03 ~ 1978-02"
+              />
+              {isCollegeLevel(item) && (
+                <>
+                  <FieldRow
+                    label="전공"
+                    value={item.major}
+                    rawValue={item.major}
+                    meta={fields[`${base}.major`]}
+                    isRequired
+                    onDirectSave={direct(`${base}.major`)}
+                  />
+                  <FieldRow
+                    label="학점/총점"
+                    value={gpaText(item)}
+                    rawValue={item.gpa}
+                    meta={fields[`${base}.gpa`]}
+                    isRequired
+                    onDirectSave={direct(`${base}.gpa`)}
+                    placeholder="3.8/4.5"
+                  />
+                </>
+              )}
+            </div>
+          );
+        })}
       </ResumeSection>
 
       <ResumeSection title="희망조건" isRequired isDone={done.prefs}>
+        {/* 희망직종·희망지역은 공통코드에서 골라야 해서 대화로만 고칩니다 (백엔드 lookup_code). */}
         <FieldRow
           label="희망직종"
           value={listText(
@@ -223,15 +313,20 @@ export const ResumePanel = ({
         <FieldRow
           label="경력여부"
           value={careerYears}
+          rawValue={careerYears}
           meta={fields['job_preferences.experience_summary']}
           isRequired
           onEdit={edit('희망 직종 경력')}
+          onDirectSave={direct('job_preferences.experience_summary')}
+          placeholder="경력 9년 6개월 또는 신입"
         />
         <FieldRow
           label="희망직무내용"
           value={prefs?.desired_duties}
+          rawValue={prefs?.desired_duties}
           meta={fields['job_preferences.desired_duties']}
           chip={prefs?.desired_duties ? undefined : OPTIONAL_CHIP}
+          onDirectSave={direct('job_preferences.desired_duties')}
         />
         <FieldRow
           label="희망근무지역"
@@ -243,46 +338,69 @@ export const ResumePanel = ({
         <FieldRow
           label="희망임금"
           value={salaryText}
+          rawValue={salary?.amount ? String(salary.amount) : null}
           meta={fields['job_preferences.desired_salary']}
           isRequired
           onEdit={edit('희망 임금')}
+          onDirectSave={direct('job_preferences.desired_salary', toMonthlyWage)}
+          inputKind="number"
+          placeholder="월 만원 (예: 220)"
         />
         <FieldRow
           label="고용형태"
           value={prefs?.employment_contract_type}
+          rawValue={prefs?.employment_contract_type}
           meta={fields['job_preferences.employment_contract_type']}
           isRequired
           onEdit={edit('고용형태')}
+          onDirectSave={direct('job_preferences.employment_contract_type')}
+          inputKind="select"
+          options={CONTRACT_TYPES}
         />
         <FieldRow
           label="병역대체"
           value={prefs?.military_alternative}
+          rawValue={prefs?.military_alternative}
           meta={fields['job_preferences.military_alternative']}
           isRequired
+          onDirectSave={direct('job_preferences.military_alternative')}
+          inputKind="select"
+          options={MILITARY_OPTIONS}
         />
         <FieldRow
           label="근무형태 세부"
           value={listText(prefs?.work_arrangements)}
+          rawValue={listText(prefs?.work_arrangements)}
           meta={fields['job_preferences.work_arrangements']}
           chip={prefs?.work_arrangements?.length ? undefined : OPTIONAL_CHIP}
+          onDirectSave={direct('job_preferences.work_arrangements', toList)}
+          placeholder="시간제, 재택근무 희망 (쉼표로 구분)"
         />
         <FieldRow
           label="희망근무시간"
           value={prefs?.desired_working_hours}
+          rawValue={prefs?.desired_working_hours}
           meta={fields['job_preferences.desired_working_hours']}
           chip={prefs?.desired_working_hours ? undefined : OPTIONAL_CHIP}
+          onDirectSave={direct('job_preferences.desired_working_hours')}
+          placeholder="09:00~18:00"
         />
         <FieldRow
           label="그 밖의 희망사항"
           value={prefs?.other_preferences}
+          rawValue={prefs?.other_preferences}
           meta={fields['job_preferences.other_preferences']}
           chip={prefs?.other_preferences ? undefined : OPTIONAL_CHIP}
+          onDirectSave={direct('job_preferences.other_preferences')}
         />
         <FieldRow
           label="검색키워드"
           value={listText(prefs?.search_keywords)}
+          rawValue={listText(prefs?.search_keywords)}
           meta={fields['job_preferences.search_keywords']}
           chip={prefs?.search_keywords?.length ? undefined : OPTIONAL_CHIP}
+          onDirectSave={direct('job_preferences.search_keywords', toList)}
+          placeholder="시설관리, 전기 (쉼표로 구분, 1~10개)"
         />
       </ResumeSection>
 
@@ -305,9 +423,12 @@ export const ResumePanel = ({
               <FieldRow
                 label="재직기간"
                 value={formatPeriod(career.start_date, career.end_date)}
+                rawValue={periodRaw(career.start_date, career.end_date)}
                 meta={fields[`${base}.end_date`] ?? fields[`${base}.start_date`]}
                 isRequired
                 onEdit={edit(`${name} 재직기간`)}
+                onDirectSave={directPeriod(base)}
+                placeholder="2004-03 ~ 2026-09"
               />
               <FieldRow
                 label="직급/직책"
@@ -321,8 +442,12 @@ export const ResumePanel = ({
               <FieldRow
                 label="재직여부"
                 value={career.employment_status}
+                rawValue={career.employment_status}
                 meta={fields[`${base}.employment_status`]}
                 isRequired
+                onDirectSave={direct(`${base}.employment_status`)}
+                inputKind="select"
+                options={EMPLOYMENT_STATUSES}
               />
               <FieldRow
                 label="주요 직무"
@@ -340,8 +465,12 @@ export const ResumePanel = ({
               <FieldRow
                 label="급여(월)"
                 value={career.monthly_salary ? `${career.monthly_salary}만원` : null}
+                rawValue={career.monthly_salary ? String(career.monthly_salary) : null}
                 meta={fields[`${base}.monthly_salary`]}
                 chip={career.monthly_salary ? undefined : OPTIONAL_CHIP}
+                onDirectSave={direct(`${base}.monthly_salary`, Number)}
+                inputKind="number"
+                placeholder="만원 (예: 250)"
               />
               <FieldRow
                 label="기타 사항"
@@ -363,27 +492,42 @@ export const ResumePanel = ({
         {certifications.map((cert) => {
           const base = `competencies.certifications.${cert.item_id}`;
           return (
-            <FieldRow
-              key={cert.item_id}
-              label="자격면허"
-              value={[
-                cert.certificate_name,
-                cert.issuing_organization,
-                formatYm(cert.acquired_date),
-              ]
-                .filter(Boolean)
-                .join(' · ')}
-              meta={fields[`${base}.certificate_name`]}
-              isRequired
-              onEdit={edit(`${cert.certificate_name ?? '자격증'}`)}
-            />
+            <div key={cert.item_id} className="py-1">
+              <FieldRow
+                label="자격면허"
+                value={cert.certificate_name}
+                rawValue={cert.certificate_name}
+                meta={fields[`${base}.certificate_name`]}
+                isRequired
+                onEdit={edit(`${cert.certificate_name ?? '자격증'}`)}
+                onDirectSave={direct(`${base}.certificate_name`)}
+              />
+              <FieldRow
+                label="발급기관"
+                value={cert.issuing_organization}
+                rawValue={cert.issuing_organization}
+                meta={fields[`${base}.issuing_organization`]}
+                onDirectSave={direct(`${base}.issuing_organization`)}
+              />
+              <FieldRow
+                label="취득일"
+                value={formatYm(cert.acquired_date)}
+                rawValue={cert.acquired_date}
+                meta={fields[`${base}.acquired_date`]}
+                onDirectSave={direct(`${base}.acquired_date`)}
+                placeholder="2011-05-20"
+              />
+            </div>
           );
         })}
         <FieldRow
           label="기타자격"
           value={listText(otherCertifications)}
+          rawValue={listText(otherCertifications)}
           meta={fields['competencies.other_certifications']}
           chip={otherCertifications.length ? undefined : OPTIONAL_CHIP}
+          onDirectSave={direct('competencies.other_certifications', toList)}
+          placeholder="쉼표로 구분"
         />
       </ResumeSection>
 
@@ -408,12 +552,20 @@ export const ResumePanel = ({
         <FieldRow
           label="운전가능"
           value={yesNoText(values.additional_info?.can_drive)}
+          rawValue={yesNoText(values.additional_info?.can_drive)}
           meta={fields['additional_info.can_drive']}
+          onDirectSave={direct('additional_info.can_drive', toYesNo)}
+          inputKind="select"
+          options={YES_NO}
         />
         <FieldRow
           label="차량소지"
           value={yesNoText(values.additional_info?.owns_vehicle)}
+          rawValue={yesNoText(values.additional_info?.owns_vehicle)}
           meta={fields['additional_info.owns_vehicle']}
+          onDirectSave={direct('additional_info.owns_vehicle', toYesNo)}
+          inputKind="select"
+          options={YES_NO}
         />
       </ResumeSection>
 

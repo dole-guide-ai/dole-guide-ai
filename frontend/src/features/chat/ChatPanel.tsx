@@ -22,6 +22,8 @@ interface ChatPanelProps {
   onChoice: (choice: string) => void;
   onSend: (text: string) => void;
   onFileSelect?: (file: File) => void;
+  /** 지금 질문이 서류·사진을 요청했는지 (2-0.4 accepts_file) */
+  isFileRequested?: boolean;
   isStreaming?: boolean;
   isUploading?: boolean;
   statusText?: string | null;
@@ -38,6 +40,7 @@ export const ChatPanel = ({
   onChoice,
   onSend,
   onFileSelect,
+  isFileRequested = false,
   isStreaming = false,
   isUploading = false,
   statusText,
@@ -86,6 +89,7 @@ export const ChatPanel = ({
         onChange={onInputChange}
         onSend={onSend}
         onFileSelect={onFileSelect}
+        isFileRequested={isFileRequested}
         isDisabled={isStreaming}
         isUploading={isUploading}
       />

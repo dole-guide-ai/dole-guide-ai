@@ -2,6 +2,7 @@ import { useState } from 'react';
 
 import { Button } from '@/components/Button';
 import { EvidenceLine } from '@/components/EvidenceLine';
+import { showsVisitNotice } from '@/features/dashboard/sessionNotices';
 import { RoundPanel } from '@/features/procedure/RoundPanel';
 import { RecognitionPanel } from '@/features/recognition/RecognitionPanel';
 import { ResumePanel } from '@/features/resume/ResumePanel';
@@ -118,10 +119,6 @@ export const PanelFrame = ({
   }
 
   const info = PANEL_INFO[panel];
-  // M1 (1.6): 이직 당시 65세 이상이고 수급자격 신청 전 단계면 신청 경로 안내 상자를 둡니다.
-  const showsVisitNotice =
-    state.age_at_separation >= 65 &&
-    ['job_registration', 'education', 'eligibility_application'].includes(state.stage);
 
   return (
     <aside className={ASIDE_CLASS} aria-label={`패널 ${info.name}`}>
@@ -131,7 +128,7 @@ export const PanelFrame = ({
         <p className="text-muted text-base">{info.description}</p>
       </div>
 
-      {showsVisitNotice && (
+      {showsVisitNotice(state) && (
         <div className="border-warn/30 bg-warn-soft flex flex-col gap-2 rounded-xl border px-4 py-3">
           <p className="text-warn text-base font-semibold">신청 경로 안내</p>
           <p className="text-base">

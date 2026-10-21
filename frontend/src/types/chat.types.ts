@@ -31,6 +31,8 @@ export interface AskUserEvent {
   choices: string[];
   /** 고용24 불러오기 목록을 열 때 (2-0.4). 대화창 안에서 고르게 합니다. */
   import_kind?: ImportKind;
+  /** 이 질문이 서류·사진을 요청할 때만 true (2-0.4). 프론트는 이때만 `파일 올리기`를 켭니다. */
+  accepts_file?: boolean;
 }
 
 export type FormKind = 'resume' | 'activities' | 'recognition' | 'procedure';
