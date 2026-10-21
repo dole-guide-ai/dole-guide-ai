@@ -106,8 +106,33 @@ const lee5: RoundCheckRead = {
 };
 
 /** 회차가 넘어간 뒤의 점검 결과 (계정 → 회차 → 결과). */
+/**
+ * 최영수 1차 실업인정 준비 (시연 개선 12번, 1장 1.6 E4a). 65세 이상은 1차 교육을 온라인이나 센터에서 듣고
+ * 출석 회차로 보지 않습니다 (1장 1.10). 대상 기간은 대기기간(신청일부터 7일) 뒤부터 1차 인정일까지입니다.
+ */
+const choi1: RoundCheckRead = {
+  round: 1,
+  rule_group: 'age65_or_disabled',
+  period: { start: '2026-10-19', end: '2026-11-04', days: 17 },
+  required: 1,
+  required_job_search: 0,
+  counted: 0,
+  counted_job_search: 0,
+  status: 'short',
+  shortfall: 1,
+  shortfall_job_search: 0,
+  activities: [],
+  warnings: [],
+  round_markers: [{ round: 1, state: 'current', is_attendance: false }],
+  rule_review: 'not_verified',
+  cite: SOURCE_2026_NOTICE,
+  rule_refs: ['ACT-022', 'ACT-130', 'DUE-057'],
+  recommendations_open: false,
+};
+
 export const MOCK_NEXT_ROUND_CHECKS: Record<string, Record<number, RoundCheckRead>> = {
   lee: { 5: lee5 },
+  choi: { 1: choi1 },
 };
 
 export const MOCK_RECOMMENDATIONS: Record<string, RecommendationsRead> = {

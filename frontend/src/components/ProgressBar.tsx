@@ -12,10 +12,20 @@ interface ProgressBarProps {
   current: ProgressStep;
   done: ProgressStep[];
   onStepClick?: (step: ProgressStep) => void;
+  /** 상단 한 줄에 넣을 때 작게 (시연 개선 4번) */
+  isCompact?: boolean;
 }
 
-export const ProgressBar = ({ current, done, onStepClick }: ProgressBarProps) => (
-  <ol className="flex flex-wrap items-center gap-2" aria-label="절차 진행 단계">
+export const ProgressBar = ({
+  current,
+  done,
+  onStepClick,
+  isCompact = false,
+}: ProgressBarProps) => (
+  <ol
+    className={`flex flex-wrap items-center ${isCompact ? 'gap-1' : 'gap-2'}`}
+    aria-label="절차 진행 단계"
+  >
     {PROGRESS_STEPS.map(({ step, label }, index) => {
       const isDone = done.includes(step);
       const isCurrent = step === current;
@@ -28,18 +38,20 @@ export const ProgressBar = ({ current, done, onStepClick }: ProgressBarProps) =>
       const content = (
         <>
           <span
-            className={`flex size-8 shrink-0 items-center justify-center rounded-full text-sm font-bold ${circleClass}`}
+            className={`flex shrink-0 items-center justify-center rounded-full font-bold ${isCompact ? 'size-6 text-xs' : 'size-8 text-sm'} ${circleClass}`}
             aria-hidden
           >
             {isDone ? '✓' : step}
           </span>
-          <span className={`text-base ${labelClass}`}>{label}</span>
+          <span className={`${isCompact ? 'text-sm' : 'text-base'} ${labelClass}`}>{label}</span>
         </>
       );
 
       return (
-        <li key={step} className="flex items-center gap-2">
-          {index > 0 && <span className="bg-line h-px w-6" aria-hidden />}
+        <li key={step} className={`flex items-center ${isCompact ? 'gap-1' : 'gap-2'}`}>
+          {index > 0 && (
+            <span className={`bg-line h-px ${isCompact ? 'w-2' : 'w-6'}`} aria-hidden />
+          )}
           {isDone && onStepClick ? (
             <button
               type="button"

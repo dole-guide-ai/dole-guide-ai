@@ -65,6 +65,13 @@ export const ATTEND_ITEM_LABEL: Record<AttendItem, string> = {
   eligibility_card: '수급자격증',
 };
 
+/**
+ * 일한 날 칸 (2-3.3): 서버가 `2026-12-05 (1일)`처럼 보내도 다른 날짜 칸과 같은 `12.5(토)` 형식으로 보여 줍니다
+ * (PPT 점검 N3). 날짜가 아닌 글은 그대로 둡니다.
+ */
+export const formatWorkDates = (text: string | null | undefined) =>
+  text ? text.replace(/\d{4}-\d{2}-\d{2}/g, (date) => formatShortDate(date)) : null;
+
 /** 계산에서 뺀 활동의 이유 (2-2.6 계산 결과와 같은 이름). */
 export const EXCLUDED_REASON_LABEL: Record<ExcludedActivity['reason'], string> = {
   same_day: '같은 날',
@@ -82,7 +89,7 @@ export const activityEvidenceChip = (activity: {
 }): ChipSpec => {
   if (activity.attachment_ids.length > 0) return { label: '증빙 있음', tone: 'ok' };
   if (activity.source === 'work24_import') {
-    return { label: '증빙 불필요 (고용24 지원)', tone: 'neutral' };
+    return { label: '증빙 불필요 (고용24 기록)', tone: 'neutral' };
   }
   return { label: '증빙 필요', tone: 'warn' };
 };
