@@ -52,7 +52,7 @@ export const EducationPanel = ({ state, isReadOnly = false }: EducationPanelProp
       </dl>
       {!isReadOnly && !state.education_done && (
         <p className="bg-brand-soft text-brand rounded-xl px-4 py-3 text-base">
-          교육을 다 들으셨으면 대화창에 &ldquo;교육 다 들었어요&rdquo;라고 알려 주세요.
+          교육을 다 들으셨으면 대화창 아래 &lsquo;교육 다 들었어요&rsquo;를 눌러 알려 주세요.
         </p>
       )}
       <EvidenceLine cite={SOURCE_WORK24} />

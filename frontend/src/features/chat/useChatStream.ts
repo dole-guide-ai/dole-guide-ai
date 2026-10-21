@@ -72,6 +72,7 @@ export const useChatStream = (session: SessionRead) => {
                 text: event.data.text,
                 choices: event.data.choices,
                 importKind: event.data.import_kind,
+                acceptsFile: event.data.accepts_file,
               });
               break;
             case 'form_update':
@@ -106,6 +107,7 @@ export const useChatStream = (session: SessionRead) => {
     messages: state.messages,
     choices: state.choices,
     importKind: state.importKind,
+    acceptsFile: state.acceptsFile,
     isStreaming,
     activeTool,
     inputText,

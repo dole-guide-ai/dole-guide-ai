@@ -98,6 +98,8 @@ export interface EntryResult {
   next_step_text: string;
   messages: EntryMessage[];
   choices: string[];
+  /** 첫 안내가 서류·사진을 요청하면 true (2-0.4 `accepts_file`과 같은 뜻) */
+  accepts_file?: boolean;
   ui: { big_text: boolean };
   rule_refs: string[];
 }

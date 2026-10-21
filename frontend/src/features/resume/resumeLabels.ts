@@ -43,27 +43,60 @@ export const occupationText = (occupation: OccupationRef | null | undefined) => 
   return occupation.name;
 };
 
+/** 대학 이상이면 학점/총점·전공을 받습니다 (2-1.2). */
+export const isCollegeLevel = (item: ResumeEducation) => !!item.level?.includes('대학');
+
 /**
- * 학력 한 줄 값 (2-1.2): 학교 · 졸업상태 · 기간 · 전공 · 학점/총점 · 최종학력.
- * 대학 이상은 고용24에서 학점/총점이 필수라, 비어 있으면 고용24 입력 때 필요하다고 남깁니다 (2-1.8).
+ * 학점/총점 칸 값 (2-1.2). 대학 이상은 고용24에서 학점/총점이 필수라,
+ * 비어 있으면 고용24 입력 때 필요하다고 남깁니다 (2-1.8).
  */
-export const educationText = (item: ResumeEducation) => {
-  const isCollege = !!item.level?.includes('대학');
-  const gpaText = item.gpa
-    ? `학점/총점 ${item.gpa}`
-    : isCollege
-      ? '학점 빈칸 (고용24 입력 때 필요)'
-      : null;
-  return [
-    item.school_name,
-    item.graduation_status,
-    formatPeriod(item.start_date, item.end_date),
-    item.major && `전공 ${item.major}`,
-    gpaText,
-    item.is_final && '최종학력',
-  ]
-    .filter(Boolean)
-    .join(' · ');
+export const gpaText = (item: ResumeEducation) =>
+  item.gpa ?? (isCollegeLevel(item) ? '빈칸 (고용24 입력 때 필요)' : null);
+
+/** 고용24 이력서 선택지 (2-1.2 · 데이터 설계 3장). 패널 직접 입력의 선택 상자에 씁니다. */
+export const EDUCATION_LEVELS = [
+  '무학',
+  '초등학교',
+  '중학교',
+  '고등학교',
+  '대학교(2/3년제)',
+  '대학교(4년제)',
+  '대학원(석사)',
+  '대학원(박사)',
+] as const;
+
+export const GRADUATION_STATUSES = [
+  '휴학',
+  '재학',
+  '중퇴',
+  '수료',
+  '졸업',
+  '졸업예정',
+  '검정(독학)',
+] as const;
+
+export const CONTRACT_TYPES = [
+  '기간의 정함이 없는 근로계약',
+  '기간의 정함이 있는 근로계약',
+  '관계없음',
+] as const;
+
+export const MILITARY_OPTIONS = [
+  '해당 없음',
+  '현역병입영대상자',
+  '보충역대상자',
+  '전문연구요원',
+  '산업기능요원',
+] as const;
+
+export const EMPLOYMENT_STATUSES = ['퇴직', '재직'] as const;
+
+export const YES_NO = ['예', '아니오'] as const;
+
+/** `2004-03 ~ 2026-09`처럼 적은 기간을 시작·끝으로 나눕니다. 형식 검사는 서버 값 정리가 합니다. */
+export const splitPeriod = (text: string) => {
+  const [start = '', end = ''] = text.split('~').map((part) => part.trim());
+  return { start, end };
 };
 
 /** 그 밖의 보유역량 8개 (2-1.2). 값이 들어온 항목만 켜집니다. */
