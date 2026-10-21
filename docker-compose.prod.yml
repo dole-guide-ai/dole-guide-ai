@@ -27,6 +27,7 @@ services:
       LLM_BASE_URL: ${LLM_BASE_URL:-}
       AGENT_MODEL: ${AGENT_MODEL:-}
       EXTRACT_MODEL: ${EXTRACT_MODEL:-}
+      JUDGE_MODEL: ${JUDGE_MODEL:-}
       # 백엔드 포트는 외부에 열지 않으므로 Docker 내부 네트워크(Caddy)에서 온 프록시 헤더만 믿습니다.
       FORWARDED_ALLOW_IPS: 172.16.0.0/12,192.168.0.0/16
     # 외부에는 Caddy(80·443)만 엽니다.

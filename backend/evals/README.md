@@ -36,6 +36,12 @@ AI가 바뀔 때마다 같은 문항으로 다시 채점하는 기준 문항 세
 | --- | --- |
 | `pnpm golden:check` | CSV 검사만 (칸 이름·값·첨부 파일). 고칠 곳을 줄 번호와 함께 알려 줌 |
 | `pnpm golden:build` | CSV → `scenarios/golden/<영역>/<ID>.json`. 만든 JSON은 저장소에 올리지 않음 |
+| `pnpm eval:golden` | 만들기 + 실제 AI로 실행·채점 → `evals/reports/golden-<시각>.md` |
+| `pnpm eval:golden:selftest` | 만들기 + 가짜 AI로 채점 코드만 점검. 100개 모두 통과해야 정상 |
+
+- 옵션은 뒤에 붙입니다: `pnpm eval:golden --golden-area=masking`(영역만), `--golden-threshold=0.8`(LLM 판정 기준, 기본 0.7)
+- GitHub에서: Actions → `golden-eval` → Run workflow. 결과 표는 실행 화면 Summary에, 보고서는 Artifacts에 남습니다. real 모드는 Secrets `LLM_API_KEY`, Variables `AGENT_MODEL`·`EXTRACT_MODEL`·`JUDGE_MODEL`을 씁니다.
+- 결과: 통과 · 실패 · 참고 실패(검수 `확인필요` 문항, 실패로 치지 않음) · 판정 건너뜀(키가 없어 LLM 판정만 못 함) · 건너뜀
 
 ### 문항 고치기
 
@@ -52,3 +58,7 @@ AI가 바뀔 때마다 같은 문항으로 다시 채점하는 기준 문항 세
 | 근거표시 · 채점기준 · 근거 | 답에 근거 줄이 있어야 하면 `Y` · LLM 판정 기준 문장 · 기대 결과의 출처 |
 
 경로 이름은 프론트 타입과 같습니다: `derived`(DerivedState), `round`(RoundCheckRead), `resume`(ResumeValues), `activities`(RoundActivity[]), `recognition`(RecognitionFormRead).
+
+### AI 연결
+
+`golden/adapter.py`의 `run_agent()`만 채우면 됩니다. 문항 입력(상태·시작 데이터·말·첨부)을 받아 `AgentResult`(답 문장, 다음할일, 결과 데이터, 근거 줄)를 돌려주세요. 모델에 보낸 글은 테스트가 gateway 호출을 자동으로 기록해 개인정보 검사에 씁니다. LLM 판정은 `gateway.get_chat_model(role="judge")`를 쓰고(`JUDGE_MODEL`, 비우면 `AGENT_MODEL`), `LLM_API_KEY`가 없으면 판정만 건너뜁니다.
