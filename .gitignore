@@ -28,6 +28,7 @@ openapi.json
 .claude/settings.local.json
 
 # test
+backend/evals/scenarios/golden/
 .coverage
 coverage/
 htmlcov/
