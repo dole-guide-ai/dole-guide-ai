@@ -8,7 +8,11 @@ import { ACCEPTED_FILE_TYPES } from '@/features/chat/useFileUpload';
 
 /** 말하기·파일·크게 쓰기: 아이콘 위·짧은 이름 아래로 작게 둬 입력칸을 넓힙니다 (시연 개선 5번). */
 const TOOL_CLASS =
-  'border-line bg-surface text-ink hover:border-brand hover:text-brand disabled:text-muted focus-visible:ring-brand/40 flex w-16 shrink-0 flex-col items-center gap-0.5 rounded-xl border py-1 text-xs font-semibold focus-visible:ring-3 focus-visible:outline-hidden disabled:cursor-not-allowed';
+  'focus-visible:ring-brand/40 flex w-16 shrink-0 flex-col items-center gap-0.5 rounded-xl border py-1 text-xs font-semibold focus-visible:ring-3 focus-visible:outline-hidden disabled:cursor-not-allowed';
+/** 기본·강조 색은 한쪽만 붙입니다. 둘을 같이 붙이면 배경은 흰색, 글자도 흰색이 돼 이름이 안 보입니다. */
+const TOOL_NORMAL =
+  'border-line bg-surface text-ink hover:border-brand hover:text-brand disabled:text-muted';
+const TOOL_HIGHLIGHT = 'border-brand bg-brand text-white';
 
 /**
  * 입력창 (2-0.4·2-0.5): 입력칸과 말하기·파일 올리기·크게 쓰기·보내기를 한 줄에 둡니다 (시연 개선 5번).
@@ -81,7 +85,7 @@ export const ChatInput = ({
             disabled
             title="음성 입력은 서버 음성 인식 경로를 정한 뒤 연결돼요"
             aria-label="눌러서 말하기"
-            className={TOOL_CLASS}
+            className={`${TOOL_CLASS} ${TOOL_NORMAL}`}
           >
             <span aria-hidden className="text-lg">
               🎤
@@ -106,7 +110,7 @@ export const ChatInput = ({
                 : 'AI가 서류를 요청하면 올릴 수 있어요'
             }
             aria-label="파일 올리기"
-            className={`${TOOL_CLASS} ${canUpload ? 'border-brand bg-brand text-white hover:text-white' : ''}`}
+            className={`${TOOL_CLASS} ${canUpload ? TOOL_HIGHLIGHT : TOOL_NORMAL}`}
           >
             <span aria-hidden className="text-lg">
               📎
@@ -118,7 +122,7 @@ export const ChatInput = ({
             disabled={isDisabled}
             onClick={() => setIsLargeOpen(true)}
             aria-label="크게 쓰기"
-            className={TOOL_CLASS}
+            className={`${TOOL_CLASS} ${TOOL_NORMAL}`}
           >
             <span aria-hidden className="text-lg">
               🔍
