@@ -89,7 +89,7 @@ export const activityEvidenceChip = (activity: {
 }): ChipSpec => {
   if (activity.attachment_ids.length > 0) return { label: '증빙 있음', tone: 'ok' };
   if (activity.source === 'work24_import') {
-    return { label: '증빙 불필요 (고용24 지원)', tone: 'neutral' };
+    return { label: '증빙 불필요 (고용24 기록)', tone: 'neutral' };
   }
   return { label: '증빙 필요', tone: 'warn' };
 };

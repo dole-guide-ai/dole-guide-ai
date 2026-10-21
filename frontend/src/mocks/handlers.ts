@@ -1,4 +1,5 @@
 import { ApiError } from '@/lib/api';
+import { getFormDrafts } from '@/lib/formStore';
 import { getSession } from '@/lib/sessionStore';
 import type { FormPatchCreate, FormUpdateEvent } from '@/types/chat.types';
 import type { DemoAuthCreate, PersonaCardRead, SessionRead } from '@/types/demo.types';
@@ -19,7 +20,7 @@ import { MOCK_AFTER_RESUME_ENTRIES, MOCK_ENTRIES } from './entries';
 import { MOCK_IMPORTS } from './imports';
 import { MOCK_MY_DATA, MOCK_MY_DATA_DELETE_UPDATES, MOCK_NOT_STORED } from './myData';
 import { findMockPersona, MOCK_PERSONAS } from './personas';
-import { MOCK_RECOGNITION_FORMS } from './recognition';
+import { mockRecognitionForm } from './recognition';
 import { MOCK_RESUMES } from './resumes';
 
 /**
@@ -115,6 +116,8 @@ export const resolveMock = async <T>(path: string, init?: RequestInit): Promise<
     const session = buildMockSession(personaId);
     return {
       ...session,
+      // 같은 대화 세션이라 ID를 유지합니다. 바뀌면 닫은 주의 토스트가 다시 뜹니다 (시연 검증 4번).
+      session_id: getSession()?.session_id ?? session.session_id,
       state: { ...session.state, resume_status: 'ready', stage: 'education' },
       entry,
     } as T;
@@ -173,14 +176,18 @@ export const resolveMock = async <T>(path: string, init?: RequestInit): Promise<
   }
 
   if (method === 'GET' && path === '/forms/recognition') {
-    const form = personaId ? MOCK_RECOGNITION_FORMS[personaId] : undefined;
+    const form = personaId
+      ? mockRecognitionForm(personaId, getFormDrafts().activities.values)
+      : undefined;
     if (!form) throw new ApiError('NOT_FOUND', '실업인정 신청서 초안이 없어요.', 404);
     return form as T;
   }
 
   if (method === 'POST' && path === '/forms/recognition/confirm') {
     const body = parseBody<RecognitionConfirmCreate>(init);
-    const form = personaId ? MOCK_RECOGNITION_FORMS[personaId] : undefined;
+    const form = personaId
+      ? mockRecognitionForm(personaId, getFormDrafts().activities.values)
+      : undefined;
     if (!form || !body || body.submit_mode !== form.submit_mode) {
       throw new ApiError('CONFLICT', '지금은 이 방법으로 낼 수 없어요.', 409);
     }

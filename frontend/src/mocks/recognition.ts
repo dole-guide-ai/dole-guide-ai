@@ -1,5 +1,13 @@
+import { formatShortDate } from '@/lib/dateFormat';
 import { citeOf } from '@/lib/sources';
-import type { RecognitionFormRead } from '@/types/recognition.types';
+import type { ActivityStatus, RoundActivity } from '@/types/procedure.types';
+import type {
+  ExcludedActivity,
+  JobSearchActivity,
+  OtherActivity,
+  RecognitionFormRead,
+  ReemploymentActivity,
+} from '@/types/recognition.types';
 
 /**
  * 실업인정 신청서 모의 스냅샷 (상세기획 2-3.10, 시안 2-3-1 시점). 이정호 4차, 출석 회차, 기준일 12.16 10:00.
@@ -115,3 +123,148 @@ const lee: RecognitionFormRead = {
 };
 
 export const MOCK_RECOGNITION_FORMS: Record<string, RecognitionFormRead> = { lee };
+
+type JobFields = Pick<
+  JobSearchActivity,
+  | 'recruitment_contact'
+  | 'recruitment_occupation'
+  | 'salary_level'
+  | 'job_search_method'
+  | 'application_method'
+  | 'activity_result'
+>;
+
+const workJob = (contact: string, occupation: string): JobFields => ({
+  recruitment_contact: contact,
+  recruitment_occupation: occupation,
+  salary_level: null,
+  job_search_method: '고용24(워크넷)',
+  application_method: '고용24(워크넷)',
+  activity_result: '서류전형 심사진행 중',
+});
+
+/**
+ * 모의 대본이 기록하는 활동(item_id)별 신청서 구직활동 칸. 응모 방식은 2-3.4 매핑을 따릅니다
+ * (회사 홈페이지 → 기타). 백엔드는 활동 기록과 신청서 초안을 같은 데이터로 만듭니다.
+ */
+const JOB_FIELDS: Record<string, JobFields> = {
+  a1: workJob('인사팀', '일반 사무'),
+  a3: workJob('총무팀', '사무보조'),
+  a4: {
+    recruitment_contact: '인사팀',
+    recruitment_occupation: '기획 사무',
+    salary_level: null,
+    job_search_method: '취업포탈사이트(민간)',
+    application_method: '기타',
+    activity_result: '서류전형 심사진행 중',
+  },
+  a5: {
+    recruitment_contact: '총무팀',
+    recruitment_occupation: '총무',
+    salary_level: null,
+    job_search_method: '취업포탈사이트(민간)',
+    application_method: '직접방문',
+    activity_result: '면접을 본 후 결과를 기다리는 중',
+  },
+};
+
+/** 구직 외 활동 경로 → 고용24 `과정` 선택지 */
+const OTHER_COURSE: Partial<Record<RoundActivity['route'], string>> = {
+  step_online: '취업특강(온라인, 오프라인) 수강',
+  training: '직업훈련 수강',
+};
+
+const EXCLUDED_REASON: Partial<Record<ActivityStatus, ExcludedActivity['reason']>> = {
+  same_day: 'same_day',
+  out_of_period: 'out_of_period',
+  not_allowed: 'not_allowed',
+};
+
+/**
+ * 패널 B에 기록된 활동으로 신청서 재취업 활동정보를 만듭니다 (시연 검증 1번). 인정된 구직활동은 구직활동내역,
+ * 인정된 구직 외 활동은 구직활동 외 활동사항, 계산에서 뺀 활동은 참고로 둡니다. 예정 활동은 넣지 않습니다.
+ */
+export const buildReemploymentActivity = (
+  base: ReemploymentActivity,
+  activities: RoundActivity[],
+  counted: ReemploymentActivity['counted'],
+): ReemploymentActivity => {
+  const jobs: JobSearchActivity[] = [];
+  const others: OtherActivity[] = [];
+  const excluded: ExcludedActivity[] = [];
+  for (const activity of activities) {
+    const reason = EXCLUDED_REASON[activity.status];
+    if (reason) {
+      excluded.push({
+        item_id: `job_${activity.item_id}`,
+        reason,
+        activity_date: activity.date,
+        company_name: activity.org_name,
+      });
+    } else if (activity.status !== 'counted') {
+      continue;
+    } else if (activity.kind === 'job_search') {
+      jobs.push({
+        item_id: `job_${activity.item_id}`,
+        activity_date: activity.date,
+        company_name: activity.org_name,
+        ...(JOB_FIELDS[activity.item_id] ?? workJob('인사팀', activity.job_title ?? '사무')),
+        attachment_ids: activity.evidence.attached,
+        source: activity.source === 'work24_import' ? 'work24_import' : 'document',
+      });
+    } else {
+      others.push({
+        item_id: `other_${activity.item_id}`,
+        course: OTHER_COURSE[activity.route] ?? null,
+        details: `${activity.org_name} (${formatShortDate(activity.date)})`,
+        attachment_ids: activity.evidence.attached,
+        // 온라인 취업특강은 고용24 수강 이력으로 확인돼 증빙이 필요 없습니다 (ACT-043).
+        source:
+          activity.source === 'work24_import' || activity.route === 'step_online'
+            ? 'work24_import'
+            : 'conversation',
+      });
+    }
+  }
+  return {
+    ...base,
+    counted,
+    has_job_search_activity: jobs.length > 0,
+    job_search_activities: jobs,
+    excluded,
+    has_other_reemployment_activity: others.length > 0,
+    other_reemployment_activities: others,
+  };
+};
+
+/** `GET /forms/recognition` (모의): 기록된 활동이 있으면 그것으로 재취업 활동정보를 바꿔 돌려줍니다. */
+export const mockRecognitionForm = (
+  personaId: string,
+  activityValues: Record<string, unknown>,
+): RecognitionFormRead | undefined => {
+  const form = MOCK_RECOGNITION_FORMS[personaId];
+  const activities = activityValues.activities as RoundActivity[] | undefined;
+  if (!form || !activities?.length) return form;
+  const base = form.reemployment_activity;
+  const counted = {
+    activities: Number(activityValues.counted ?? base.counted.activities),
+    job_search: Number(activityValues.counted_job_search ?? base.counted.job_search),
+  };
+  const reemployment = buildReemploymentActivity(base, activities, counted);
+  const jobStates = Object.fromEntries(
+    reemployment.job_search_activities.map((job) => [
+      `reemployment_activity.job_search_activities.${job.item_id}`,
+      { status: 'extracted', source: job.source } as const,
+    ]),
+  );
+  const fieldStates = Object.fromEntries(
+    Object.entries(form.field_states).filter(
+      ([key]) => !key.startsWith('reemployment_activity.job_search_activities.'),
+    ),
+  );
+  return {
+    ...form,
+    reemployment_activity: reemployment,
+    field_states: { ...fieldStates, ...jobStates },
+  };
+};

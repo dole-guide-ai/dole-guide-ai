@@ -119,6 +119,35 @@ describe('ResumePanel', () => {
     expect(screen.queryByText('있으면', { selector: 'span' })).not.toBeInTheDocument();
   });
 
+  it('학력이 비어 있어도 학력을 골라 첫 학력 줄을 만들고 하위 칸이 보인다 (시연 검증 5번)', async () => {
+    const fetchSpy = mockApi('park');
+    fetchSpy.mockImplementation(async (input, init) => {
+      if (String(input).endsWith('/forms/resume') && init?.method === 'PATCH') {
+        const body = JSON.parse(String(init.body)) as { path: string; value: unknown };
+        return Response.json({
+          updates: [{ form: 'resume', path: body.path, op: 'set', value: body.value }],
+        });
+      }
+      return Response.json(MOCK_RESUMES.park);
+    });
+
+    renderWithProviders(<ResumePanel session={buildMockSession('park')} />);
+
+    const row = (await screen.findByText('학력')).closest('div')!;
+    await userEvent.click(within(row).getByRole('button', { name: '직접 입력' }));
+    await userEvent.selectOptions(screen.getByLabelText('학력 직접 입력'), '고등학교');
+    await userEvent.click(within(row).getByRole('button', { name: '저장' }));
+
+    expect(await screen.findByText('고등학교 · 최종학력')).toBeInTheDocument();
+    expect(screen.getByText('졸업상태')).toBeInTheDocument();
+    const patch = fetchSpy.mock.calls.find(([, init]) => init?.method === 'PATCH');
+    expect(JSON.parse(String(patch?.[1]?.body))).toMatchObject({
+      path: 'education',
+      op: 'set',
+      value: [{ item_id: 'edu_001', level: '고등학교', is_final: true }],
+    });
+  });
+
   it('직종처럼 값만 있고 저장 상태가 없는 칸에는 `아직 없음` 칩을 달지 않는다 (PPT 점검 N1)', async () => {
     mockApi('choi');
 
