@@ -28,6 +28,8 @@ class Settings(BaseSettings):
     llm_base_url: str | None = None
     agent_model: str = ""
     extract_model: str = ""
+    # 평가(골든셋) LLM 판정 모델. 서버는 쓰지 않고, 비우면 agent_model을 씁니다.
+    judge_model: str = ""
 
     @field_validator("llm_base_url", "cors_origin_regex", mode="before")
     @classmethod
