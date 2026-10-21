@@ -4,8 +4,8 @@ import type { ImportItem, ImportKind, ImportListRead } from '@/types/imports.typ
  * 고용24 불러오기 모의 목록 (2-1.5 통합경력증명 · 2-2.5 고용24 입사지원 내역). 모두 가상 값입니다.
  * 박진수의 직업훈련 이력은 도현 실측("기억에 없는 무언가 튀어나옴")처럼 본인이 빼고 고를 수 있는 예입니다.
  */
-const NOTE_CAREER = '고용24 `이력보기`를 흉내 낸 모의 목록이에요. 넣을 것만 골라 주세요.';
-const NOTE_WORK24 = '고용24 `구직활동 불러오기`를 흉내 낸 모의 목록이에요.';
+const NOTE_CAREER = '고용24 ‘이력보기’를 흉내 낸 모의 목록이에요. 넣을 것만 골라 주세요.';
+const NOTE_WORK24 = '고용24 ‘구직활동 불러오기’를 흉내 낸 모의 목록이에요.';
 
 const PARK: ImportItem[] = [
   {
@@ -80,4 +80,34 @@ export const MOCK_IMPORTS: Record<ImportKind, Record<string, ImportListRead>> = 
   'work24-activities': {
     lee: { items: LEE, source_note: NOTE_WORK24 },
   },
+};
+
+const namesOf = (list: unknown, key: string): string[] =>
+  Array.isArray(list)
+    ? list.map((item) => String((item as Record<string, unknown>)?.[key] ?? '')).filter(Boolean)
+    : [];
+
+/**
+ * 이미 패널에 들어간 항목은 `이미 넣음`으로 막습니다 (시연 검증 13번: 다시 불러오기에서 같은 항목을 또 고르지 않게).
+ * 이름이 같으면 들어간 것으로 봅니다. 백엔드는 출처 ID로 같은 판단을 합니다.
+ */
+export const mockImportList = (
+  list: ImportListRead,
+  resume: Record<string, unknown>,
+  activities: Record<string, unknown>,
+): ImportListRead => {
+  const competencies = (resume.competencies ?? {}) as Record<string, unknown>;
+  const recorded = new Set([
+    ...namesOf(competencies.careers, 'company_name'),
+    ...namesOf(competencies.certifications, 'certificate_name'),
+    ...namesOf(competencies.vocational_training, 'name'),
+    ...namesOf(activities.activities, 'org_name'),
+  ]);
+  return {
+    ...list,
+    items: list.items.map((item) => ({
+      ...item,
+      is_recorded: item.is_recorded || recorded.has(item.title.split(' · ')[0]),
+    })),
+  };
 };

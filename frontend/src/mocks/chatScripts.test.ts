@@ -3,8 +3,10 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { OPEN_FORM_MESSAGE } from '@/features/procedure/activityLabels';
 
 import { applyFormUpdate, resetForms } from '@/lib/formStore';
+import { setSession } from '@/lib/sessionStore';
 import type { FormUpdateEvent, SseMessage } from '@/types/chat.types';
 import { buildMockChatEvents, resetMockChat } from '@/mocks/chatScripts';
+import { buildMockSession } from '@/mocks/handlers';
 
 const updates = (events: SseMessage[]): FormUpdateEvent[] =>
   events.flatMap((event) => (event.event === 'form_update' ? [event.data] : []));
@@ -219,7 +221,11 @@ describe('시연 개선 (2026-10-21 피드백)', () => {
 
     expect(text(events)).toContain('고르신 항목을 넣었어요: 직업훈련 이수이력(용접 기초 과정).');
     expect(lastAsk(events)).toMatchObject({
-      data: { question_id: 'resume.career_new', accepts_file: true },
+      data: {
+        question_id: 'resume.career_new',
+        accepts_file: true,
+        choices: ['말로 할게요', '파일 올릴게요', '고용24에서 불러올게요'],
+      },
     });
   });
 
@@ -231,6 +237,35 @@ describe('시연 개선 (2026-10-21 피드백)', () => {
     expect(lastAsk(events)).toMatchObject({
       data: { question_id: 'resume.career_position.career_001' },
     });
+  });
+
+  it('자격 이름과 딴 해를 함께 말하면 이름만 넣고 해는 안내로 돌린다 (시연 검증 9번)', () => {
+    send('park', '없었어요');
+    send('park', '있어요');
+    const events = send('park', '지게차운전기능사 2011년');
+
+    expect(updates(events)).toContainEqual(
+      expect.objectContaining({
+        path: 'competencies.certifications',
+        value: expect.objectContaining({
+          certificate_name: '지게차운전기능사',
+          acquired_date: null,
+        }),
+      }),
+    );
+    expect(text(events)).toContain('자격면허에 넣었어요: 지게차운전기능사.');
+    expect(text(events)).toContain('2011년에 따신 것으로 들었어요');
+    expect(text(events)).not.toContain('을(를)');
+  });
+
+  it('첫 질문이 서류를 요청한 계정은 다시 물을 때도 파일 버튼을 켠다 (시연 검증 8번)', () => {
+    setSession(buildMockSession('park'));
+    const events = buildMockChatEvents('park', '오늘 날씨 어때요', ['처음 선택지']);
+
+    expect(lastAsk(events)).toMatchObject({
+      data: { question_id: 'mock.fallback', accepts_file: true },
+    });
+    setSession(null);
   });
 
   it('박진수 학력 질문에서 시연이 끝났다고 알린다 (시연 개선 1번)', () => {

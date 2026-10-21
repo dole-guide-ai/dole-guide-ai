@@ -5,6 +5,7 @@ import { applyFormUpdate, resetForms } from '@/lib/formStore';
 import { setSession } from '@/lib/sessionStore';
 import type { FormPatchRead } from '@/types/chat.types';
 import type { PersonaCardRead, SessionRead } from '@/types/demo.types';
+import type { ImportListRead } from '@/types/imports.types';
 import type { RoundCheckRead } from '@/types/procedure.types';
 import type { RecognitionFormRead } from '@/types/recognition.types';
 import { MOCK_ROUND_CHECKS } from '@/mocks/activities';
@@ -84,6 +85,28 @@ describe('모의 API', () => {
     expect(saved.session_id).toBe(session.session_id);
     expect(saved.state.stage).toBe('education');
     setSession(null);
+  });
+
+  it('다시 불러오기에서는 이미 넣은 항목을 `이미 넣음`으로 막는다 (시연 검증 13번)', async () => {
+    await resolveMock('/auth/demo', {
+      method: 'POST',
+      body: JSON.stringify({ persona_id: 'park' }),
+    });
+    applyFormUpdate({
+      form: 'resume',
+      path: 'competencies.vocational_training',
+      op: 'set',
+      value: [{ item_id: 'training_001', name: '용접 기초 과정' }],
+    });
+
+    const list = await resolveMock<ImportListRead>('/imports/career-certificate');
+
+    expect(list.items.map((item) => [item.title, item.is_recorded])).toEqual([
+      ['OO산업', false],
+      ['지게차운전기능사', false],
+      ['용접 기초 과정', true],
+    ]);
+    resetForms();
   });
 
   it('계정을 고르기 전에는 세션을 만들 수 없다', async () => {
