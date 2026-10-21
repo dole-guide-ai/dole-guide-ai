@@ -25,8 +25,8 @@ from evals.golden.schema import (
 )
 
 
-def read_rows(path: Path) -> list[dict[str, str]]:
-    """엑셀이 저장한 CSV도 읽습니다: UTF-8(BOM 포함)을 먼저, 안 되면 CP949로."""
+def read_rows(path: Path) -> list[tuple[int, dict[str, str]]]:
+    """(실제 줄 번호, 행) 목록. 엑셀 CSV도 읽습니다: UTF-8(BOM 포함)을 먼저, 안 되면 CP949로."""
     raw = path.read_bytes()
     try:
         text = raw.decode("utf-8-sig")
@@ -38,12 +38,13 @@ def read_rows(path: Path) -> list[dict[str, str]]:
     if missing := [name for name in COLUMNS if name not in header]:
         raise GoldenError(f"CSV 첫 줄에 없는 열: {', '.join(missing)}")
     reader.fieldnames = header
-    return list(reader)
+    # 빈 줄·셀 안 줄바꿈이 있어도 맞도록 순서 대신 reader.line_num(그 행이 끝나는 줄)을 씁니다.
+    return [(reader.line_num, row) for row in reader]
 
 
 def load_cases(path: Path = CSV_PATH) -> tuple[list[dict[str, Any]], list[str]]:
     cases, errors, seen = [], [], set()
-    for line, row in enumerate(read_rows(path), start=2):
+    for line, row in read_rows(path):
         if not any((value or "").strip() for value in row.values()):
             continue
         label = f"{line}번째 줄 ({(row.get('ID') or '').strip() or 'ID 없음'})"

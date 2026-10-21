@@ -85,6 +85,9 @@ def empty_resume() -> dict[str, Any]:
 
 
 # 상태값 칸의 seed=이름 으로 고르는 시작 이력서
+# 상태값 칸에 BASE 밖에서 쓸 수 있는 이름. import_ids = 고용24 불러오기로 고른 항목(P-040)
+EXTRA_STATE_KEYS = {"import_ids"}
+
 SEEDS: dict[str, dict[str, Any]] = {
     "park_career": {
         "competencies": {
@@ -110,6 +113,12 @@ def resolve_input(case_input: dict[str, Any]) -> dict[str, Any]:
     seed = overrides.pop("seed", None)
     if seed is not None and seed not in SEEDS:
         raise ValueError(f"seed '{seed}'를 모르겠어요. 쓸 수 있는 값: {', '.join(SEEDS)}")
+    allowed = [*BASE, *sorted(EXTRA_STATE_KEYS)]
+    if unknown := [key for key in overrides if key not in allowed]:
+        names = ", ".join(unknown)
+        raise ValueError(
+            f"상태값 이름 {names}을 모르겠어요(오타?). 쓸 수 있는 값: {', '.join(allowed)}"
+        )
     state = {**BASE, **PERSONAS[persona], **overrides}
     resume = empty_resume()
     if seed:
