@@ -19,6 +19,7 @@ dependencies = [
 
 [dependency-groups]
 dev = [
+    "deepeval>=4.3.1",
     "httpx>=0.28.1",
     "import-linter>=2.15",
     "pytest>=9.1.1",
@@ -37,7 +38,8 @@ select = ["E", "F", "W", "I", "N", "UP", "B", "SIM"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
-addopts = "--strict-markers -m 'not eval'"
+# deepeval pytest 플러그인(실행 기록·통계 전송)은 끕니다. 골든셋 판정은 evals/golden/judge.py가 직접 부릅니다.
+addopts = "--strict-markers -m 'not eval' -p no:deepeval"
 markers = [
     "integration: Postgres가 필요한 테스트 (docker compose up -d db)",
     "eval: AI 평가 세트. 기본 실행에서 제외, `uv run pytest evals -m eval`로 실행",

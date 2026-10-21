@@ -1,0 +1,59 @@
+name: golden-eval
+
+# 골든셋 평가를 버튼으로 실행합니다: Actions 탭 → golden-eval → Run workflow.
+# 결과 표는 실행 화면(Summary)에 바로 뜨고, 보고서 파일은 Artifacts에 남습니다.
+# real 모드는 저장소 Secrets의 LLM_API_KEY와 Variables의 모델 이름을 씁니다.
+on:
+  workflow_dispatch:
+    inputs:
+      agent:
+        description: "selftest = 채점 코드 점검(AI 없이), real = 실제 AI"
+        type: choice
+        options: [selftest, real]
+        default: selftest
+      area:
+        description: "실행할 영역"
+        type: choice
+        options: [all, procedure, form_fill, grounding, masking]
+        default: all
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: backend
+
+jobs:
+  golden:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      LLM_PROVIDER: ${{ vars.LLM_PROVIDER || 'openai' }}
+      LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+      LLM_BASE_URL: ${{ vars.LLM_BASE_URL }}
+      AGENT_MODEL: ${{ vars.AGENT_MODEL }}
+      EXTRACT_MODEL: ${{ vars.EXTRACT_MODEL }}
+      JUDGE_MODEL: ${{ vars.JUDGE_MODEL }}
+    steps:
+      - uses: actions/checkout@v4
+      # 도구 버전은 mise.toml에서 읽습니다.
+      - uses: jdx/mise-action@v2
+      - run: uv sync --frozen
+      - name: 골든셋 CSV 검사·JSON 만들기
+        run: uv run python -m evals.golden.build
+      - name: 골든셋 실행·채점
+        env:
+          GOLDEN_AGENT: ${{ inputs.agent }}
+          GOLDEN_AREA: ${{ inputs.area }}
+        run: >-
+          uv run pytest evals/test_golden.py -m eval
+          --golden-agent="$GOLDEN_AGENT" --golden-area="$GOLDEN_AREA"
+      - name: 보고서 올리기
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: golden-report
+          path: backend/evals/reports/
+          if-no-files-found: ignore
