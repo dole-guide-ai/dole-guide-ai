@@ -29,6 +29,7 @@ openapi.json
 
 # test
 backend/evals/scenarios/golden/
+backend/evals/reports/
 .coverage
 coverage/
 htmlcov/
