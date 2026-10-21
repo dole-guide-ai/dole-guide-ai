@@ -148,6 +148,18 @@ describe('ResumePanel', () => {
     });
   });
 
+  it('운전·차량은 비어 있으면 `선택` 칩이다 (시연 검증 7번)', async () => {
+    mockApi('park');
+
+    renderWithProviders(<ResumePanel session={buildMockSession('park')} />);
+
+    for (const label of ['운전가능', '차량소지']) {
+      const row = (await screen.findByText(label)).closest('div')!;
+      expect(within(row).getByText('선택')).toBeInTheDocument();
+      expect(within(row).queryByText('아직 없음', { selector: 'span' })).not.toBeInTheDocument();
+    }
+  });
+
   it('직종처럼 값만 있고 저장 상태가 없는 칸에는 `아직 없음` 칩을 달지 않는다 (PPT 점검 N1)', async () => {
     mockApi('choi');
 

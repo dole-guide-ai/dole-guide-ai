@@ -570,12 +570,14 @@ export const ResumePanel = ({
         />
       </ResumeSection>
 
+      {/* 운전·차량은 완성도에 넣지 않는 선택 칸입니다 (2-1.2, 시연 검증 7번). */}
       <ResumeSection title="운전 및 차량소유">
         <FieldRow
           label="운전가능"
           value={yesNoText(values.additional_info?.can_drive)}
           rawValue={yesNoText(values.additional_info?.can_drive)}
           meta={fields['additional_info.can_drive']}
+          chip={values.additional_info?.can_drive == null ? OPTIONAL_CHIP : undefined}
           onDirectSave={direct('additional_info.can_drive', toYesNo)}
           inputKind="select"
           options={YES_NO}
@@ -585,6 +587,7 @@ export const ResumePanel = ({
           value={yesNoText(values.additional_info?.owns_vehicle)}
           rawValue={yesNoText(values.additional_info?.owns_vehicle)}
           meta={fields['additional_info.owns_vehicle']}
+          chip={values.additional_info?.owns_vehicle == null ? OPTIONAL_CHIP : undefined}
           onDirectSave={direct('additional_info.owns_vehicle', toYesNo)}
           inputKind="select"
           options={YES_NO}

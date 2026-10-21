@@ -17,7 +17,7 @@ import {
 } from './activities';
 import { resetMockChat } from './chatScripts';
 import { MOCK_AFTER_RESUME_ENTRIES, MOCK_ENTRIES } from './entries';
-import { MOCK_IMPORTS } from './imports';
+import { MOCK_IMPORTS, mockImportList } from './imports';
 import { MOCK_MY_DATA, MOCK_MY_DATA_DELETE_UPDATES, MOCK_NOT_STORED } from './myData';
 import { findMockPersona, MOCK_PERSONAS } from './personas';
 import { mockRecognitionForm } from './recognition';
@@ -150,7 +150,9 @@ export const resolveMock = async <T>(path: string, init?: RequestInit): Promise<
   const importMatch = /^\/imports\/(career-certificate|work24-activities)$/.exec(path);
   if (method === 'GET' && importMatch) {
     const list = personaId ? MOCK_IMPORTS[importMatch[1] as ImportKind][personaId] : undefined;
-    return (list ?? { items: [], source_note: '불러올 내역이 없어요.' }) as T;
+    if (!list) return { items: [], source_note: '불러올 내역이 없어요.' } as T;
+    const drafts = getFormDrafts();
+    return mockImportList(list, drafts.resume.values, drafts.activities.values) as T;
   }
 
   if (method === 'GET' && path === '/me/data') {

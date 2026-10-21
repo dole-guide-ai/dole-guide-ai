@@ -50,6 +50,12 @@ const askFile = (question_id: string, text: string, choices: string[]): SseMessa
   data: { question_id, text, choices, accepts_file: true },
 });
 
+/** 첫 화면 선택지를 다시 물을 때: 첫 질문이 서류를 요청했으면 파일 버튼도 그대로 켭니다 (시연 검증 8번). */
+const askEntry = (question_id: string, text: string, choices: string[]): SseMessage =>
+  getSession()?.entry.accepts_file
+    ? askFile(question_id, text, choices)
+    : ask(question_id, text, choices);
+
 /** 시연 흐름이 끝나는 곳에 붙이는 한 줄 (시연 개선 1번) */
 const endOfDemo = (name: string): SseMessage[] =>
   say(`(${name} 시연은 여기까지예요. 다른 계정은 오른쪽 위 ‘계정 바꾸기’에서 고를 수 있어요.)`);
@@ -112,12 +118,12 @@ type Script = Record<string, (entryChoices: string[]) => SseMessage[]>;
 const COMMON: Script = {
   '전체 순서가 궁금해요': (entryChoices) => [
     ...say(OVERVIEW, SOURCE_WORK24, ['PROC-009', 'PROC-010', 'PROC-011']),
-    ask('entry.return', '어디부터 이어갈까요?', entryChoices),
+    askEntry('entry.return', '어디부터 이어갈까요?', entryChoices),
   ],
 };
 
 const UPLOAD_GUIDE =
-  '아래 ‘📎 파일 올리기’를 눌러 올려 주세요. 사진이나 문서(pdf·hwp·docx) 모두 돼요.';
+  '입력창 옆 ‘📎 파일’ 버튼을 눌러 올려 주세요. 사진이나 문서(pdf·hwp·docx) 모두 돼요.';
 
 /** 경력 질문 (2-1.3 질문 3). 서류를 요청하므로 파일 올리기가 켜집니다. */
 const ASK_CAREER_NEW = askFile(
@@ -324,23 +330,37 @@ const setDuties = (personaId: string, itemId: string, value: string): SseMessage
 };
 
 /** 자격증을 말로 알려 줄 때 (2-1.3 질문 8): 이름만 넣고 발급기관·취득일은 고용24 입력 때 채웁니다. */
-const addLicense = (name: string): SseMessage[] => [
-  update('resume', 'competencies.certifications', 'append', {
-    value: {
-      item_id: 'cert_002',
-      certificate_name: name,
-      issuing_organization: null,
-      acquired_date: null,
-    },
-  }),
-  update('resume', 'competencies.certifications.cert_002.certificate_name', 'set', {
-    ...CONVERSATION,
-    completeness: { done: hasCareer() ? 2 : 1, total: 5 },
-  }),
-  ...say(`${name}을(를) 자격면허에 넣었어요. 발급기관과 취득일은 고용24에 입력할 때 채워 주세요.`),
-  update('resume', 'next_question', 'set', { value: 'resume.education_level' }),
-  ASK_EDUCATION,
-];
+/** '지게차운전기능사 2011년'처럼 이름과 딴 해를 함께 말하면 나눕니다 (시연 검증 9번). */
+const splitLicense = (text: string) => {
+  const year = text.match(/(\d{4})\s*년?/)?.[1] ?? null;
+  const name = text.replace(/(\d{4})\s*년?(에)?(\s*땄어요|\s*취득)?/, '').trim() || text.trim();
+  return { name, year };
+};
+
+const addLicense = (text: string): SseMessage[] => {
+  const { name, year } = splitLicense(text);
+  // 고용24 취득일은 연-월-일이라 연도만으로는 채우지 않고, 고용24 입력 때 채우라고 안내합니다 (2-1.4).
+  const dateNote = year
+    ? `${year}년에 따신 것으로 들었어요. 취득일은 월·일까지 필요해서, 발급기관과 함께 고용24에 입력할 때 채워 주세요.`
+    : '발급기관과 취득일은 고용24에 입력할 때 채워 주세요.';
+  return [
+    update('resume', 'competencies.certifications', 'append', {
+      value: {
+        item_id: 'cert_002',
+        certificate_name: name,
+        issuing_organization: null,
+        acquired_date: null,
+      },
+    }),
+    update('resume', 'competencies.certifications.cert_002.certificate_name', 'set', {
+      ...CONVERSATION,
+      completeness: { done: hasCareer() ? 2 : 1, total: 5 },
+    }),
+    ...say(`자격면허에 넣었어요: ${name}.\n${dateNote}`),
+    update('resume', 'next_question', 'set', { value: 'resume.education_level' }),
+    ASK_EDUCATION,
+  ];
+};
 
 const CHOI_PERSONA = MOCK_PERSONAS.find((persona) => persona.persona_id === 'choi');
 
@@ -1292,7 +1312,7 @@ const importEvents = (personaId: string, importIds: string[]): SseMessage[] => {
       askFile(
         'resume.career_new',
         '이제 가장 최근에 일하신 곳을 알려 주세요. 경력증명서가 있으면 파일로 올려 주세요.',
-        ['말로 할게요', '파일 올릴게요'],
+        ['말로 할게요', '파일 올릴게요', '고용24에서 불러올게요'],
       ),
     );
   } else if (personaId === 'park') {
@@ -1380,7 +1400,7 @@ const scriptEvents = (
     ...say('말씀 감사해요. 이 부분은 시연 대화가 아직 준비되지 않았어요. 아래에서 이어가 주세요.'),
     previous
       ? { event: 'ask_user', data: previous }
-      : ask('mock.fallback', '어디부터 이어갈까요?', entryChoices),
+      : askEntry('mock.fallback', '어디부터 이어갈까요?', entryChoices),
   ];
 };
 

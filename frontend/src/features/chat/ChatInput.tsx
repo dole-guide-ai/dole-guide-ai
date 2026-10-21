@@ -16,6 +16,7 @@ const TOOL_HIGHLIGHT = 'border-brand bg-brand text-white';
 
 /**
  * 입력창 (2-0.4·2-0.5): 입력칸과 말하기·파일 올리기·크게 쓰기·보내기를 한 줄에 둡니다 (시연 개선 5번).
+ * 대화창이 좁아 입력칸이 15rem보다 작아지면 버튼만 다음 줄로 내립니다 (시연 검증 14번).
  * 파일 올리기는 AI가 서류를 요청한 질문(`accepts_file`)에서만 켜지고 강조됩니다 (시연 개선 2번).
  * 개인정보 안내는 늘 보입니다. 글자 상태는 부모가 가집니다.
  */
@@ -68,7 +69,7 @@ export const ChatInput = ({
           서류를 올릴 수 있어요. 사진이나 문서(pdf·hwp·docx) 모두 돼요.
         </p>
       )}
-      <div className="flex flex-wrap items-end gap-2 lg:flex-nowrap">
+      <div className="flex flex-wrap items-end gap-2">
         <textarea
           value={value}
           onChange={(event) => onChange(event.target.value)}
@@ -77,7 +78,7 @@ export const ChatInput = ({
           rows={2}
           placeholder={isDisabled ? '답을 만드는 중이에요…' : '여기에 말씀하듯 적어 주세요'}
           aria-label="메시지 입력"
-          className="border-line focus-visible:border-brand focus-visible:ring-brand/40 disabled:bg-neutral-soft min-w-32 flex-1 resize-none rounded-xl border px-4 py-3 text-base focus-visible:ring-3 focus-visible:outline-hidden"
+          className="border-line focus-visible:border-brand focus-visible:ring-brand/40 disabled:bg-neutral-soft min-w-60 flex-1 resize-none rounded-xl border px-4 py-3 text-base focus-visible:ring-3 focus-visible:outline-hidden"
         />
         <div className="flex shrink-0 items-center gap-1.5">
           <button
