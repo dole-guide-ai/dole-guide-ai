@@ -1,3 +1,4 @@
+import { getSession } from '@/lib/sessionStore';
 import type { ChatCreate, SseMessage } from '@/types/chat.types';
 
 import { buildMockChatEvents } from './chatScripts';
@@ -18,7 +19,12 @@ export async function* mockChatStream(
   signal?: AbortSignal,
 ): AsyncGenerator<SseMessage> {
   const personaId = personaFromSession(sessionId);
-  const entryChoices = MOCK_ENTRIES[personaId]?.choices ?? [];
+  // 이력서 저장처럼 단계가 바뀌면 진입 결과도 바뀌므로 지금 세션의 첫 선택지를 씁니다 (모의 자유 입력).
+  const session = getSession();
+  const entryChoices =
+    (session?.session_id === sessionId ? session.entry.choices : undefined) ??
+    MOCK_ENTRIES[personaId]?.choices ??
+    [];
   const events = buildMockChatEvents(
     personaId,
     body.message,

@@ -187,14 +187,81 @@ describe('박진수 통합경력증명 불러오기', () => {
 });
 
 describe('시연 개선 (2026-10-21 피드백)', () => {
-  it('준비되지 않은 답에는 첫 화면이 아니라 직전 질문을 다시 보여 준다 (점검 6)', () => {
+  it('대본 없는 선택지를 누르면 그렇다고 알리고 첫 선택지로 이어 간다 (모의 자유 입력)', () => {
     send('choi', '네, 고칠게요');
     const events = send('choi', '없어요');
 
-    expect(text(events)).toContain('시연 대화가 아직 준비되지 않았어요');
-    expect(lastAsk(events)).toMatchObject({
-      data: { question_id: 'resume.career_since_old', choices: ['네, 있어요', '없어요'] },
-    });
+    expect(text(events)).toContain(
+      '‘없어요’는 모의 대본이 아직 없어요. ‘네, 있어요’로 이어갈게요.',
+    );
+    expect(lastAsk(events)).toMatchObject({ data: { question_id: 'resume.career_new' } });
+  });
+
+  it('무엇을 쳐도 직전 질문에 답한 것으로 보고 원래 할 일을 설명한 뒤 넘어간다 (모의 자유 입력)', () => {
+    send('park', '이력서 만들기 시작할게요');
+    const career = send('park', '음 그냥 공장 다녔어요');
+    expect(text(career)).toContain(
+      '원래는 말씀하신 회사 이름과 다니신 기간을 읽어 경력 칸에 넣어요.',
+    );
+    expect(text(career)).toContain(
+      '지금은 모의 단계라 OO산업에서 2004년 3월부터 일하신 것으로 보고',
+    );
+    expect(lastAsk(career)).toMatchObject({ data: { question_id: 'resume.value_confirm' } });
+
+    const confirm = send('park', 'ㅇㅇ');
+    expect(text(confirm)).toContain('‘네, 맞아요’라고 답하신 것으로 보고 다음 단계로 넘어갈게요.');
+    expect(lastAsk(confirm)).toMatchObject({ data: { question_id: 'resume.license' } });
+  });
+
+  it('직접 해야 하는 일(고용센터 방문·고용24 지원)은 했다고 가정하고 반영한다 (모의 자유 입력)', () => {
+    send('choi', '네, 이수했어요');
+    const visit = send('choi', '다녀왔어요');
+    expect(text(visit)).toContain(
+      '원래는 신분증을 챙겨 관할 고용센터에 가서 수급자격을 신청해야 해요.',
+    );
+    expect(updates(visit)).toContainEqual(
+      expect.objectContaining({
+        form: 'procedure',
+        path: 'state',
+        value: expect.objectContaining({ stage: 'eligibility_applied' }),
+      }),
+    );
+
+    send('lee', '부족한 활동 추천해 주세요');
+    send('lee', '고용24에서 지원하러 갈게요');
+    const applied = send('lee', '지원 완료!');
+    expect(text(applied)).toContain('OO물산에 고용24로 지원하신 것으로 보고');
+    expect(updates(applied)).toContainEqual(
+      expect.objectContaining({
+        path: 'activities',
+        value: expect.objectContaining({ org_name: 'OO물산' }),
+      }),
+    );
+  });
+
+  it('이력서 저장은 대신 누르지 않고 버튼을 누르라고 다시 안내한다 (모의 자유 입력)', () => {
+    send('choi', '네, 시설관리요');
+    const events = send('choi', '저장해 줘');
+
+    expect(text(events)).toContain('본인이 내용을 확인하고 직접 누르는 단계');
+    expect(lastAsk(events)).toMatchObject({ data: { question_id: 'resume.save_ready' } });
+  });
+
+  it('본인 답변을 다 받은 뒤에는 출석 준비 확인 버튼을 누르라고만 안내한다 (모의 자유 입력)', () => {
+    send('lee', '네, 그렇게 할게요');
+    send('lee', '고용24에서 고를게요');
+    const events = send('lee', '다음은 뭐해요');
+
+    expect(text(events)).toContain('오른쪽 신청서 아래 버튼을 눌러 주세요');
+    expect(lastAsk(events)).toBeUndefined();
+  });
+
+  it('시연 끝 표시 뒤에는 무엇을 쳐도 끝났다고만 알린다 (모의 자유 입력)', () => {
+    send('lee', '다음은 1월 19일이래요');
+    const events = send('lee', '그다음은요?');
+
+    expect(text(events)).toContain('이정호 시연은 여기까지예요');
+    expect(lastAsk(events)).toBeUndefined();
   });
 
   it('불러오기 뒤 직급 없음 → 주요 직무 → 자격면허로 이어진다 (시연 개선 10번, 점검 2)', () => {
