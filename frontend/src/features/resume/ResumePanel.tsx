@@ -28,7 +28,7 @@ import { ApiError } from '@/lib/api';
 import { needsCheck } from '@/lib/fieldChip';
 import type { FieldMeta } from '@/lib/formStore';
 import type { SessionRead } from '@/types/demo.types';
-import type { ResumeCompetencies } from '@/types/resume.types';
+import type { ResumeCompetencies, ResumeEducation } from '@/types/resume.types';
 
 /**
  * 패널 A: 고용24 이력서 항목을 같은 순서로 보여 주고, 완성도(꼭 묻는 5개)와 저장 버튼을 둡니다 (2-1.2 · 2-1.6).
@@ -72,6 +72,18 @@ const toMonthlyWage = (text: string) => ({
   unit: 'monthly',
   negotiable: false,
 });
+
+const firstEducation = (level: string): ResumeEducation[] => [
+  {
+    item_id: 'edu_001',
+    level,
+    graduation_status: null,
+    school_name: null,
+    start_date: null,
+    end_date: null,
+    is_final: true,
+  },
+];
 
 const periodRaw = (start: string | null | undefined, end: string | null | undefined) =>
   start || end ? `${start ?? ''} ~ ${end ?? ''}` : null;
@@ -231,7 +243,17 @@ export const ResumePanel = ({
       </ResumeSection>
 
       <ResumeSection title="학력사항" isRequired isDone={done.education}>
-        {education.length === 0 && <FieldRow label="학력" isRequired onEdit={edit('학력')} />}
+        {education.length === 0 && (
+          // 학력이 비어 있어도 학력부터 고를 수 있게 첫 학력 줄을 만듭니다 (시연 검증 5번). 나머지 칸은 고른 뒤 보입니다.
+          <FieldRow
+            label="학력"
+            isRequired
+            onEdit={edit('학력')}
+            onDirectSave={direct('education', firstEducation)}
+            inputKind="select"
+            options={EDUCATION_LEVELS}
+          />
+        )}
         {education.map((item) => {
           const base = `education.${item.item_id}`;
           return (

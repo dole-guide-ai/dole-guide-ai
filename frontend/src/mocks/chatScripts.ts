@@ -7,6 +7,7 @@ import { citeOf } from '@/lib/sources';
 import type { AskUserEvent, FormUpdateEvent, SseMessage } from '@/types/chat.types';
 import type { DerivedState, UserState } from '@/types/demo.types';
 import type { ImportKind } from '@/types/imports.types';
+import type { RoundActivity } from '@/types/procedure.types';
 import type { ResumeCareer } from '@/types/resume.types';
 
 import { MOCK_PERSONAS } from './personas';
@@ -597,6 +598,31 @@ const checklist = (done: { self_answers?: boolean; next_activity?: boolean }) =>
     ],
   });
 
+/** 패널 B에 기록된 활동으로 신청서 정리 결과를 알립니다 (시연 검증 1번: 신청서는 기록한 활동 그대로). */
+const formSummaryLines = (): string[] => {
+  const activities = (getFormDrafts().activities.values.activities ?? []) as RoundActivity[];
+  const counted = activities.filter((activity) => activity.status === 'counted');
+  const jobs = counted.filter((activity) => activity.kind === 'job_search');
+  const others = counted.filter((activity) => activity.kind !== 'job_search');
+  const sameDay = activities.filter((activity) => activity.status === 'same_day');
+  const isAllWork24 = jobs.every((activity) => activity.route === 'work24');
+  return [
+    isAllWork24
+      ? `· 구직활동 ${jobs.length}건은 고용24 불러오기라 칸이 다 차 있어요.`
+      : `· 구직활동 ${jobs.length}건을 구직활동내역에 옮겼어요. 빈 칸이 있으면 같이 채워요.`,
+    ...(others.length
+      ? [
+          `· 온라인 취업특강 같은 구직 외 활동 ${others.length}건은 구직활동 외 활동사항에 넣었어요.`,
+        ]
+      : []),
+    ...(sameDay.length
+      ? [
+          `· 같은 날이라 뺀 활동(${sameDay.map((activity) => activity.org_name).join(', ')})은 참고로만 보여 드려요.`,
+        ]
+      : []),
+  ];
+};
+
 /** 패널 B → C (2-2.9 → 2-3): 서버가 시작 패널을 C로 바꾸고 본인 답변 질문부터 합니다 (시안 2-3-1). */
 const openForm = (): SseMessage[] => [
   update('procedure', 'entry.panel', 'set', { value: 'C' }),
@@ -605,8 +631,7 @@ const openForm = (): SseMessage[] => [
   ...say(
     [
       '4차 신청서를 고용24 순서대로 정리했어요.',
-      '· 구직활동 2건은 고용24 불러오기라 칸이 다 차 있어요.',
-      '· 같은 날 뺀 OO상사는 참고로만 보여 드려요.',
+      ...formSummaryLines(),
       '',
       '이제 본인이 꼭 답해야 하는 질문이에요. 11월 25일(수)부터 12월 22일(화) 사이에 하루라도 일하거나 돈을 번 적이 있나요? 아르바이트, 일용직, 수당 받는 회의 참석, 블로그·유튜브 수익도 포함이에요.',
     ].join('\n'),
@@ -946,6 +971,11 @@ const LEE: Script = {
     ...say(
       '고용24 채용정보에서 일반 사무 공고를 골라 지원해 주세요. 지원하시면 여기서 "방금 고용24로 OO물산에 지원했어요"처럼 말씀해 주세요.',
     ),
+    // 선택지 없이 끝나지 않게 다음 답을 둡니다 (시연 검증 6번).
+    ask('round.after_apply', '지원하시면 알려 주세요.', [
+      '방금 고용24로 OO물산에 지원했어요',
+      '이미 한 활동 기록할게요',
+    ]),
   ],
   '온라인 취업특강 들으러 갈게요': () => [
     ...say(
@@ -1129,7 +1159,7 @@ const leeInterview = (): SseMessage[] => [
   ...recordLeeActivity(
     {
       item_id: 'a5',
-      date: '2026-12-17',
+      date: '2026-12-11',
       category: '면접',
       kind: 'job_search',
       route: 'interview',
@@ -1139,7 +1169,7 @@ const leeInterview = (): SseMessage[] => [
       source: 'document',
       rule_refs: ['ACT-002', 'ACT-137'],
     },
-    '면접확인서에서 12월 17일 OO서비스 총무직 면접 1건을 읽었어요. 명함도 같이 남겨 두세요. 이제 인정 2건으로 이번 회차 필요 활동을 채웠어요.',
+    '면접확인서에서 12월 11일 OO서비스 총무직 면접 1건을 읽었어요. 명함도 같이 남겨 두세요. 이제 인정 2건으로 이번 회차 필요 활동을 채웠어요.',
     ['ACT-137', 'ACT-025', 'ACT-026'],
   ),
 ];
@@ -1149,7 +1179,7 @@ const leeStep = (): SseMessage[] =>
   recordLeeActivity(
     {
       item_id: 'a6',
-      date: '2026-12-17',
+      date: '2026-12-14',
       category: '온라인 취업특강',
       kind: 'other',
       route: 'step_online',
@@ -1159,7 +1189,7 @@ const leeStep = (): SseMessage[] =>
       source: 'conversation',
       rule_refs: ['ACT-043', 'ACT-117'],
     },
-    '12월 17일 온라인 취업특강 1과정을 기록했어요. 고용24에서 수강 완료가 확인돼 증빙은 따로 필요 없어요. 이제 인정 2건(구직활동 1건 포함)으로 이번 회차 필요 활동을 채웠어요.',
+    '12월 14일 온라인 취업특강 1과정을 기록했어요. 고용24에서 수강 완료가 확인돼 증빙은 따로 필요 없어요. 이제 인정 2건(구직활동 1건 포함)으로 이번 회차 필요 활동을 채웠어요.',
     ['ACT-043', 'ACT-117', 'ACT-025', 'ACT-026'],
   );
 

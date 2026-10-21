@@ -41,6 +41,63 @@ describe('이정호 신청서 모의 대화', () => {
     });
   });
 
+  it('신청서 정리 말풍선은 패널 B에 기록된 활동 수를 그대로 말한다 (시연 검증 1번)', () => {
+    applyFormUpdate({
+      form: 'activities',
+      path: 'activities',
+      op: 'set',
+      value: [
+        {
+          item_id: 'a1',
+          kind: 'job_search',
+          route: 'work24',
+          org_name: 'OO물류',
+          status: 'counted',
+        },
+        {
+          item_id: 'a2',
+          kind: 'job_search',
+          route: 'company_site',
+          org_name: 'OO상사',
+          status: 'same_day',
+        },
+        {
+          item_id: 'a5',
+          kind: 'job_search',
+          route: 'interview',
+          org_name: 'OO서비스',
+          status: 'counted',
+        },
+        { item_id: 'a6', kind: 'other', route: 'step_online', org_name: '특강', status: 'counted' },
+      ],
+    });
+
+    const said = text(buildMockChatEvents('lee', '신청서 볼게요', []));
+
+    expect(said).toContain('구직활동 2건을 구직활동내역에 옮겼어요');
+    expect(said).toContain('구직 외 활동 1건');
+    expect(said).toContain('같은 날이라 뺀 활동(OO상사)');
+  });
+
+  it('고용24에서 지원하러 가면 지원한 뒤 누를 선택지를 준다 (시연 검증 6번)', () => {
+    const events = buildMockChatEvents('lee', '고용24에서 지원하러 갈게요', []);
+
+    expect(lastAsk(events)).toMatchObject({
+      data: { choices: ['방금 고용24로 OO물산에 지원했어요', '이미 한 활동 기록할게요'] },
+    });
+  });
+
+  it('면접·온라인 취업특강은 기준일(12.16) 이전 날짜로 기록한다 (시연 검증 2번)', () => {
+    send('lee', '면접 봤어요');
+    const interview = send('lee', '파일을 올렸어요. 읽어 주세요.', undefined, ['f1']);
+    const step = send('lee', '네, 끝까지 들었어요');
+    const dates = [...updates(interview), ...updates(step)]
+      .filter((update) => update.path === 'activities' && update.op === 'append')
+      .map((update) => (update.value as { date: string }).date);
+
+    expect(dates).toEqual(['2026-12-11', '2026-12-14']);
+  });
+
   it('다음 실업인정일을 알려 주면 5차로 넘어간다 (평가 form-005)', () => {
     const events = buildMockChatEvents('lee', '다음은 1월 19일이래요', []);
     const byPath = Object.fromEntries(updates(events).map((update) => [update.path, update.value]));

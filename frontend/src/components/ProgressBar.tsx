@@ -22,7 +22,10 @@ export const ProgressBar = ({
   onStepClick,
   isCompact = false,
 }: ProgressBarProps) => (
-  <ol className="flex flex-wrap items-center gap-2" aria-label="절차 진행 단계">
+  <ol
+    className={`flex flex-wrap items-center ${isCompact ? 'gap-1' : 'gap-2'}`}
+    aria-label="절차 진행 단계"
+  >
     {PROGRESS_STEPS.map(({ step, label }, index) => {
       const isDone = done.includes(step);
       const isCurrent = step === current;
@@ -45,9 +48,9 @@ export const ProgressBar = ({
       );
 
       return (
-        <li key={step} className="flex items-center gap-2">
+        <li key={step} className={`flex items-center ${isCompact ? 'gap-1' : 'gap-2'}`}>
           {index > 0 && (
-            <span className={`bg-line h-px ${isCompact ? 'w-3' : 'w-6'}`} aria-hidden />
+            <span className={`bg-line h-px ${isCompact ? 'w-2' : 'w-6'}`} aria-hidden />
           )}
           {isDone && onStepClick ? (
             <button
