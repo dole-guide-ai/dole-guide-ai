@@ -113,6 +113,8 @@ export const resolveMock = async <T>(path: string, init?: RequestInit): Promise<
   if (method === 'POST' && path === '/forms/resume/confirm') {
     const entry = personaId ? MOCK_AFTER_RESUME_ENTRIES[personaId] : undefined;
     if (!personaId || !entry) throw new ApiError('NOT_FOUND', '저장할 이력서가 없어요.', 404);
+    // 단계가 온라인 교육으로 바뀌므로 이력서 단계의 직전 질문은 잊습니다 (모의 자유 입력이 새 단계 첫 질문에 답하게).
+    resetMockChat();
     const session = buildMockSession(personaId);
     return {
       ...session,

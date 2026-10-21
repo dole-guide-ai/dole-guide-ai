@@ -56,9 +56,11 @@ const askEntry = (question_id: string, text: string, choices: string[]): SseMess
     ? askFile(question_id, text, choices)
     : ask(question_id, text, choices);
 
+const END_MARK = '시연은 여기까지예요';
+
 /** 시연 흐름이 끝나는 곳에 붙이는 한 줄 (시연 개선 1번) */
 const endOfDemo = (name: string): SseMessage[] =>
-  say(`(${name} 시연은 여기까지예요. 다른 계정은 오른쪽 위 ‘계정 바꾸기’에서 고를 수 있어요.)`);
+  say(`(${name} ${END_MARK}. 다른 계정은 오른쪽 위 ‘계정 바꾸기’에서 고를 수 있어요.)`);
 
 /** 고용24 불러오기 목록을 대화창 안에 엽니다 (2-0.4). 고른 것만 `import_ids`로 돌아옵니다. */
 const openImport = (kind: ImportKind, text: string): SseMessage[] => [
@@ -1322,14 +1324,18 @@ const importEvents = (personaId: string, importIds: string[]): SseMessage[] => {
 };
 
 /**
- * 직전에 보낸 질문 (모의 전용). 자유 입력 답이 어느 칸 답인지 알고, 준비되지 않은 답에는
- * 같은 질문을 다시 보여 주는 데 씁니다 (점검 6). 실제로는 백엔드 대화 상태가 맡습니다.
+ * 직전에 보낸 질문 (모의 전용). 자유 입력 답이 어느 칸 답인지 알고, 대본에 없는 답은
+ * 이 질문에 답한 것으로 보고 넘어가는 데 씁니다 (점검 6 · 모의 자유 입력). 실제로는 백엔드 대화 상태가 맡습니다.
  */
 let lastAsk: { personaId: string; data: AskUserEvent } | null = null;
 
-/** 계정을 고를 때마다 비웁니다 (`POST /auth/demo`) */
+/** 시연 끝 표시까지 간 계정. 그 뒤에는 무엇을 쳐도 끝났다고만 알립니다. */
+const endedPersonas = new Set<string>();
+
+/** 계정을 고를 때(`POST /auth/demo`)와 이력서를 저장해 단계가 바뀔 때 비웁니다. */
 export const resetMockChat = () => {
   lastAsk = null;
+  endedPersonas.clear();
 };
 
 const lastQuestion = (personaId: string) =>
@@ -1372,7 +1378,217 @@ const fileEvents = (personaId: string, entryChoices: string[]): SseMessage[] => 
   if (personaId === 'choi' && question === 'procedure.first_date') {
     return [...tool('parse_file'), ...choiFirstDate()];
   }
+  // 최영수 이력서 단계: 올린 서류를 2019년 뒤 경력(OO빌딩)이 적힌 경력증명서로 봅니다 (모의).
+  if (personaId === 'choi' && question?.startsWith('resume.')) {
+    return [...tool('parse_file'), ...choiCareer()];
+  }
   return documentFallback(entryChoices);
+};
+
+/**
+ * 대본에 없는 답을 받았을 때 직전 질문에 어떻게 답한 것으로 볼지 (모의 전용, 2026-10-21 요청).
+ * 시연하는 사람이 정해진 말을 외우지 않아도 되게, 무엇을 쳐도 "원래는 …, 지금은 모의 단계라 … 보고" 설명한 뒤
+ * 다음 단계로 넘어갑니다. `why`는 실제 서비스에서 할 일, `assume`은 모의에서 대신 가정하는 것입니다.
+ */
+interface AssumedAnswer {
+  why: string;
+  assume?: string;
+  /** 가정한 답으로 이어 갈 대본. 없으면 `choice`의 대본 → 서류 요청이면 판독 → 질문의 첫 선택지 순서로 씁니다. */
+  run?: (entryChoices: string[]) => SseMessage[];
+  choice?: string;
+  /** 넘어가지 않고 설명만 할 때 (사용자가 직접 눌러야 하는 버튼). 직전 질문이 아직 유효하면 다시 보여 줍니다. */
+  stay?: boolean;
+  reask?: boolean;
+}
+
+const DEFAULT_WHY = '원래는 하신 말씀을 알아듣고 그에 맞게 칸을 채우거나 다음 질문으로 가요.';
+
+const assumedAnswer = (personaId: string, questionId: string): AssumedAnswer | undefined => {
+  const startsWith = (prefix: string) => questionId.startsWith(prefix);
+  if (questionId === 'resume.career_new' || questionId === 'resume.upload_wait') {
+    if (personaId === 'park') {
+      return questionId === 'resume.upload_wait'
+        ? {
+            why: '원래는 올려 주신 경력증명서·자격증을 AI가 읽어 이력서 칸에 넣어요.',
+            assume: '경력증명서를 올리신 것으로 보고',
+            run: () => parkDocument(),
+          }
+        : {
+            why: '원래는 말씀하신 회사 이름과 다니신 기간을 읽어 경력 칸에 넣어요.',
+            assume: 'OO산업에서 2004년 3월부터 일하신 것으로 보고',
+            run: () => parkCareer(),
+          };
+    }
+    if (personaId === 'choi') {
+      return {
+        why: '원래는 말씀하신 회사 이름과 다니신 기간(또는 올린 경력증명서)을 읽어 경력 칸에 넣어요.',
+        assume: 'OO빌딩에서 2022년부터 일하신 것으로 보고',
+        run: () => choiCareer(),
+      };
+    }
+  }
+  if (questionId === 'resume.license' && personaId === 'park') {
+    return {
+      why: '원래는 자격증이 있는지 듣고, 있으면 이름과 딴 해를 받아요.',
+      assume: '지게차운전기능사가 있으신 것으로 보고',
+      run: () => addLicense('지게차운전기능사'),
+    };
+  }
+  if (questionId === 'resume.doc_retry') return { why: DEFAULT_WHY, choice: '말로 할게요' };
+  if (questionId === 'resume.save_ready') {
+    return {
+      why: '이력서 저장은 본인이 내용을 확인하고 직접 누르는 단계라 모의에서도 대신 누르지 않아요.',
+      stay: true,
+    };
+  }
+  if (startsWith('import.')) {
+    const picked = DEFAULT_IMPORTS[personaId];
+    if (!picked) return undefined;
+    return {
+      why: '원래는 고용24 목록에서 직접 고르신 항목만 넣어요.',
+      assume: `${picked.label}을 고르신 것으로 보고`,
+      run: () => importEvents(personaId, picked.ids),
+    };
+  }
+  if (startsWith('education.')) {
+    return {
+      why: '원래는 고용24에서 수급자격 신청자 온라인 교육(약 1시간)을 다 듣고 이수를 확인해야 해요.',
+      assume: '교육을 다 들으신 것으로 보고',
+      choice: '네, 이수했어요',
+    };
+  }
+  if (questionId === 'eligibility.visit') {
+    return {
+      why: '원래는 신분증을 챙겨 관할 고용센터에 가서 수급자격을 신청해야 해요.',
+      assume: '신청을 마치신 것으로 보고',
+      choice: '방문 신청했어요',
+    };
+  }
+  if (questionId === 'procedure.first_date') {
+    return {
+      why: '원래는 고용센터에서 받은 안내문의 1차 실업인정일을 알려 주시거나 안내문을 올려 주셔야 해요.',
+      assume: '1차 실업인정일을 11월 4일로 안내받으신 것으로 보고',
+      run: () => choiFirstDate(),
+    };
+  }
+  if (questionId === 'round.recommend' || questionId === 'round.after_apply') {
+    return {
+      why: '원래는 고용24 채용정보에서 공고를 골라 직접 지원한 뒤 알려 주셔야 해요.',
+      assume: 'OO물산에 고용24로 지원하신 것으로 보고',
+      run: () => recordActivity(),
+    };
+  }
+  if (questionId === 'round.after_step' || questionId === 'activity.step') {
+    return {
+      why: '원래는 고용24 온라인 취업특강 1과정을 끝까지(진도율 100%) 들어야 활동으로 인정돼요.',
+      assume: '끝까지 들으신 것으로 보고',
+      run: () => leeStep(),
+    };
+  }
+  if (questionId === 'activity.kind') {
+    return {
+      why: '원래는 어떤 활동을 하셨는지 듣고 종류에 맞게 기록해요.',
+      assume: '고용24로 입사지원하신 것으로 보고',
+      run: () => recordActivity(),
+    };
+  }
+  if (questionId === 'activity.capture') {
+    return {
+      why: '원래는 지원 완료 화면을 올리시면 AI가 날짜·회사를 읽어 기록해요.',
+      assume: '캡처를 올리신 것으로 보고',
+      run: () => leeCapture(),
+    };
+  }
+  if (questionId === 'activity.interview') {
+    return {
+      why: '원래는 면접확인서를 올리시면 AI가 날짜·회사를 읽어 기록해요.',
+      assume: '면접확인서를 올리신 것으로 보고',
+      run: () => leeInterview(),
+    };
+  }
+  if (questionId === 'procedure.next_date') {
+    return {
+      why: '원래는 고용센터에 다녀온 뒤 안내받은 다음 실업인정일을 알려 주셔야 해요.',
+      assume: '다음 실업인정일을 1월 19일로 안내받으신 것으로 보고',
+      run: () => advanceRound(),
+    };
+  }
+  if (startsWith('form.') && getFormDrafts().recognition.values.can_submit === true) {
+    return {
+      why: '본인 답변은 다 받았어요. 출석 준비 확인·제출은 본인이 확인하고 직접 누르는 단계라 모의에서도 대신 누르지 않아요. 오른쪽 신청서 아래 버튼을 눌러 주세요.',
+      stay: true,
+      reask: false,
+    };
+  }
+  if (startsWith('form.')) return { why: '원래는 본인이 직접 골라야 하는 답이에요.' };
+  return undefined;
+};
+
+/** 진입 분기 → 첫 화면에서 묻는 것과 같은 질문 */
+const ENTRY_QUESTION: Record<string, string> = {
+  E6: 'education.wait',
+  E5a: 'eligibility.visit',
+  E5b: 'procedure.first_date',
+};
+
+/** 불러오기 목록에서 대신 고르는 항목 */
+const DEFAULT_IMPORTS: Record<string, { ids: string[]; label: string }> = {
+  park: { ids: ['cc_career_001'], label: 'OO산업 경력' },
+  choi: { ids: ['cc_career_002'], label: 'OO빌딩 경력' },
+  lee: { ids: ['wa_003'], label: 'OO물산 입사지원' },
+};
+
+/** 고른 답(선택지 글자)의 대본. 대본이 없으면 null (가정한 답을 다시 가정하지 않게 따로 찾습니다). */
+const scriptOf = (personaId: string, key: string, entryChoices: string[]) =>
+  routeByLastQuestion(personaId, key) ??
+  (BY_PERSONA[personaId]?.[key] ?? COMMON[key])?.(entryChoices) ??
+  null;
+
+const personaName = (personaId: string) =>
+  MOCK_PERSONAS.find((persona) => persona.persona_id === personaId)?.display.name ?? '';
+
+/**
+ * 대본에 없는 답: 직전 질문에 답한 것으로 보고 다음 단계로 넘어갑니다 (모의 전용).
+ * 선택지를 눌렀는데 그 선택지 대본이 없을 때도 같은 방식으로 이어 갑니다.
+ */
+const assumeAndContinue = (
+  personaId: string,
+  message: string,
+  entryChoices: string[],
+): SseMessage[] => {
+  if (endedPersonas.has(personaId)) return endOfDemo(personaName(personaId));
+  const question = lastQuestion(personaId);
+  const choices = question?.choices.length ? question.choices : entryChoices;
+  // 첫 화면(직전 질문 없음)이면 진입 분기에 맞는 질문으로 봅니다 (E6 교육 · E5a 방문 신청 · E5b 1차 인정일).
+  const questionId = question?.question_id ?? ENTRY_QUESTION[getSession()?.entry.branch_id ?? ''];
+  const rule = questionId ? assumedAnswer(personaId, questionId) : undefined;
+  if (rule?.stay) {
+    return [
+      ...say(rule.why),
+      ...(question && rule.reask !== false ? [{ event: 'ask_user', data: question } as const] : []),
+    ];
+  }
+  const choice = rule?.choice ?? (rule?.run ? undefined : choices[0]);
+  const why = rule?.why ?? DEFAULT_WHY;
+  const isUnscriptedChoice = choices.includes(message);
+  const assume =
+    rule?.assume ?? (choice ? `‘${choice}’라고 답하신 것으로 보고` : '답하신 것으로 보고');
+  const intro = isUnscriptedChoice
+    ? `‘${message}’는 모의 대본이 아직 없어요. ${choice ? `‘${choice}’로 이어갈게요.` : '다음으로 이어갈게요.'}`
+    : `${why} 지금은 모의 단계라 ${assume} 다음 단계로 넘어갈게요.`;
+  const next =
+    rule?.run?.(entryChoices) ??
+    (choice ? scriptOf(personaId, choice, entryChoices) : null) ??
+    (question?.accepts_file ? fileEvents(personaId, entryChoices) : null);
+  if (!next) {
+    return [
+      ...say(`${intro} 이 부분은 시연 대화가 아직 준비되지 않아 아래 선택지로 이어가 주세요.`),
+      question
+        ? { event: 'ask_user', data: question }
+        : askEntry('mock.fallback', '어디부터 이어갈까요?', entryChoices),
+    ];
+  }
+  return [...say(intro), ...next];
 };
 
 const scriptEvents = (
@@ -1394,14 +1610,8 @@ const scriptEvents = (
   if (personaId === 'park' && PARK_CAREER_PATTERN.test(key)) return parkCareer();
   if (personaId === 'choi' && CHOI_CAREER_PATTERN.test(key)) return choiCareer();
 
-  // 준비되지 않은 답이면 첫 화면이 아니라 직전 질문을 다시 보여 줍니다 (점검 6).
-  const previous = lastQuestion(personaId);
-  return [
-    ...say('말씀 감사해요. 이 부분은 시연 대화가 아직 준비되지 않았어요. 아래에서 이어가 주세요.'),
-    previous
-      ? { event: 'ask_user', data: previous }
-      : askEntry('mock.fallback', '어디부터 이어갈까요?', entryChoices),
-  ];
+  // 정해진 말이 아니어도 직전 질문에 답한 것으로 보고 설명과 함께 넘어갑니다 (모의 자유 입력).
+  return assumeAndContinue(personaId, key, entryChoices);
 };
 
 export const buildMockChatEvents = (
@@ -1412,6 +1622,8 @@ export const buildMockChatEvents = (
   importIds?: string[],
 ): SseMessage[] => {
   const events = scriptEvents(personaId, message, entryChoices, fileIds, importIds);
+  const said = events.map((event) => (event.event === 'token' ? event.data.text : '')).join('');
+  if (said.includes(END_MARK)) endedPersonas.add(personaId);
   const asked = [...events].reverse().find((event) => event.event === 'ask_user');
   if (asked?.event === 'ask_user' && asked.data.question_id !== 'mock.fallback') {
     lastAsk = { personaId, data: asked.data };
