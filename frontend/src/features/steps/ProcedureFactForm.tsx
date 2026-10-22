@@ -3,7 +3,11 @@
 import { useState } from 'react';
 
 import { Button } from '@/components/Button';
-import { type ProcedureFact, useProcedurePatch } from '@/features/steps/useProcedurePatch';
+import {
+  type ProcedureFact,
+  useAccountReload,
+  useProcedurePatch,
+} from '@/features/steps/useProcedurePatch';
 
 import { ApiError } from '@/lib/api';
 
@@ -31,9 +35,12 @@ export const ProcedureFactForm = ({
   hint,
 }: ProcedureFactFormProps) => {
   const patch = useProcedurePatch(personaId);
+  const reload = useAccountReload(personaId);
   const [date, setDate] = useState(defaultDate);
   const needsDate = Boolean(dateLabel);
-  const canSubmit = !patch.isPending && (!needsDate || date !== '');
+  // 저장은 됐는데 화면만 못 바꿨으면 같은 사실을 다시 보내지 않고 다시 불러오기만 권합니다.
+  const isSavedNotReloaded = patch.data?.reloaded === false && !reload.isSuccess;
+  const canSubmit = !patch.isPending && !isSavedNotReloaded && (!needsDate || date !== '');
 
   const handleSubmit = () => {
     const fact = (needsDate ? { path, value: date } : { path, value: true }) as ProcedureFact;
@@ -59,6 +66,18 @@ export const ProcedureFactForm = ({
           {patch.isPending ? '저장하는 중…' : buttonLabel}
         </Button>
       </div>
+      {isSavedNotReloaded && (
+        <div role="alert" className="flex flex-wrap items-center gap-2 text-base">
+          <p className="text-warn">
+            {reload.error instanceof ApiError
+              ? reload.error.message
+              : '저장했어요. 화면을 새로 불러오지 못했어요.'}
+          </p>
+          <Button variant="secondary" onClick={() => reload.mutate()} disabled={reload.isPending}>
+            화면 다시 불러오기
+          </Button>
+        </div>
+      )}
       {patch.isError && (
         <p role="alert" className="text-danger text-base">
           {patch.error instanceof ApiError

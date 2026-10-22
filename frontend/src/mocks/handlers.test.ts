@@ -248,6 +248,21 @@ describe('모의 API', () => {
     setSession(null);
   });
 
+  it('모의 1차 인정일이 주말이면 다음 평일로 옮겨 보여 준다 (F-16)', async () => {
+    choiAt({ stage: 'eligibility_applied', eligibility_applied_date: '2026-10-12' });
+
+    const res = await resolveMock<UpdatesRead>('/accounts/choi/procedure', {
+      method: 'PATCH',
+      body: JSON.stringify([
+        { op: 'replace', path: '/first_recognition_date', value: '2026-11-07' },
+      ]),
+    });
+
+    const state = res.updates.find((update) => update.path === 'state');
+    expect(state?.value).toMatchObject({ next_recognition_date: '2026-11-09' });
+    setSession(null);
+  });
+
   it('없는 계정으로는 입장할 수 없다', async () => {
     await expect(resolveMock('/accounts/nobody', { method: 'PUT' })).rejects.toBeInstanceOf(
       ApiError,

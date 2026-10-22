@@ -98,4 +98,36 @@ describe('ProcedureFactForm (F-16)', () => {
       '이력서를 저장한 뒤에 교육 이수를 표시할 수 있어요.',
     );
   });
+
+  it('저장 뒤 계정 다시 불러오기만 실패하면 다시 보내지 않고 다시 불러오기만 권한다', async () => {
+    const next = mockAccount('choi');
+    next.procedure.stage = 'eligibility_application';
+    let accountCalls = 0;
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (_input, init) => {
+      if (init?.method === 'PATCH') return json({ updates: [] });
+      accountCalls += 1;
+      return accountCalls === 1
+        ? json({ code: 'INTERNAL_ERROR', message: '잠시 뒤 다시 시도해 주세요.' }, 500)
+        : json(next);
+    });
+
+    renderWithProviders(
+      <ProcedureFactForm
+        personaId="choi"
+        path="/education_done"
+        buttonLabel="교육을 다 들었어요"
+      />,
+    );
+    await userEvent.click(screen.getByRole('button', { name: '교육을 다 들었어요' }));
+
+    expect(
+      await screen.findByText('저장했어요. 화면을 새로 불러오지 못했어요.'),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '교육을 다 들었어요' })).toBeDisabled();
+    await userEvent.click(screen.getByRole('button', { name: '화면 다시 불러오기' }));
+
+    await vi.waitFor(() => expect(getSession()?.state.stage).toBe('eligibility_application'));
+    const patches = fetchSpy.mock.calls.filter(([, init]) => init?.method === 'PATCH');
+    expect(patches).toHaveLength(1);
+  });
 });

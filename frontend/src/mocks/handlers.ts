@@ -185,7 +185,12 @@ const mockProcedurePatch = (ops: JsonPatchOp[]): FormUpdateEvent[] => {
     for (const op of ops) {
       const current = getSession() ?? original;
       checkProcedureOp(op, current);
-      const opUpdates = mockProcedureUpdates(op.path, op.value);
+      // 백엔드(`build_rounds`)처럼 1차 인정일이 주말이면 다음 평일로 옮겨 화면에 보여 줍니다.
+      const opValue =
+        op.path === '/first_recognition_date' && typeof op.value === 'string'
+          ? nextWeekday(op.value)
+          : op.value;
+      const opUpdates = mockProcedureUpdates(op.path, opValue);
       if (!opUpdates.length) throw invalid();
       // 다음 연산의 대본이 이 연산 뒤 상태에서 이어지도록 상태·파생값을 잠시 세션에 둡니다.
       const value = (path: string) => opUpdates.find((update) => update.path === path)?.value;
