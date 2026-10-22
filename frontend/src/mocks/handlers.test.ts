@@ -231,6 +231,20 @@ describe('모의 API', () => {
     await expect(
       patch({ op: 'replace', path: '/first_recognition_date', value: '2026-10-19' }),
     ).rejects.toMatchObject({ status: 422 });
+    // 종료 예정일(토요일)을 넣으면 다음 월요일로 옮겨져 종료일 밖
+    const choi = buildMockSession('choi');
+    setSession({
+      ...choi,
+      state: {
+        ...choi.state,
+        stage: 'eligibility_applied',
+        eligibility_applied_date: '2026-10-12',
+      },
+      derived: { ...choi.derived, expected_end_date: '2027-07-10' },
+    });
+    await expect(
+      patch({ op: 'replace', path: '/first_recognition_date', value: '2027-07-10' }),
+    ).rejects.toMatchObject({ status: 422 });
     setSession(null);
   });
 

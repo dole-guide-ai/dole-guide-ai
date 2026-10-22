@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { Button } from '@/components/Button';
 import { EvidenceLine } from '@/components/EvidenceLine';
 import { showsVisitNotice } from '@/features/dashboard/sessionNotices';
+import { BenefitEndedPanel } from '@/features/procedure/BenefitEndedPanel';
 import { RoundPanel } from '@/features/procedure/RoundPanel';
 import { RecognitionPanel } from '@/features/recognition/RecognitionPanel';
 import { ResumePanel } from '@/features/resume/ResumePanel';
@@ -62,6 +63,9 @@ export const PanelFrame = ({
   const panel = entry.panel;
   const reviewPanel = reviewStep ? STEP_PANEL[reviewStep] : undefined;
   const [isEditingResume, setIsEditingResume] = useState(false);
+  // 수급이 끝나면(F-33) 고치던 중이었어도 읽기 전용으로 돌립니다.
+  const isEnded = state.stage === 'ended';
+  const isResumeEditable = isEditingResume && !isEnded;
 
   if (reviewPanel) {
     const info = PANEL_INFO[reviewPanel];
@@ -69,10 +73,11 @@ export const PanelFrame = ({
       <aside className={ASIDE_CLASS} aria-label={`패널 ${info.name} (읽기 전용)`}>
         <div className="bg-ok-soft flex flex-wrap items-center justify-between gap-2 rounded-xl px-4 py-3">
           <p className="text-ok text-base font-semibold">
-            완료한 단계 · {info.name} {isEditingResume ? '(고치는 중)' : '(읽기 전용)'}
+            완료한 단계 · {info.name} {isResumeEditable ? '(고치는 중)' : '(읽기 전용)'}
           </p>
           <div className="flex flex-wrap gap-2">
-            {reviewPanel === 'A' && !isEditingResume && (
+            {/* 수급이 끝난 계정은 지난 단계도 읽기만 합니다 (F-33). */}
+            {reviewPanel === 'A' && !isEditingResume && !isEnded && (
               <Button variant="secondary" onClick={() => setIsEditingResume(true)}>
                 이력서 고치기
               </Button>
@@ -93,7 +98,7 @@ export const PanelFrame = ({
         {reviewPanel === 'A' && (
           <ResumePanel
             session={session}
-            isReadOnly={!isEditingResume}
+            isReadOnly={!isResumeEditable}
             onEditRequest={onEditRequest}
             saveLabel="다시 저장하기"
             onSaved={() => setIsEditingResume(false)}
@@ -141,7 +146,10 @@ export const PanelFrame = ({
 
       {panel === 'A' && <ResumePanel session={session} onEditRequest={onEditRequest} />}
 
+      {panel === 'B' && isEnded && <BenefitEndedPanel derived={session.derived} />}
+
       {panel === 'B' &&
+        !isEnded &&
         (state.stage === 'eligibility_applied' || !state.next_recognition_date ? (
           // E5b · 1.10 예외: 인정일을 모르면 회차 점검 대신 1차 실업인정일을 먼저 받습니다.
           <FirstDatePanel state={state} personaId={session.persona_id} />

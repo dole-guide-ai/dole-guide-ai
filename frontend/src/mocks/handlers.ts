@@ -131,8 +131,14 @@ const isCalendarDate = (value: unknown): value is string =>
 const addDays = (date: string, days: number) =>
   new Date(Date.parse(date) + days * DAY_MS).toISOString().slice(0, 10);
 
+/** 토·일이면 다음 월요일, 아니면 그날. */
+const nextWeekday = (date: string) => {
+  const day = new Date(`${date}T00:00:00Z`).getUTCDay();
+  return day === 6 ? addDays(date, 2) : day === 0 ? addDays(date, 1) : date;
+};
+
 /** 한 연산이 백엔드(`services/procedure.py`)와 같은 조건을 지키는지 봅니다. 어기면 422·409. */
-const checkProcedureOp = (op: JsonPatchOp, state: SessionRead['state']) => {
+const checkProcedureOp = (op: JsonPatchOp, { state, derived }: SessionRead) => {
   if (op.op === 'remove') throw invalid();
   const allowed = PROCEDURE_STAGE[op.path];
   if (!allowed) throw invalid();
@@ -157,6 +163,11 @@ const checkProcedureOp = (op: JsonPatchOp, state: SessionRead['state']) => {
   if (!applied || op.value <= addDays(applied, WAITING_DAYS)) {
     throw invalid('1차 실업인정일은 신청일부터 7일 대기기간이 지난 뒤의 날짜예요.');
   }
+  // 백엔드처럼 주말이면 다음 평일로 옮긴 날이 수급 종료 예정일 안이어야 합니다(모의는 공휴일을 따지지 않음).
+  const end = derived.expected_end_date;
+  if (end && nextWeekday(op.value) > end) {
+    throw invalid('1차 실업인정일은 수급 종료 예정일 안의 날짜예요.');
+  }
 };
 
 /**
@@ -171,7 +182,7 @@ const mockProcedurePatch = (ops: JsonPatchOp[]): FormUpdateEvent[] => {
   try {
     for (const op of ops) {
       const current = getSession() ?? original;
-      checkProcedureOp(op, current.state);
+      checkProcedureOp(op, current);
       const opUpdates = mockProcedureUpdates(op.path, op.value);
       if (!opUpdates.length) throw invalid();
       // 다음 연산의 대본이 이 연산 뒤 상태에서 이어지도록 상태·파생값을 잠시 세션에 둡니다.
