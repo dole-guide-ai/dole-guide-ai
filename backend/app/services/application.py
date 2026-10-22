@@ -111,7 +111,12 @@ def read_application(
         1 for row in activities.job_search if rules.needs_evidence(row.get("route"))
     )
     blocking, warnings = rules.checklist(
-        data, activities.job_search, counted, required, evidence_missing
+        data,
+        activities.job_search,
+        counted,
+        required,
+        evidence_missing,
+        required_job_search=required_job_search,
     )
     locked = rules.locked_reason(data)
     mode = rules.submit_mode(now, target.recognition_date, target.attendance_required)

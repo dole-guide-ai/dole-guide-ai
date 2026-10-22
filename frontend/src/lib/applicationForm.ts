@@ -4,6 +4,7 @@
  * 백엔드는 선택지를 코드(wish·sms 등)로 저장하고, 화면은 고용24 화면 글자(희망함·휴대전화 문자메시지)로 보여 줍니다.
  */
 
+import { formatShortDate } from '@/lib/dateFormat';
 import { citeOf } from '@/lib/sources';
 import type { components } from '@/types/api.gen';
 import type { FieldSource } from '@/types/chat.types';
@@ -77,20 +78,25 @@ const toWorkDetails = (entry: Record<string, unknown>): WorkDetails => ({
   income_amount: (entry.amount as number | undefined) ?? null,
 });
 
-/** next_plan은 활동 종류 코드 하나이거나 [{kind, planned_on}] 목록입니다. 종류는 글자로, 날짜는 메모로 보여 줍니다. */
+/**
+ * next_plan은 활동 종류 코드 하나이거나 [{kind, planned_on}] 목록입니다.
+ * 계획마다 종류와 날짜를 한 쌍으로 보여 줍니다(예: `구직활동 10.26(월), 온라인 취업특강 10.27(화)`).
+ */
 const nextActivity = (field: FormField | undefined): NotificationAndPlan['next_activity'] => {
   const raw = value(field);
   const plans = (Array.isArray(raw) ? raw : raw == null ? [] : [{ kind: raw }]) as {
     kind?: string;
     planned_on?: string;
   }[];
-  const kinds = [
-    ...new Set(plans.map((plan) => (plan.kind ? (PLAN_KIND[plan.kind] ?? plan.kind) : ''))),
-  ].filter(Boolean);
-  const dates = plans.map((plan) => plan.planned_on).filter((date): date is string => !!date);
+  const labels = plans
+    .filter((plan) => plan.kind)
+    .map((plan) => {
+      const kind = PLAN_KIND[plan.kind as string] ?? plan.kind;
+      return plan.planned_on ? `${kind} ${formatShortDate(plan.planned_on)}` : kind;
+    });
   return {
-    value: kinds.length ? kinds.join(', ') : null,
-    memo: dates.length ? dates.join(', ') : null,
+    value: labels.length ? labels.join(', ') : null,
+    memo: null,
     answered_on: field?.answered_on ?? null,
   };
 };

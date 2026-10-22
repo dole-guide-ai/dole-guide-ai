@@ -166,14 +166,18 @@ def locked_reason(data: dict[str, Any]) -> str | None:
     return None
 
 
+# 일반 수급자 규칙(4차부터 4주 2회)을 따르는 그룹. 반복수급자도 일반 규칙입니다.
+GENERAL_RULE_GROUPS = ("general", "repeat")
+
+
 def required_activities(recipient_group: str, round_no: int) -> tuple[int, int]:
     """회차별 필요 재취업활동 (전체 건수, 그중 구직활동 건수) (설계 6.2).
 
     1차는 실업인정 교육이라 활동 1건으로 셉니다. 4차부터 일반 수급자는 4주 2회(구직활동 1회 포함),
-    60세 이상·장애인은 4주 1회(자율)입니다. 8차 이후 일반의 "1주 1회 구직활동"은 회차 점검(F-18)이
-    주 단위로 셉니다.
+    60세 이상·장애인은 4주 1회(자율)입니다. 반복수급자는 일반 규칙을 따릅니다.
+    8차 이후 일반의 "1주 1회 구직활동"은 회차 점검(F-18)이 주 단위로 셉니다.
     """
-    if round_no <= 3 or recipient_group != "general":
+    if round_no <= 3 or recipient_group not in GENERAL_RULE_GROUPS:
         return (1, 0)
     return (2, 1)
 
@@ -229,11 +233,12 @@ def checklist(
     counted: int,
     required: int,
     evidence_missing: int,
+    required_job_search: int = 0,
 ) -> tuple[list[dict[str, str]], list[dict[str, str]]]:
     """제출을 막는 항목(blocking)과 경고(warnings)를 나눕니다 (상세기획 2-3.6).
 
     막는 항목: 본인 답변(근로·취업·산재), 구직활동 필수 칸, 통지 방법, 다음 출석일까지 활동.
-    경고(제출은 가능): 실업크레딧 미답변, 필요 활동 부족, 증빙 없음.
+    경고(제출은 가능): 실업크레딧 미답변, 필요 활동 부족(전체 건수 또는 그중 구직활동), 증빙 없음.
     """
     blocking: list[dict[str, str]] = []
     warnings: list[dict[str, str]] = []
@@ -254,10 +259,13 @@ def checklist(
     credit = (data.get("credit") or {}).get("application")
     if not _answered(credit):
         warnings.append({"key": "unemployment_credit", "text": "실업크레딧 답"})
-    if counted < required:
-        warnings.append(
-            {"key": "requirement_met", "text": f"필요 활동 {required - counted}건 부족"}
-        )
+    short_by = max(required - counted, 0)
+    short_job_search = max(required_job_search - len(job_search), 0)
+    if short_by or short_job_search:
+        parts = [f"필요 활동 {short_by}건 부족"] if short_by else []
+        if short_job_search:
+            parts.append(f"구직활동 {short_job_search}건 부족")
+        warnings.append({"key": "requirement_met", "text": " · ".join(parts)})
     if evidence_missing:
         warnings.append({"key": "evidence_ok", "text": f"증빙 {evidence_missing}건 없음"})
     return blocking, warnings
