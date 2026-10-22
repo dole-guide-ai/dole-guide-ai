@@ -306,9 +306,9 @@ export interface paths {
          * 구직활동 추가
          * @description 활동을 직접 기록하거나, 추천을 예정 활동으로 넣습니다.
          *
-         *     - 추천 넣기(F-19): recommendation_id만 보냅니다. 인정일 전날 예정으로 들어가고 계산에는 넣지
-         *       않습니다. 지금 추천 목록에 없으면 409 CONFLICT, 같은 추천을 이미 넣었으면 409
-         *       DUPLICATE_ACTIVITY, 오늘이 속한 회차가 없으면 404 NO_ACTIVE_ROUND입니다.
+         *     - 추천 넣기(F-19): recommendation_id만 보냅니다. 인정일 전날(오늘이 인정일이면 오늘) 예정으로
+         *       들어가고 계산에는 넣지 않습니다. 지금 추천 목록에 없으면 409 CONFLICT, 같은 추천을 이미
+         *       넣었으면 409 DUPLICATE_ACTIVITY, 오늘이 속한 회차가 없으면 404 NO_ACTIVE_ROUND입니다.
          *     - 직접 기록: 날짜·종류·경로·회사 등 활동 값을 보냅니다. (활동 기록 기능에서 붙일 예정이라 501)
          *
          *     Idempotency-Key 헤더를 주면 같은 요청이 두 번 와도 한 번만 만듭니다.

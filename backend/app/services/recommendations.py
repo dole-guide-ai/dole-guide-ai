@@ -45,20 +45,24 @@ def _current(db: Session, account: AccountContext, today: date):
     form = form_rules.build_form_activities(inputs, target.period_start, target.period_end)
     required, required_job = form_rules.required_activities(group, target.round_no)
     counted, counted_job = len(form.job_search) + len(form.other), len(form.job_search)
+    short_job = max(required_job - counted_job, 0)
+    if rules.is_weekly_job_search(group, target.round_no):
+        # 주마다 1건이라 합계로는 충족을 알 수 없어 늘 구직활동을 권합니다(주 계산은 F-18).
+        short_job = max(short_job, 1)
     picks = rules.recommend_activities(
         shortfall=max(required - counted, 0),
-        shortfall_job_search=max(required_job - counted_job, 0),
+        shortfall_job_search=short_job,
         group=group,
         round_no=target.round_no,
         lectures_used=activity_repo.count_done_kind(db, account.user_id, "lecture"),
         desired_occupation=_desired_occupation(db, account.user_id),
     )
     busy = [a.activity_date for a in inputs if not a.planned]
-    return target, picks, inputs, busy
+    return target, picks, inputs, busy, rules.is_weekly_job_search(group, target.round_no)
 
 
 def list_recommendations(db: Session, account: AccountContext, today: date) -> RecommendationList:
-    target, picks, _, busy = _current(db, account, today)
+    target, picks, _, busy, weekly = _current(db, account, today)
     items = [
         Recommendation(
             recommendation_id=rules.recommendation_id(target.round_no, pick.candidate.key),
@@ -74,7 +78,7 @@ def list_recommendations(db: Session, account: AccountContext, today: date) -> R
     return RecommendationList(
         items=items,
         total=len(items),
-        deadline_text=rules.deadline_text(target.recognition_date, busy),
+        deadline_text=rules.deadline_text(target.recognition_date, busy, weekly),
     )
 
 
@@ -100,7 +104,7 @@ def add_recommended(
     db: Session, account: AccountContext, recommendation_id: str, today: date
 ) -> UpdatesRead:
     """추천 `선택`: 그 활동을 예정(planned)으로 이번 회차에 넣습니다. 계산에는 넣지 않습니다."""
-    target, picks, inputs, _ = _current(db, account, today)
+    target, picks, inputs, _, _ = _current(db, account, today)
     parsed = rules.parse_recommendation_id(recommendation_id)
     if parsed is None or parsed[0] != target.round_no:
         raise ConflictError(code=ErrorCode.CONFLICT, message=NOT_RECOMMENDED_MESSAGE)
@@ -111,7 +115,7 @@ def add_recommended(
         raise ConflictError(code=ErrorCode.DUPLICATE_ACTIVITY, message=DUPLICATE_MESSAGE)
 
     # 예정일은 권장 기한(인정일 전날)으로 두고, 했다고 하면 실제 날짜로 바꿉니다.
-    planned_on = max(rules.planned_date(target.recognition_date), today)
+    planned_on = rules.planned_date(target.recognition_date, today)
     activity = activity_repo.add(
         db,
         Activity(

@@ -4,7 +4,9 @@ from datetime import date
 
 from app.rules.recommend import (
     deadline_text,
+    is_weekly_job_search,
     parse_recommendation_id,
+    planned_date,
     recommend_activities,
     recommendation_id,
 )
@@ -109,3 +111,20 @@ def test_deadline_is_day_before_recognition_and_avoids_busy_days() -> None:
         "12.21(월)까지 해 두세요. 이미 활동이 있는 날(12.8(화))은 하루 1건만 인정되니 피해 주세요."
     )
     assert deadline_text(date(2026, 12, 22), []) == "12.21(월)까지 해 두세요."
+
+
+def test_weekly_rounds_always_recommend_job_search() -> None:
+    """일반 8차부터는 주마다 구직활동 1건이라 합계를 채워도 구직활동을 권합니다."""
+    assert is_weekly_job_search("general", 8) is True
+    assert is_weekly_job_search("repeat", 9) is True
+    assert is_weekly_job_search("general", 7) is False
+    assert is_weekly_job_search("age65_or_disabled", 8) is False
+    assert deadline_text(date(2027, 6, 1), [], weekly=True).endswith(
+        "8차부터는 매주 구직활동 1건이 필요해요. 주를 나누는 기준은 고용센터 안내를 따라 주세요."
+    )
+
+
+def test_planned_date_is_day_before_recognition_or_today() -> None:
+    assert planned_date(date(2026, 12, 22), date(2026, 12, 16)) == date(2026, 12, 21)
+    # 인정일 당일에는 전날이 지났으므로 오늘
+    assert planned_date(date(2026, 12, 22), date(2026, 12, 22)) == date(2026, 12, 22)
