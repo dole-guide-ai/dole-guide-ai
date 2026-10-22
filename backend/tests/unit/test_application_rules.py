@@ -165,3 +165,14 @@ def test_same_day_representative_prefers_work24_job_search() -> None:
 
     assert [r["company_name"] for r in result.job_search] == ["OO물류"]
     assert [e["company_name"] for e in result.excluded] == ["OO상사"]
+
+
+def test_missing_job_search_is_warning_even_when_count_is_met() -> None:
+    """구직 외 활동 2건만 있으면 건수는 채워도 구직활동 1건이 모자라 경고합니다 (W6)."""
+    blocking, warnings = checklist(
+        FULL, [], counted=2, required=2, evidence_missing=0, required_job_search=1
+    )
+
+    assert blocking == []
+    assert warnings == [{"key": "requirement_met", "text": "구직활동 1건 부족"}]
+    assert can_submit("send", blocking, None) is True
