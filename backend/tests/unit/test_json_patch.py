@@ -80,3 +80,27 @@ def test_status_cannot_mix_with_fields() -> None:
     with pytest.raises(UnprocessableError) as exc:
         split_status(only + patch({"op": "replace", "path": "/title", "value": "a"}))
     assert exc.value.code == ErrorCode.STATUS_WITH_FIELDS
+
+
+@pytest.mark.parametrize(
+    "path",
+    ["/title/value", "/title/status", "/careers/c1/item_id", "/careers/c1/company_name/value"],
+)
+def test_field_inside_and_item_id_are_rejected(path: str) -> None:
+    with pytest.raises(UnprocessableError):
+        run({"op": "replace", "path": path, "value": "x"})
+
+
+def test_duplicate_item_id_is_rejected() -> None:
+    with pytest.raises(UnprocessableError):
+        run({"op": "add", "path": "/careers/-", "value": {"item_id": "c1", "company_name": "중복"}})
+
+
+def test_error_details_hide_path_text() -> None:
+    with pytest.raises(UnprocessableError) as exc:
+        run(
+            {"op": "replace", "path": "/title", "value": "a"},
+            {"op": "replace", "path": "/비밀/경로", "value": 1},
+        )
+
+    assert exc.value.details == [{"field": "patch[1]", "reason": "unknown_path"}]

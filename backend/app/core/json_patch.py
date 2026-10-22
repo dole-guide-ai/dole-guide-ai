@@ -30,6 +30,7 @@ from app.schemas.common import (
 )
 
 STATUS_PATH = "/status"
+ITEM_ID = "item_id"
 
 
 def split_status(patch: list[JsonPatchOp]) -> JsonPatchOp | None:
@@ -52,25 +53,33 @@ def apply_patch(
     """패치를 순서대로 적용합니다. 한 줄이라도 틀리면 아무것도 바꾸지 않고 422."""
     result = copy.deepcopy(data)
     updates: list[FormUpdate] = []
-    for op in patch:
+    for index, op in enumerate(patch):
         if op.path == STATUS_PATH:
             raise UnprocessableError(code=ErrorCode.STATUS_WITH_FIELDS)
-        updates.append(_apply_one(result, op, form, source))
+        try:
+            updates.append(_apply_one(result, op, form, source))
+        except _BadPathError:
+            # 경로 원문은 입력값이라 오류에 넣지 않고 몇 번째 연산인지만 알려 줍니다.
+            raise UnprocessableError(
+                "고칠 칸을 찾지 못했어요.",
+                details=[{"field": f"patch[{index}]", "reason": "unknown_path"}],
+            ) from None
     return result, updates
 
 
 def _apply_one(root: dict[str, Any], op: JsonPatchOp, form: FormName, source: FieldSource):
     *parents, last = _segments(op.path)
-    container = _resolve(root, parents, op.path)
+    container = _resolve(root, parents)
 
     if isinstance(container, list):
         return _apply_to_list(container, last, op, form, source)
-    if not isinstance(container, dict):
-        raise _bad_path(op.path)
+    # 칸 안쪽(`/title/value`)이나 항목 id(`/careers/c1/item_id`)는 직접 고칠 수 없습니다.
+    if not isinstance(container, dict) or _is_field(container) or last == ITEM_ID:
+        raise _BadPathError
 
     if op.op == "remove":
         if last not in container:
-            raise _bad_path(op.path)
+            raise _BadPathError
         target = container[last]
         if isinstance(target, list):
             container[last] = []
@@ -82,7 +91,7 @@ def _apply_one(root: dict[str, Any], op: JsonPatchOp, form: FormName, source: Fi
         return _apply_to_list(container[last], "-", op, form, source)
     if isinstance(container.get(last), list):
         # 목록 자체를 덮어쓰는 것은 막습니다. 항목은 하나씩 add·remove합니다.
-        raise _bad_path(op.path)
+        raise _BadPathError
     field = _confirmed(container.get(last), op.value, source)
     container[last] = field
     return FormUpdate(
@@ -100,8 +109,10 @@ def _apply_to_list(
 ) -> FormUpdate:
     if op.op == "add" and last == "-":
         if not isinstance(op.value, dict):
-            raise _bad_path(op.path)
+            raise _BadPathError
         item = _new_item(op.value, source)
+        if any(isinstance(i, dict) and i.get(ITEM_ID) == item[ITEM_ID] for i in items):
+            raise _BadPathError
         items.append(item)
         return FormUpdate(
             form=form,
@@ -111,18 +122,18 @@ def _apply_to_list(
             status=FieldStatus.CONFIRMED,
             source=source,
         )
-    index = _item_index(items, last, op.path)
+    index = _item_index(items, last)
     if op.op == "remove":
         items.pop(index)
         return FormUpdate(form=form, path=op.path, op="remove")
     # 항목 통째로 바꾸기는 칸별 replace로 하도록 막습니다.
-    raise _bad_path(op.path)
+    raise _BadPathError
 
 
 def _new_item(value: dict[str, Any], source: FieldSource) -> dict[str, Any]:
-    item: dict[str, Any] = {"item_id": str(value.get("item_id") or uuid.uuid4().hex[:8])}
+    item: dict[str, Any] = {ITEM_ID: str(value.get(ITEM_ID) or uuid.uuid4().hex[:8])}
     for key, raw in value.items():
-        if key != "item_id":
+        if key != ITEM_ID:
             item[key] = _confirmed(None, raw, source)
     return item
 
@@ -143,33 +154,31 @@ def _is_field(node: Any) -> bool:
     return isinstance(node, dict) and "status" in node and "value" in node
 
 
-def _resolve(root: dict[str, Any], parents: list[str], path: str) -> Any:
+def _resolve(root: dict[str, Any], parents: list[str]) -> Any:
     node: Any = root
     for seg in parents:
         if isinstance(node, list):
-            node = node[_item_index(node, seg, path)]
+            node = node[_item_index(node, seg)]
         elif isinstance(node, dict) and not _is_field(node) and seg in node:
             node = node[seg]
         else:
-            raise _bad_path(path)
+            raise _BadPathError
     return node
 
 
-def _item_index(items: list[Any], item_id: str, path: str) -> int:
+def _item_index(items: list[Any], item_id: str) -> int:
     for i, item in enumerate(items):
-        if isinstance(item, dict) and item.get("item_id") == item_id:
+        if isinstance(item, dict) and item.get(ITEM_ID) == item_id:
             return i
-    raise _bad_path(path)
+    raise _BadPathError
 
 
 def _segments(path: str) -> list[str]:
     segments = [s.replace("~1", "/").replace("~0", "~") for s in path.split("/")[1:]]
     if not segments or any(s == "" for s in segments):
-        raise _bad_path(path)
+        raise _BadPathError
     return segments
 
 
-def _bad_path(path: str) -> UnprocessableError:
-    return UnprocessableError(
-        "고칠 칸을 찾지 못했어요.", details=[{"field": path, "reason": "unknown_path"}]
-    )
+class _BadPathError(Exception):
+    """없는 칸이나 고칠 수 없는 경로. apply_patch가 422로 바꿉니다."""
