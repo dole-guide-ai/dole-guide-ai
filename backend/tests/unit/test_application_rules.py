@@ -148,3 +148,19 @@ def test_missing_self_answers_and_fields_block_submit() -> None:
 def test_evidence_needed_except_work24() -> None:
     assert needs_evidence("work24") is False
     assert needs_evidence("company_site") is True
+
+
+def test_same_day_representative_prefers_work24_job_search() -> None:
+    """같은 날 2건이면 기록 순서와 상관없이 구직활동·고용24(증빙 불필요)를 대표로 인정합니다."""
+    day = date(2026, 12, 8)
+    result = build_form_activities(
+        [
+            activity(2, day, route="company_site", org_name="OO상사"),
+            activity(1, day, route="work24", org_name="OO물류"),
+        ],
+        START,
+        END,
+    )
+
+    assert [r["company_name"] for r in result.job_search] == ["OO물류"]
+    assert [e["company_name"] for e in result.excluded] == ["OO상사"]
