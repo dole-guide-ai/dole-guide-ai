@@ -11,6 +11,7 @@ import { MOCK_ROUND_CHECKS } from '@/mocks/activities';
 import { buildMockSession } from '@/mocks/handlers';
 import { MOCK_PERSONAS } from '@/mocks/personas';
 import { MOCK_RESUMES } from '@/mocks/resumes';
+import { mockFetchRoutes, PENDING } from '@/test/mockFetch';
 import { sseResponse } from '@/test/mockSse';
 import { renderWithProviders } from '@/test/renderWithProviders';
 
@@ -157,5 +158,44 @@ describe('DashboardScreen', () => {
     await userEvent.click(await screen.findByRole('button', { name: '계정 바꾸기' }));
 
     expect(push).toHaveBeenCalledWith('/');
+  });
+
+  it('실제 서버 계정은 신청서 버튼이 대화 없이 바로 패널 C를 연다 (F-22)', async () => {
+    const fetchSpy = mockFetchRoutes([
+      [
+        /\/accounts\/lee\/rounds\/current$/,
+        {
+          round: 4,
+          period_start: '2026-11-25',
+          period_end: '2026-12-22',
+          recognition_date: '2026-12-22',
+          attendance_required: true,
+          status: 'current',
+          application_status: 'draft',
+          d_day: 6,
+          required: 2,
+          required_job_search: 1,
+          counted: 2,
+          remaining: 0,
+          activities: [],
+          required_evidence: [],
+          limits_used: { lecture: 0, aptitude_test: 0, counseling: 0, volunteer: 0 },
+          rule_review: 'not_verified',
+        },
+      ],
+      // 신청서는 붙잡아 두고, 패널 C가 그 요청을 보내는지만 봅니다.
+      [/\/accounts\/lee\/rounds\/4\/application$/, PENDING],
+    ]);
+    setSession({ ...buildMockSession('lee'), session_id: 'acct-lee-2026-12-16' });
+
+    renderWithProviders(<DashboardScreen />);
+    await userEvent.click(
+      await screen.findByRole('button', { name: '활동 정리 끝 · 신청서 만들기' }),
+    );
+
+    expect(await screen.findByText('신청서를 정리하는 중…')).toBeInTheDocument();
+    const urls = fetchSpy.mock.calls.map(([input]) => String(input));
+    expect(urls.some((url) => url.includes('/rounds/4/application'))).toBe(true);
+    expect(urls.some((url) => url.includes('/chat'))).toBe(false);
   });
 });
