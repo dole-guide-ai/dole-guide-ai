@@ -81,6 +81,7 @@ def test_required_activities_by_group_and_round() -> None:
     assert required_activities("general", 1) == (1, 0)
     assert required_activities("general", 4) == (2, 1)
     assert required_activities("age65_or_disabled", 4) == (1, 0)
+    assert required_activities("repeat", 4) == (2, 1)
 
 
 def kst(day: date, hour: int, minute: int = 0) -> datetime:

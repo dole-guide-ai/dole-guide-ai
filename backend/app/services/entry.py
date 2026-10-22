@@ -30,6 +30,9 @@ _PANEL = {
     "E7c": "A",
     "END": "B",
 }
+# 이직 당시 만 65세 이상이면 글자 크게를 기본으로 켭니다 (1장 1.6 M4, F-06).
+BIG_TEXT_AGE = 65
+
 _TITLE = {
     1: "이력서부터 같이 만들어요",
     2: "온라인 교육을 들어요",
@@ -88,6 +91,6 @@ def build_entry(
         progress=Progress(current=step, done=list(range(1, step))),
         title=_TITLE[step],
         next_step_text=next_text,
-        ui=EntryUi(big_text=procedure.age_at_separation >= 65),
+        ui=EntryUi(big_text=procedure.age_at_separation >= BIG_TEXT_AGE),
         flags=EntryFlags(m1=procedure.age_at_separation >= 65 and step <= 3),
     )

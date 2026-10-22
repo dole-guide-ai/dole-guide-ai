@@ -153,6 +153,8 @@ describe('recognitionFromApplication 답변 변환', () => {
           },
           next_plan: answered([
             { item_id: 'p1', kind: 'job_search', planned_on: '2026-12-29' },
+            { item_id: 'p2', kind: 'job_search', planned_on: '2026-12-30' },
+            { item_id: 'p3', kind: 'lecture', planned_on: '2027-01-04' },
           ] as unknown as string),
           privacy_consent: answered('agree_required_only'),
         },
@@ -163,8 +165,8 @@ describe('recognitionFromApplication 답변 변환', () => {
       40000, 50000,
     ]);
     expect(form.notification_and_plan.next_activity).toEqual({
-      value: '구직활동',
-      memo: '2026-12-29',
+      value: '구직활동 12.29(화), 구직활동 12.30(수), 취업특강(온라인, 오프라인) 수강 1.4(월)',
+      memo: null,
       answered_on: '2026-11-24',
     });
     expect(form.personal_information_consent.value).toBe('agree_required_only');
