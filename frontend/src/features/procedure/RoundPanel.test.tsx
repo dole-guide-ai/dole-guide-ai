@@ -78,12 +78,15 @@ describe('RoundPanel', () => {
     expect(screen.queryByRole('region', { name: '추천 활동' })).not.toBeInTheDocument();
   });
 
-  it('점검 결과를 못 받으면 서버 문구를 보여 준다', async () => {
+  it('점검 결과를 못 받으면 서버 문구를 보여 주고, 신청서로는 넘어갈 수 있다 (F-22)', async () => {
     mockApi({ checkStatus: 500 });
+    const onOpenForm = vi.fn();
 
-    renderWithProviders(<RoundPanel session={session()} />);
+    renderWithProviders(<RoundPanel session={session()} onOpenForm={onOpenForm} />);
 
     expect(await screen.findByRole('alert')).toHaveTextContent('회차 점검을 못 했어요.');
+    await userEvent.click(screen.getByRole('button', { name: '활동 정리 끝 · 신청서 만들기' }));
+    expect(onOpenForm).toHaveBeenCalledTimes(1);
   });
 
   it('추천 요청이 오면 추천 상자를 펼치고, 선택하면 예정 활동으로 들어간다', async () => {
