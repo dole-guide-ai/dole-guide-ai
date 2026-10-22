@@ -121,7 +121,10 @@ describe('recognitionFromApplication 답변 변환', () => {
       }),
     );
 
-    expect(form.field_states['notification_and_plan.payment_notification_method']).toBeUndefined();
+    expect(form.field_states['notification_and_plan.payment_notification_method']).toEqual({
+      status: 'confirmed',
+      source: 'self_answer',
+    });
   });
 
   it('근로내역 여러 건을 모두 옮기고, 다음 활동·필수만 동의를 그대로 보여 준다', () => {
@@ -166,5 +169,23 @@ describe('recognitionFromApplication 답변 변환', () => {
       answered_on: '2026-11-24',
     });
     expect(form.personal_information_consent.value).toBe('agree_required_only');
+  });
+
+  it('서버가 준 본인 답변을 칸 상태로 옮기고, 답하지 않은 칸은 비워 둔다', () => {
+    const base = application().data;
+    const form = recognitionFromApplication(
+      application({
+        data: {
+          ...base,
+          work: { has_work: { ...answered('no'), answered_on: '2026-12-16' }, entries: empty() },
+        },
+      }),
+    );
+
+    expect(form.field_states['work_and_employment.has_work_or_service']).toEqual({
+      status: 'confirmed',
+      source: 'self_answer',
+    });
+    expect(form.field_states['work_and_employment.has_employment']).toBeUndefined();
   });
 });

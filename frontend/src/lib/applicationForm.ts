@@ -56,20 +56,30 @@ const yesNo = (field: FormField | undefined): boolean | null => {
 };
 
 /**
- * 지난 회차에서 불러온 본인 답변이면 `지난 답 · 날짜` 칩이 붙도록 칸 상태를 만듭니다.
- * 이번 회차 답은 대상기간 시작일 이후에 답하므로, 답한 날이 시작일보다 앞선 값만 이월로 봅니다.
+ * 답한 본인 답변 칸의 상태를 만듭니다. 값이 없으면 상태도 없어 `답변 필요` 칩이 남습니다.
+ * 지난 회차에서 불러온 답이면 `지난 답 · 날짜` 칩이 붙도록 근거를 붙입니다. 이번 회차 답은
+ * 대상기간 시작일 이후에 답하므로, 답한 날이 시작일보다 앞선 값만 이월로 봅니다.
  */
-const previousAnswer = (
+const answerState = (
   field: FormField | undefined,
   periodStart: string,
-): FieldMetaRead | undefined =>
-  field?.answered_on && field.value != null && field.answered_on < periodStart
-    ? {
-        status: 'confirmed',
-        source: 'self_answer',
-        evidence: { kind: 'previous_round', date: field.answered_on, note: '지난 회차에 답한 값' },
-      }
-    : undefined;
+): FieldMetaRead | undefined => {
+  if (field?.value == null) return undefined;
+  const carried = field.answered_on != null && field.answered_on < periodStart;
+  return {
+    status: 'confirmed',
+    source: 'self_answer',
+    ...(carried
+      ? {
+          evidence: {
+            kind: 'previous_round' as const,
+            date: field.answered_on as string,
+            note: '지난 회차에 답한 값',
+          },
+        }
+      : {}),
+  };
+};
 
 const toWorkDetails = (entry: Record<string, unknown>): WorkDetails => ({
   work_dates: (entry.worked_on as string | undefined) ?? null,
@@ -139,11 +149,26 @@ export const recognitionFromApplication = (app: ApplicationRead): RecognitionFor
   }));
 
   const fieldStates: Record<string, FieldMetaRead> = {};
-  const creditState = previousAnswer(credit.application, app.period_start);
-  if (creditState) fieldStates.unemployment_credit = creditState;
-  const notificationState = previousAnswer(data.notification_method, app.period_start);
-  if (notificationState) {
-    fieldStates['notification_and_plan.payment_notification_method'] = notificationState;
+  // 서버가 준 본인 답변을 칸 상태로 옮겨, 답한 칸에 `답변 필요` 칩이 남지 않게 합니다.
+  const answered: [string, FormField | undefined][] = [
+    ['unemployment_credit', credit.application],
+    ['notification_and_plan.payment_notification_method', data.notification_method],
+    ['work_and_employment.has_work_or_service', data.work.has_work],
+    ['work_and_employment.work_details.work_dates', data.work.entries],
+    ['work_and_employment.work_details.total_hours', data.work.entries],
+    ['work_and_employment.work_details.income_date', data.work.entries],
+    ['work_and_employment.work_details.income_amount', data.work.entries],
+    ['work_and_employment.has_employment', data.employment.status],
+    [
+      'work_and_employment.has_industrial_accident_benefit_right',
+      data.industrial_accident.receiving,
+    ],
+    ['notification_and_plan.next_activity', data.next_plan],
+    ['personal_information_consent', data.privacy_consent],
+  ];
+  for (const [path, field] of answered) {
+    const state = answerState(field, app.period_start);
+    if (state) fieldStates[path] = state;
   }
   for (const row of jobSearch) {
     fieldStates[`reemployment_activity.job_search_activities.${row.item_id}`] = {
