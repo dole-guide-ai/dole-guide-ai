@@ -120,7 +120,6 @@ def delete_account(db: Session, account: AccountContext) -> None:
 
 
 def read_account(db: Session, account: AccountContext, today: date) -> AccountRead:
-    _close_if_ended(db, account.user_id, today)
     procedure = read_procedure(db, account.user_id, today)
     rounds = read_rounds(db, account.user_id, today)
     current = next((r for r in rounds if r.status == RoundStatus.CURRENT), None)
@@ -172,6 +171,12 @@ def ensure_not_ended(db: Session, user_id: uuid.UUID) -> None:
 
 
 def read_procedure(db: Session, user_id: uuid.UUID, today: date | None = None) -> ProcedureRead:
+    """절차 상태를 돌려줍니다.
+
+    오늘 날짜를 주면 먼저 종료 진단을 해서 계정 조회와 절차 조회가 같은 단계를 돌려줍니다.
+    """
+    if today is not None:
+        _close_if_ended(db, user_id, today)
     state = repo.get_procedure(db, user_id)
     if state is None:
         raise NotFoundError(code=ErrorCode.ACCOUNT_NOT_FOUND)

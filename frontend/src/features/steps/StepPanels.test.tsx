@@ -1,5 +1,5 @@
 import { screen } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { PanelFrame } from '@/features/dashboard/PanelFrame';
 
@@ -85,5 +85,17 @@ describe('패널 E · Q · E5b (정적)', () => {
     expect(screen.getByText('9.15(화)')).toBeInTheDocument();
     expect(screen.getByText(/7일은 대기기간이라/)).toBeInTheDocument();
     expect(screen.queryByLabelText('필요 활동 결과')).not.toBeInTheDocument();
+  });
+
+  it('수급이 끝난 계정은 지난 이력서를 다시 볼 때도 고칠 수 없다 (F-33)', () => {
+    vi.spyOn(globalThis, 'fetch').mockReturnValue(new Promise(() => {}));
+    const session = withPanel('lee', 'B');
+    session.entry = { ...session.entry, branch_id: 'END' };
+
+    renderWithProviders(<PanelFrame session={session} reviewStep={1} />);
+
+    expect(screen.getByText(/완료한 단계 · 이력서/)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '이력서 고치기' })).not.toBeInTheDocument();
+    vi.restoreAllMocks();
   });
 });

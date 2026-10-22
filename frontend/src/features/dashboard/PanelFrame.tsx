@@ -73,7 +73,8 @@ export const PanelFrame = ({
             완료한 단계 · {info.name} {isEditingResume ? '(고치는 중)' : '(읽기 전용)'}
           </p>
           <div className="flex flex-wrap gap-2">
-            {reviewPanel === 'A' && !isEditingResume && (
+            {/* 수급이 끝난 계정은 지난 단계도 읽기만 합니다 (F-33). */}
+            {reviewPanel === 'A' && !isEditingResume && entry.branch_id !== 'END' && (
               <Button variant="secondary" onClick={() => setIsEditingResume(true)}>
                 이력서 고치기
               </Button>

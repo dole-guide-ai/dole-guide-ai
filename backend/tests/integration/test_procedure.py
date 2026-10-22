@@ -29,7 +29,9 @@ def test_procedure_shows_end_date_and_remaining_rounds(
 
 
 def test_account_ends_after_expected_end_date(
-    client: TestClient, entered_headers: Callable[[str], dict[str, str]]
+    client: TestClient,
+    entered_headers: Callable[[str], dict[str, str]],
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     headers = entered_headers("lee")
     end = date.fromisoformat(
@@ -39,13 +41,18 @@ def test_account_ends_after_expected_end_date(
     last_recognition = date.fromisoformat(rounds[-1]["recognition_date"])
 
     # 종료 예정일이 지나도 마지막 회차 인정일 전이면 아직 실업인정 중입니다.
-    app.dependency_overrides[get_today] = lambda: end + timedelta(days=1)
+    # 날짜 override는 monkeypatch로 바꿔 테스트가 끝나면 원래 값으로 돌아갑니다.
+    monkeypatch.setitem(app.dependency_overrides, get_today, lambda: end + timedelta(days=1))
     if last_recognition > end:
         assert client.get("/accounts/lee", headers=headers).json()["procedure"]["stage"] == (
             "recognition"
         )
 
-    app.dependency_overrides[get_today] = lambda: max(end, last_recognition) + timedelta(days=1)
+    after_last = max(end, last_recognition) + timedelta(days=1)
+    monkeypatch.setitem(app.dependency_overrides, get_today, lambda: after_last)
+    # 절차 조회로 먼저 봐도 계정 조회와 같은 종료 단계가 나와야 합니다.
+    procedure = client.get("/accounts/lee/procedure", headers=headers).json()
+    assert procedure["stage"] == "ended"
     body = client.get("/accounts/lee", headers=headers).json()
 
     assert body["procedure"]["stage"] == "ended"
