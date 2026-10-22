@@ -103,7 +103,7 @@ feat(ai)!: 에이전트 상태 필드 구조 변경
 **API 경로 규칙**
 
 - 리소스는 명사, 동작은 HTTP 메서드. 경로에 동사(`confirm`, `save`, `enter`)를 쓰지 않습니다.
-- 계정 데이터는 모두 `/accounts/{persona_id}/...` 아래에 둡니다. 계정 찾기는 `app/api/deps.py`의 `CurrentUser`가 합니다.
+- 계정 데이터는 모두 `/accounts/{persona_id}/...` 아래에 둡니다. 계정 찾기는 `app/api/deps.py`의 `CurrentAccount`가 합니다.
 - 부분 수정은 JSON Patch 배열 `[{op, path, value}]`. 저장·제출은 `/status`를 바꾸는 PATCH이고 다른 칸과 섞지 않습니다.
 - 서류(이력서·신청서) PATCH는 `If-Match`(GET 응답 `ETag`)가 필요합니다. 다르면 409 `VERSION_CONFLICT`.
 - POST(메시지·활동·파일)는 `Idempotency-Key` 헤더를 받습니다.
