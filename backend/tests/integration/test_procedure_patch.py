@@ -70,6 +70,25 @@ def test_choi_goes_from_education_to_first_round(
     assert all(r["application_status"] == "draft" for r in rounds["items"])
 
 
+def test_first_round_shows_during_waiting_period(
+    client: TestClient,
+    db_session: Session,
+    entered_headers: Callable[[str], dict[str, str]],
+) -> None:
+    """대기기간 중(1회차 시작 전)에도 1차 인정일을 넣으면 다가올 1회차를 보여 줍니다."""
+    headers = entered_headers("choi")
+    _save_resume(db_session, "choi")
+    _patch(client, headers, "/education_done", True)
+    _patch(client, headers, "/eligibility_applied_on", "2026-10-18")
+
+    res = _patch(client, headers, "/first_recognition_date", "2026-11-04")
+    assert res.status_code == 200, res.text
+    assert res.json()["entry"]["branch_id"] == "E4a"
+    account = client.get("/accounts/choi", headers=headers).json()
+    assert account["current_round"]["round"] == 1
+    assert account["current_round"]["status"] == "upcoming"
+
+
 def test_education_before_resume_saved_is_stage_order(
     client: TestClient, entered_headers: Callable[[str], dict[str, str]]
 ) -> None:

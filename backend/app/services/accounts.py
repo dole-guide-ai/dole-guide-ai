@@ -121,6 +121,9 @@ def read_account(db: Session, account: AccountContext, today: date) -> AccountRe
     procedure = read_procedure(db, account.user_id)
     rounds = read_rounds(db, account.user_id, today)
     current = next((r for r in rounds if r.status == RoundStatus.CURRENT), None)
+    if current is None:
+        # 대기기간(신청일부터 7일) 중에는 1회차가 아직 시작 전이라 다가올 회차를 보여 줍니다.
+        current = next((r for r in rounds if r.status == RoundStatus.UPCOMING), None)
     d_day = (current.recognition_date - today).days if current else None
     entry = build_entry(procedure, _resume_status(db, account.user_id, procedure), current, d_day)
     return AccountRead(
