@@ -105,6 +105,8 @@ def add_recommended(
     db: Session, account: AccountContext, recommendation_id: str, today: date
 ) -> UpdatesRead:
     """추천 `선택`: 그 활동을 예정(planned)으로 이번 회차에 넣습니다. 계산에는 넣지 않습니다."""
+    # 다른 키로 같은 추천이 동시에 와도 중복 검사와 저장이 겹치지 않게 계정 단위로 줄 세웁니다.
+    repo.lock_user(db, account.user_id)
     target, picks, inputs, _, _ = _current(db, account, today)
     parsed = rules.parse_recommendation_id(recommendation_id)
     if parsed is None or parsed[0] != target.round_no:

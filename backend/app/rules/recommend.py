@@ -170,8 +170,9 @@ def parse_recommendation_id(value: str) -> tuple[int, Candidate] | None:
     """`rec_{회차}_{종류}`를 회차 번호와 후보로 나눕니다. 모양이 다르면 None."""
     prefix, _, rest = value.partition("_")
     round_text, _, key = rest.partition("_")
-    # isdigit()은 '²' 같은 숫자 기호도 참이라 ASCII 숫자만 받습니다.
-    if prefix != "rec" or not (round_text.isascii() and round_text.isdigit()) or key not in BY_KEY:
+    # isdigit()은 '²' 같은 숫자 기호도 참이라 ASCII 숫자만, 회차는 두 자리까지만 받습니다.
+    valid_round = round_text.isascii() and round_text.isdigit() and len(round_text) <= 2
+    if prefix != "rec" or not valid_round or key not in BY_KEY:
         return None
     return int(round_text), BY_KEY[key]
 

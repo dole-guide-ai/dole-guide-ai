@@ -102,6 +102,7 @@ def test_recommendation_id_round_trip() -> None:
     assert parse_recommendation_id("rec_x_step_lecture") is None
     assert parse_recommendation_id("rec_4_unknown") is None
     assert parse_recommendation_id("rec_²_work24_apply") is None
+    assert parse_recommendation_id("rec_" + "9" * 5000 + "_work24_apply") is None
 
 
 def test_deadline_is_day_before_recognition_and_avoids_busy_days() -> None:
@@ -137,3 +138,26 @@ def test_already_planned_candidates_are_not_recommended_again() -> None:
         "interview",
         "company_site_apply",
     ]
+
+
+def test_non_job_search_note_when_job_search_is_still_needed() -> None:
+    """구직활동 후보를 다 넣었으면 남은 구직 외 후보에 '구직활동 1건은 따로' 안내를 붙입니다."""
+    planned = frozenset(
+        {
+            ("job_application", "work24"),
+            ("interview", "interview"),
+            ("job_application", "company_site"),
+        }
+    )
+    picks = recommend_activities(
+        shortfall=1,
+        shortfall_job_search=1,
+        group="general",
+        round_no=4,
+        lectures_used=0,
+        desired_occupation=None,
+        planned=planned,
+    )
+
+    assert [p.candidate.key for p in picks] == ["step_lecture", "training"]
+    assert all("구직활동 1건은 따로 필요해요" in p.reason for p in picks)
