@@ -147,11 +147,11 @@ export const PanelFrame = ({
           // E5b · 1.10 예외: 인정일을 모르면 회차 점검 대신 1차 실업인정일을 먼저 받습니다.
           <FirstDatePanel state={state} />
         ) : (
-          <>
-            <RoundPanel session={session} onOpenForm={onOpenForm} />
-            <PastRounds session={session} />
-          </>
+          <RoundPanel session={session} onOpenForm={onOpenForm} />
         ))}
+
+      {/* 지난 회차 신청서는 이번 회차가 없을 때(모든 회차 종료 등)도 다시 볼 수 있게 둡니다 (F-04). */}
+      {panel === 'B' && <PastRounds session={session} />}
 
       {panel === 'C' && (
         <RecognitionPanel

@@ -2,6 +2,7 @@ import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { PanelFrame } from '@/features/dashboard/PanelFrame';
 import { PastRounds } from '@/features/procedure/PastRounds';
 
 import { buildMockSession } from '@/mocks/handlers';
@@ -80,5 +81,23 @@ describe('PastRounds (F-04)', () => {
 
     expect(container).toBeEmptyDOMElement();
     expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it('이번 회차가 없어도(모든 회차 종료) 패널 B에서 지난 회차를 볼 수 있다', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async () =>
+      Response.json({ items: [round(3, 'closed')], total: 1 }),
+    );
+    const session = serverSession();
+    renderWithProviders(
+      <PanelFrame
+        session={{
+          ...session,
+          state: { ...session.state, next_recognition_date: null },
+          entry: { ...session.entry, panel: 'B' },
+        }}
+      />,
+    );
+
+    expect(await screen.findByRole('region', { name: '지난 회차 신청서' })).toBeInTheDocument();
   });
 });
