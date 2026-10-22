@@ -10,6 +10,8 @@ RUN uv sync --frozen --no-dev
 # 컨테이너가 탈취돼도 피해를 줄이도록 root가 아닌 사용자로 실행합니다.
 # 코드와 .venv는 root 소유로 두어 실행 사용자가 읽기만 할 수 있게 합니다.
 RUN useradd --create-home --uid 10001 app
+# 업로드 파일(구직활동 증빙)만 실행 사용자가 쓸 수 있게 둡니다. 운영은 볼륨으로 마운트합니다.
+RUN mkdir -p /data/uploads && chown app:app /data/uploads
 USER app
 
 ENV PATH="/app/.venv/bin:$PATH"
