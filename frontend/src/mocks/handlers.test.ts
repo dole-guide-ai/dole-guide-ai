@@ -1,31 +1,35 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 
+import { sessionFromAccount } from '@/lib/accountSession';
 import { ApiError } from '@/lib/api';
 import { applyFormUpdate, resetForms } from '@/lib/formStore';
 import { setSession } from '@/lib/sessionStore';
+import type { components } from '@/types/api.gen';
 import type { FormPatchRead } from '@/types/chat.types';
-import type { PersonaCardRead, SessionRead } from '@/types/demo.types';
+import type { SessionRead } from '@/types/demo.types';
 import type { ImportListRead } from '@/types/imports.types';
 import type { RoundCheckRead } from '@/types/procedure.types';
 import type { RecognitionFormRead } from '@/types/recognition.types';
 import { MOCK_ROUND_CHECKS } from '@/mocks/activities';
 import { resetMockAuth, resolveMock } from '@/mocks/handlers';
 
+type AccountRead = components['schemas']['AccountRead'];
+
+const enter = async (personaId: string) =>
+  sessionFromAccount(await resolveMock<AccountRead>(`/accounts/${personaId}`, { method: 'PUT' }));
+
 describe('모의 API', () => {
   beforeEach(() => resetMockAuth());
 
   it('계정 목록은 카드 표시용 값만 돌려준다', async () => {
-    const cards = await resolveMock<PersonaCardRead[]>('/auth/demo');
+    const cards = await resolveMock<components['schemas']['PersonaList']>('/personas');
 
-    expect(cards.map((card) => card.persona_id)).toEqual(['park', 'choi', 'lee']);
-    expect(cards[0]).not.toHaveProperty('state');
+    expect(cards.items.map((card) => card.persona_id)).toEqual(['park', 'choi', 'lee']);
+    expect(cards.items[0]).not.toHaveProperty('state');
   });
 
   it('신청서 초안은 패널 B에 기록된 활동으로 재취업 활동정보를 채운다 (시연 검증 1번)', async () => {
-    await resolveMock('/auth/demo', {
-      method: 'POST',
-      body: JSON.stringify({ persona_id: 'lee' }),
-    });
+    await resolveMock('/accounts/lee', { method: 'PUT' });
     applyFormUpdate({
       form: 'activities',
       path: 'activities',
@@ -70,11 +74,7 @@ describe('모의 API', () => {
   });
 
   it('이력서를 저장해도 세션 ID는 그대로다 (시연 검증 4번: 닫은 토스트가 다시 뜨지 않게)', async () => {
-    await resolveMock('/auth/demo', {
-      method: 'POST',
-      body: JSON.stringify({ persona_id: 'choi' }),
-    });
-    const session = await resolveMock<SessionRead>('/sessions', { method: 'POST' });
+    const session = await enter('choi');
     setSession(session);
 
     const saved = await resolveMock<SessionRead>('/forms/resume/confirm', {
@@ -88,10 +88,7 @@ describe('모의 API', () => {
   });
 
   it('다시 불러오기에서는 이미 넣은 항목을 `이미 넣음`으로 막는다 (시연 검증 13번)', async () => {
-    await resolveMock('/auth/demo', {
-      method: 'POST',
-      body: JSON.stringify({ persona_id: 'park' }),
-    });
+    await resolveMock('/accounts/park', { method: 'PUT' });
     applyFormUpdate({
       form: 'resume',
       path: 'competencies.vocational_training',
@@ -109,16 +106,14 @@ describe('모의 API', () => {
     resetForms();
   });
 
-  it('계정을 고르기 전에는 세션을 만들 수 없다', async () => {
-    await expect(resolveMock('/sessions', { method: 'POST' })).rejects.toBeInstanceOf(ApiError);
+  it('없는 계정으로는 입장할 수 없다', async () => {
+    await expect(resolveMock('/accounts/nobody', { method: 'PUT' })).rejects.toBeInstanceOf(
+      ApiError,
+    );
   });
 
   it('이정호를 고르면 E4b 진입 결과가 나온다', async () => {
-    await resolveMock('/auth/demo', {
-      method: 'POST',
-      body: JSON.stringify({ persona_id: 'lee' }),
-    });
-    const session = await resolveMock<SessionRead>('/sessions', { method: 'POST' });
+    const session = await enter('lee');
 
     expect(session.entry.branch_id).toBe('E4b');
     expect(session.entry.panel).toBe('B');
@@ -127,21 +122,14 @@ describe('모의 API', () => {
   });
 
   it('최영수는 글자 크게가 기본으로 켜진다 (M4)', async () => {
-    await resolveMock('/auth/demo', {
-      method: 'POST',
-      body: JSON.stringify({ persona_id: 'choi' }),
-    });
-    const session = await resolveMock<SessionRead>('/sessions', { method: 'POST' });
+    const session = await enter('choi');
 
     expect(session.entry.branch_id).toBe('E7b');
     expect(session.entry.ui.big_text).toBe(true);
   });
 
   it('이정호 회차 점검과 추천 선택(PATCH /procedure)은 예정 활동 form_update를 돌려준다', async () => {
-    await resolveMock('/auth/demo', {
-      method: 'POST',
-      body: JSON.stringify({ persona_id: 'lee' }),
-    });
+    await resolveMock('/accounts/lee', { method: 'PUT' });
     const check = await resolveMock<RoundCheckRead>('/procedure/current-round/check');
     const { updates } = await resolveMock<FormPatchRead>('/procedure', {
       method: 'PATCH',
@@ -167,10 +155,7 @@ describe('모의 API', () => {
   });
 
   it('이정호 4차 신청서는 출석 모드이고, 모드가 맞을 때만 모의 확정된다', async () => {
-    await resolveMock('/auth/demo', {
-      method: 'POST',
-      body: JSON.stringify({ persona_id: 'lee' }),
-    });
+    await resolveMock('/accounts/lee', { method: 'PUT' });
     const form = await resolveMock<RecognitionFormRead>('/forms/recognition');
     const confirmed = await resolveMock<RecognitionFormRead>('/forms/recognition/confirm', {
       method: 'POST',

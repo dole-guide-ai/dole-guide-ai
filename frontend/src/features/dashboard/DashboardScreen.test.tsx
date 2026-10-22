@@ -24,7 +24,7 @@ const cards = MOCK_PERSONAS.map(({ persona_id, display }) => ({ persona_id, disp
 const mockApi = (chatEvents: SseMessage[] = []) =>
   vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
     const url = String(input);
-    if (url.endsWith('/auth/demo')) return Response.json(cards);
+    if (url.endsWith('/personas')) return Response.json({ items: cards, total: cards.length });
     if (url.includes('/chat')) return sseResponse(chatEvents);
     if (url.endsWith('/forms/resume')) return Response.json(MOCK_RESUMES.park);
     if (url.endsWith('/procedure/current-round/check')) return Response.json(MOCK_ROUND_CHECKS.lee);

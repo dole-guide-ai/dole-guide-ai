@@ -1,4 +1,4 @@
-import { IS_MOCK_API } from '@/lib/api';
+import { usesMock } from '@/lib/api';
 import { openSseStream, type RawSseEvent } from '@/lib/sse';
 import type { ChatCreate, SseMessage } from '@/types/chat.types';
 import { mockChatStream } from '@/mocks/chatStream';
@@ -16,9 +16,10 @@ export const streamChat = async (
   body: ChatCreate,
   signal?: AbortSignal,
 ): Promise<AsyncIterable<SseMessage>> => {
-  if (IS_MOCK_API) return mockChatStream(sessionId, body, signal);
+  const path = `/sessions/${sessionId}/chat`;
+  if (usesMock(path)) return mockChatStream(sessionId, body, signal);
 
-  const events = await openSseStream(`/sessions/${sessionId}/chat`, {
+  const events = await openSseStream(path, {
     method: 'POST',
     body: JSON.stringify(body),
     signal,

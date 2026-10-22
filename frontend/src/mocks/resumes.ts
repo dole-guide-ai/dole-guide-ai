@@ -1,4 +1,4 @@
-import type { ResumeDraftRead } from '@/types/resume.types';
+import type { ProfileDisplay, ResumeDraftRead } from '@/types/resume.types';
 
 /** 계정별 이력서 초안 스냅샷 (상세기획 2-1.9 구조, 모의값). 박진수는 빈 양식, 최영수는 2019년 예전 이력서. */
 const emptyValues = (): Omit<
@@ -238,4 +238,42 @@ const lee: ResumeDraftRead = {
   can_save: false,
 };
 
-export const MOCK_RESUMES: Record<string, ResumeDraftRead> = { park, choi, lee };
+/** 기본정보 가상 값. 백엔드 seed(`backend/data/seeds/personas.json`)의 profile과 같게 둡니다. */
+const PROFILES: Record<string, ProfileDisplay> = {
+  park: {
+    name: '박진수',
+    birth_year: 1965,
+    gender: '남',
+    phone: '010-0000-0001',
+    email: 'park.demo@example.com',
+    address: '서울특별시 OO구 OO로 1',
+    bank_name: 'OO은행',
+    account_last4: '0001',
+  },
+  choi: {
+    name: '최영수',
+    birth_year: 1959,
+    gender: '남',
+    phone: '010-0000-0002',
+    email: 'choi.demo@example.com',
+    address: '서울특별시 노원구 OO로 2',
+    bank_name: 'OO은행',
+    account_last4: '0002',
+  },
+  lee: {
+    name: '이정호',
+    birth_year: 1968,
+    gender: '남',
+    phone: '010-0000-0003',
+    email: 'lee.demo@example.com',
+    address: '서울특별시 강서구 OO로 3',
+    bank_name: 'OO은행',
+    account_last4: '0003',
+  },
+};
+
+export const MOCK_RESUMES: Record<string, ResumeDraftRead> = {
+  park: { ...park, profile_display: PROFILES.park },
+  choi: { ...choi, profile_display: PROFILES.choi },
+  lee: { ...lee, profile_display: PROFILES.lee },
+};

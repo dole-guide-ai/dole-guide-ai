@@ -1,8 +1,11 @@
-import type { DerivedState, PersonaDisplay, UserState } from '@/types/demo.types';
+import type { components } from '@/types/api.gen';
+import type { DerivedState, UserState } from '@/types/demo.types';
+
+type PersonaDisplay = components['schemas']['PersonaDisplay'];
 
 /**
  * 시연용 가상 계정 seed (상세기획 1.9). 날짜·회사·인물은 모두 가상 값입니다.
- * 백엔드가 올라오면 이 파일은 지우고 `GET /auth/demo`·`POST /sessions` 응답을 씁니다.
+ * 모의 모드(`NEXT_PUBLIC_USE_MOCK=1`) 전용. 실제 값은 백엔드 `data/seeds/personas.json`입니다.
  */
 export interface MockPersona {
   persona_id: string;

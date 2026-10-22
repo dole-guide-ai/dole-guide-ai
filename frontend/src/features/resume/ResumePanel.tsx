@@ -156,6 +156,7 @@ export const ResumePanel = ({
           await patch.mutateAsync({ path: `${base}.start_date`, op: 'set', value: start });
           await patch.mutateAsync({ path: `${base}.end_date`, op: 'set', value: end });
         };
+  const profile = values.profile_display;
   const education = values.education ?? [];
   const prefs = values.job_preferences;
   const careers = values.competencies?.careers ?? [];
@@ -238,8 +239,24 @@ export const ResumePanel = ({
         />
       </ResumeSection>
 
-      <ResumeSection title="기본정보" hint="고용24 회원정보에서 자동으로 들어가요">
-        <FieldRow label="성명·연락처·주소" value="고용24 회원정보에서 자동" chip={WORK24_CHIP} />
+      <ResumeSection title="기본정보" hint="고용24 회원정보에서 연동돼요. 여기서는 고칠 수 없어요">
+        {profile ? (
+          <>
+            <FieldRow label="성명" value={profile.name} chip={WORK24_CHIP} />
+            <FieldRow
+              label="생년·성별"
+              value={[profile.birth_year && `${profile.birth_year}년생`, profile.gender]
+                .filter(Boolean)
+                .join(' · ')}
+              chip={WORK24_CHIP}
+            />
+            <FieldRow label="휴대전화" value={profile.phone ?? null} chip={WORK24_CHIP} />
+            <FieldRow label="이메일" value={profile.email ?? null} chip={WORK24_CHIP} />
+            <FieldRow label="주소" value={profile.address ?? null} chip={WORK24_CHIP} />
+          </>
+        ) : (
+          <FieldRow label="성명·연락처·주소" value="고용24 회원정보에서 자동" chip={WORK24_CHIP} />
+        )}
       </ResumeSection>
 
       <ResumeSection title="학력사항" isRequired isDone={done.education}>
