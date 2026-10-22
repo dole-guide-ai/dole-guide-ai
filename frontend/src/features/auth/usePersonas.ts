@@ -1,6 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 
 import { apiFetch } from '@/lib/api';
+import { API_PATHS } from '@/lib/apiPaths';
+import { STALE_TIME } from '@/lib/queryConfig';
 import { queryKeys } from '@/lib/queryKeys';
 import type { components } from '@/types/api.gen';
 
@@ -11,9 +13,9 @@ type PersonaList = components['schemas']['PersonaList'];
 export const usePersonas = (enabled = true) =>
   useQuery({
     queryKey: queryKeys.personas,
-    queryFn: () => apiFetch<PersonaList>('/personas'),
+    queryFn: () => apiFetch<PersonaList>(API_PATHS.personas),
     select: (data) => data.items,
     // 카드 목록은 자주 바뀌지 않아 화면을 옮겨 다녀도 다시 부르지 않습니다.
-    staleTime: 5 * 60_000,
+    staleTime: STALE_TIME.PERSONAS_MS,
     enabled,
   });

@@ -87,6 +87,10 @@ export const applyFormUpdateToDraft = (draft: FormDraft, event: FormUpdateEvent)
   return { values, fields, completeness: event.completeness ?? draft.completeness };
 };
 
+/** 쓰기 응답 `{updates}`의 바뀐 칸을 모두 적용합니다. */
+export const applyFormUpdates = ({ updates }: { updates: FormUpdateEvent[] }) =>
+  updates.forEach(applyFormUpdate);
+
 export const applyFormUpdate = (event: FormUpdateEvent) => {
   drafts = { ...drafts, [event.form]: applyFormUpdateToDraft(drafts[event.form], event) };
   emit();

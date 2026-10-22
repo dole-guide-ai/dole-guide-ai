@@ -3,7 +3,9 @@ import { useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 
 import { apiFetch } from '@/lib/api';
+import { API_PATHS } from '@/lib/apiPaths';
 import { type FormDraft, replaceFormDraft } from '@/lib/formStore';
+import { STALE_TIME } from '@/lib/queryConfig';
 import { queryKeys } from '@/lib/queryKeys';
 import type { RecognitionFormRead } from '@/types/recognition.types';
 
@@ -20,8 +22,8 @@ export const toRecognitionDraft = (read: RecognitionFormRead): FormDraft => {
 export const useRecognitionForm = (sessionId: string, round: number | null) => {
   const query = useQuery({
     queryKey: queryKeys.recognitionForm(sessionId, round),
-    queryFn: () => apiFetch<RecognitionFormRead>('/forms/recognition'),
-    staleTime: Infinity,
+    queryFn: () => apiFetch<RecognitionFormRead>(API_PATHS.LEGACY_RECOGNITION),
+    staleTime: STALE_TIME.UNTIL_UPDATED,
     refetchOnWindowFocus: false,
   });
 

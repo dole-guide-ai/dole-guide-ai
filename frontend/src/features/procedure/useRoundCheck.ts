@@ -3,7 +3,9 @@ import { useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 
 import { apiFetch } from '@/lib/api';
+import { API_PATHS } from '@/lib/apiPaths';
 import { replaceFormDraft } from '@/lib/formStore';
+import { STALE_TIME } from '@/lib/queryConfig';
 import { queryKeys } from '@/lib/queryKeys';
 import type { RoundCheckRead } from '@/types/procedure.types';
 
@@ -15,8 +17,8 @@ export const useRoundCheck = (sessionId: string, round: number | null) => {
   const query = useQuery({
     // 다음 회차로 넘어가면(2-3.7) 회차가 바뀌므로 새로 받습니다.
     queryKey: queryKeys.roundCheck(sessionId, round),
-    queryFn: () => apiFetch<RoundCheckRead>('/procedure/current-round/check'),
-    staleTime: Infinity,
+    queryFn: () => apiFetch<RoundCheckRead>(API_PATHS.LEGACY_ROUND_CHECK),
+    staleTime: STALE_TIME.UNTIL_UPDATED,
     refetchOnWindowFocus: false,
   });
 

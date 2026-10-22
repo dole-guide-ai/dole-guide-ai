@@ -3,7 +3,9 @@ import { useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 
 import { apiFetch } from '@/lib/api';
+import { API_PATHS } from '@/lib/apiPaths';
 import { type FormDraft, replaceFormDraft } from '@/lib/formStore';
+import { STALE_TIME } from '@/lib/queryConfig';
 import { queryKeys } from '@/lib/queryKeys';
 import type { ResumeDraftRead } from '@/types/resume.types';
 
@@ -20,8 +22,8 @@ export const toResumeDraft = (read: ResumeDraftRead): FormDraft => {
 export const useResumeForm = (sessionId: string) => {
   const query = useQuery({
     queryKey: queryKeys.resumeForm(sessionId),
-    queryFn: () => apiFetch<ResumeDraftRead>('/forms/resume'),
-    staleTime: Infinity,
+    queryFn: () => apiFetch<ResumeDraftRead>(API_PATHS.LEGACY_RESUME),
+    staleTime: STALE_TIME.UNTIL_UPDATED,
     refetchOnWindowFocus: false,
   });
 

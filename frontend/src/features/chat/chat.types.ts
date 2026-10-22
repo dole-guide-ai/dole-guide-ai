@@ -1,6 +1,12 @@
 import type { ChatInputKind } from '@/types/chat.types';
 
-export type ChatRole = 'assistant' | 'user' | 'system';
+export const CHAT_ROLE = {
+  ASSISTANT: 'assistant',
+  USER: 'user',
+  SYSTEM: 'system',
+} as const;
+
+export type ChatRole = (typeof CHAT_ROLE)[keyof typeof CHAT_ROLE];
 
 export interface ChatAttachment {
   name: string;

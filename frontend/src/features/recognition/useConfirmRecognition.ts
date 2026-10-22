@@ -2,7 +2,8 @@ import { useMutation } from '@tanstack/react-query';
 
 import { toRecognitionDraft } from '@/features/recognition/useRecognitionForm';
 
-import { apiFetch } from '@/lib/api';
+import { apiSend } from '@/lib/api';
+import { API_PATHS } from '@/lib/apiPaths';
 import { replaceFormDraft } from '@/lib/formStore';
 import type { RecognitionConfirmCreate, RecognitionFormRead } from '@/types/recognition.types';
 
@@ -13,9 +14,6 @@ import type { RecognitionConfirmCreate, RecognitionFormRead } from '@/types/reco
 export const useConfirmRecognition = () =>
   useMutation({
     mutationFn: (body: RecognitionConfirmCreate) =>
-      apiFetch<RecognitionFormRead>('/forms/recognition/confirm', {
-        method: 'POST',
-        body: JSON.stringify(body),
-      }),
+      apiSend<RecognitionFormRead>(API_PATHS.LEGACY_RECOGNITION_CONFIRM, 'POST', body),
     onSuccess: (form) => replaceFormDraft('recognition', toRecognitionDraft(form)),
   });

@@ -1,6 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 
 import { apiFetch } from '@/lib/api';
+import { API_PATHS } from '@/lib/apiPaths';
+import { STALE_TIME } from '@/lib/queryConfig';
 import { queryKeys } from '@/lib/queryKeys';
 import type { RecommendationsRead } from '@/types/procedure.types';
 
@@ -8,7 +10,7 @@ import type { RecommendationsRead } from '@/types/procedure.types';
 export const useRecommendations = (sessionId: string, enabled: boolean) =>
   useQuery({
     queryKey: queryKeys.roundRecommendations(sessionId),
-    queryFn: () => apiFetch<RecommendationsRead>('/procedure/current-round/recommendations'),
+    queryFn: () => apiFetch<RecommendationsRead>(API_PATHS.LEGACY_ROUND_RECOMMENDATIONS),
     enabled,
-    staleTime: Infinity,
+    staleTime: STALE_TIME.UNTIL_UPDATED,
   });

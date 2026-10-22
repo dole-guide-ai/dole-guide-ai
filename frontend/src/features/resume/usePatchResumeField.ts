@@ -1,7 +1,8 @@
 import { useMutation } from '@tanstack/react-query';
 
-import { apiFetch } from '@/lib/api';
-import { applyFormUpdate } from '@/lib/formStore';
+import { apiSend } from '@/lib/api';
+import { API_PATHS } from '@/lib/apiPaths';
+import { applyFormUpdates } from '@/lib/formStore';
 import type { FormPatchCreate, FormPatchRead } from '@/types/chat.types';
 
 /**
@@ -11,6 +12,6 @@ import type { FormPatchCreate, FormPatchRead } from '@/types/chat.types';
 export const usePatchResumeField = () =>
   useMutation({
     mutationFn: (body: FormPatchCreate) =>
-      apiFetch<FormPatchRead>('/forms/resume', { method: 'PATCH', body: JSON.stringify(body) }),
-    onSuccess: ({ updates }) => updates.forEach(applyFormUpdate),
+      apiSend<FormPatchRead>(API_PATHS.LEGACY_RESUME, 'PATCH', body),
+    onSuccess: applyFormUpdates,
   });

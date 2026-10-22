@@ -1,4 +1,6 @@
 import { ApiError } from '@/lib/api';
+import { API_PATHS } from '@/lib/apiPaths';
+import { ERROR_CODES } from '@/lib/errorCodes';
 import { getFormDrafts } from '@/lib/formStore';
 import { getSession } from '@/lib/sessionStore';
 import type { components } from '@/types/api.gen';
@@ -44,7 +46,8 @@ const parseBody = <T>(init?: RequestInit): T | undefined => {
 export const buildMockSession = (personaId: string): SessionRead => {
   const persona = findMockPersona(personaId);
   const entry = MOCK_ENTRIES[personaId];
-  if (!persona || !entry) throw new ApiError('NOT_FOUND', `알 수 없는 계정: ${personaId}`, 404);
+  if (!persona || !entry)
+    throw new ApiError(ERROR_CODES.NOT_FOUND, `알 수 없는 계정: ${personaId}`, 404);
   return {
     session_id: `mock-${personaId}-${Date.now()}`,
     persona_id: personaId,
@@ -110,11 +113,11 @@ export const resolveMock = async <T>(path: string, init?: RequestInit): Promise<
   const method = (init?.method ?? 'GET').toUpperCase();
   await wait(MOCK_DELAY_MS);
 
-  if (method === 'GET' && path === '/health') {
+  if (method === 'GET' && path === API_PATHS.health) {
     return { status: 'ok', db: 'mock' } as T;
   }
 
-  if (method === 'GET' && path === '/personas') {
+  if (method === 'GET' && path === API_PATHS.personas) {
     const items = MOCK_PERSONAS.map(({ persona_id, display }) => ({
       persona_id,
       display,
@@ -133,24 +136,25 @@ export const resolveMock = async <T>(path: string, init?: RequestInit): Promise<
   // 새로 고침 뒤에는 모듈 상태가 비므로, 저장된 세션의 계정으로 이어 갑니다 (모의 전용).
   const personaId = authenticatedPersonaId ?? getSession()?.persona_id ?? null;
 
-  if (method === 'GET' && path === '/forms/resume') {
+  if (method === 'GET' && path === API_PATHS.LEGACY_RESUME) {
     const resume = personaId ? MOCK_RESUMES[personaId] : undefined;
-    if (!resume) throw new ApiError('NOT_FOUND', '이력서 초안이 없어요.', 404);
+    if (!resume) throw new ApiError(ERROR_CODES.NOT_FOUND, '이력서 초안이 없어요.', 404);
     return resume as T;
   }
 
   if (
     method === 'POST' &&
-    path === '/forms/resume/confirm' &&
+    path === API_PATHS.LEGACY_RESUME_CONFIRM &&
     getSession()?.state.resume_status === 'ready'
   ) {
     // 이미 저장한 이력서를 고쳐 다시 저장: 이력서 ID·단계는 그대로이고 확정 스냅샷만 새로 남깁니다.
     return getSession() as T;
   }
 
-  if (method === 'POST' && path === '/forms/resume/confirm') {
+  if (method === 'POST' && path === API_PATHS.LEGACY_RESUME_CONFIRM) {
     const entry = personaId ? MOCK_AFTER_RESUME_ENTRIES[personaId] : undefined;
-    if (!personaId || !entry) throw new ApiError('NOT_FOUND', '저장할 이력서가 없어요.', 404);
+    if (!personaId || !entry)
+      throw new ApiError(ERROR_CODES.NOT_FOUND, '저장할 이력서가 없어요.', 404);
     // 단계가 온라인 교육으로 바뀌므로 이력서 단계의 직전 질문은 잊습니다 (모의 자유 입력이 새 단계 첫 질문에 답하게).
     resetMockChat();
     const session = buildMockSession(personaId);
@@ -163,27 +167,27 @@ export const resolveMock = async <T>(path: string, init?: RequestInit): Promise<
     } as T;
   }
 
-  if (method === 'POST' && path === '/files') {
+  if (method === 'POST' && path === API_PATHS.LEGACY_FILES) {
     if (!(init?.body instanceof FormData) || !init.body.get('file')) {
-      throw new ApiError('VALIDATION_ERROR', '파일이 없어요.', 422);
+      throw new ApiError(ERROR_CODES.VALIDATION_ERROR, '파일이 없어요.', 422);
     }
     const stamp = Date.now();
     return { file_id: `file-${stamp}`, job_id: `job-${stamp}` } as T;
   }
 
-  if (method === 'GET' && path === '/procedure/current-round/check') {
+  if (method === 'GET' && path === API_PATHS.LEGACY_ROUND_CHECK) {
     const round = getSession()?.derived.current_round;
     const check = personaId
       ? ((round ? MOCK_NEXT_ROUND_CHECKS[personaId]?.[round] : undefined) ??
         MOCK_ROUND_CHECKS[personaId])
       : undefined;
-    if (!check) throw new ApiError('NOT_FOUND', '이번 회차 정보가 없어요.', 404);
+    if (!check) throw new ApiError(ERROR_CODES.NOT_FOUND, '이번 회차 정보가 없어요.', 404);
     return check as T;
   }
 
-  if (method === 'GET' && path === '/procedure/current-round/recommendations') {
+  if (method === 'GET' && path === API_PATHS.LEGACY_ROUND_RECOMMENDATIONS) {
     const recommendations = personaId ? MOCK_RECOMMENDATIONS[personaId] : undefined;
-    if (!recommendations) throw new ApiError('NOT_FOUND', '추천할 활동이 없어요.', 404);
+    if (!recommendations) throw new ApiError(ERROR_CODES.NOT_FOUND, '추천할 활동이 없어요.', 404);
     return recommendations as T;
   }
 
@@ -195,7 +199,7 @@ export const resolveMock = async <T>(path: string, init?: RequestInit): Promise<
     return mockImportList(list, drafts.resume.values, drafts.activities.values) as T;
   }
 
-  if (method === 'GET' && path === '/me/data') {
+  if (method === 'GET' && path === API_PATHS.LEGACY_MY_DATA) {
     const items = (personaId ? MOCK_MY_DATA[personaId] : undefined) ?? [];
     const read: MyDataRead = {
       items: items.filter((item) => !deletedMyData.has(item.item_id)),
@@ -204,28 +208,28 @@ export const resolveMock = async <T>(path: string, init?: RequestInit): Promise<
     return read as T;
   }
 
-  if (method === 'DELETE' && path === '/me/data') {
+  if (method === 'DELETE' && path === API_PATHS.LEGACY_MY_DATA) {
     const body = parseBody<MyDataDelete>(init);
     const item = personaId
       ? MOCK_MY_DATA[personaId]?.find((row) => row.item_id === body?.item_id)
       : undefined;
     if (!item || deletedMyData.has(item.item_id)) {
-      throw new ApiError('NOT_FOUND', '지울 정보를 찾지 못했어요.', 404);
+      throw new ApiError(ERROR_CODES.NOT_FOUND, '지울 정보를 찾지 못했어요.', 404);
     }
     if (!item.is_deletable) throw new ApiError('CONFLICT', '이 정보는 지울 수 없어요.', 409);
     deletedMyData.add(item.item_id);
     return { updates: MOCK_MY_DATA_DELETE_UPDATES[item.item_id] ?? [] } as T;
   }
 
-  if (method === 'GET' && path === '/forms/recognition') {
+  if (method === 'GET' && path === API_PATHS.LEGACY_RECOGNITION) {
     const form = personaId
       ? mockRecognitionForm(personaId, getFormDrafts().activities.values)
       : undefined;
-    if (!form) throw new ApiError('NOT_FOUND', '실업인정 신청서 초안이 없어요.', 404);
+    if (!form) throw new ApiError(ERROR_CODES.NOT_FOUND, '실업인정 신청서 초안이 없어요.', 404);
     return form as T;
   }
 
-  if (method === 'POST' && path === '/forms/recognition/confirm') {
+  if (method === 'POST' && path === API_PATHS.LEGACY_RECOGNITION_CONFIRM) {
     const body = parseBody<RecognitionConfirmCreate>(init);
     const form = personaId
       ? mockRecognitionForm(personaId, getFormDrafts().activities.values)
@@ -241,7 +245,7 @@ export const resolveMock = async <T>(path: string, init?: RequestInit): Promise<
     } as T;
   }
 
-  if (method === 'PATCH' && path === '/procedure') {
+  if (method === 'PATCH' && path === API_PATHS.LEGACY_PROCEDURE) {
     const body = parseBody<ProcedurePatchCreate>(init);
     if (body?.op === 'remove' && body.path.startsWith('activities.')) {
       const itemId = body.path.slice('activities.'.length);
@@ -252,7 +256,7 @@ export const resolveMock = async <T>(path: string, init?: RequestInit): Promise<
       ?.recommendation_id;
     const planned = recommendationId ? MOCK_PLANNED_ACTIVITIES[recommendationId] : undefined;
     if (body?.path !== 'activities' || body.op !== 'append' || !planned) {
-      throw new ApiError('VALIDATION_ERROR', '바꿀 내용을 알 수 없어요.', 422);
+      throw new ApiError(ERROR_CODES.VALIDATION_ERROR, '바꿀 내용을 알 수 없어요.', 422);
     }
     const update: FormUpdateEvent = {
       form: 'activities',
@@ -263,9 +267,10 @@ export const resolveMock = async <T>(path: string, init?: RequestInit): Promise<
     return { updates: [update] } as T;
   }
 
-  if (method === 'PATCH' && path === '/forms/resume') {
+  if (method === 'PATCH' && path === API_PATHS.LEGACY_RESUME) {
     const body = parseBody<FormPatchCreate>(init);
-    if (!body?.path) throw new ApiError('VALIDATION_ERROR', '고칠 칸을 알 수 없어요.', 422);
+    if (!body?.path)
+      throw new ApiError(ERROR_CODES.VALIDATION_ERROR, '고칠 칸을 알 수 없어요.', 422);
     const updates = [mockPatchUpdate(body)];
     // 저장한 이력서를 고치면 `draft`로 돌아가고 `다시 저장하기`로 재확정합니다 (2-1.6).
     if (personaId && MOCK_RESUMES[personaId]?.status === 'finalized') {
@@ -277,7 +282,7 @@ export const resolveMock = async <T>(path: string, init?: RequestInit): Promise<
     return { updates } as T;
   }
 
-  throw new ApiError('NOT_FOUND', `모의 응답이 없는 경로: ${method} ${path}`, 404);
+  throw new ApiError(ERROR_CODES.NOT_FOUND, `모의 응답이 없는 경로: ${method} ${path}`, 404);
 };
 
 const YEAR_MONTH = /^\d{4}-(0[1-9]|1[0-2])$/;
@@ -289,14 +294,14 @@ const mockPatchUpdate = (body: FormPatchCreate): FormUpdateEvent => {
   const value = typeof body.value === 'string' ? body.value.trim() : body.value;
   if (body.op === 'remove') return { form: 'resume', path: body.path, op: 'remove' };
   if (value === '' || value === undefined) {
-    throw new ApiError('VALIDATION_ERROR', '값을 적어 주세요.', 422);
+    throw new ApiError(ERROR_CODES.VALIDATION_ERROR, '값을 적어 주세요.', 422);
   }
   if (/acquired_date$/.test(body.path) && typeof value === 'string') {
     // 자격 취득일은 고용24 칸이 연-월-일입니다 (2-1.4).
     const normalized = value.replaceAll('.', '-');
     if (!YEAR_MONTH_DAY.test(normalized)) {
       throw new ApiError(
-        'VALIDATION_ERROR',
+        ERROR_CODES.VALIDATION_ERROR,
         '취득일은 2011-05-20처럼 연-월-일로 적어 주세요.',
         422,
       );
@@ -306,7 +311,11 @@ const mockPatchUpdate = (body: FormPatchCreate): FormUpdateEvent => {
   if (/(start|end)_date$/.test(body.path) && typeof value === 'string') {
     const normalized = value.replaceAll('.', '-').replace(/-(\d)$/, '-0$1');
     if (!YEAR_MONTH.test(normalized)) {
-      throw new ApiError('VALIDATION_ERROR', '날짜는 2004-03처럼 연-월로 적어 주세요.', 422);
+      throw new ApiError(
+        ERROR_CODES.VALIDATION_ERROR,
+        '날짜는 2004-03처럼 연-월로 적어 주세요.',
+        422,
+      );
     }
     return {
       form: 'resume',
