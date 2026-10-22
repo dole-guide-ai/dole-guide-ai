@@ -113,3 +113,60 @@ describe('recognitionFromApplication (F-23)', () => {
     expect(form.mock_submission).toBe('attend_ready');
   });
 });
+
+describe('recognitionFromApplication 답변 변환', () => {
+  it('이번 회차에 답한 값에는 지난 답 칩을 붙이지 않는다', () => {
+    const form = recognitionFromApplication(
+      application({
+        data: {
+          ...application().data,
+          notification_method: { ...answered('sms'), answered_on: '2026-12-01' },
+        },
+      }),
+    );
+
+    expect(form.field_states['notification_and_plan.payment_notification_method']).toBeUndefined();
+  });
+
+  it('근로내역 여러 건을 모두 옮기고, 다음 활동·필수만 동의를 그대로 보여 준다', () => {
+    const base = application().data;
+    const form = recognitionFromApplication(
+      application({
+        data: {
+          ...base,
+          work: {
+            has_work: answered('yes'),
+            entries: answered([
+              {
+                worked_on: '2026-12-05',
+                hours: 4,
+                income_received_on: '2026-12-10',
+                amount: 40000,
+              },
+              {
+                worked_on: '2026-12-12',
+                hours: 5,
+                income_received_on: '2026-12-17',
+                amount: 50000,
+              },
+            ] as unknown as string),
+          },
+          next_plan: answered([
+            { item_id: 'p1', kind: 'job_search', planned_on: '2026-12-29' },
+          ] as unknown as string),
+          privacy_consent: answered('agree_required_only'),
+        },
+      }),
+    );
+
+    expect(form.work_and_employment.work_entries?.map((w) => w.income_amount)).toEqual([
+      40000, 50000,
+    ]);
+    expect(form.notification_and_plan.next_activity).toEqual({
+      value: '구직활동',
+      memo: '2026-12-29',
+      answered_on: '2026-11-24',
+    });
+    expect(form.personal_information_consent.value).toBe('agree_required_only');
+  });
+});
