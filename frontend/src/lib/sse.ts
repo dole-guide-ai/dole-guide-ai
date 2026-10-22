@@ -23,7 +23,6 @@ export const openSseStream = async (
   try {
     res = await fetch(`${API_BASE_URL}${path}`, {
       ...init,
-      credentials: 'include',
       headers: {
         'Content-Type': 'application/json',
         Accept: 'text/event-stream',

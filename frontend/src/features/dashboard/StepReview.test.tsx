@@ -21,7 +21,7 @@ describe('완료 단계 읽기 전용 다시 보기 (1.8)', () => {
     resetForms();
     vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
       const url = String(input);
-      if (url.endsWith('/auth/demo')) return Response.json(cards);
+      if (url.endsWith('/personas')) return Response.json({ items: cards, total: cards.length });
       if (url.endsWith('/forms/resume')) return Response.json(MOCK_RESUMES.lee);
       if (url.endsWith('/procedure/current-round/check')) {
         return Response.json(MOCK_ROUND_CHECKS.lee);

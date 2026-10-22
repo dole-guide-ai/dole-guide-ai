@@ -35,3 +35,6 @@ coverage/
 htmlcov/
 
 .vscode
+
+# 업로드 파일 (로컬 개발)
+backend/uploads/

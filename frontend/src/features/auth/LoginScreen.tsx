@@ -3,7 +3,7 @@ import Image from 'next/image';
 import { PersonaList } from '@/features/auth/PersonaList';
 import { HealthStatus } from '@/features/health/HealthStatus';
 
-import { API_BASE_URL, IS_MOCK_API } from '@/lib/api';
+import { IS_MOCK_API, usesMock } from '@/lib/api';
 
 /** 시안 1-1 로그인 화면: 시연 고지(①) → 가상 계정 카드(②). */
 export const LoginScreen = () => (
@@ -36,7 +36,13 @@ export const LoginScreen = () => (
       <span>개인정보를 입력하지 마세요(데모)</span>
       <span className="flex items-center gap-3">
         {/* 모의 모드인지 실제 서버인지 바로 알 수 있게 표시합니다 (NEXT_PUBLIC_USE_MOCK). */}
-        <span>{IS_MOCK_API ? '모의 응답 모드' : `서버 ${API_BASE_URL}`}</span>
+        <span>
+          {IS_MOCK_API
+            ? '모의 응답 모드'
+            : usesMock('/screens')
+              ? '혼합 모드(계정만 서버)'
+              : '서버 모드'}
+        </span>
         <HealthStatus />
       </span>
     </footer>

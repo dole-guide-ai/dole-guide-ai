@@ -1,10 +1,38 @@
+/**
+ * 브라우저에서 서버를 부르는 유일한 창구입니다. 모든 요청은 같은 사이트의 BFF(/api/*)로 갑니다.
+ * 실패 응답은 ApiError 하나로 바꿔 던지고, 모의 응답 모드에 따라 요청을 mock(src/mocks)으로 돌리기도 합니다.
+ * 백엔드에 구현된 경로는 BACKEND_ROUTES에 적어 두며, 기능을 구현할 때마다 경로를 더하고 그 mock을 지웁니다.
+ */
+
 import type { components } from '@/types/api.gen';
 import { resolveMock } from '@/mocks/handlers';
 
-export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:8000';
+/** 브라우저는 같은 사이트의 BFF(`src/app/api/[...path]/route.ts`)만 부릅니다. 백엔드 주소는 서버만 압니다. */
+export const API_BASE_URL = '/api';
 
-/** 백엔드 없이 화면을 볼 때 `NEXT_PUBLIC_USE_MOCK=1`로 켭니다. 응답은 `src/mocks/`의 스냅샷입니다. */
-export const IS_MOCK_API = process.env.NEXT_PUBLIC_USE_MOCK === '1';
+/**
+ * 모의 응답 모드 (`NEXT_PUBLIC_USE_MOCK`).
+ * - `1`: 전부 `src/mocks/` 스냅샷 (백엔드 없이 화면만 볼 때)
+ * - `0`: 전부 실제 백엔드
+ * - 그 밖(비움·`hybrid`): 아래 `BACKEND_ROUTES`만 실제 백엔드, 나머지는 mock
+ */
+const MOCK_MODE = process.env.NEXT_PUBLIC_USE_MOCK ?? '';
+export const IS_MOCK_API = MOCK_MODE === '1';
+const IS_REAL_ONLY = MOCK_MODE === '0';
+
+/**
+ * 백엔드에 구현된 경로. 기능 PR에서 백엔드를 구현하면 여기에 경로를 더하고 그 mock을 지웁니다.
+ * 계정 입장 이후 mock은 저장된 세션의 persona_id로 이어서 응답합니다.
+ */
+const BACKEND_ROUTES: RegExp[] = [/^\/health$/, /^\/personas$/, /^\/accounts\/[^/]+$/];
+
+/** 이 경로를 mock으로 돌릴지. 혼합 모드에서는 `BACKEND_ROUTES`에 없는 경로만 mock입니다. */
+export const usesMock = (path: string): boolean => {
+  if (IS_MOCK_API) return true;
+  if (IS_REAL_ONLY) return false;
+  const pathname = path.split('?')[0];
+  return !BACKEND_ROUTES.some((route) => route.test(pathname));
+};
 
 export type ErrorCode = components['schemas']['ErrorCode'];
 type ErrorResponse = components['schemas']['ErrorResponse'];
@@ -49,13 +77,12 @@ export const toApiError = async (res: Response): Promise<ApiError> => {
 };
 
 export const apiFetch = async <T>(path: string, init?: RequestInit): Promise<T> => {
-  if (IS_MOCK_API) return resolveMock<T>(path, init);
+  if (usesMock(path)) return resolveMock<T>(path, init);
 
   let res: Response;
   try {
     res = await fetch(`${API_BASE_URL}${path}`, {
       ...init,
-      credentials: 'include',
       headers: { 'Content-Type': 'application/json', ...init?.headers },
     });
   } catch {
@@ -72,13 +99,12 @@ export const apiFetch = async <T>(path: string, init?: RequestInit): Promise<T> 
 export const apiUpload = async <T>(path: string, file: File, signal?: AbortSignal): Promise<T> => {
   const form = new FormData();
   form.append('file', file);
-  if (IS_MOCK_API) return resolveMock<T>(path, { method: 'POST', body: form, signal });
+  if (usesMock(path)) return resolveMock<T>(path, { method: 'POST', body: form, signal });
 
   let res: Response;
   try {
     res = await fetch(`${API_BASE_URL}${path}`, {
       method: 'POST',
-      credentials: 'include',
       body: form,
       signal,
     });

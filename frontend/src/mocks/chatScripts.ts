@@ -1332,7 +1332,7 @@ let lastAsk: { personaId: string; data: AskUserEvent } | null = null;
 /** 시연 끝 표시까지 간 계정. 그 뒤에는 무엇을 쳐도 끝났다고만 알립니다. */
 const endedPersonas = new Set<string>();
 
-/** 계정을 고를 때(`POST /auth/demo`)와 이력서를 저장해 단계가 바뀔 때 비웁니다. */
+/** 계정을 고를 때(`PUT /accounts/{id}`)와 이력서를 저장해 단계가 바뀔 때 비웁니다. */
 export const resetMockChat = () => {
   lastAsk = null;
   endedPersonas.clear();

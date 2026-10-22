@@ -1,8 +1,9 @@
 import { ApiError } from '@/lib/api';
 import { getFormDrafts } from '@/lib/formStore';
 import { getSession } from '@/lib/sessionStore';
+import type { components } from '@/types/api.gen';
 import type { FormPatchCreate, FormUpdateEvent } from '@/types/chat.types';
-import type { DemoAuthCreate, PersonaCardRead, SessionRead } from '@/types/demo.types';
+import type { SessionRead } from '@/types/demo.types';
 import type { ImportKind } from '@/types/imports.types';
 import type { MyDataDelete, MyDataRead } from '@/types/myData.types';
 import type { ProcedurePatchCreate } from '@/types/procedure.types';
@@ -53,11 +54,56 @@ export const buildMockSession = (personaId: string): SessionRead => {
   };
 };
 
+type AccountRead = components['schemas']['AccountRead'];
+
+/** 모의 계정 입장 응답. 화면은 `sessionFromAccount`로 세션을 만듭니다. */
+export const mockAccount = (personaId: string): AccountRead => {
+  const { state, derived, entry } = buildMockSession(personaId);
+  const round = derived.current_round;
+  return {
+    persona_id: personaId,
+    today: state.demo_today,
+    procedure: {
+      stage: state.stage,
+      recipient_group: state.recipient_type === 'repeat' ? 'repeat' : derived.rule_group,
+      age_at_separation: state.age_at_separation,
+      has_disability: state.has_disability,
+      separation_date: state.separation_date,
+      education_done: state.education_done,
+      eligibility_applied_on: state.eligibility_applied_date,
+      first_recognition_date: null,
+      benefit_days: 270,
+      period_end_date: state.separation_date,
+    },
+    current_round:
+      round && derived.period && state.next_recognition_date
+        ? {
+            round,
+            period_start: derived.period.start,
+            period_end: derived.period.end,
+            recognition_date: state.next_recognition_date,
+            attendance_required: derived.is_attendance_round,
+            status: 'current',
+            application_status: 'draft',
+          }
+        : null,
+    entry: { ...entry, panel: entry.panel ?? 'A', flags: { m1: false } },
+    pending_ask: null,
+  };
+};
+
 /** 테스트에서 인증 상태를 초기화할 때 씁니다. */
 export const resetMockAuth = () => {
   authenticatedPersonaId = null;
   resetMockChat();
   deletedMyData.clear();
+};
+
+/** 계정에 들어갈 때 mock 대화·삭제 상태를 비우고 입장 계정을 정합니다. 혼합 모드 입장에서도 씁니다. */
+export const enterMockAccount = (personaId: string) => {
+  authenticatedPersonaId = personaId;
+  deletedMyData.clear();
+  resetMockChat();
 };
 
 export const resolveMock = async <T>(path: string, init?: RequestInit): Promise<T> => {
@@ -68,28 +114,20 @@ export const resolveMock = async <T>(path: string, init?: RequestInit): Promise<
     return { status: 'ok', db: 'mock' } as T;
   }
 
-  if (method === 'GET' && path === '/auth/demo') {
-    const cards: PersonaCardRead[] = MOCK_PERSONAS.map(({ persona_id, display }) => ({
+  if (method === 'GET' && path === '/personas') {
+    const items = MOCK_PERSONAS.map(({ persona_id, display }) => ({
       persona_id,
       display,
+      progress_summary: null,
     }));
-    return cards as T;
+    return { items, total: items.length } as T;
   }
 
-  if (method === 'POST' && path === '/auth/demo') {
-    const body = parseBody<DemoAuthCreate>(init);
-    const persona = body ? findMockPersona(body.persona_id) : undefined;
-    if (!persona) throw new ApiError('NOT_FOUND', '알 수 없는 계정이에요.', 404);
-    authenticatedPersonaId = persona.persona_id;
-    deletedMyData.clear();
-    resetMockChat();
-    return { persona_id: persona.persona_id, display: persona.display } as T;
-  }
-
-  if (method === 'POST' && path === '/sessions') {
-    if (!authenticatedPersonaId)
-      throw new ApiError('UNAUTHORIZED', '먼저 계정을 골라 주세요.', 401);
-    return buildMockSession(authenticatedPersonaId) as T;
+  const accountMatch = /^\/accounts\/([a-z0-9_-]+)$/.exec(path);
+  if (method === 'PUT' && accountMatch) {
+    const account = mockAccount(accountMatch[1]);
+    enterMockAccount(account.persona_id);
+    return account as T;
   }
 
   // 새로 고침 뒤에는 모듈 상태가 비므로, 저장된 세션의 계정으로 이어 갑니다 (모의 전용).

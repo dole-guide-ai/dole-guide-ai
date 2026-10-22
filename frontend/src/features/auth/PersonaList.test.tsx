@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { PersonaList } from '@/features/auth/PersonaList';
 
 import { getSession, setSession } from '@/lib/sessionStore';
-import { buildMockSession } from '@/mocks/handlers';
+import { mockAccount } from '@/mocks/handlers';
 import { MOCK_PERSONAS } from '@/mocks/personas';
 import { mockFetchJson } from '@/test/mockFetch';
 import { renderWithProviders } from '@/test/renderWithProviders';
@@ -14,6 +14,7 @@ const push = vi.fn();
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push, replace: vi.fn() }) }));
 
 const cards = MOCK_PERSONAS.map(({ persona_id, display }) => ({ persona_id, display }));
+const list = { items: cards, total: cards.length };
 
 describe('PersonaList', () => {
   afterEach(() => {
@@ -22,7 +23,7 @@ describe('PersonaList', () => {
   });
 
   it('가상 계정 카드를 이름·나이·직종·한마디·상태 요약과 함께 보여준다', async () => {
-    mockFetchJson(cards);
+    mockFetchJson(list);
 
     renderWithProviders(<PersonaList />);
 
@@ -31,22 +32,20 @@ describe('PersonaList', () => {
     expect(screen.getAllByRole('button')).toHaveLength(3);
   });
 
-  it('카드를 누르면 데모 인증 → 세션 생성 → 대시보드로 간다', async () => {
-    const session = buildMockSession('lee');
-    const fetchSpy = mockFetchJson(cards);
+  it('카드를 누르면 계정에 입장(PUT /accounts/lee)하고 대시보드로 간다', async () => {
+    const fetchSpy = mockFetchJson(list);
     fetchSpy
-      .mockResolvedValueOnce(Response.json(cards))
-      .mockResolvedValueOnce(Response.json({ persona_id: 'lee', display: cards[2].display }))
-      .mockResolvedValueOnce(Response.json(session));
+      .mockResolvedValueOnce(Response.json(list))
+      .mockResolvedValueOnce(Response.json(mockAccount('lee'), { status: 201 }));
 
     renderWithProviders(<PersonaList />);
     await userEvent.click(await screen.findByRole('button', { name: '이정호 계정으로 시작' }));
 
     await vi.waitFor(() => expect(push).toHaveBeenCalledWith('/dashboard'));
     expect(getSession()?.entry.branch_id).toBe('E4b');
-    const [, authInit] = fetchSpy.mock.calls[1];
-    expect(authInit?.method).toBe('POST');
-    expect(authInit?.body).toBe(JSON.stringify({ persona_id: 'lee' }));
+    const [url, init] = fetchSpy.mock.calls[1];
+    expect(url).toBe('/api/accounts/lee');
+    expect(init?.method).toBe('PUT');
   });
 
   it('목록을 못 받으면 안내 문구를 보여준다', async () => {

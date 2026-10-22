@@ -1,4 +1,4 @@
-import type { PersonaCardRead } from '@/types/demo.types';
+import type { PersonaCardRead } from '@/features/auth/usePersonas';
 
 /** 가상 계정 카드 (1.4 ②). 카드 어디를 눌러도 같은 동작입니다. */
 interface PersonaCardProps {
