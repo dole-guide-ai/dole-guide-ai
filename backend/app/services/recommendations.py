@@ -56,6 +56,7 @@ def _current(db: Session, account: AccountContext, today: date):
         round_no=target.round_no,
         lectures_used=activity_repo.count_done_kind(db, account.user_id, "lecture"),
         desired_occupation=_desired_occupation(db, account.user_id),
+        planned=frozenset((a.kind, a.route or "") for a in inputs if a.planned),
     )
     busy = [a.activity_date for a in inputs if not a.planned]
     return target, picks, inputs, busy, rules.is_weekly_job_search(group, target.round_no)
@@ -109,10 +110,11 @@ def add_recommended(
     if parsed is None or parsed[0] != target.round_no:
         raise ConflictError(code=ErrorCode.CONFLICT, message=NOT_RECOMMENDED_MESSAGE)
     candidate = parsed[1]
-    if candidate.key not in {pick.candidate.key for pick in picks}:
-        raise ConflictError(code=ErrorCode.CONFLICT, message=NOT_RECOMMENDED_MESSAGE)
+    # 이미 넣은 추천은 목록에서 빠지므로, 목록 검사보다 먼저 중복으로 알려 줍니다.
     if any(a.planned and a.kind == candidate.kind and a.route == candidate.route for a in inputs):
         raise ConflictError(code=ErrorCode.DUPLICATE_ACTIVITY, message=DUPLICATE_MESSAGE)
+    if candidate.key not in {pick.candidate.key for pick in picks}:
+        raise ConflictError(code=ErrorCode.CONFLICT, message=NOT_RECOMMENDED_MESSAGE)
 
     # 예정일은 권장 기한(인정일 전날)으로 두고, 했다고 하면 실제 날짜로 바꿉니다.
     planned_on = rules.planned_date(target.recognition_date, today)
