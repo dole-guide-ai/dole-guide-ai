@@ -5,13 +5,18 @@ description = "실업급여 도우미 AI 백엔드"
 requires-python = ">=3.14,<3.15"
 dependencies = [
     "alembic>=1.20.0",
+    "cryptography>=50.0.2",
     "fastapi>=0.143.2",
+    "holidays>=0.107",
     "langchain>=1.4.6",
     "langchain-openai>=1.7.2",
     "langgraph>=1.2.15",
+    "langgraph-checkpoint-postgres>=3.2.0",
+    "langsmith>=0.14.9",
     "pgvector>=0.5.1",
     "psycopg[binary]>=3.3.6",
     "pydantic-settings>=2.16.0",
+    "python-multipart>=0.0.32",
     "sqlalchemy>=2.0,<2.1",
     "sse-starlette>=3.5.0",
     "uvicorn[standard]>=0.54.0",
@@ -20,6 +25,7 @@ dependencies = [
 [dependency-groups]
 dev = [
     "beautifulsoup4>=4.15.0",
+    "deepeval>=4.3.1",
     "httpx>=0.28.1",
     "import-linter>=2.15",
     "lxml>=6.1.3",
@@ -34,12 +40,15 @@ target-version = "py314"
 extend-exclude = ["alembic/versions", "experiments"]
 
 [tool.ruff.lint]
-select = ["E", "F", "W", "I", "N", "UP", "B", "SIM"]
+select = ["E", "F", "W", "I", "N", "UP", "B", "SIM", "FAST"]
+# FAST003: 경로 변수(persona_id)는 CurrentAccount 의존성이 쓰므로 함수 인자로 받지 않습니다.
+ignore = ["FAST003"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
-addopts = "--strict-markers -m 'not eval'"
+# deepeval pytest 플러그인(실행 기록·통계 전송)은 끕니다. 골든셋 판정은 evals/golden/judge.py가 직접 부릅니다.
+addopts = "--strict-markers -m 'not eval' -p no:deepeval"
 markers = [
     "integration: Postgres가 필요한 테스트 (docker compose up -d db)",
     "eval: AI 평가 세트. 기본 실행에서 제외, `uv run pytest evals -m eval`로 실행",
@@ -62,11 +71,13 @@ name = "router는 repository·model을 직접 쓰지 않음 (service를 거침)"
 type = "forbidden"
 source_modules = ["app.api"]
 forbidden_modules = ["app.repositories", "app.models"]
+# service를 거쳐 닿는 것은 허용하고, router가 직접 import하는 것만 막습니다.
+allow_indirect_imports = true
 
 [[tool.importlinter.contracts]]
 name = "core·schemas는 업무 계층에 의존하지 않음"
 type = "forbidden"
-source_modules = ["app.core", "app.schemas"]
+source_modules = ["app.core", "app.schemas", "app.rules"]
 forbidden_modules = ["app.api", "app.services", "app.repositories", "app.agent"]
 
 [[tool.importlinter.contracts]]

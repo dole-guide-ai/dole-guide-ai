@@ -27,8 +27,21 @@ services:
       LLM_BASE_URL: ${LLM_BASE_URL:-}
       AGENT_MODEL: ${AGENT_MODEL:-}
       EXTRACT_MODEL: ${EXTRACT_MODEL:-}
+      JUDGE_MODEL: ${JUDGE_MODEL:-}
+      INTERNAL_API_SECRET: ${INTERNAL_API_SECRET:?INTERNAL_API_SECRET가 .env에 필요합니다}
+      ACCOUNT_ENCRYPTION_KEY: ${ACCOUNT_ENCRYPTION_KEY:?ACCOUNT_ENCRYPTION_KEY가 .env에 필요합니다}
+      WORK24_API_KEY: ${WORK24_API_KEY:-}
+      LANGSMITH_API_KEY: ${LANGSMITH_API_KEY:-}
+      LANGSMITH_PROJECT: ${LANGSMITH_PROJECT:-dole-guide-ai}
+      LANGSMITH_TRACING: ${LANGSMITH_TRACING:-false}
+      VISITOR_TTL_DAYS: ${VISITOR_TTL_DAYS:-7}
+      UPLOAD_DIR: /data/uploads
+      MAX_UPLOAD_MB: ${MAX_UPLOAD_MB:-4}
+      TURN_TIMEOUT_SECONDS: ${TURN_TIMEOUT_SECONDS:-180}
       # 백엔드 포트는 외부에 열지 않으므로 Docker 내부 네트워크(Caddy)에서 온 프록시 헤더만 믿습니다.
       FORWARDED_ALLOW_IPS: 172.16.0.0/12,192.168.0.0/16
+    volumes:
+      - uploads:/data/uploads
     # 외부에는 Caddy(80·443)만 엽니다.
     ports: !reset []
     restart: unless-stopped
@@ -52,3 +65,4 @@ services:
 volumes:
   caddy_data:
   caddy_config:
+  uploads:

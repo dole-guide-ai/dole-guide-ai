@@ -14,7 +14,7 @@ class HealthRead(BaseModel):
     db: str
 
 
-@router.get("/health", response_model=HealthRead, responses=error_responses())
+@router.get("/health", summary="서버·DB 상태 확인", responses=error_responses())
 def get_health(db: DbSession) -> HealthRead:
     try:
         db.execute(text("SELECT 1"))

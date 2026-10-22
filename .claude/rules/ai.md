@@ -22,6 +22,7 @@ paths:
 - 그래프 호출은 서비스에서, 라우터는 SSE 스트리밍만. 이벤트 이름은 `shared/sse-events.json`.
 - 에이전트 코드는 `gateway.get_chat_model()`처럼 모듈 경유로 호출(테스트의 `fake_llm`이 바꿔 끼움).
 - LLM 호출 실패는 `LlmUnavailableError`, 한도 초과는 `RateLimitedError`로 던짐. 스트림 도중이면 `error` 이벤트.
-- 관측(Langfuse)은 gateway 한 곳에서만 연결, 키가 없으면 꺼짐. 보내기 전 개인정보 마스킹.
+- 관측(LangSmith)은 gateway 한 곳에서만 연결, 키가 없으면 꺼짐. 보내기 전 개인정보 마스킹.
+- 쓰기 도구는 지금 질문이 다루는 칸만 쓸 수 있음. `status`·회차·절차 날짜·`user_profiles`는 도구로 쓰지 않음. 본인 답변 칸은 `record_user_answer`만.
 - 사용자 입력·프롬프트·응답 원문을 로그에 남기지 않음.
 - 모델·프롬프트·규칙표를 바꾸면 `pnpm test:eval` 결과를 PR에 첨부.

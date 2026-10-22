@@ -28,6 +28,8 @@ openapi.json
 .claude/settings.local.json
 
 # test
+backend/evals/scenarios/golden/
+backend/evals/reports/
 .coverage
 coverage/
 htmlcov/
@@ -36,3 +38,6 @@ htmlcov/
 
 # crawled knowledge data (not committed)
 backend/data/knowledge/
+
+# 업로드 파일 (로컬 개발)
+backend/uploads/

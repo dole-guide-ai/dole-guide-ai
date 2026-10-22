@@ -30,7 +30,13 @@ export default defineConfig([
   {
     // 서버 호출은 lib/api.ts의 apiFetch만 씁니다. (오류를 ApiError로 통일)
     files: ['src/**/*.{ts,tsx}'],
-    ignores: ['src/lib/api.ts', 'src/lib/sse.ts', 'src/**/*.test.{ts,tsx}', 'src/test/**'],
+    ignores: [
+      'src/lib/api.ts',
+      'src/lib/sse.ts',
+      'src/lib/bff.ts',
+      'src/**/*.test.{ts,tsx}',
+      'src/test/**',
+    ],
     rules: {
       'no-restricted-globals': [
         'error',
