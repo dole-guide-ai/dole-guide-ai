@@ -29,6 +29,7 @@ from app.schemas.forms import recognition as recognition_form
 from app.schemas.forms import resume as resume_form
 from app.schemas.procedure import ProcedureRead, Stage
 from app.schemas.rounds import ApplicationStatus, RoundStatus, RoundSummary
+from app.services import messages as message_service
 from app.services.entry import build_entry
 from app.services.seed import at
 
@@ -131,6 +132,8 @@ def read_account(db: Session, account: AccountContext, today: date) -> AccountRe
         procedure=procedure,
         current_round=current,
         entry=entry,
+        # 새로고침하면 답을 기다리던 질문과 선택지를 다시 띄웁니다 (F-03).
+        pending_ask=message_service.pending_ask(db, account.user_id),
     )
 
 

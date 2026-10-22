@@ -278,14 +278,17 @@ export interface paths {
         options?: never;
         head?: never;
         /**
-         * 회차 신청서 고치기 · 제출
-         * @description JSON Patch로 칸을 고치면 바로 저장됩니다(임시저장 경로는 따로 없음).
+         * 회차 신청서 제출
+         * @description 신청서를 제출(모의)합니다. 본인 답변은 대화로만 채우고 받을 때마다 바로 저장됩니다.
          *
-         *     제출은 `/status`를 `submitted`로, `/submit_mode`를 GET이 알려 준 방식(send·attend)으로 보냅니다.
-         *     출석 회차면 `/attend_items`도 보냅니다.
-         *     막는 항목이 남았거나 방식이 다르면 409 CANNOT_SUBMIT, 지난 회차면 409 ROUND_CLOSED, 본인 답변
-         *     칸을 고치려 하면 422입니다.
-         *     (아직 구현 전이라 501)
+         *     - 제출: `/status`를 `submitted`로, `/submit_mode`를 GET이 알려 준 방식(send·attend)으로
+         *       보냅니다. 출석 회차면 `/attend_items`에 `["id_card", "eligibility_card"]`(준비물 체크)도.
+         *     - 방식이 다르거나(인정일 전 preview 등) 막는 항목이 남았거나 준비물을 체크하지 않았으면
+         *       409 CANNOT_SUBMIT, 이미 제출했으면 409 APPLICATION_LOCKED, 지난 회차면 409 ROUND_CLOSED,
+         *       If-Match가 GET의 ETag와 다르면 409 VERSION_CONFLICT입니다.
+         *     - 본인 답변 칸을 고치려 하면 422 USER_ANSWER_ONLY, 제출 칸과 다른 칸을 섞으면 422입니다.
+         *
+         *     제출은 status만 바꾸고 본인 답변은 지우지 않습니다. 응답 entry는 바뀐 첫 화면입니다.
          */
         patch: operations["patch_application"];
         trace?: never;
@@ -498,7 +501,8 @@ export interface paths {
          * @description 화면에 보일 대화 말풍선을 순서대로 돌려줍니다. 새로고침했을 때 대화를 그대로 복원하는 데
          *     씁니다.
          *
-         *     cursor를 주면 그 다음부터 이어서 돌려줍니다. (아직 구현 전이라 501)
+         *     한 번에 100개까지 돌려주고, 더 있으면 next_cursor를 줍니다. cursor를 주면 그 다음부터 이어서
+         *     돌려줍니다. 답을 기다리던 질문은 계정 조회(`GET /accounts/{id}`)의 pending_ask로 옵니다.
          */
         get: operations["list_messages"];
         put?: never;
@@ -732,6 +736,11 @@ export interface components {
             choices: string[];
             /** Import Kind */
             import_kind?: string | null;
+            /**
+             * Accepts File
+             * @default false
+             */
+            accepts_file: boolean;
         };
         /** Body_upload_file */
         Body_upload_file: {
@@ -2621,15 +2630,6 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Not Implemented */
-            501: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
         };
     };
     list_activities: {
@@ -3433,15 +3433,6 @@ export interface operations {
             };
             /** @description Internal Server Error */
             500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Not Implemented */
-            501: {
                 headers: {
                     [name: string]: unknown;
                 };
