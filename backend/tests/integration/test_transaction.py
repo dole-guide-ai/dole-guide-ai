@@ -20,6 +20,7 @@ def test_uncommitted_writes_roll_back_when_request_fails(migrated_db: None) -> N
 
     with pytest.raises(RuntimeError):
         sessions.throw(RuntimeError("synthetic failure after flush"))
+    assert not db.in_transaction()
 
     check = get_db()
     found = next(check).scalar(select(Visitor).where(Visitor.token_hash == token_hash))
