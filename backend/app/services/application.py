@@ -190,6 +190,9 @@ def patch_application(
         raise UnprocessableError(code=ErrorCode.USER_ANSWER_ONLY)
     if len(submit_ops) != len(patch):
         raise UnprocessableError(code=ErrorCode.STATUS_WITH_FIELDS)
+    # 제출 칸은 값을 정하는 연산(replace)으로만 바꿉니다. remove·add로는 제출하지 않습니다.
+    if any(op.op != "replace" for op in submit_ops):
+        raise UnprocessableError(message="제출은 replace 연산으로 보내 주세요.")
     return _submit(db, account, target, application, submit_ops, now)
 
 

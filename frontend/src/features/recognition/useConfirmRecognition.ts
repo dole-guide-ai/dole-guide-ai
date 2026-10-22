@@ -61,15 +61,25 @@ export const useConfirmRecognition = (
             method: 'POST',
             body: JSON.stringify({ submit_mode: body.submit_mode }),
           }),
-    onSuccess: (form) => {
+    onSuccess: (form, body) => {
       // 신청서 쿼리는 다시 받지 않으므로(staleTime: Infinity) 제출 뒤 값으로 캐시도 바꿉니다.
       const key = sessionId ? queryKeys.recognitionForm(sessionId, round) : null;
-      if (form) {
-        replaceFormDraft('recognition', toRecognitionDraft(form));
-        if (key) queryClient.setQueryData(key, form);
-      } else if (key) {
-        void queryClient.invalidateQueries({ queryKey: key });
+      const cached = key ? queryClient.getQueryData<RecognitionFormRead>(key) : undefined;
+      // 다시 받기에 실패해도 제출은 끝났으니, 받아 둔 신청서를 제출 완료로 바꿔 버튼을 다시 열지 않습니다.
+      const next =
+        form ??
+        (cached && {
+          ...cached,
+          status: 'finalized' as const,
+          can_submit: false,
+          mock_submission:
+            body.submit_mode === 'attend' ? ('attend_ready' as const) : ('sent' as const),
+        });
+      if (next) {
+        replaceFormDraft('recognition', toRecognitionDraft(next));
+        if (key) queryClient.setQueryData(key, next);
       }
+      if (!form && key) void queryClient.invalidateQueries({ queryKey: key });
     },
   });
 };

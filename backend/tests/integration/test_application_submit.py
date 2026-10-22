@@ -141,6 +141,12 @@ def test_malformed_submit_values_are_422(
     res = _submit(client, headers, "attend", items=[1, ["id_card"]])
     assert res.status_code == 422
     assert res.json()["code"] == "VALIDATION_ERROR"
+    removed = client.patch(
+        "/accounts/lee/rounds/current/application",
+        headers=headers,
+        json=[{"op": "remove", "path": "/status", "value": "submitted"}],
+    )
+    assert removed.status_code == 422
 
 
 def test_field_edit_mix_version_and_closed_round(

@@ -83,7 +83,7 @@ describe('useConfirmRecognition (F-27)', () => {
     );
     const queryClient = createTestQueryClient();
     const key = ['forms', 'recognition', 'acct-lee-2026-12-16', 4];
-    queryClient.setQueryData(key, { status: 'review' });
+    queryClient.setQueryData(key, { status: 'review', can_submit: true, mock_submission: null });
     const { result } = renderHook(() => useConfirmRecognition('acct-lee-2026-12-16', 'lee', 4), {
       wrapper: ({ children }: { children: ReactNode }) => (
         <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
@@ -94,6 +94,12 @@ describe('useConfirmRecognition (F-27)', () => {
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(result.current.data).toBeNull();
+    // 받아 둔 신청서를 제출 완료로 바꿔, 다시 받기 전에도 제출 버튼이 다시 열리지 않습니다
+    expect(queryClient.getQueryData(key)).toMatchObject({
+      status: 'finalized',
+      can_submit: false,
+      mock_submission: 'sent',
+    });
     expect(queryClient.getQueryState(key)?.isInvalidated).toBe(true);
   });
 });
