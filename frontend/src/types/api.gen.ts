@@ -266,6 +266,9 @@ export interface paths {
          *
          *     구직활동 줄은 그 회차 대상기간의 실제 활동에서 만들고(같은 날 2건째는 excluded_rows),
          *     지난 회차에 답한 통지 방법·실업크레딧은 이번 회차가 비어 있으면 불러옵니다.
+         *     제출 방식(submit_mode)은 실제 지금 시각(KST)으로 정합니다: 출석 회차 attend, 인정일 전 preview,
+         *     당일 17시 전 send, 17~18시 visit_today, 그 뒤 change. 막는 항목이 없고 send·attend일 때만
+         *     can_submit이 true이며, 경고(활동 부족·증빙 없음·실업크레딧)는 제출을 막지 않습니다.
          *     오늘이 속한 회차가 없으면(current) 404 NO_ACTIVE_ROUND, 없는 회차 번호면 404입니다.
          */
         get: operations["get_application"];
