@@ -76,6 +76,8 @@ class AskUser(BaseModel):
     text: str
     choices: list[str] = []
     import_kind: str | None = None
+    # 서류·사진을 요청한 질문이면 true (새로고침 뒤에도 파일 올리기를 켭니다, F-03)
+    accepts_file: bool = False
 
 
 class AccountRead(BaseModel):
