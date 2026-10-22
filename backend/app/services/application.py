@@ -31,7 +31,7 @@ CURRENT = "current"
 ROUND_NOT_FOUND_MESSAGE = "그 회차의 신청서가 없어요."
 
 
-def _find_round(db: Session, user_id: uuid.UUID, round_ref: str, today: date):
+def find_round(db: Session, user_id: uuid.UUID, round_ref: str, today: date):
     rounds = repo.list_rounds(db, user_id)
     if round_ref == CURRENT:
         found = next((r for r in rounds if r.period_start <= today <= r.recognition_date), None)
@@ -53,7 +53,7 @@ def _previous_answers(db: Session, rounds: list, round_no: int) -> dict | None:
     return None
 
 
-def _activity_inputs(db: Session, user_id: uuid.UUID, start: date, end: date):
+def activity_inputs(db: Session, user_id: uuid.UUID, start: date, end: date):
     return [
         rules.ActivityInput(
             activity_id=str(a.activity_id),
@@ -76,7 +76,7 @@ def _activity_inputs(db: Session, user_id: uuid.UUID, start: date, end: date):
 def read_application(
     db: Session, account: AccountContext, round_ref: str, today: date
 ) -> ApplicationRead:
-    target, rounds = _find_round(db, account.user_id, round_ref, today)
+    target, rounds = find_round(db, account.user_id, round_ref, today)
     application = repo.get_application(db, target.round_id)
     if application is None:
         raise NotFoundError(message=ROUND_NOT_FOUND_MESSAGE)
@@ -88,7 +88,7 @@ def read_application(
         application.data, _previous_answers(db, rounds, target.round_no)
     )
     activities = rules.build_form_activities(
-        _activity_inputs(db, account.user_id, target.period_start, target.period_end),
+        activity_inputs(db, account.user_id, target.period_start, target.period_end),
         target.period_start,
         target.period_end,
     )

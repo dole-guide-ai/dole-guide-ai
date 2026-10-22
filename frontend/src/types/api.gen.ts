@@ -233,10 +233,10 @@ export interface paths {
         };
         /**
          * 부족한 활동 추천
-         * @description 이번 회차에 활동이 모자랄 때 증빙이 쉬운 순서로 추천 3개와 기한 문구를 돌려줍니다.
+         * @description 이번 회차에 활동이 모자랄 때 증빙이 쉬운 순서로 추천 최대 3개와 기한 문구를 돌려줍니다.
          *
-         *     직업훈련·특강·집단상담 후보에는 고용24 조회 결과(실제 과정·일정)를 붙입니다. (아직 구현 전이라
-         *     501)
+         *     부족하지 않으면 빈 목록입니다. 오늘이 속한 회차가 없으면 404 NO_ACTIVE_ROUND.
+         *     고른 추천은 `POST …/activities`에 `recommendation_id`만 보내 예정 활동으로 넣습니다.
          */
         get: operations["list_recommendations"];
         put?: never;
@@ -306,12 +306,12 @@ export interface paths {
          * 구직활동 추가
          * @description 활동을 직접 기록하거나, 추천을 예정 활동으로 넣습니다.
          *
-         *     - 직접 기록: 날짜·종류·경로·회사 등 활동 값을 보냅니다.
-         *     - 추천 넣기: recommendation_id만 보냅니다.
+         *     - 추천 넣기(F-19): recommendation_id만 보냅니다. 인정일 전날 예정으로 들어가고 계산에는 넣지
+         *       않습니다. 지금 추천 목록에 없으면 409 CONFLICT, 같은 추천을 이미 넣었으면 409
+         *       DUPLICATE_ACTIVITY, 오늘이 속한 회차가 없으면 404 NO_ACTIVE_ROUND입니다.
+         *     - 직접 기록: 날짜·종류·경로·회사 등 활동 값을 보냅니다. (활동 기록 기능에서 붙일 예정이라 501)
          *
-         *     날짜·회사·종류가 같은 활동이 이미 있으면 409 DUPLICATE_ACTIVITY, 지난 회차 날짜면 409
-         *     ROUND_CLOSED입니다.
-         *     Idempotency-Key 헤더를 주면 같은 요청이 두 번 와도 한 번만 만듭니다. (아직 구현 전이라 501)
+         *     Idempotency-Key 헤더를 주면 같은 요청이 두 번 와도 한 번만 만듭니다.
          */
         post: operations["create_activity"];
         delete?: never;
@@ -1435,6 +1435,7 @@ export interface components {
         Recommendation: {
             /** Recommendation Id */
             recommendation_id: string;
+            category: components["schemas"]["ActivityCategory"];
             /** Kind */
             kind: string;
             /** Title */
@@ -2469,15 +2470,6 @@ export interface operations {
             };
             /** @description Internal Server Error */
             500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Not Implemented */
-            501: {
                 headers: {
                     [name: string]: unknown;
                 };

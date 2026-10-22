@@ -11,6 +11,7 @@ from datetime import date
 from typing import Any
 
 JOB_SEARCH = "job_search"
+NON_JOB_SEARCH = "non_job_search"
 
 # 2-2 경로(route) → 고용24 응모 방식 (상세기획 2-3.4, 2026-10-19 결정).
 # 회사 홈페이지·취업 사이트는 고용24 선택지에 없어 `기타`로 둡니다.
