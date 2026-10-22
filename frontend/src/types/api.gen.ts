@@ -358,8 +358,8 @@ export interface paths {
          *
          *     purpose가 resume_doc(이력서 서류)면 판독 뒤 지우고, evidence(구직활동 증빙)면 보관해 활동에
          *     연결합니다.
-         *     너무 크면 413 FILE_TOO_LARGE, 형식이 안 맞으면 415 UNSUPPORTED_FILE입니다. (아직 구현 전이라
-         *     501)
+         *     너무 크면 413 FILE_TOO_LARGE, 확장자나 파일 내용 형식이 안 맞으면 415 UNSUPPORTED_FILE.
+         *     같은 Idempotency-Key로 다시 보내면 처음 결과를 돌려주고, 내용이 다르면 409.
          */
         post: operations["upload_file"];
         delete?: never;
@@ -379,7 +379,6 @@ export interface paths {
          * 증빙 파일 열기
          * @description 보관한 구직활동 증빙 파일의 본문을 돌려줍니다. 자기 계정 파일만 열 수 있고, 다른 계정
          *     파일이면 404입니다.
-         *     (아직 구현 전이라 501)
          */
         get: operations["get_file"];
         put?: never;
@@ -2934,6 +2933,15 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
             /** @description Content Too Large */
             413: {
                 headers: {
@@ -2970,15 +2978,6 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Not Implemented */
-            501: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
         };
     };
     get_file: {
@@ -3000,7 +2999,6 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
                     "application/octet-stream": unknown;
                 };
             };
@@ -3033,15 +3031,6 @@ export interface operations {
             };
             /** @description Internal Server Error */
             500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Not Implemented */
-            501: {
                 headers: {
                     [name: string]: unknown;
                 };
