@@ -12,7 +12,9 @@ import type {
   ChecklistKey,
   ConsentValue,
   FieldMetaRead,
+  NotificationAndPlan,
   RecognitionFormRead,
+  WorkDetails,
 } from '@/types/recognition.types';
 
 type ApplicationRead = components['schemas']['ApplicationRead'];
@@ -26,7 +28,11 @@ const NOTIFICATION: Record<string, string> = {
   email: '전자우편',
   mail: '우편',
 };
-const PRIVACY: Record<string, ConsentValue> = { agree_all: 'agree', disagree: 'disagree' };
+const PRIVACY: Record<string, ConsentValue> = {
+  agree_all: 'agree',
+  agree_required_only: 'agree_required_only',
+  disagree: 'disagree',
+};
 const OTHER_COURSE: Record<string, string> = {
   lecture: '취업특강(온라인, 오프라인) 수강',
   training: '직업훈련 수강',
@@ -34,6 +40,8 @@ const OTHER_COURSE: Record<string, string> = {
   aptitude_test: '직업심리검사',
   volunteer: '고용센터 담당자가 지시한 사회봉사활동',
 };
+/** 다음 출석일까지 할 활동 종류 (next_plan의 kind) */
+const PLAN_KIND: Record<string, string> = { job_search: '구직활동', ...OTHER_COURSE };
 const WORK24_METHOD = '고용24(워크넷)';
 
 const value = (field: FormField | undefined): unknown => field?.value ?? null;
@@ -46,15 +54,46 @@ const yesNo = (field: FormField | undefined): boolean | null => {
   return raw === 'yes' ? true : raw === 'no' ? false : null;
 };
 
-/** 지난 회차에서 불러온 본인 답변이면 `지난 답 · 날짜` 칩이 붙도록 칸 상태를 만듭니다. */
-const previousAnswer = (field: FormField | undefined): FieldMetaRead | undefined =>
-  field?.answered_on && field.value != null
+/**
+ * 지난 회차에서 불러온 본인 답변이면 `지난 답 · 날짜` 칩이 붙도록 칸 상태를 만듭니다.
+ * 이번 회차 답은 대상기간 시작일 이후에 답하므로, 답한 날이 시작일보다 앞선 값만 이월로 봅니다.
+ */
+const previousAnswer = (
+  field: FormField | undefined,
+  periodStart: string,
+): FieldMetaRead | undefined =>
+  field?.answered_on && field.value != null && field.answered_on < periodStart
     ? {
         status: 'confirmed',
         source: 'self_answer',
         evidence: { kind: 'previous_round', date: field.answered_on, note: '지난 회차에 답한 값' },
       }
     : undefined;
+
+const toWorkDetails = (entry: Record<string, unknown>): WorkDetails => ({
+  work_dates: (entry.worked_on as string | undefined) ?? null,
+  total_hours: (entry.hours as number | undefined) ?? null,
+  income_date: (entry.income_received_on as string | undefined) ?? null,
+  income_amount: (entry.amount as number | undefined) ?? null,
+});
+
+/** next_plan은 활동 종류 코드 하나이거나 [{kind, planned_on}] 목록입니다. 종류는 글자로, 날짜는 메모로 보여 줍니다. */
+const nextActivity = (field: FormField | undefined): NotificationAndPlan['next_activity'] => {
+  const raw = value(field);
+  const plans = (Array.isArray(raw) ? raw : raw == null ? [] : [{ kind: raw }]) as {
+    kind?: string;
+    planned_on?: string;
+  }[];
+  const kinds = [
+    ...new Set(plans.map((plan) => (plan.kind ? (PLAN_KIND[plan.kind] ?? plan.kind) : ''))),
+  ].filter(Boolean);
+  const dates = plans.map((plan) => plan.planned_on).filter((date): date is string => !!date);
+  return {
+    value: kinds.length ? kinds.join(', ') : null,
+    memo: dates.length ? dates.join(', ') : null,
+    answered_on: field?.answered_on ?? null,
+  };
+};
 
 const checklistItems = (app: ApplicationRead): ChecklistItem[] => [
   ...app.checklist.blocking.map((item) => ({
@@ -73,9 +112,9 @@ export const recognitionFromApplication = (app: ApplicationRead): RecognitionFor
   const { data } = app;
   const credit = data.credit;
   const entries = value(data.work.entries);
-  const firstWork = Array.isArray(entries)
-    ? (entries[0] as Record<string, unknown> | undefined)
-    : undefined;
+  const workEntries = Array.isArray(entries)
+    ? (entries as Record<string, unknown>[]).map(toWorkDetails)
+    : [];
   const employment = value(data.employment.status);
   const jobSearch = app.job_search_rows.map((row) => ({
     item_id: row.activity_id,
@@ -94,9 +133,9 @@ export const recognitionFromApplication = (app: ApplicationRead): RecognitionFor
   }));
 
   const fieldStates: Record<string, FieldMetaRead> = {};
-  const creditState = previousAnswer(credit.application);
+  const creditState = previousAnswer(credit.application, app.period_start);
   if (creditState) fieldStates.unemployment_credit = creditState;
-  const notificationState = previousAnswer(data.notification_method);
+  const notificationState = previousAnswer(data.notification_method, app.period_start);
   if (notificationState) {
     fieldStates['notification_and_plan.payment_notification_method'] = notificationState;
   }
@@ -127,14 +166,8 @@ export const recognitionFromApplication = (app: ApplicationRead): RecognitionFor
     },
     work_and_employment: {
       has_work_or_service: yesNo(data.work.has_work),
-      work_details: firstWork
-        ? {
-            work_dates: (firstWork.worked_on as string | undefined) ?? null,
-            total_hours: (firstWork.hours as number | undefined) ?? null,
-            income_date: (firstWork.income_received_on as string | undefined) ?? null,
-            income_amount: (firstWork.amount as number | undefined) ?? null,
-          }
-        : null,
+      work_details: workEntries[0] ?? null,
+      work_entries: workEntries,
       has_employment: employment == null ? null : employment !== 'none',
       has_industrial_accident_benefit_right: yesNo(data.industrial_accident.receiving),
       answered_on: data.work.has_work?.answered_on ?? null,
@@ -165,7 +198,7 @@ export const recognitionFromApplication = (app: ApplicationRead): RecognitionFor
     notification_and_plan: {
       payment_notification_method: text(data.notification_method, NOTIFICATION),
       desired_reemployment_type: [],
-      next_activity: { value: null, memo: null, answered_on: null },
+      next_activity: nextActivity(data.next_plan),
     },
     personal_information_consent: {
       value: PRIVACY[String(value(data.privacy_consent))] ?? null,
