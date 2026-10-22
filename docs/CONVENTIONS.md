@@ -91,14 +91,23 @@ feat(ai)!: 에이전트 상태 필드 구조 변경
 | 클래스 | PascalCase | `ProcedureState` |
 | 상수 | UPPER_SNAKE_CASE | `MAX_ASK_COUNT` |
 | DB 테이블 | snake_case 복수형 | `procedure_states` |
-| API 경로 | kebab-case 복수형 | `/forms/{kind}/review` |
-| Pydantic 모델 | 용도 접미사 | `FormDraftRead`, `FormDraftUpdate` |
+| API 경로 | kebab-case 복수형 | `/accounts/{persona_id}/rounds/current` |
+| Pydantic 모델 | 용도 접미사 | `ResumeRead`, `ActivityCreate` |
 
 - 호출 방향은 라우터 → 서비스 → 레포지토리 한 방향. 라우터에는 HTTP 처리만.
 - 조건·벡터·키워드를 합치는 검색 쿼리는 레포지토리에 SQL로 직접 작성합니다.
 - 마이그레이션은 Alembic으로만, 메시지 필수. 마이그레이션 파일은 PR에서 따로 확인합니다.
 - 로그에 이름, 연락처, 발화 원문 등 개인정보를 남기지 않습니다.
 - 비밀값은 `.env`와 GitHub Secrets에만 둡니다.
+
+**API 경로 규칙**
+
+- 리소스는 명사, 동작은 HTTP 메서드. 경로에 동사(`confirm`, `save`, `enter`)를 쓰지 않습니다.
+- 계정 데이터는 모두 `/accounts/{persona_id}/...` 아래에 둡니다. 계정 찾기는 `app/api/deps.py`의 `CurrentUser`가 합니다.
+- 부분 수정은 JSON Patch 배열 `[{op, path, value}]`. 저장·제출은 `/status`를 바꾸는 PATCH이고 다른 칸과 섞지 않습니다.
+- 서류(이력서·신청서) PATCH는 `If-Match`(GET 응답 `ETag`)가 필요합니다. 다르면 409 `VERSION_CONFLICT`.
+- POST(메시지·활동·파일)는 `Idempotency-Key` 헤더를 받습니다.
+- 생성 201(+`Location`), 삭제 204. 시각 계산은 `app/core/clock.py`의 `today_kst()`/`Today` 의존성만 씁니다.
 
 ## 6. AI
 
@@ -116,7 +125,7 @@ feat(ai)!: 에이전트 상태 필드 구조 변경
 
 ## 7. API 응답 · 에러 형식
 
-**성공**: 감싸지 않고 데이터 그대로(`response_model`). 성공·실패는 HTTP 상태 코드로 구분합니다. 목록은 `Page[T]`(`{items, total}`).
+**성공**: 감싸지 않고 데이터 그대로(라우터 함수의 반환 타입이 응답 모델). 성공·실패는 HTTP 상태 코드로 구분합니다. 목록은 `Page[T]`(`{items, total}`).
 
 **실패**: 모든 오류는 한 형식입니다.
 
