@@ -8,6 +8,7 @@ import { PanelFrame } from '@/features/dashboard/PanelFrame';
 
 import type { SessionRead } from '@/types/demo.types';
 import { buildMockSession } from '@/mocks/handlers';
+import { mockFetchPending } from '@/test/mockFetch';
 import { renderWithProviders } from '@/test/renderWithProviders';
 
 const withPanel = (
@@ -91,7 +92,7 @@ describe('패널 E · Q · E5b (정적)', () => {
   });
 
   it('수급이 끝난 계정은 지난 이력서를 다시 볼 때도 고칠 수 없다 (F-33)', () => {
-    vi.spyOn(globalThis, 'fetch').mockReturnValue(new Promise(() => {}));
+    mockFetchPending();
     const session = withPanel('lee', 'B');
     session.state = { ...session.state, stage: 'ended' };
     session.entry = { ...session.entry, branch_id: 'END' };
@@ -104,7 +105,7 @@ describe('패널 E · Q · E5b (정적)', () => {
   });
 
   it('이력서를 고치던 중에 수급이 끝나면 읽기 전용으로 돌아간다 (F-33)', async () => {
-    vi.spyOn(globalThis, 'fetch').mockReturnValue(new Promise(() => {}));
+    mockFetchPending();
     const session = withPanel('lee', 'B');
     const { rerender, queryClient } = renderWithProviders(
       <PanelFrame session={session} reviewStep={1} />,
@@ -132,7 +133,7 @@ describe('패널 E · Q · E5b (정적)', () => {
   });
 
   it('실업인정 단계에서 회차가 없을 뿐이면(END 분기) 이력서는 그대로 고칠 수 있다 (F-33)', () => {
-    vi.spyOn(globalThis, 'fetch').mockReturnValue(new Promise(() => {}));
+    mockFetchPending();
     const session = withPanel('lee', 'B', { stage: 'recognition' });
     session.entry = { ...session.entry, branch_id: 'END' };
 
