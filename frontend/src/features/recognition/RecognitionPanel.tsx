@@ -40,6 +40,7 @@ const OPTIONAL_CHIP: ChipSpec = { label: '선택', tone: 'neutral' };
 
 const CONSENT_LABEL: Record<ConsentValue, string> = {
   agree: '동의함',
+  agree_required_only: '필수 항목만 동의함',
   disagree: '동의하지 않음',
   decide_on_work24: '고용24에서 고르기',
 };
@@ -85,6 +86,8 @@ export const RecognitionPanel = ({
   const shortBy = activity.required.activities - activity.counted.activities;
   const prevChip = (path: string, answeredOn?: string | null) => selfChip(fields[path], answeredOn);
   const workPath = (key: string) => `work_and_employment.${key}`;
+  // 한 회차에 근로내역이 여러 건이면 모두 보여 줍니다(고용24도 근로내역을 건별로 적음).
+  const workList = work.work_entries?.length ? work.work_entries : [work.work_details ?? null];
 
   const handleSubmit = () => {
     const mode = form.submit_mode === 'attend' ? 'attend' : 'send';
@@ -143,42 +146,41 @@ export const RecognitionPanel = ({
         />
         {work.has_work_or_service && (
           <div className="bg-canvas my-1 rounded-xl px-3 py-1">
-            <FieldRow
-              label="근로내역(일한 날)"
-              value={formatWorkDates(work.work_details?.work_dates)}
-              isRequired
-              chip={prevChip(workPath('work_details.work_dates'), work.answered_on)}
-            />
-            <FieldRow
-              label="총 근로시간"
-              value={
-                work.work_details?.total_hours != null
-                  ? `${work.work_details.total_hours}시간`
-                  : null
-              }
-              isRequired
-              chip={prevChip(workPath('work_details.total_hours'), work.answered_on)}
-            />
-            <FieldRow
-              label="소득수령(예정)일"
-              value={
-                work.work_details?.income_date
-                  ? formatShortDate(work.work_details.income_date)
-                  : null
-              }
-              isRequired
-              chip={prevChip(workPath('work_details.income_date'), work.answered_on)}
-            />
-            <FieldRow
-              label="소득수령(예정)액"
-              value={
-                work.work_details?.income_amount != null
-                  ? `${work.work_details.income_amount.toLocaleString('ko-KR')}원`
-                  : null
-              }
-              isRequired
-              chip={prevChip(workPath('work_details.income_amount'), work.answered_on)}
-            />
+            {workList.map((detail, index) => (
+              <div key={index} className={index > 0 ? 'border-line mt-2 border-t pt-2' : undefined}>
+                {workList.length > 1 && (
+                  <p className="text-muted pt-1 text-sm">근로내역 {index + 1}</p>
+                )}
+                <FieldRow
+                  label="근로내역(일한 날)"
+                  value={formatWorkDates(detail?.work_dates)}
+                  isRequired
+                  chip={prevChip(workPath('work_details.work_dates'), work.answered_on)}
+                />
+                <FieldRow
+                  label="총 근로시간"
+                  value={detail?.total_hours != null ? `${detail.total_hours}시간` : null}
+                  isRequired
+                  chip={prevChip(workPath('work_details.total_hours'), work.answered_on)}
+                />
+                <FieldRow
+                  label="소득수령(예정)일"
+                  value={detail?.income_date ? formatShortDate(detail.income_date) : null}
+                  isRequired
+                  chip={prevChip(workPath('work_details.income_date'), work.answered_on)}
+                />
+                <FieldRow
+                  label="소득수령(예정)액"
+                  value={
+                    detail?.income_amount != null
+                      ? `${detail.income_amount.toLocaleString('ko-KR')}원`
+                      : null
+                  }
+                  isRequired
+                  chip={prevChip(workPath('work_details.income_amount'), work.answered_on)}
+                />
+              </div>
+            ))}
             {/* DUE-011~021 · DUE-102: 취업으로 보는 기준과 신고 범위 */}
             <div className="text-muted flex flex-col gap-1 py-1 text-sm">
               <p>
