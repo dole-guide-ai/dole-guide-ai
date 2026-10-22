@@ -10,7 +10,11 @@ from app.models import Activity
 
 
 def list_between(db: Session, user_id: uuid.UUID, start: date, end: date) -> list[Activity]:
-    """대상기간 안의 활동을 날짜·기록 순서대로 돌려줍니다 (같은 날 1건 인정은 먼저 기록한 것)."""
+    """대상기간 안의 활동을 날짜·기록 순서대로 돌려줍니다.
+
+    같은 날 대표가 동점이면 먼저 기록한 것을 고르므로, 기록 시각까지 같을 때도 순서가 바뀌지 않게
+    활동 ID를 마지막 기준으로 둡니다.
+    """
     return list(
         db.scalars(
             select(Activity)
@@ -19,6 +23,6 @@ def list_between(db: Session, user_id: uuid.UUID, start: date, end: date) -> lis
                 Activity.activity_date >= start,
                 Activity.activity_date <= end,
             )
-            .order_by(Activity.activity_date, Activity.created_at)
+            .order_by(Activity.activity_date, Activity.created_at, Activity.activity_id)
         )
     )
