@@ -4,6 +4,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.core.config import get_settings
+from app.services import files as file_service
 
 pytestmark = pytest.mark.integration
 
@@ -126,4 +127,49 @@ def test_delete_account_removes_files(client: TestClient, entered_headers, uploa
 
     client.delete("/accounts/park", headers=headers)
 
+    assert list(upload_dir.glob("*/*")) == []
+
+
+def test_same_key_with_different_name_is_conflict(client: TestClient, entered_headers):
+    headers = entered_headers("park")
+    key = {"Idempotency-Key": "upload-name"}
+
+    upload(client, headers, "a.png", PNG, more_headers=key)
+    other = upload(client, headers, "b.png", PNG, more_headers=key)
+
+    assert other.status_code == 409
+    assert other.json()["code"] == "IDEMPOTENCY_MISMATCH"
+
+
+def test_written_file_is_removed_when_save_fails(
+    client: TestClient, entered_headers, upload_dir: Path, monkeypatch: pytest.MonkeyPatch
+):
+    def failing_run_once(db, user_id, key, body, model, create, **_):
+        create()  # 실물과 행을 쓴 뒤
+        raise RuntimeError("synthetic commit failure")  # commit에서 실패한 상황
+
+    monkeypatch.setattr(file_service, "run_once", failing_run_once)
+    test_client = TestClient(client.app, raise_server_exceptions=False)
+
+    res = upload(test_client, entered_headers("park"), "a.png", PNG)
+
+    assert res.status_code == 500
+    assert list(upload_dir.glob("*/*")) == []
+
+
+def test_loser_of_concurrent_same_key_removes_its_file(
+    client: TestClient, entered_headers, upload_dir: Path, monkeypatch: pytest.MonkeyPatch
+):
+    winner = {"file_id": "00000000-0000-0000-0000-000000000001", "file_name": "a.png",
+              "mime_type": "image/png", "size": len(PNG)}  # fmt: skip
+
+    def replay_winner(db, user_id, key, body, model, create, **_):
+        create()  # 이번 요청도 실물을 썼지만
+        return model.model_validate(winner)  # 먼저 끝난 요청의 결과를 돌려받음
+
+    monkeypatch.setattr(file_service, "run_once", replay_winner)
+
+    res = upload(client, entered_headers("park"), "a.png", PNG)
+
+    assert res.json()["file_id"] == winner["file_id"]
     assert list(upload_dir.glob("*/*")) == []

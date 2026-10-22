@@ -50,15 +50,28 @@ def upload(
     content = _read_limited(stream)
     name = _clean_name(file_name)
     mime = _check_type(name, content)
-    body = {"purpose": purpose.value, "sha256": hashlib.sha256(content).hexdigest()}
-    return run_once(
-        db,
-        account.user_id,
-        idempotency_key,
-        body,
-        FileCreated,
-        lambda: _store(db, account, name, mime, content, purpose),
-    )
+    # 같은 키로 이름이나 내용이 다른 파일을 보내면 다른 요청으로 보고 409입니다.
+    body = {
+        "purpose": purpose.value,
+        "file_name": name,
+        "sha256": hashlib.sha256(content).hexdigest(),
+    }
+    written: list[tuple[str, Path]] = []
+
+    def create() -> FileCreated:
+        created, path = _store(db, account, name, mime, content, purpose)
+        written.append((created.file_id, path))
+        return created
+
+    try:
+        result = run_once(db, account.user_id, idempotency_key, body, FileCreated, create)
+    except Exception:
+        # 행 저장·commit이 실패하면 이번 요청이 쓴 실물도 지웁니다.
+        _remove_written(written)
+        raise
+    # 같은 키가 동시에 와서 먼저 끝난 요청의 결과를 돌려받았으면, 이번에 쓴 실물은 쓸모가 없습니다.
+    _remove_written([(fid, path) for fid, path in written if fid != result.file_id])
+    return result
 
 
 def open_file(db: Session, account: AccountContext, file_id: str) -> tuple[File, Path]:
@@ -83,32 +96,34 @@ def _store(
     mime: str,
     content: bytes,
     purpose: FilePurpose,
-) -> FileCreated:
+) -> tuple[FileCreated, Path]:
+    """실물을 쓰고 files 행을 flush합니다. commit과 실패 시 정리는 `upload`가 합니다."""
     file_id = uuid.uuid4()
     storage_key = f"{account.user_id}/{file_id}"
     path = _upload_root() / storage_key
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_bytes(content)
-    try:
-        row = repo.add(
-            db,
-            File(
-                file_id=file_id,
-                user_id=account.user_id,
-                purpose=purpose.value,
-                file_name=name,
-                mime_type=mime,
-                size=len(content),
-                storage_key=storage_key,
-            ),
-        )
-    except Exception:
-        # 행을 못 남기면 실물도 지워 고아 파일이 남지 않게 합니다.
-        path.unlink(missing_ok=True)
-        raise
-    return FileCreated(
+    row = repo.add(
+        db,
+        File(
+            file_id=file_id,
+            user_id=account.user_id,
+            purpose=purpose.value,
+            file_name=name,
+            mime_type=mime,
+            size=len(content),
+            storage_key=storage_key,
+        ),
+    )
+    created = FileCreated(
         file_id=str(row.file_id), file_name=row.file_name, mime_type=row.mime_type, size=row.size
     )
+    return created, path
+
+
+def _remove_written(written: list[tuple[str, Path]]) -> None:
+    for _, path in written:
+        path.unlink(missing_ok=True)
 
 
 def _read_limited(stream: BinaryIO) -> bytes:
