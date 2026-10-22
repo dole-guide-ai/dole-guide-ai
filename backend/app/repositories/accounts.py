@@ -63,6 +63,11 @@ def get_user(db: Session, visitor_id: uuid.UUID, persona_id: str) -> User | None
     )
 
 
+def lock_user(db: Session, user_id: uuid.UUID) -> None:
+    """같은 계정의 쓰기를 줄 세우려고 계정 행을 트랜잭션 끝까지 잠급니다."""
+    db.execute(select(User.user_id).where(User.user_id == user_id).with_for_update())
+
+
 def get_user_by_id(db: Session, user_id: uuid.UUID) -> User | None:
     return db.get(User, user_id)
 
