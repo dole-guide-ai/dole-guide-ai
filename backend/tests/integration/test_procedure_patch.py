@@ -118,6 +118,8 @@ def test_dates_out_of_range_are_422(
     _patch(client, headers, "/eligibility_applied_on", "2026-10-12")
     # 대기기간(신청일부터 7일) 안의 1차 인정일
     assert _patch(client, headers, "/first_recognition_date", "2026-10-19").status_code == 422
+    # 수급기간·소정급여일수가 끝난 뒤의 1차 인정일
+    assert _patch(client, headers, "/first_recognition_date", "2028-01-04").status_code == 422
 
 
 def test_unknown_path_and_remove_are_422(

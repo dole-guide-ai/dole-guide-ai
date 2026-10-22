@@ -1,6 +1,7 @@
 import { OPEN_FORM_MESSAGE } from '@/features/procedure/activityLabels';
 import { CONFIRMED_MESSAGE } from '@/features/recognition/recognitionLabels';
 
+import { formatShortDate } from '@/lib/dateFormat';
 import { getFormDrafts } from '@/lib/formStore';
 import { getSession } from '@/lib/sessionStore';
 import { citeOf } from '@/lib/sources';
@@ -1337,7 +1338,7 @@ const endedPersonas = new Set<string>();
  * 패널 버튼으로 절차 사실을 넣을 때(`PATCH /accounts/{id}/procedure`, F-16)의 모의 응답.
  * 대화 대본(최영수 E6 → E5a → E5b → E4a)과 같은 상태 전환을 `form_update`로 돌려줍니다.
  */
-export const mockProcedureUpdates = (path: string): FormUpdateEvent[] => {
+export const mockProcedureUpdates = (path: string, value?: unknown): FormUpdateEvent[] => {
   const events =
     path === '/education_done'
       ? CHOI_STEPS['네, 이수했어요']([])
@@ -1346,8 +1347,38 @@ export const mockProcedureUpdates = (path: string): FormUpdateEvent[] => {
         : path === '/first_recognition_date'
           ? choiFirstDate()
           : [];
-  return events.flatMap((event) => (event.event === 'form_update' ? [event.data] : []));
+  const updates = events.flatMap((event) => (event.event === 'form_update' ? [event.data] : []));
+  return typeof value === 'string' ? withEnteredDate(updates, path, value) : updates;
 };
+
+const DAY_MS = 86_400_000;
+
+/** 대본의 고정 날짜 대신 패널에 입력한 날짜를 상태·회차·상단 문구에 넣습니다. */
+const withEnteredDate = (
+  updates: FormUpdateEvent[],
+  path: string,
+  date: string,
+): FormUpdateEvent[] =>
+  updates.map((update) => {
+    const value = update.value as Record<string, unknown> | undefined;
+    if (path === '/eligibility_applied_on' && update.path === 'state') {
+      return { ...update, value: { ...value, eligibility_applied_date: date } };
+    }
+    if (path !== '/first_recognition_date') return update;
+    if (update.path === 'state') {
+      return { ...update, value: { ...value, next_recognition_date: date } };
+    }
+    if (update.path === 'derived') {
+      const today = String(getSession()?.state.demo_today ?? date);
+      const dDay = Math.round((Date.parse(date) - Date.parse(today)) / DAY_MS);
+      const period = value?.period as Record<string, string> | undefined;
+      return { ...update, value: { ...value, d_day: dDay, period: { ...period, end: date } } };
+    }
+    if (update.path === 'entry.next_step_text') {
+      return { ...update, value: `다음 기한 : 1차 실업인정일 ${formatShortDate(date)}` };
+    }
+    return update;
+  });
 
 export const resetMockChat = () => {
   lastAsk = null;

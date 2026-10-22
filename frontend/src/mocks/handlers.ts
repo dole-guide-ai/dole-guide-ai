@@ -131,8 +131,8 @@ export const resolveMock = async <T>(path: string, init?: RequestInit): Promise<
   }
 
   if (method === 'PATCH' && /^\/accounts\/[a-z0-9_-]+\/procedure$/.test(path)) {
-    const ops = parseBody<{ path: string }[]>(init);
-    const updates = mockProcedureUpdates(ops?.[0]?.path ?? '');
+    const ops = parseBody<{ path: string; value?: unknown }[]>(init);
+    const updates = mockProcedureUpdates(ops?.[0]?.path ?? '', ops?.[0]?.value);
     if (!updates.length) throw new ApiError('VALIDATION_ERROR', '바꿀 수 없는 칸이에요.', 422);
     // 단계가 바뀌었으니 직전 질문은 잊고, 다음 자유 입력은 새 단계 첫 질문에 답한 것으로 봅니다.
     resetMockChat();

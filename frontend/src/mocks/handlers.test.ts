@@ -128,6 +128,23 @@ describe('모의 API', () => {
     ).rejects.toMatchObject({ status: 422 });
   });
 
+  it('패널에 입력한 1차 실업인정일을 모의 응답에도 그대로 쓴다 (F-16)', async () => {
+    const res = await resolveMock<{ updates: { path: string; value: unknown }[] }>(
+      '/accounts/choi/procedure',
+      {
+        method: 'PATCH',
+        body: JSON.stringify([
+          { op: 'replace', path: '/first_recognition_date', value: '2026-11-11' },
+        ]),
+      },
+    );
+
+    const byPath = Object.fromEntries(res.updates.map((update) => [update.path, update.value]));
+    expect(byPath.state).toMatchObject({ next_recognition_date: '2026-11-11' });
+    expect(byPath.derived).toMatchObject({ period: { end: '2026-11-11' } });
+    expect(byPath['entry.next_step_text']).toBe('다음 기한 : 1차 실업인정일 11.11(수)');
+  });
+
   it('없는 계정으로는 입장할 수 없다', async () => {
     await expect(resolveMock('/accounts/nobody', { method: 'PUT' })).rejects.toBeInstanceOf(
       ApiError,

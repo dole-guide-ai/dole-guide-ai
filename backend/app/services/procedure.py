@@ -6,7 +6,7 @@
 실업인정 단계로 넘어갑니다. 회차를 고르거나 고치는 값은 받지 않습니다 (설계 3.4).
 """
 
-from datetime import date, timedelta
+from datetime import date
 
 from sqlalchemy.orm import Session
 
@@ -100,11 +100,15 @@ def _first_recognition(
         raise ConflictError(code=ErrorCode.STAGE_ORDER, message=_ALREADY_MESSAGE)
     if state.stage != Stage.ELIGIBILITY_APPLIED or state.eligibility_applied_on is None:
         raise ConflictError(code=ErrorCode.STAGE_ORDER, message=_ORDER_MESSAGE[FIRST_RECOGNITION])
-    waiting_end = state.eligibility_applied_on + timedelta(days=periods.WAITING_DAYS)
-    if first <= waiting_end:
+    applied = state.eligibility_applied_on
+    end_date = periods.expected_end_date(
+        periods.benefit_end_date(applied, state.benefit_days),
+        periods.period_end_date(state.separation_date),
+    )
+    if not periods.first_recognition_in_range(applied, first, end_date):
         raise UnprocessableError(
             message=(
-                "1차 실업인정일은 신청일부터 7일 대기기간이 지난 뒤예요. "
+                "1차 실업인정일은 신청일부터 7일 대기기간이 지난 뒤, 수급기간 안의 날짜예요. "
                 "안내문 날짜를 확인해 주세요."
             )
         )
