@@ -57,7 +57,11 @@ export const RecognitionPanel = ({
   onBackToRound,
   onConfirmed,
 }: RecognitionPanelProps) => {
-  const query = useRecognitionForm(session.session_id, session.derived.current_round);
+  const query = useRecognitionForm(
+    session.session_id,
+    session.derived.current_round,
+    session.persona_id,
+  );
   const draft = useRecognitionDraft();
   const confirm = useConfirmRecognition();
 

@@ -1,0 +1,111 @@
+import { describe, expect, it } from 'vitest';
+
+import { recognitionFromApplication } from '@/lib/applicationForm';
+import type { components } from '@/types/api.gen';
+
+type ApplicationRead = components['schemas']['ApplicationRead'];
+
+const answered = (value: string) => ({
+  value,
+  status: 'confirmed' as const,
+  source: 'user_answer' as const,
+  transformed: false,
+  answered_on: '2026-11-24',
+});
+const empty = () => ({ status: 'missing' as const, transformed: false });
+
+const application = (overrides: Partial<ApplicationRead> = {}): ApplicationRead => ({
+  round: 4,
+  status: 'draft',
+  lock_version: 1,
+  period_start: '2026-11-25',
+  period_end: '2026-12-22',
+  recognition_date: '2026-12-22',
+  attendance_required: true,
+  required_activities: 2,
+  required_job_search: 1,
+  data: {
+    work: { has_work: empty(), entries: empty() },
+    employment: { status: empty(), started_on: empty() },
+    industrial_accident: { receiving: empty() },
+    credit: {
+      application: answered('wish'),
+      notice_method: answered('electronic'),
+      auto_payment: answered('not_wish'),
+      income_asset_consent: answered('agree'),
+    },
+    notification_method: answered('sms'),
+    next_plan: empty(),
+    privacy_consent: empty(),
+  },
+  job_search_rows: [
+    {
+      activity_id: 'a1',
+      activity_date: '2026-12-08',
+      company_name: 'OO물류',
+      application_method: '고용24(워크넷)',
+      job_search_method: '고용24(워크넷)',
+      file_ids: [],
+    },
+  ],
+  other_rows: [],
+  excluded_rows: [
+    { activity_id: 'a2', reason: 'same_day', activity_date: '2026-12-08', company_name: 'OO상사' },
+  ],
+  checklist: { blocking: [{ key: 'self_answers', text: '본인 답변' }], warnings: [] },
+  submit_mode: 'preview',
+  can_submit: false,
+  ...overrides,
+});
+
+describe('recognitionFromApplication (F-23)', () => {
+  it('회차 정보·구직활동 줄·같은 날 뺀 활동을 패널 C 모양으로 옮긴다', () => {
+    const form = recognitionFromApplication(application());
+
+    expect(form.recognition_round).toBe(4);
+    expect(form.recognition_info).toEqual({
+      recognition_date: '2026-12-22',
+      period_start: '2026-11-25',
+      period_end: '2026-12-22',
+      attendance_round: true,
+    });
+    expect(form.reemployment_activity.required).toEqual({ activities: 2, job_search: 1 });
+    expect(form.reemployment_activity.job_search_activities.map((a) => a.company_name)).toEqual([
+      'OO물류',
+    ]);
+    expect(form.reemployment_activity.job_search_activities[0].source).toBe('work24_import');
+    expect(form.reemployment_activity.excluded).toEqual([
+      { item_id: 'a2', reason: 'same_day', activity_date: '2026-12-08', company_name: 'OO상사' },
+    ]);
+    expect(form.attend_items).toEqual(['id_card', 'eligibility_card']);
+    expect(form.checklist).toEqual([{ key: 'self_answers', done: false, blocking: true }]);
+  });
+
+  it('선택지 코드를 고용24 화면 글자로 바꾸고, 지난 회차 답에는 지난 답 칸 상태를 붙인다', () => {
+    const form = recognitionFromApplication(application());
+
+    expect(form.unemployment_credit).toMatchObject({
+      credit_application_choice: '희망함',
+      notice_delivery_method: '전자고지',
+      automatic_payment_choice: '희망하지 않음',
+      income_asset_consent: '동의함',
+      answered_on: '2026-11-24',
+    });
+    expect(form.notification_and_plan.payment_notification_method).toBe('휴대전화 문자메시지');
+    expect(form.field_states['notification_and_plan.payment_notification_method']).toMatchObject({
+      source: 'self_answer',
+      evidence: { kind: 'previous_round', date: '2026-11-24' },
+    });
+    expect(form.work_and_employment.has_work_or_service).toBeNull();
+  });
+
+  it('취업 잠금과 제출된 회차를 바꾼다', () => {
+    const form = recognitionFromApplication(
+      application({ status: 'submitted', locked_reason: 'employed' }),
+    );
+
+    expect(form.locked_reason).toBe('employment');
+    expect(form.status).toBe('finalized');
+    expect(form.mock_submission).toBe('attend_ready');
+  });
+});
