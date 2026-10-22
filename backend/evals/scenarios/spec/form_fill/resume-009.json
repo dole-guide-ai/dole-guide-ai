@@ -1,0 +1,6 @@
+{
+  "id": "form_fill/resume-009",
+  "description": "'연봉 3천' → 나눠 계산하지 않고 월급으로 다시 묻기",
+  "source": "상세기획 2-1.9",
+  "pending": "이력서 규칙·대화(F-14·F-15)와 AI 연결(golden/adapter.run_agent) 전"
+}

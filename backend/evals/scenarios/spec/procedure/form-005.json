@@ -1,0 +1,6 @@
+{
+  "id": "procedure/form-005",
+  "description": "출석 준비 확인 뒤 '다음은 1월 19일이래요' → 5차, D-28, E4b",
+  "source": "상세기획 2-3.10",
+  "pending": "다음 회차로 넘기기(advance_round)와 대화 연결 전"
+}

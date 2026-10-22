@@ -1,0 +1,16 @@
+{
+  "id": "procedure/form-011",
+  "description": "60세 이상 그룹 8차, 기준일 = 인정일 → attend",
+  "source": "상세기획 2-3.10",
+  "rule": "submit_mode",
+  "args": {
+    "now": "2027-06-01T10:00:00+09:00",
+    "recognition_date": "2027-06-01",
+    "group": "age65_or_disabled",
+    "round": 8
+  },
+  "expected": {
+    "attendance_required": true,
+    "submit_mode": "attend"
+  }
+}
