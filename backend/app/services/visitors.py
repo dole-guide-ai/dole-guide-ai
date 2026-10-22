@@ -24,9 +24,14 @@ class VisitorContext:
     visitor_id: uuid.UUID
 
 
+def _expiry(now: datetime) -> datetime:
+    """마지막 접속 + VISITOR_TTL_DAYS. 이 시각이 지나면 정리 작업이 지웁니다."""
+    return now + timedelta(days=get_settings().visitor_ttl_days)
+
+
 def create_visitor(db: Session, now: datetime) -> VisitorCreated:
     token = new_visitor_token()
-    expires_at = now + timedelta(days=get_settings().visitor_ttl_days)
+    expires_at = _expiry(now)
     repo.add_visitor(db, hash_token(token), now, expires_at)
     db.commit()
     return VisitorCreated(visitor_token=token, expires_at=expires_at)
@@ -40,6 +45,6 @@ def authenticate(db: Session, token: str | None, now: datetime) -> VisitorContex
     if visitor is None or visitor.expires_at <= now:
         raise UnauthorizedError()
     visitor.last_seen_at = now
-    visitor.expires_at = now + timedelta(days=get_settings().visitor_ttl_days)
+    visitor.expires_at = _expiry(now)
     db.commit()
     return VisitorContext(visitor.visitor_id)

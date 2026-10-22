@@ -6,6 +6,7 @@ UUID 기본키, 생성·수정 시각, 계정이 지워지면 같이 지워지�
 
 import uuid
 from datetime import datetime
+from enum import StrEnum
 from typing import Annotated
 
 from sqlalchemy import DateTime, ForeignKey, func
@@ -31,6 +32,11 @@ def user_fk(**kwargs: object) -> object:
     return mapped_column(
         UUID(as_uuid=True), ForeignKey("users.user_id", ondelete="CASCADE"), **kwargs
     )
+
+
+def enum_values(enum: type[StrEnum]) -> tuple[str, ...]:
+    """enum 값 목록. CHECK 제약을 스키마 enum과 같은 값으로 만들 때 씁니다."""
+    return tuple(member.value for member in enum)
 
 
 def in_check(column: str, values: tuple[str, ...]) -> str:

@@ -43,11 +43,17 @@ def get_current_account(
 
 CurrentAccount = Annotated[account_service.AccountContext, Depends(get_current_account)]
 
+IDEMPOTENCY_KEY_MAX_LENGTH = 100
+
 IfMatch = Annotated[
     str | None,
     Header(alias="If-Match", description="서류 GET 응답의 ETag. 다르면 409 VERSION_CONFLICT"),
 ]
 IdempotencyKey = Annotated[
     str | None,
-    Header(alias="Idempotency-Key", max_length=100, description="POST 재시도 중복 방지 키"),
+    Header(
+        alias="Idempotency-Key",
+        max_length=IDEMPOTENCY_KEY_MAX_LENGTH,
+        description="POST 재시도 중복 방지 키",
+    ),
 ]

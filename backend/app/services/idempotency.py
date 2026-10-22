@@ -17,9 +17,9 @@ from collections.abc import Callable
 from typing import Any
 
 from pydantic import BaseModel
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.core.db import create_or_existing
 from app.core.errors import ConflictError
 from app.repositories import idempotency as repo
 from app.schemas.common import ErrorCode
@@ -51,17 +51,13 @@ def run_once[T: BaseModel](
         return _replay(stored, digest, model)
 
     result = create()
-    try:
-        repo.add(db, user_id, key, digest, status_code, result.model_dump(mode="json"))
-        db.commit()
-    except IntegrityError:
-        # 같은 키가 거의 동시에 두 번 왔습니다. 먼저 끝난 쪽 결과를 돌려줍니다.
-        db.rollback()
-        stored = repo.get(db, user_id, key)
-        if stored is None:
-            raise
-        return _replay(stored, digest, model)
-    return result
+    # 같은 키가 거의 동시에 두 번 왔으면 먼저 끝난 쪽 결과를 돌려줍니다.
+    stored, created = create_or_existing(
+        db,
+        lambda: repo.add(db, user_id, key, digest, status_code, result.model_dump(mode="json")),
+        lambda: repo.get(db, user_id, key),
+    )
+    return result if created else _replay(stored, digest, model)
 
 
 def _replay[T: BaseModel](stored: Any, digest: str, model: type[T]) -> T:

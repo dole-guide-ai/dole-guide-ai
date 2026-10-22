@@ -72,6 +72,10 @@ class Settings(BaseSettings):
     upload_dir: str = "./uploads"
     max_upload_mb: int = 4
     turn_timeout_seconds: int = 180
+    # 모델 호출 하나의 대기 시간. 턴 타임아웃보다 짧아야 턴 안에서 실패를 알릴 수 있습니다.
+    llm_timeout_seconds: int = 60
+    # POST 재시도 방지 키(Idempotency-Key)를 보관하는 시간
+    idempotency_ttl_hours: int = 24
 
     @field_validator("judge_provider", "cors_origin_regex", mode="before")
     @classmethod
