@@ -155,7 +155,7 @@ export interface paths {
          * @description 지금 절차 단계, 수급자 유형, 소정급여일수, 수급기간 끝과 종료 예정일을 돌려줍니다.
          *
          *     종료 예정일은 급여 소진 예정일과 수급기간 끝(이직 다음 날부터 12개월) 중 이른 날이며, 실제는
-         *     고용센터 확인이 필요합니다.
+         *     고용센터 확인이 필요합니다. 회차가 만들어졌으면 남은 회차 수와 마지막 회차 번호도 들어갑니다.
          */
         get: operations["get_procedure"];
         put?: never;
@@ -262,7 +262,11 @@ export interface paths {
          *     본인 답변 칸, 인정 활동에서 만든 구직활동 줄, 제출을 막는 항목과 경고, 지금 시각 기준 제출
          *     방식(submit_mode),
          *     잠금 사유(취업·산재), 신청인·지급계좌 표시값이 들어 있습니다. round에는 회차 번호나 current를
-         *     넣습니다. (아직 구현 전이라 501)
+         *     넣습니다.
+         *
+         *     구직활동 줄은 그 회차 대상기간의 실제 활동에서 만들고(같은 날 2건째는 excluded_rows),
+         *     지난 회차에 답한 통지 방법·실업크레딧은 이번 회차가 비어 있으면 불러옵니다.
+         *     오늘이 속한 회차가 없으면(current) 404 NO_ACTIVE_ROUND, 없는 회차 번호면 404입니다.
          */
         get: operations["get_application"];
         put?: never;
@@ -665,12 +669,43 @@ export interface components {
             status: components["schemas"]["ApplicationStatus"];
             /** Lock Version */
             lock_version: number;
+            /**
+             * Period Start
+             * Format: date
+             */
+            period_start: string;
+            /**
+             * Period End
+             * Format: date
+             */
+            period_end: string;
+            /**
+             * Recognition Date
+             * Format: date
+             */
+            recognition_date: string;
+            /** Attendance Required */
+            attendance_required: boolean;
+            /** Required Activities */
+            required_activities: number;
+            /** Required Job Search */
+            required_job_search: number;
             data: components["schemas"]["RecognitionData"];
             /**
              * Job Search Rows
              * @default []
              */
             job_search_rows: components["schemas"]["JobSearchRow"][];
+            /**
+             * Other Rows
+             * @default []
+             */
+            other_rows: components["schemas"]["OtherActivityRow"][];
+            /**
+             * Excluded Rows
+             * @default []
+             */
+            excluded_rows: components["schemas"]["ExcludedRow"][];
             checklist: components["schemas"]["Checklist"];
             submit_mode: components["schemas"]["SubmitMode"];
             /** Can Submit */
@@ -869,6 +904,23 @@ export interface components {
             message: string;
             /** Details */
             details?: unknown;
+        };
+        /**
+         * ExcludedRow
+         * @description 계산에서 뺀 활동 (같은 날 2건째 등). 신청서에는 넣지 않고 참고로만 보여 줍니다.
+         */
+        ExcludedRow: {
+            /** Activity Id */
+            activity_id: string;
+            /** Reason */
+            reason: string;
+            /**
+             * Activity Date
+             * Format: date
+             */
+            activity_date: string;
+            /** Company Name */
+            company_name?: string | null;
         };
         /**
          * ExternalSource
@@ -1147,6 +1199,23 @@ export interface components {
              */
             created_at: string;
         };
+        /**
+         * OtherActivityRow
+         * @description 구직활동 외 활동사항 한 줄 (취업특강·직업훈련 등). 인정 활동에서 만듭니다.
+         */
+        OtherActivityRow: {
+            /** Activity Id */
+            activity_id: string;
+            /**
+             * Activity Date
+             * Format: date
+             */
+            activity_date: string;
+            /** Kind */
+            kind: string;
+            /** Details */
+            details?: string | null;
+        };
         /** Page[ActivityRead] */
         Page_ActivityRead_: {
             /** Items */
@@ -1220,6 +1289,10 @@ export interface components {
             /** Expected End Date */
             expected_end_date?: string | null;
             end_reason?: components["schemas"]["EndReason"] | null;
+            /** Remaining Rounds */
+            remaining_rounds?: number | null;
+            /** Last Round */
+            last_round?: number | null;
         };
         /** ProfileDisplay */
         ProfileDisplay: {
@@ -2471,15 +2544,6 @@ export interface operations {
             };
             /** @description Internal Server Error */
             500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Not Implemented */
-            501: {
                 headers: {
                     [name: string]: unknown;
                 };

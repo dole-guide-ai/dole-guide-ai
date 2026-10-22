@@ -62,6 +62,10 @@ export const sessionFromAccount = (account: AccountRead): SessionRead => {
       required: null,
       required_job_search: null,
       can_presubmit_online: procedure.age_at_separation < 65,
+      expected_end_date: procedure.expected_end_date ?? null,
+      remaining_rounds: procedure.remaining_rounds ?? null,
+      last_round: procedure.last_round ?? null,
+      end_reason: procedure.end_reason ?? null,
     },
     entry: {
       ...entry,

@@ -2,10 +2,15 @@ import { useEffect } from 'react';
 
 import { useQuery } from '@tanstack/react-query';
 
+import { isServerSession } from '@/lib/accountSession';
 import { apiFetch } from '@/lib/api';
+import { recognitionFromApplication } from '@/lib/applicationForm';
 import { type FormDraft, replaceFormDraft } from '@/lib/formStore';
 import { queryKeys } from '@/lib/queryKeys';
+import type { components } from '@/types/api.gen';
 import type { RecognitionFormRead } from '@/types/recognition.types';
+
+type ApplicationRead = components['schemas']['ApplicationRead'];
 
 /** 서버 초안(2-3.10 JSON)을 양식 저장소 형태로 바꿉니다. `field_states`는 칸 상태, 나머지는 값입니다. */
 export const toRecognitionDraft = (read: RecognitionFormRead): FormDraft => {
@@ -13,14 +18,26 @@ export const toRecognitionDraft = (read: RecognitionFormRead): FormDraft => {
   return { values, fields: field_states };
 };
 
+/** 실제 서버: `GET /accounts/{id}/rounds/{round}/application`(F-23)을 패널 C 모양으로 바꿉니다. */
+const fetchApplication = async (personaId: string, round: number | null) => {
+  const app = await apiFetch<ApplicationRead>(
+    `/accounts/${encodeURIComponent(personaId)}/rounds/${round ?? 'current'}/application`,
+  );
+  return recognitionFromApplication(app);
+};
+
 /**
- * `GET /forms/recognition`을 한 번 받아 양식 저장소 `recognition`에 넣습니다.
+ * 회차 신청서를 한 번 받아 양식 저장소 `recognition`에 넣습니다.
+ * 모의 세션은 `GET /forms/recognition`, 실제 서버에서 받은 세션(`acct-`)은 회차 신청서 API를 씁니다.
  * 본인 답변 같은 변화는 대화의 `form_update`가 맡고, 회차가 바뀌면 새로 받습니다.
  */
-export const useRecognitionForm = (sessionId: string, round: number | null) => {
+export const useRecognitionForm = (sessionId: string, round: number | null, personaId?: string) => {
   const query = useQuery({
     queryKey: queryKeys.recognitionForm(sessionId, round),
-    queryFn: () => apiFetch<RecognitionFormRead>('/forms/recognition'),
+    queryFn: () =>
+      !isServerSession(sessionId) || !personaId
+        ? apiFetch<RecognitionFormRead>('/forms/recognition')
+        : fetchApplication(personaId, round),
     staleTime: Infinity,
     refetchOnWindowFocus: false,
   });

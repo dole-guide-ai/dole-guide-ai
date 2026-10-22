@@ -20,18 +20,20 @@ from sqlalchemy.orm import Session
 from app.core import crypto
 from app.core.clock import KST
 from app.core.config import get_settings
-from app.core.errors import NotFoundError
+from app.core.errors import ConflictError, NotFoundError
 from app.repositories import accounts as repo
 from app.rules import periods
 from app.schemas.accounts import AccountRead, PersonaCard, PersonaDisplay, PersonaList
 from app.schemas.common import ErrorCode
 from app.schemas.forms import recognition as recognition_form
 from app.schemas.forms import resume as resume_form
-from app.schemas.procedure import ProcedureRead
+from app.schemas.procedure import ProcedureRead, Stage
 from app.schemas.rounds import ApplicationStatus, RoundStatus, RoundSummary
 from app.services import messages as message_service
 from app.services.entry import build_entry
 from app.services.seed import at
+
+ENDED_MESSAGE = "실업급여 수급이 끝나서 더 고칠 수 없어요."
 
 STAGE_LABEL = {
     "job_registration": "구직등록 중",
@@ -119,7 +121,7 @@ def delete_account(db: Session, account: AccountContext) -> None:
 
 
 def read_account(db: Session, account: AccountContext, today: date) -> AccountRead:
-    procedure = read_procedure(db, account.user_id)
+    procedure = read_procedure(db, account.user_id, today)
     rounds = read_rounds(db, account.user_id, today)
     current = next((r for r in rounds if r.status == RoundStatus.CURRENT), None)
     d_day = (current.recognition_date - today).days if current else None
@@ -135,16 +137,54 @@ def read_account(db: Session, account: AccountContext, today: date) -> AccountRe
     )
 
 
-def read_procedure(db: Session, user_id: uuid.UUID) -> ProcedureRead:
-    state = repo.get_procedure(db, user_id)
-    if state is None:
-        raise NotFoundError(code=ErrorCode.ACCOUNT_NOT_FOUND)
+def _end_dates(state) -> tuple[date | None, date]:
     benefit_end = (
         periods.benefit_end_date(state.eligibility_applied_on, state.benefit_days)
         if state.eligibility_applied_on
         else None
     )
-    period_end = periods.period_end_date(state.separation_date)
+    return benefit_end, periods.period_end_date(state.separation_date)
+
+
+def _close_if_ended(db: Session, user_id: uuid.UUID, today: date) -> None:
+    """실업인정 중인데 종료 예정일이 지났으면 단계를 ended로 바꿉니다 (서버 진단, F-33).
+
+    마지막 회차의 인정일은 종료 예정일보다 뒤일 수 있어서, 그 인정일까지 지나야 끝냅니다.
+    """
+    state = repo.get_procedure(db, user_id)
+    if state is None or state.stage != Stage.RECOGNITION:
+        return
+    reason = periods.end_reason_on(today, *_end_dates(state))
+    recognition_dates = [r.recognition_date for r in repo.list_rounds(db, user_id)]
+    if reason is None or periods.remaining_rounds(recognition_dates, today) > 0:
+        return
+    state.stage = Stage.ENDED
+    state.end_reason = reason
+    db.commit()
+
+
+def ensure_not_ended(db: Session, user_id: uuid.UUID) -> None:
+    """수급이 끝난 계정은 활동·신청서·절차를 고칠 수 없습니다 (F-33).
+
+    쓰기 서비스 앞에서 부릅니다.
+    """
+    state = repo.get_procedure(db, user_id)
+    if state is not None and state.stage == Stage.ENDED:
+        raise ConflictError(code=ErrorCode.STAGE_ORDER, message=ENDED_MESSAGE)
+
+
+def read_procedure(db: Session, user_id: uuid.UUID, today: date | None = None) -> ProcedureRead:
+    """절차 상태를 돌려줍니다.
+
+    오늘 날짜를 주면 먼저 종료 진단을 해서 계정 조회와 절차 조회가 같은 단계를 돌려줍니다.
+    """
+    if today is not None:
+        _close_if_ended(db, user_id, today)
+    state = repo.get_procedure(db, user_id)
+    if state is None:
+        raise NotFoundError(code=ErrorCode.ACCOUNT_NOT_FOUND)
+    benefit_end, period_end = _end_dates(state)
+    recognition_dates = [r.recognition_date for r in repo.list_rounds(db, user_id)]
     return ProcedureRead(
         stage=state.stage,
         recipient_group=state.recipient_group,
@@ -159,6 +199,12 @@ def read_procedure(db: Session, user_id: uuid.UUID) -> ProcedureRead:
         period_end_date=period_end,
         expected_end_date=periods.expected_end_date(benefit_end, period_end),
         end_reason=state.end_reason,
+        remaining_rounds=(
+            periods.remaining_rounds(recognition_dates, today)
+            if recognition_dates and today
+            else None
+        ),
+        last_round=len(recognition_dates) or None,
     )
 
 
