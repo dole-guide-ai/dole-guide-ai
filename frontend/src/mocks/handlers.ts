@@ -16,7 +16,7 @@ import {
   MOCK_RECOMMENDATIONS,
   MOCK_ROUND_CHECKS,
 } from './activities';
-import { resetMockChat } from './chatScripts';
+import { mockProcedureUpdates, resetMockChat } from './chatScripts';
 import { MOCK_AFTER_RESUME_ENTRIES, MOCK_ENTRIES } from './entries';
 import { MOCK_IMPORTS, mockImportList } from './imports';
 import { MOCK_MY_DATA, MOCK_MY_DATA_DELETE_UPDATES, MOCK_NOT_STORED } from './myData';
@@ -128,6 +128,15 @@ export const resolveMock = async <T>(path: string, init?: RequestInit): Promise<
     const account = mockAccount(accountMatch[1]);
     enterMockAccount(account.persona_id);
     return account as T;
+  }
+
+  if (method === 'PATCH' && /^\/accounts\/[a-z0-9_-]+\/procedure$/.test(path)) {
+    const ops = parseBody<{ path: string }[]>(init);
+    const updates = mockProcedureUpdates(ops?.[0]?.path ?? '');
+    if (!updates.length) throw new ApiError('VALIDATION_ERROR', '바꿀 수 없는 칸이에요.', 422);
+    // 단계가 바뀌었으니 직전 질문은 잊고, 다음 자유 입력은 새 단계 첫 질문에 답한 것으로 봅니다.
+    resetMockChat();
+    return { updates } as T;
   }
 
   // 새로 고침 뒤에는 모듈 상태가 비므로, 저장된 세션의 계정으로 이어 갑니다 (모의 전용).

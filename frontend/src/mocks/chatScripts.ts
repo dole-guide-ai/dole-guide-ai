@@ -1333,6 +1333,22 @@ let lastAsk: { personaId: string; data: AskUserEvent } | null = null;
 const endedPersonas = new Set<string>();
 
 /** 계정을 고를 때(`PUT /accounts/{id}`)와 이력서를 저장해 단계가 바뀔 때 비웁니다. */
+/**
+ * 패널 버튼으로 절차 사실을 넣을 때(`PATCH /accounts/{id}/procedure`, F-16)의 모의 응답.
+ * 대화 대본(최영수 E6 → E5a → E5b → E4a)과 같은 상태 전환을 `form_update`로 돌려줍니다.
+ */
+export const mockProcedureUpdates = (path: string): FormUpdateEvent[] => {
+  const events =
+    path === '/education_done'
+      ? CHOI_STEPS['네, 이수했어요']([])
+      : path === '/eligibility_applied_on'
+        ? CHOI_STEPS['방문 신청했어요']([])
+        : path === '/first_recognition_date'
+          ? choiFirstDate()
+          : [];
+  return events.flatMap((event) => (event.event === 'form_update' ? [event.data] : []));
+};
+
 export const resetMockChat = () => {
   lastAsk = null;
   endedPersonas.clear();

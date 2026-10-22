@@ -183,6 +183,28 @@ def read_rounds(db: Session, user_id: uuid.UUID, today: date) -> list[RoundSumma
     return summaries
 
 
+def resume_is_saved(db: Session, user_id: uuid.UUID) -> bool:
+    """구직등록용 이력서를 이직 뒤에 저장했는지(resume_status = ready).
+
+    교육 이수를 표시하기 전에 봅니다 (F-16).
+    """
+    return _resume_status(db, user_id, read_procedure(db, user_id)) == "ready"
+
+
+def create_rounds(db: Session, user_id: uuid.UUID, state: Any) -> None:
+    """1차 인정일이 들어온 계정에 회차와 회차별 빈 신청서를 만듭니다 (F-16, 설계 3.4)."""
+    _materialize_rounds(
+        db,
+        user_id,
+        {},
+        state.recipient_group,
+        state.eligibility_applied_on,
+        state.first_recognition_date,
+        state.benefit_days,
+        state.separation_date,
+    )
+
+
 def _resume_status(db: Session, user_id: uuid.UUID, procedure: ProcedureRead) -> str | None:
     """1장 1.2 resume_status: none / outdated / draft / ready."""
     resume = repo.get_resume(db, user_id)

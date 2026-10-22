@@ -144,7 +144,7 @@ export const PanelFrame = ({
       {panel === 'B' &&
         (state.stage === 'eligibility_applied' || !state.next_recognition_date ? (
           // E5b · 1.10 예외: 인정일을 모르면 회차 점검 대신 1차 실업인정일을 먼저 받습니다.
-          <FirstDatePanel state={state} />
+          <FirstDatePanel state={state} personaId={session.persona_id} />
         ) : (
           <RoundPanel session={session} onOpenForm={onOpenForm} />
         ))}
@@ -158,9 +158,11 @@ export const PanelFrame = ({
         />
       )}
 
-      {panel === 'E' && <EducationPanel state={state} />}
+      {panel === 'E' && <EducationPanel state={state} personaId={session.persona_id} />}
 
-      {panel === 'Q' && <EligibilityPanel state={state} derived={session.derived} />}
+      {panel === 'Q' && (
+        <EligibilityPanel state={state} derived={session.derived} personaId={session.persona_id} />
+      )}
     </aside>
   );
 };

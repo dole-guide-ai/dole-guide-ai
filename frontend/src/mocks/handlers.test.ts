@@ -106,6 +106,28 @@ describe('모의 API', () => {
     resetForms();
   });
 
+  it('패널 버튼으로 교육 이수를 넣으면 대화 대본과 같은 단계 전환을 돌려준다 (F-16)', async () => {
+    const res = await resolveMock<{ updates: { form: string; path: string; value: unknown }[] }>(
+      '/accounts/choi/procedure',
+      {
+        method: 'PATCH',
+        body: JSON.stringify([{ op: 'replace', path: '/education_done', value: true }]),
+      },
+    );
+
+    const state = res.updates.find((update) => update.path === 'state');
+    expect(state?.value).toMatchObject({ stage: 'eligibility_application', education_done: true });
+    expect(res.updates).toContainEqual(
+      expect.objectContaining({ path: 'entry.panel', value: 'Q' }),
+    );
+    await expect(
+      resolveMock('/accounts/choi/procedure', {
+        method: 'PATCH',
+        body: JSON.stringify([{ op: 'replace', path: '/stage', value: 'x' }]),
+      }),
+    ).rejects.toMatchObject({ status: 422 });
+  });
+
   it('없는 계정으로는 입장할 수 없다', async () => {
     await expect(resolveMock('/accounts/nobody', { method: 'PUT' })).rejects.toBeInstanceOf(
       ApiError,

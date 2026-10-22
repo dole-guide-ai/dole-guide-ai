@@ -1,21 +1,24 @@
 import { EvidenceLine } from '@/components/EvidenceLine';
 import { FieldRow } from '@/features/resume/FieldRow';
+import { ProcedureFactForm } from '@/features/steps/ProcedureFactForm';
 
 import { citeOf } from '@/lib/sources';
 import type { UserState } from '@/types/demo.types';
 
 /**
  * 패널 E 온라인 교육 (1.6 E6 · 1.8). 대화 과정은 기획 "예정"이라 1.8 표 수준의 정적 화면입니다.
- * 이수 여부는 상태 값(`education_done`)을 그대로 보여 주고, 이수 확인은 대화로 받습니다.
+ * 이수 여부는 상태 값(`education_done`)을 그대로 보여 주고, 이수 확인은 버튼(`PATCH …/procedure`)이나 대화로 받습니다 (F-16).
  */
 interface EducationPanelProps {
   state: UserState;
+  /** 있으면 이수 표시 버튼을 보입니다 */
+  personaId?: string;
   isReadOnly?: boolean;
 }
 
 const SOURCE_WORK24 = citeOf('SRC-001');
 
-export const EducationPanel = ({ state, isReadOnly = false }: EducationPanelProps) => {
+export const EducationPanel = ({ state, personaId, isReadOnly = false }: EducationPanelProps) => {
   const isVisit = state.age_at_separation >= 65;
 
   return (
@@ -50,10 +53,13 @@ export const EducationPanel = ({ state, isReadOnly = false }: EducationPanelProp
           chip={{ label: '자동', tone: 'neutral' }}
         />
       </dl>
-      {!isReadOnly && !state.education_done && (
-        <p className="bg-brand-soft text-brand rounded-xl px-4 py-3 text-base">
-          교육을 다 들으셨으면 대화창 아래 &lsquo;교육 다 들었어요&rsquo;를 눌러 알려 주세요.
-        </p>
+      {!isReadOnly && !state.education_done && personaId && (
+        <ProcedureFactForm
+          personaId={personaId}
+          path="/education_done"
+          buttonLabel="교육을 다 들었어요"
+          hint="고용24에서 교육 이수가 끝난 걸 확인하셨으면 눌러 주세요. 대화창에 알려 주셔도 돼요."
+        />
       )}
       <EvidenceLine cite={SOURCE_WORK24} />
     </div>
