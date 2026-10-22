@@ -149,6 +149,40 @@ describe('RoundPanel', () => {
     expect(onOpenForm).toHaveBeenCalledTimes(1);
   });
 
+  it('실제 서버 세션은 계정 회차 점검으로 부족 건수를 정하고, 충족이면 바로 넘어간다 (F-22)', async () => {
+    const serverRound = (remaining: number) => ({
+      round: 4,
+      period_start: '2026-11-25',
+      period_end: '2026-12-22',
+      recognition_date: '2026-12-22',
+      attendance_required: true,
+      status: 'current',
+      application_status: 'draft',
+      d_day: 3,
+      required: 2,
+      required_job_search: 1,
+      counted: 2 - remaining,
+      remaining,
+    });
+    const fetchSpy = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(Response.json(serverRound(0)));
+    const onOpenForm = vi.fn();
+    renderWithProviders(
+      <RoundPanel
+        session={{ ...session(), session_id: 'acct-lee-2026-10-21' }}
+        onOpenForm={onOpenForm}
+      />,
+    );
+
+    await userEvent.click(
+      await screen.findByRole('button', { name: '활동 정리 끝 · 신청서 만들기' }),
+    );
+    expect(String(fetchSpy.mock.calls[0][0])).toContain('/accounts/lee/rounds/current');
+    expect(screen.queryByText(/건 부족해요/)).not.toBeInTheDocument();
+    expect(onOpenForm).toHaveBeenCalledTimes(1);
+  });
+
   it('활동 빼기는 한 번 묻고, 다시 계산한 결과로 목록·경고를 바꾼다 (2-2.11)', async () => {
     mockApi();
     renderWithProviders(<RoundPanel session={session()} />);

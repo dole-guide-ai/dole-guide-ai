@@ -28,7 +28,10 @@ interface RoundPanelProps {
 }
 
 export const RoundPanel = ({ session, onOpenForm }: RoundPanelProps) => {
-  const query = useRoundCheck(session.session_id, session.derived.current_round);
+  const query = useRoundCheck(session.session_id, session.derived.current_round, {
+    personaId: session.persona_id,
+    ruleGroup: session.derived.rule_group,
+  });
   const draft = useRoundDraft();
   const [isAskingShort, setIsAskingShort] = useState(false);
   const remove = useRemoveActivity();
