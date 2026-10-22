@@ -69,40 +69,48 @@ class FormActivities:
     excluded: list[dict[str, Any]] = field(default_factory=list)
 
 
+def _representative_rank(activity: ActivityInput) -> tuple[bool, bool]:
+    """같은 날 활동 중 대표로 인정할 순서: 구직활동 먼저, 그다음 증빙이 필요 없는 고용24 경로."""
+    return (activity.category != JOB_SEARCH, activity.route != "work24")
+
+
 def build_form_activities(
     activities: list[ActivityInput], period_start: date, period_end: date
 ) -> FormActivities:
     """대상기간 안의 실제 활동으로 신청서 활동 칸을 만듭니다. 예정 활동은 넣지 않습니다.
 
-    같은 날 활동은 먼저 기록한 1건만 넣고, 나머지는 `same_day`로 참고 목록에 둡니다.
+    같은 날 활동은 1건만 인정합니다(설계 6.4).
+    대표는 구직활동·고용24 경로(증빙 불필요)를 먼저 고르고,
+    같으면 먼저 기록한 것입니다. 나머지는 `same_day`로 참고 목록에 둡니다.
     """
     result = FormActivities()
-    seen_days: set[date] = set()
+    by_day: dict[date, list[ActivityInput]] = {}
     for activity in activities:
         if activity.planned or not period_start <= activity.activity_date <= period_end:
             continue
-        if activity.activity_date in seen_days:
-            result.excluded.append(
-                {
-                    "activity_id": activity.activity_id,
-                    "reason": "same_day",
-                    "activity_date": activity.activity_date,
-                    "company_name": activity.org_name,
-                }
-            )
-            continue
-        seen_days.add(activity.activity_date)
-        if activity.category == JOB_SEARCH:
-            result.job_search.append(_job_search_row(activity))
+        by_day.setdefault(activity.activity_date, []).append(activity)
+    for day in sorted(by_day):
+        first, *rest = sorted(by_day[day], key=_representative_rank)
+        if first.category == JOB_SEARCH:
+            result.job_search.append(_job_search_row(first))
         else:
             result.other.append(
                 {
-                    "activity_id": activity.activity_id,
-                    "activity_date": activity.activity_date,
-                    "kind": activity.kind,
-                    "details": activity.org_name,
+                    "activity_id": first.activity_id,
+                    "activity_date": first.activity_date,
+                    "kind": first.kind,
+                    "details": first.org_name,
                 }
             )
+        result.excluded += [
+            {
+                "activity_id": other.activity_id,
+                "reason": "same_day",
+                "activity_date": other.activity_date,
+                "company_name": other.org_name,
+            }
+            for other in rest
+        ]
     return result
 
 
