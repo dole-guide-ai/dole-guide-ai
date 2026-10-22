@@ -3,11 +3,12 @@
 구직활동 10칸은 저장하지 않고, 그 회차 대상기간의 인정 활동에서 매번 만듭니다.
 같은 날 활동이 여러 건이면 1건만 인정하고 나머지는 참고로 따로 둡니다(설계 6.4).
 지난 회차에 답한 통지 방법·실업크레딧은 이번 회차가 비어 있으면 불러와 보여 줍니다.
+제출 버튼 상태(submit_mode)와 제출 전 확인(checklist)도 여기서 정합니다 (F-26).
 DB와 LLM을 쓰지 않는 순수 함수라 서비스와 대화 턴이 같이 씁니다.
 """
 
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import date, datetime
 from typing import Any
 
 JOB_SEARCH = "job_search"
@@ -116,6 +117,8 @@ def _job_search_row(activity: ActivityInput) -> dict[str, Any]:
         "job_search_method": activity.search_method or search_method_from_route(activity.route),
         "application_method": activity.apply_method or apply_method_from_route(activity.route),
         "activity_result": activity.result,
+        # 응답 칸은 아니지만 증빙 필요 여부(F-26)를 판단하려고 경로를 같이 둡니다.
+        "route": activity.route,
     }
 
 
@@ -165,3 +168,98 @@ def required_activities(recipient_group: str, round_no: int) -> tuple[int, int]:
     if round_no <= 3 or recipient_group != "general":
         return (1, 0)
     return (2, 1)
+
+
+# ── 제출 방식 · 체크리스트 (F-26, 상세기획 2-3.6) ─────────────────────────────
+
+SEND_DEADLINE_HOUR = 17  # 인정일 당일 인터넷 제출 마감
+VISIT_DEADLINE_HOUR = 18  # 인정일 당일 센터 방문 신청 마감
+
+ATTEND = "attend"
+PREVIEW = "preview"
+SEND = "send"
+VISIT_TODAY = "visit_today"
+CHANGE = "change"
+
+
+def submit_mode(now: datetime, recognition_date: date, attendance_required: bool) -> str:
+    """지금 시각(KST)에 맞는 제출 버튼 상태 5종 (설계 3.6).
+
+    - attend: 출석 회차 → 출석 준비 확인 (인터넷으로 내지 않음)
+    - preview: 인정일 전 → 미리 보기·임시저장 (제출 불가)
+    - send: 인정일 당일 17시 전 → 모의 제출
+    - visit_today: 인정일 당일 17~18시 → 오늘 센터 방문 안내
+    - change: 인정일이 지남(당일 18시 이후 포함) → 변경 신청 안내
+    """
+    today = now.date()
+    if today > recognition_date or (today == recognition_date and now.hour >= VISIT_DEADLINE_HOUR):
+        return CHANGE
+    if attendance_required:
+        return ATTEND
+    if today < recognition_date:
+        return PREVIEW
+    return SEND if now.hour < SEND_DEADLINE_HOUR else VISIT_TODAY
+
+
+_JOB_SEARCH_REQUIRED = (
+    "company_name",
+    "recruitment_contact",
+    "recruitment_occupation",
+    "job_search_method",
+    "application_method",
+    "activity_result",
+)
+
+
+def _answered(node: Any) -> bool:
+    return not _is_empty(node)
+
+
+def checklist(
+    data: dict[str, Any],
+    job_search: list[dict[str, Any]],
+    counted: int,
+    required: int,
+    evidence_missing: int,
+) -> tuple[list[dict[str, str]], list[dict[str, str]]]:
+    """제출을 막는 항목(blocking)과 경고(warnings)를 나눕니다 (상세기획 2-3.6).
+
+    막는 항목: 본인 답변(근로·취업·산재), 구직활동 필수 칸, 통지 방법, 다음 출석일까지 활동.
+    경고(제출은 가능): 실업크레딧 미답변, 필요 활동 부족, 증빙 없음.
+    """
+    blocking: list[dict[str, str]] = []
+    warnings: list[dict[str, str]] = []
+    self_answers = (
+        (data.get("work") or {}).get("has_work"),
+        (data.get("employment") or {}).get("status"),
+        (data.get("industrial_accident") or {}).get("receiving"),
+    )
+    if not all(_answered(node) for node in self_answers):
+        blocking.append({"key": "self_answers", "text": "근로·취업·산재 본인 답변"})
+    if any(not row.get(key) for row in job_search for key in _JOB_SEARCH_REQUIRED):
+        blocking.append({"key": "job_search_fields", "text": "구직활동 필수 칸"})
+    if not _answered(data.get("notification_method")):
+        blocking.append({"key": "notification", "text": "지급 결정 통지 방법"})
+    if not _answered(data.get("next_plan")):
+        blocking.append({"key": "next_activity", "text": "다음 출석일까지 활동"})
+
+    credit = (data.get("credit") or {}).get("application")
+    if not _answered(credit):
+        warnings.append({"key": "unemployment_credit", "text": "실업크레딧 답"})
+    if counted < required:
+        warnings.append(
+            {"key": "requirement_met", "text": f"필요 활동 {required - counted}건 부족"}
+        )
+    if evidence_missing:
+        warnings.append({"key": "evidence_ok", "text": f"증빙 {evidence_missing}건 없음"})
+    return blocking, warnings
+
+
+def needs_evidence(route: str | None) -> bool:
+    """고용24 지원은 고용24에 기록이 남아 증빙이 필요 없고, 그 밖의 경로는 필요합니다 (2-2.4)."""
+    return route != "work24"
+
+
+def can_submit(mode: str, blocking: list[dict[str, str]], locked: str | None) -> bool:
+    """모의 제출·출석 준비 확인을 할 수 있는지. 경고는 막지 않습니다 (설계 3.6)."""
+    return mode in (SEND, ATTEND) and not blocking and locked is None
