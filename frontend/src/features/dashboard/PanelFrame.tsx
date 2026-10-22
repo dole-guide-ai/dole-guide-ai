@@ -4,6 +4,7 @@ import { Button } from '@/components/Button';
 import { EvidenceLine } from '@/components/EvidenceLine';
 import { showsVisitNotice } from '@/features/dashboard/sessionNotices';
 import { BenefitEndedPanel } from '@/features/procedure/BenefitEndedPanel';
+import { PastRounds } from '@/features/procedure/PastRounds';
 import { RoundPanel } from '@/features/procedure/RoundPanel';
 import { RecognitionPanel } from '@/features/recognition/RecognitionPanel';
 import { ResumePanel } from '@/features/resume/ResumePanel';
@@ -156,6 +157,9 @@ export const PanelFrame = ({
         ) : (
           <RoundPanel session={session} onOpenForm={onOpenForm} />
         ))}
+
+      {/* 지난 회차 신청서는 이번 회차가 없을 때(모든 회차 종료 등)도 다시 볼 수 있게 둡니다 (F-04). */}
+      {panel === 'B' && <PastRounds session={session} />}
 
       {panel === 'C' && (
         <RecognitionPanel

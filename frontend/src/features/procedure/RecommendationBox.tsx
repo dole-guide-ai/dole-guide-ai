@@ -1,5 +1,7 @@
 'use client';
 
+import { useState } from 'react';
+
 import { Button } from '@/components/Button';
 import { Chip } from '@/components/Chip';
 import { EvidenceLine } from '@/components/EvidenceLine';
@@ -16,14 +18,18 @@ import { ApiError } from '@/lib/api';
 interface RecommendationBoxProps {
   sessionId: string;
   plannedIds: string[];
+  /** 실제 서버 세션이면 계정 추천 API를 씁니다 (F-19). */
+  personaId?: string;
 }
 
 const errorText = (error: unknown, fallback: string) =>
   error instanceof ApiError ? error.message : fallback;
 
-export const RecommendationBox = ({ sessionId, plannedIds }: RecommendationBoxProps) => {
-  const query = useRecommendations(sessionId, true);
-  const plan = usePlanActivity();
+export const RecommendationBox = ({ sessionId, plannedIds, personaId }: RecommendationBoxProps) => {
+  const query = useRecommendations(sessionId, true, personaId);
+  const plan = usePlanActivity(sessionId, personaId);
+  // 서버가 만든 예정 활동 ID는 추천 ID와 달라서, 이번 화면에서 고른 추천을 따로 기억합니다.
+  const [pickedIds, setPickedIds] = useState<string[]>([]);
 
   if (query.isPending) return <p className="text-muted text-base">추천을 고르는 중…</p>;
   if (query.isError) {
@@ -44,7 +50,9 @@ export const RecommendationBox = ({ sessionId, plannedIds }: RecommendationBoxPr
       <h3 className="text-lg font-bold">이렇게 채워 보세요</h3>
       <ol className="flex flex-col gap-2">
         {items.map((item, index) => {
-          const isPlanned = plannedIds.includes(`planned_${item.recommendation_id}`);
+          const isPlanned =
+            plannedIds.includes(`planned_${item.recommendation_id}`) ||
+            pickedIds.includes(item.recommendation_id);
           return (
             <li
               key={item.recommendation_id}
@@ -66,7 +74,11 @@ export const RecommendationBox = ({ sessionId, plannedIds }: RecommendationBoxPr
               </div>
               <Button
                 variant="secondary"
-                onClick={() => plan.mutate(item.recommendation_id)}
+                onClick={() =>
+                  plan.mutate(item.recommendation_id, {
+                    onSuccess: () => setPickedIds((ids) => [...ids, item.recommendation_id]),
+                  })
+                }
                 disabled={isPlanned || plan.isPending}
                 aria-label={`${item.title} 선택`}
               >

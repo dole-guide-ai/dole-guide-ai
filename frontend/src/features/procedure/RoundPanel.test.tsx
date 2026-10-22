@@ -78,12 +78,15 @@ describe('RoundPanel', () => {
     expect(screen.queryByRole('region', { name: '추천 활동' })).not.toBeInTheDocument();
   });
 
-  it('점검 결과를 못 받으면 서버 문구를 보여 준다', async () => {
+  it('점검 결과를 못 받으면 서버 문구를 보여 주고, 신청서로는 넘어갈 수 있다 (F-22)', async () => {
     mockApi({ checkStatus: 500 });
+    const onOpenForm = vi.fn();
 
-    renderWithProviders(<RoundPanel session={session()} />);
+    renderWithProviders(<RoundPanel session={session()} onOpenForm={onOpenForm} />);
 
     expect(await screen.findByRole('alert')).toHaveTextContent('회차 점검을 못 했어요.');
+    await userEvent.click(screen.getByRole('button', { name: '활동 정리 끝 · 신청서 만들기' }));
+    expect(onOpenForm).toHaveBeenCalledTimes(1);
   });
 
   it('추천 요청이 오면 추천 상자를 펼치고, 선택하면 예정 활동으로 들어간다', async () => {
@@ -146,6 +149,40 @@ describe('RoundPanel', () => {
     expect(onOpenForm).not.toHaveBeenCalled();
 
     await userEvent.click(screen.getByRole('button', { name: '그래도 볼게요' }));
+    expect(onOpenForm).toHaveBeenCalledTimes(1);
+  });
+
+  it('실제 서버 세션은 계정 회차 점검으로 부족 건수를 정하고, 충족이면 바로 넘어간다 (F-22)', async () => {
+    const serverRound = (remaining: number) => ({
+      round: 4,
+      period_start: '2026-11-25',
+      period_end: '2026-12-22',
+      recognition_date: '2026-12-22',
+      attendance_required: true,
+      status: 'current',
+      application_status: 'draft',
+      d_day: 3,
+      required: 2,
+      required_job_search: 1,
+      counted: 2 - remaining,
+      remaining,
+    });
+    const fetchSpy = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(Response.json(serverRound(0)));
+    const onOpenForm = vi.fn();
+    renderWithProviders(
+      <RoundPanel
+        session={{ ...session(), session_id: 'acct-lee-2026-10-21' }}
+        onOpenForm={onOpenForm}
+      />,
+    );
+
+    await userEvent.click(
+      await screen.findByRole('button', { name: '활동 정리 끝 · 신청서 만들기' }),
+    );
+    expect(String(fetchSpy.mock.calls[0][0])).toContain('/accounts/lee/rounds/current');
+    expect(screen.queryByText(/건 부족해요/)).not.toBeInTheDocument();
     expect(onOpenForm).toHaveBeenCalledTimes(1);
   });
 
