@@ -1,14 +1,29 @@
 import { useQuery } from '@tanstack/react-query';
 
+import { isServerSession } from '@/lib/accountSession';
 import { apiFetch } from '@/lib/api';
 import { queryKeys } from '@/lib/queryKeys';
+import { recommendationsFromServer } from '@/lib/recommendations';
+import type { components } from '@/types/api.gen';
 import type { RecommendationsRead } from '@/types/procedure.types';
 
-/** `GET /procedure/current-round/recommendations` (2-2.8). 추천 상자를 펼쳤을 때만 받습니다. */
-export const useRecommendations = (sessionId: string, enabled: boolean) =>
+type RecommendationList = components['schemas']['RecommendationList'];
+
+/**
+ * `GET /procedure/current-round/recommendations` (2-2.8). 추천 상자를 펼쳤을 때만 받습니다.
+ * 실제 서버 세션(`acct-`)이면 `GET /accounts/{id}/rounds/current/recommendations`(F-19)를 씁니다.
+ */
+export const useRecommendations = (sessionId: string, enabled: boolean, personaId?: string) =>
   useQuery({
     queryKey: queryKeys.roundRecommendations(sessionId),
-    queryFn: () => apiFetch<RecommendationsRead>('/procedure/current-round/recommendations'),
+    queryFn: async () =>
+      isServerSession(sessionId) && personaId
+        ? recommendationsFromServer(
+            await apiFetch<RecommendationList>(
+              `/accounts/${encodeURIComponent(personaId)}/rounds/current/recommendations`,
+            ),
+          )
+        : apiFetch<RecommendationsRead>('/procedure/current-round/recommendations'),
     enabled,
     staleTime: Infinity,
   });

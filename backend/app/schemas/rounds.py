@@ -8,6 +8,8 @@ from enum import StrEnum
 
 from pydantic import BaseModel
 
+from app.schemas.activities import ActivityCategory
+
 
 class RoundStatus(StrEnum):
     UPCOMING = "upcoming"
@@ -59,6 +61,7 @@ class RoundCheck(RoundSummary):
 
 class Recommendation(BaseModel):
     recommendation_id: str
+    category: ActivityCategory
     kind: str
     title: str
     reason: str
