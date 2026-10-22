@@ -2,12 +2,15 @@
 
 import re
 import uuid
+from contextvars import ContextVar
 
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 HEADER = "X-Request-ID"
 # 클라이언트가 보낸 값은 형식이 맞을 때만 이어받습니다(로그 주입 방지).
 VALID_ID = re.compile(r"^[A-Za-z0-9-]{8,64}$")
+# 지금 처리 중인 요청의 ID. 로그 줄마다 찍어 화면 오류·트레이스와 연결합니다(core/logging.py).
+current_request_id: ContextVar[str] = ContextVar("request_id", default="-")
 
 
 class RequestIdMiddleware:
@@ -28,4 +31,8 @@ class RequestIdMiddleware:
                 message.setdefault("headers", []).append((HEADER.encode(), request_id.encode()))
             await send(message)
 
-        await self.app(scope, receive, send_with_id)
+        token = current_request_id.set(request_id)
+        try:
+            await self.app(scope, receive, send_with_id)
+        finally:
+            current_request_id.reset(token)
