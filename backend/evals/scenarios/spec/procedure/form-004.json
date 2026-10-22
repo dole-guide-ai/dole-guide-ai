@@ -1,0 +1,16 @@
+{
+  "id": "procedure/form-004",
+  "description": "이정호 4차(출석 회차), 기준일 12.16 10:00 → attend",
+  "source": "상세기획 2-3.10",
+  "rule": "submit_mode",
+  "args": {
+    "now": "2026-12-16T10:00:00+09:00",
+    "recognition_date": "2026-12-22",
+    "group": "general",
+    "round": 4
+  },
+  "expected": {
+    "attendance_required": true,
+    "submit_mode": "attend"
+  }
+}

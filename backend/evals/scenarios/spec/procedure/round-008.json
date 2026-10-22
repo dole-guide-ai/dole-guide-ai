@@ -1,0 +1,6 @@
+{
+  "id": "procedure/round-008",
+  "description": "4차 general, 직업훈련 10시간 + 8시간 → 18시간 = 구직활동 1회 환산",
+  "source": "상세기획 2-2.12",
+  "pending": "회차 점검 check_round(F-18)의 직업훈련 시간 환산"
+}

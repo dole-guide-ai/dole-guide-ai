@@ -1,0 +1,25 @@
+{
+  "id": "procedure/round-007",
+  "description": "4차, 인정일(12.22) 당일 고용24 지원 1건 → 기간 안이라 인정, 추천 기한은 전날까지",
+  "source": "상세기획 2-2.12",
+  "rule": "form_activities",
+  "args": {
+    "period_start": "2026-11-25",
+    "period_end": "2026-12-22",
+    "group": "general",
+    "round": 4,
+    "activities": [
+      {
+        "date": "2026-12-22",
+        "route": "work24",
+        "org_name": "OO물류"
+      }
+    ]
+  },
+  "expected": {
+    "job_search": [
+      "OO물류"
+    ],
+    "counted": 1
+  }
+}

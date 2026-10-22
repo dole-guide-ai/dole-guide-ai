@@ -28,6 +28,15 @@ uv run pytest evals -m eval -k procedure   # 일부 시나리오
 
 - 판정은 정답 비교(단계·마감일·추출값)를 먼저 쓰고, 문장 품질처럼 정답이 없는 항목만 LLM 판정을 씁니다.
 
+## 상세기획 시나리오 (`scenarios/spec/`)
+
+상세기획 표의 평가 시나리오(이력서 2-1.9 `resume-001~010`, 회차 2-2.12 `round-001~009`, 신청서 2-3.10 `form-001~011`)를 한 파일씩 둡니다. `evals/test_spec_scenarios.py`가 돌립니다(`pnpm test:eval`).
+
+- 규칙으로 정답이 정해지는 시나리오는 `rule`·`args`·`expected`를 적고, `evals/spec_rules.py`가 규칙 함수(`app/rules/`)를 불러 채점합니다. LLM을 부르지 않습니다.
+- `expected`에는 확인할 키만 적습니다(나머지는 비교하지 않음).
+- 아직 돌릴 수 없는 시나리오는 `pending`에 필요한 기능을 적어 두면 건너뜁니다. 규칙 함수가 아직 없을 때도 건너뜁니다. 기능이 붙으면 `pending`을 지우고 `rule`·`args`·`expected`를 채웁니다.
+- 파일 경로는 ID와 같아야 합니다: `procedure/form-003` → `scenarios/spec/procedure/form-003.json`.
+
 ## 골든셋 (`golden/`)
 
 AI가 바뀔 때마다 같은 문항으로 다시 채점하는 기준 문항 세트입니다. 원본은 `golden/golden_set.csv` 한 파일이고, 설계 원칙·문항 목록은 팀 문서 「실업급여 길잡이 골든셋」에 있습니다.
