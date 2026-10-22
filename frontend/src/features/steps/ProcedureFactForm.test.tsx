@@ -6,10 +6,17 @@ import { ProcedureFactForm } from '@/features/steps/ProcedureFactForm';
 
 import { getSession, setSession } from '@/lib/sessionStore';
 import { mockAccount } from '@/mocks/handlers';
+import { mockFetchJson } from '@/test/mockFetch';
 import { renderWithProviders } from '@/test/renderWithProviders';
 
-const json = (body: unknown, status = 200) =>
-  new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
+const res = (body: unknown, status = 200) => Response.json(body, { status });
+
+const renderEducation = () =>
+  renderWithProviders(
+    <ProcedureFactForm personaId="choi" path="/education_done" buttonLabel="교육을 다 들었어요" />,
+  );
+const clickEducation = () =>
+  userEvent.click(screen.getByRole('button', { name: '교육을 다 들었어요' }));
 
 describe('ProcedureFactForm (F-16)', () => {
   afterEach(() => {
@@ -22,20 +29,10 @@ describe('ProcedureFactForm (F-16)', () => {
     next.procedure.stage = 'eligibility_application';
     next.entry.branch_id = 'E5a';
     next.entry.panel = 'Q';
-    const fetchSpy = vi
-      .spyOn(globalThis, 'fetch')
-      .mockImplementation(async (input, init) =>
-        init?.method === 'PATCH' ? json({ updates: [], entry: next.entry }) : json(next),
-      );
+    const fetchSpy = mockFetchJson(next).mockResolvedValueOnce(res({ updates: [] }));
 
-    renderWithProviders(
-      <ProcedureFactForm
-        personaId="choi"
-        path="/education_done"
-        buttonLabel="교육을 다 들었어요"
-      />,
-    );
-    await userEvent.click(screen.getByRole('button', { name: '교육을 다 들었어요' }));
+    renderEducation();
+    await clickEducation();
 
     await vi.waitFor(() => expect(getSession()?.state.stage).toBe('eligibility_application'));
     const [url, init] = fetchSpy.mock.calls[0];
@@ -47,11 +44,7 @@ describe('ProcedureFactForm (F-16)', () => {
   });
 
   it('날짜 칸이 있으면 고른 날짜를 보낸다', async () => {
-    const fetchSpy = vi
-      .spyOn(globalThis, 'fetch')
-      .mockImplementation(async (input, init) =>
-        init?.method === 'PATCH' ? json({ updates: [] }) : json(mockAccount('choi')),
-      );
+    const fetchSpy = mockFetchJson(mockAccount('choi')).mockResolvedValueOnce(res({ updates: [] }));
 
     renderWithProviders(
       <ProcedureFactForm
@@ -74,51 +67,24 @@ describe('ProcedureFactForm (F-16)', () => {
   });
 
   it('단계 순서가 틀리면 서버가 쓴 문구를 보여 준다', async () => {
-    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
-      json(
-        {
-          code: 'STAGE_ORDER',
-          message: '이력서를 저장한 뒤에 교육 이수를 표시할 수 있어요.',
-          details: null,
-        },
-        409,
-      ),
-    );
+    const message = '이력서를 저장한 뒤에 교육 이수를 표시할 수 있어요.';
+    mockFetchJson({ code: 'STAGE_ORDER', message, details: null }, { status: 409 });
 
-    renderWithProviders(
-      <ProcedureFactForm
-        personaId="choi"
-        path="/education_done"
-        buttonLabel="교육을 다 들었어요"
-      />,
-    );
-    await userEvent.click(screen.getByRole('button', { name: '교육을 다 들었어요' }));
+    renderEducation();
+    await clickEducation();
 
-    expect(await screen.findByRole('alert')).toHaveTextContent(
-      '이력서를 저장한 뒤에 교육 이수를 표시할 수 있어요.',
-    );
+    expect(await screen.findByRole('alert')).toHaveTextContent(message);
   });
 
   it('저장 뒤 계정 다시 불러오기만 실패하면 다시 보내지 않고 다시 불러오기만 권한다', async () => {
     const next = mockAccount('choi');
     next.procedure.stage = 'eligibility_application';
-    let accountCalls = 0;
-    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (_input, init) => {
-      if (init?.method === 'PATCH') return json({ updates: [] });
-      accountCalls += 1;
-      return accountCalls === 1
-        ? json({ code: 'INTERNAL_ERROR', message: '잠시 뒤 다시 시도해 주세요.' }, 500)
-        : json(next);
-    });
+    const fetchSpy = mockFetchJson(next)
+      .mockResolvedValueOnce(res({ updates: [] }))
+      .mockResolvedValueOnce(res({ code: 'INTERNAL_ERROR', message: '잠시 뒤에요.' }, 500));
 
-    renderWithProviders(
-      <ProcedureFactForm
-        personaId="choi"
-        path="/education_done"
-        buttonLabel="교육을 다 들었어요"
-      />,
-    );
-    await userEvent.click(screen.getByRole('button', { name: '교육을 다 들었어요' }));
+    renderEducation();
+    await clickEducation();
 
     expect(
       await screen.findByText('저장했어요. 화면을 새로 불러오지 못했어요.'),
@@ -127,7 +93,6 @@ describe('ProcedureFactForm (F-16)', () => {
     await userEvent.click(screen.getByRole('button', { name: '화면 다시 불러오기' }));
 
     await vi.waitFor(() => expect(getSession()?.state.stage).toBe('eligibility_application'));
-    const patches = fetchSpy.mock.calls.filter(([, init]) => init?.method === 'PATCH');
-    expect(patches).toHaveLength(1);
+    expect(fetchSpy.mock.calls.filter(([, init]) => init?.method === 'PATCH')).toHaveLength(1);
   });
 });
