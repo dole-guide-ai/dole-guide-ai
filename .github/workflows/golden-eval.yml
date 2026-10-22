@@ -2,7 +2,7 @@ name: golden-eval
 
 # 골든셋 평가를 버튼으로 실행합니다: Actions 탭 → golden-eval → Run workflow.
 # 결과 표는 실행 화면(Summary)에 바로 뜨고, 보고서 파일은 Artifacts에 남습니다.
-# real 모드는 저장소 Secrets의 LLM_API_KEY와 Variables의 모델 이름을 씁니다.
+# real 모드는 저장소 Secrets의 OPENAI_API_KEY·UPSTAGE_API_KEY와 Variables의 공급자·모델 이름을 씁니다.
 on:
   workflow_dispatch:
     inputs:
@@ -33,12 +33,17 @@ jobs:
     permissions:
       contents: read
     env:
-      LLM_PROVIDER: ${{ vars.LLM_PROVIDER || 'openai' }}
-      LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
-      LLM_BASE_URL: ${{ vars.LLM_BASE_URL }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      UPSTAGE_API_KEY: ${{ secrets.UPSTAGE_API_KEY }}
+      AGENT_PROVIDER: ${{ vars.AGENT_PROVIDER || 'openai' }}
       AGENT_MODEL: ${{ vars.AGENT_MODEL }}
+      EXTRACT_PROVIDER: ${{ vars.EXTRACT_PROVIDER || 'openai' }}
       EXTRACT_MODEL: ${{ vars.EXTRACT_MODEL }}
+      JUDGE_PROVIDER: ${{ vars.JUDGE_PROVIDER }}
       JUDGE_MODEL: ${{ vars.JUDGE_MODEL }}
+      EMBEDDING_PROVIDER: ${{ vars.EMBEDDING_PROVIDER || 'openai' }}
+      EMBEDDING_MODEL: ${{ vars.EMBEDDING_MODEL }}
+      EMBEDDING_QUERY_MODEL: ${{ vars.EMBEDDING_QUERY_MODEL }}
     steps:
       - uses: actions/checkout@v4
         with:

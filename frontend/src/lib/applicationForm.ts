@@ -101,18 +101,24 @@ const nextActivity = (field: FormField | undefined): NotificationAndPlan['next_a
   };
 };
 
-const checklistItems = (app: ApplicationRead): ChecklistItem[] => [
-  ...app.checklist.blocking.map((item) => ({
-    key: item.key as ChecklistKey,
-    done: false,
-    blocking: true,
-  })),
-  ...app.checklist.warnings.map((item) => ({
-    key: item.key as ChecklistKey,
-    done: false,
-    blocking: false,
-  })),
+/** 제출 전 확인 7줄 (2-3.6). 앞 4줄은 비면 제출을 막고, 뒤 3줄은 경고만 합니다. */
+const CHECKLIST_KEYS: { key: ChecklistKey; blocking: boolean }[] = [
+  { key: 'self_answers', blocking: true },
+  { key: 'job_search_fields', blocking: true },
+  { key: 'notification', blocking: true },
+  { key: 'next_activity', blocking: true },
+  { key: 'unemployment_credit', blocking: false },
+  { key: 'requirement_met', blocking: false },
+  { key: 'evidence_ok', blocking: false },
 ];
+
+/** 서버는 남은 항목(막는 항목·경고)만 주므로, 목록에 없는 줄은 마친 것으로 봅니다 (F-26). */
+const checklistItems = (app: ApplicationRead): ChecklistItem[] => {
+  const remaining = new Set(
+    [...app.checklist.blocking, ...app.checklist.warnings].map((item) => item.key),
+  );
+  return CHECKLIST_KEYS.map(({ key, blocking }) => ({ key, blocking, done: !remaining.has(key) }));
+};
 
 export const recognitionFromApplication = (app: ApplicationRead): RecognitionFormRead => {
   const { data } = app;

@@ -42,3 +42,7 @@ class ProcedureRead(BaseModel):
     period_end_date: date
     expected_end_date: date | None = None
     end_reason: EndReason | None = None
+    # 회차가 만들어진 뒤에만 채웁니다 (F-33).
+    # remaining_rounds: 오늘이 속한 회차를 포함한 남은 회차 수 · last_round: 마지막 회차 번호
+    remaining_rounds: int | None = None
+    last_round: int | None = None

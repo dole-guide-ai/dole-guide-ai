@@ -17,7 +17,18 @@ class RuleNotReadyError(Exception):
 
 
 def _rule(module: str, name: str) -> Callable[..., Any]:
-    found = getattr(importlib.import_module(f"app.rules.{module}"), name, None)
+    """규칙 모듈·함수가 아직 없을 때만 건너뜁니다.
+
+    모듈 안의 다른 import 오류는 건너뛰지 않고 그대로 실패로 둡니다.
+    """
+    path = f"app.rules.{module}"
+    try:
+        loaded = importlib.import_module(path)
+    except ModuleNotFoundError as error:
+        if error.name != path:
+            raise
+        raise RuleNotReadyError(path) from error
+    found = getattr(loaded, name, None)
     if found is None:
         raise RuleNotReadyError(f"app.rules.{module}.{name}")
     return found
@@ -120,7 +131,4 @@ RULES: dict[str, Callable[[dict[str, Any]], dict[str, Any]]] = {
 
 
 def run_rule(name: str, args: dict[str, Any]) -> dict[str, Any]:
-    try:
-        return RULES[name](args)
-    except (ImportError, RuleNotReadyError) as error:
-        raise RuleNotReadyError(str(error)) from error
+    return RULES[name](args)
