@@ -91,6 +91,20 @@ class Recommendation:
     reason: str
 
 
+WEEKLY_TEXT = (
+    " 8차부터는 매주 구직활동 1건이 필요해요. 주를 나누는 기준은 고용센터 안내를 따라 주세요."
+)
+
+
+def is_weekly_job_search(group: str, round_no: int) -> bool:
+    """일반 규칙 그룹 8차부터는 1주에 구직활동 1건이라 회차 합계만으로는 충족을 알 수 없습니다.
+
+    주 단위 계산은 회차 점검(F-18)이 정하므로(상세기획 2-2.6 `확인 필요`),
+    추천은 늘 구직활동을 권합니다.
+    """
+    return group in GENERAL_RULE_GROUPS and round_no >= JOB_SEARCH_ONLY_FROM
+
+
 def _allowed(candidate: Candidate, group: str, round_no: int, lectures_used: int) -> bool:
     job_search_only = group in GENERAL_RULE_GROUPS and round_no >= JOB_SEARCH_ONLY_FROM
     if candidate.category == NON_JOB_SEARCH and job_search_only:
@@ -153,13 +167,15 @@ def parse_recommendation_id(value: str) -> tuple[int, Candidate] | None:
     return int(round_text), BY_KEY[key]
 
 
-def deadline_text(recognition_date: date, busy_dates: list[date]) -> str:
+def deadline_text(recognition_date: date, busy_dates: list[date], weekly: bool = False) -> str:
     """언제까지: 인정일 당일 활동도 인정되지만 추천은 전날까지로 권장합니다 (CHECK-011)."""
     by = recognition_date - timedelta(days=1)
     text = f"{_short(by)}까지 해 두세요."
     if busy_dates:
         days = ", ".join(_short(day) for day in sorted(set(busy_dates)))
         text += f" 이미 활동이 있는 날({days})은 하루 1건만 인정되니 피해 주세요."
+    if weekly:
+        text += WEEKLY_TEXT
     return text
 
 
@@ -167,6 +183,9 @@ def _short(day: date) -> str:
     return f"{day.month}.{day.day}({_WEEKDAYS[day.weekday()]})"
 
 
-def planned_date(recognition_date: date) -> date:
-    """추천을 예정으로 넣을 때의 날짜: 권장 기한인 인정일 전날."""
-    return recognition_date - timedelta(days=1)
+def planned_date(recognition_date: date, today: date) -> date:
+    """추천을 예정으로 넣을 때의 날짜: 권장 기한인 인정일 전날.
+
+    오늘이 인정일이면 전날은 이미 지났으므로 오늘(인정일 당일 활동도 인정, CHECK-011)로 둡니다.
+    """
+    return max(recognition_date - timedelta(days=1), today)
