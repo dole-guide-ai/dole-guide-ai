@@ -65,3 +65,10 @@ def test_ended_account_shows_end_screen() -> None:
     assert entry.next_step_text == "수급 종료 : 06.26"
     assert entry.messages[0].template_id == "T-END"
     assert "소정급여일수" in entry.messages[0].text
+
+
+def test_big_text_is_default_from_65_at_separation() -> None:
+    """이직 당시 만 65세 이상이면 글자 크게로 시작합니다 (1장 1.6 M4, F-06)."""
+    assert build_entry(procedure(age_at_separation=64), "none", None, None).ui.big_text is False
+    assert build_entry(procedure(age_at_separation=65), "none", None, None).ui.big_text is True
+    assert build_entry(procedure(age_at_separation=67), "ready", None, None).ui.big_text is True
