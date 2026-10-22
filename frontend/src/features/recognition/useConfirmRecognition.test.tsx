@@ -74,4 +74,26 @@ describe('useConfirmRecognition (F-27)', () => {
     ]);
     expect(result.current.data?.status).toBe('finalized');
   });
+
+  it('제출(PATCH)이 되면 다시 받기가 실패해도 성공으로 보고, 신청서 캐시를 갱신한다', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (_input, init) =>
+      init?.method === 'PATCH'
+        ? json({ updates: [] })
+        : json({ code: 'INTERNAL_ERROR', message: '잠시 뒤 다시 시도해 주세요.' }, 500),
+    );
+    const queryClient = createTestQueryClient();
+    const key = ['forms', 'recognition', 'acct-lee-2026-12-16', 4];
+    queryClient.setQueryData(key, { status: 'review' });
+    const { result } = renderHook(() => useConfirmRecognition('acct-lee-2026-12-16', 'lee', 4), {
+      wrapper: ({ children }: { children: ReactNode }) => (
+        <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+      ),
+    });
+
+    result.current.mutate({ submit_mode: 'send' });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(result.current.data).toBeNull();
+    expect(queryClient.getQueryState(key)?.isInvalidated).toBe(true);
+  });
 });

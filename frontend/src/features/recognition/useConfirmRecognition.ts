@@ -1,4 +1,4 @@
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { toRecognitionDraft } from '@/features/recognition/useRecognitionForm';
 
@@ -6,6 +6,7 @@ import { isServerSession } from '@/lib/accountSession';
 import { apiFetch } from '@/lib/api';
 import { recognitionFromApplication } from '@/lib/applicationForm';
 import { replaceFormDraft } from '@/lib/formStore';
+import { queryKeys } from '@/lib/queryKeys';
 import type { components } from '@/types/api.gen';
 import type {
   AttendItem,
@@ -20,7 +21,10 @@ interface ConfirmBody extends RecognitionConfirmCreate {
   attend_items?: AttendItem[];
 }
 
-/** 실제 서버: `PATCH …/rounds/{round}/application`으로 제출(status → submitted)하고 신청서를 다시 받습니다 (F-27). */
+/**
+ * 실제 서버: `PATCH …/rounds/{round}/application`으로 제출(status → submitted)하고 신청서를 다시 받습니다 (F-27).
+ * PATCH가 성공하면 제출은 된 것이라, 다시 받기가 실패해도 성공으로 보고 null을 돌려줍니다.
+ */
 const submitToServer = async (personaId: string, round: number | null, body: ConfirmBody) => {
   const path = `/accounts/${encodeURIComponent(personaId)}/rounds/${round ?? 'current'}/application`;
   const patch = [
@@ -31,7 +35,11 @@ const submitToServer = async (personaId: string, round: number | null, body: Con
       : []),
   ];
   await apiFetch(path, { method: 'PATCH', body: JSON.stringify(patch) });
-  return recognitionFromApplication(await apiFetch<ApplicationRead>(path));
+  try {
+    return recognitionFromApplication(await apiFetch<ApplicationRead>(path));
+  } catch {
+    return null;
+  }
 };
 
 /**
@@ -43,14 +51,25 @@ export const useConfirmRecognition = (
   sessionId?: string,
   personaId?: string,
   round: number | null = null,
-) =>
-  useMutation({
-    mutationFn: (body: ConfirmBody) =>
+) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (body: ConfirmBody): Promise<RecognitionFormRead | null> =>
       sessionId && personaId && isServerSession(sessionId)
         ? submitToServer(personaId, round, body)
         : apiFetch<RecognitionFormRead>('/forms/recognition/confirm', {
             method: 'POST',
             body: JSON.stringify({ submit_mode: body.submit_mode }),
           }),
-    onSuccess: (form) => replaceFormDraft('recognition', toRecognitionDraft(form)),
+    onSuccess: (form) => {
+      // 신청서 쿼리는 다시 받지 않으므로(staleTime: Infinity) 제출 뒤 값으로 캐시도 바꿉니다.
+      const key = sessionId ? queryKeys.recognitionForm(sessionId, round) : null;
+      if (form) {
+        replaceFormDraft('recognition', toRecognitionDraft(form));
+        if (key) queryClient.setQueryData(key, form);
+      } else if (key) {
+        void queryClient.invalidateQueries({ queryKey: key });
+      }
+    },
   });
+};

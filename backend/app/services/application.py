@@ -146,13 +146,15 @@ SUBMIT_PATHS = {"/status", "/submit_mode", "/attend_items"}
 ATTEND_ITEMS = {"id_card", "eligibility_card"}
 SUBMITTABLE_MODES = {SubmitMode.SEND, SubmitMode.ATTEND}
 ATTEND_ITEMS_MESSAGE = "신분증과 수급자격증을 챙겼는지 체크해 주세요."
+SUBMIT_VALUE_MESSAGE = "제출 방식은 글자로, 준비물은 글자 목록으로 보내 주세요."
 LOCKED_MESSAGE = "이미 제출한 신청서예요. 고칠 게 있으면 고용센터에 문의해 주세요."
 
 
 def _writable(db: Session, account: AccountContext, round_ref: str, now: datetime):
     """고칠 수 있는 신청서인지 확인하고 (회차, 신청서 행)을 돌려줍니다."""
     target, _ = _find_round(db, account.user_id, round_ref, now.date())
-    application = repo.get_application(db, target.round_id)
+    # 대화의 답 저장과 제출이 겹쳐도 나중 저장이 앞 답을 덮지 않게 행을 잠급니다.
+    application = repo.get_application(db, target.round_id, for_update=True)
     if application is None:
         raise NotFoundError(message=ROUND_NOT_FOUND_MESSAGE)
     if now.date() > target.recognition_date:
@@ -191,6 +193,12 @@ def _submit(db, account, target, application, ops: list[JsonPatchOp], now: datet
     if values.get("/status") != ApplicationStatus.SUBMITTED:
         raise UnprocessableError(message="제출은 /status를 submitted로 보내 주세요.")
     requested = values.get("/submit_mode")
+    attend_items = values.get("/attend_items")
+    if not isinstance(requested, str) or not (
+        attend_items is None
+        or (isinstance(attend_items, list) and all(isinstance(i, str) for i in attend_items))
+    ):
+        raise UnprocessableError(message=SUBMIT_VALUE_MESSAGE)
     current = read_application(db, account, str(target.round_no), now)
     # 서버가 지금 시각으로 정한 방식과 다르거나(예: 인정일 전 preview에서 send)
     # 막는 항목이 남으면 409
@@ -200,7 +208,7 @@ def _submit(db, account, target, application, ops: list[JsonPatchOp], now: datet
         or not current.can_submit
     ):
         raise ConflictError(code=ErrorCode.CANNOT_SUBMIT)
-    if requested == SubmitMode.ATTEND and set(values.get("/attend_items") or []) != ATTEND_ITEMS:
+    if requested == SubmitMode.ATTEND and set(attend_items or []) != ATTEND_ITEMS:
         raise ConflictError(code=ErrorCode.CANNOT_SUBMIT, message=ATTEND_ITEMS_MESSAGE)
     # 제출은 상태만 바꿉니다. 본인 답변(data)은 지우지 않습니다 (점검 9).
     application.status = ApplicationStatus.SUBMITTED

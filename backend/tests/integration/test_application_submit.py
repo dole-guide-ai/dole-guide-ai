@@ -49,7 +49,7 @@ def _fill_job_search_fields(db: Session) -> None:
     db.flush()
 
 
-def _submit(client: TestClient, headers: dict[str, str], mode: str, items=None, if_match=None):
+def _submit(client: TestClient, headers: dict[str, str], mode: object, items=None, if_match=None):
     patch = [
         {"op": "replace", "path": "/status", "value": "submitted"},
         {"op": "replace", "path": "/submit_mode", "value": mode},
@@ -129,6 +129,18 @@ def test_mode_different_from_server_is_409(
     )
     assert res.status_code == 409
     assert res.json()["code"] == "CANNOT_SUBMIT"
+
+
+def test_malformed_submit_values_are_422(
+    client: TestClient, entered_headers: Callable[[str], dict[str, str]]
+) -> None:
+    """제출 방식이 글자가 아니거나 준비물이 글자 목록이 아니면 500이 아니라 422."""
+    headers = entered_headers("lee")
+
+    assert _submit(client, headers, ["attend"]).status_code == 422
+    res = _submit(client, headers, "attend", items=[1, ["id_card"]])
+    assert res.status_code == 422
+    assert res.json()["code"] == "VALIDATION_ERROR"
 
 
 def test_field_edit_mix_version_and_closed_round(
