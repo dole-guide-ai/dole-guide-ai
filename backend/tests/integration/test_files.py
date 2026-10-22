@@ -173,3 +173,18 @@ def test_loser_of_concurrent_same_key_removes_its_file(
 
     assert res.json()["file_id"] == winner["file_id"]
     assert list(upload_dir.glob("*/*")) == []
+
+
+def test_written_file_is_removed_when_row_insert_fails(
+    client: TestClient, entered_headers, upload_dir: Path, monkeypatch: pytest.MonkeyPatch
+):
+    def failing_add(db, file):
+        raise RuntimeError("synthetic insert failure")  # 실물을 쓴 뒤 행 저장에서 실패
+
+    monkeypatch.setattr(file_service.repo, "add", failing_add)
+    test_client = TestClient(client.app, raise_server_exceptions=False)
+
+    res = upload(test_client, entered_headers("park"), "a.png", PNG)
+
+    assert res.status_code == 500
+    assert list(upload_dir.glob("*/*")) == []

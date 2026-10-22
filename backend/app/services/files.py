@@ -56,12 +56,11 @@ def upload(
         "file_name": name,
         "sha256": hashlib.sha256(content).hexdigest(),
     }
+    # 이번 요청이 디스크에 쓴 파일. 쓰자마자 기록해서 행 저장이 실패해도 지울 수 있게 합니다.
     written: list[tuple[str, Path]] = []
 
     def create() -> FileCreated:
-        created, path = _store(db, account, name, mime, content, purpose)
-        written.append((created.file_id, path))
-        return created
+        return _store(db, account, name, mime, content, purpose, written)
 
     try:
         result = run_once(db, account.user_id, idempotency_key, body, FileCreated, create)
@@ -96,13 +95,15 @@ def _store(
     mime: str,
     content: bytes,
     purpose: FilePurpose,
-) -> tuple[FileCreated, Path]:
-    """실물을 쓰고 files 행을 flush합니다. commit과 실패 시 정리는 `upload`가 합니다."""
+    written: list[tuple[str, Path]],
+) -> FileCreated:
+    """실물을 쓰고 files 행을 flush합니다. 쓴 경로는 `written`에 남기고 정리는 `upload`가 합니다."""
     file_id = uuid.uuid4()
     storage_key = f"{account.user_id}/{file_id}"
     path = _upload_root() / storage_key
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_bytes(content)
+    written.append((str(file_id), path))
     row = repo.add(
         db,
         File(
@@ -115,10 +116,9 @@ def _store(
             storage_key=storage_key,
         ),
     )
-    created = FileCreated(
+    return FileCreated(
         file_id=str(row.file_id), file_name=row.file_name, mime_type=row.mime_type, size=row.size
     )
-    return created, path
 
 
 def _remove_written(written: list[tuple[str, Path]]) -> None:
