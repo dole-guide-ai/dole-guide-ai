@@ -5,7 +5,14 @@ from pydantic import ValidationError
 
 from app.core.config import Settings
 
-LLM_KEYS = ("LLM_API_KEY", "AGENT_MODEL", "EXTRACT_MODEL", "LLM_BASE_URL")
+LLM_KEYS = (
+    "LLM_API_KEY",
+    "AGENT_MODEL",
+    "EXTRACT_MODEL",
+    "LLM_BASE_URL",
+    "INTERNAL_API_SECRET",
+    "ACCOUNT_ENCRYPTION_KEY",
+)
 
 
 @pytest.fixture(autouse=True)
@@ -74,3 +81,20 @@ def test_cors_origins_reads_json_list(monkeypatch: pytest.MonkeyPatch) -> None:
         "https://a.example.com",
         "https://b.example.com",
     ]
+
+
+def test_non_local_env_requires_secrets(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("APP_ENV", "production")
+    for key in ("LLM_API_KEY", "AGENT_MODEL", "EXTRACT_MODEL"):
+        monkeypatch.setenv(key, "test-value")
+
+    with pytest.raises(ValidationError, match="INTERNAL_API_SECRET, ACCOUNT_ENCRYPTION_KEY"):
+        Settings(_env_file=None)
+
+
+def test_runtime_defaults() -> None:
+    settings = Settings(_env_file=None)
+
+    assert settings.visitor_ttl_days == 7
+    assert settings.max_upload_mb == 4
+    assert settings.turn_timeout_seconds == 180

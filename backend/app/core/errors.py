@@ -1,4 +1,10 @@
-"""공통 에러 형식. 모든 실패 응답은 `ErrorResponse {code, message, details}`"""
+"""
+모든 실패 응답을 한 형식({code, message, details})으로 설정.
+서비스는 HTTPException 대신 여기의 예외(NotFoundError, ConflictError 등)만 던지고, 전역 핸들러가
+응답으로 바꿉니다.
+같은 상태 코드 안에서 업무 오류를 구분할 때는 ConflictError(code=ErrorCode.ROUND_CLOSED)처럼
+코드만 바꿔 던집니다.
+"""
 
 import logging
 from http import HTTPStatus
@@ -23,8 +29,11 @@ STATUS_TO_CODE: dict[int, ErrorCode] = {
     404: ErrorCode.NOT_FOUND,
     405: ErrorCode.BAD_REQUEST,
     409: ErrorCode.CONFLICT,
+    413: ErrorCode.FILE_TOO_LARGE,
+    415: ErrorCode.UNSUPPORTED_FILE,
     422: ErrorCode.VALIDATION_ERROR,
     429: ErrorCode.RATE_LIMITED,
+    501: ErrorCode.NOT_IMPLEMENTED,
 }
 
 DEFAULT_MESSAGES: dict[ErrorCode, str] = {
@@ -37,6 +46,27 @@ DEFAULT_MESSAGES: dict[ErrorCode, str] = {
     ErrorCode.RATE_LIMITED: "요청이 많아요. 잠시 후 다시 시도해 주세요.",
     ErrorCode.LLM_UNAVAILABLE: "AI 도우미가 잠시 응답하지 않아요. 잠시 후 다시 시도해 주세요.",
     ErrorCode.INTERNAL_ERROR: "일시적인 문제가 생겼어요. 잠시 후 다시 시도해 주세요.",
+    ErrorCode.INTERNAL_AUTH_FAILED: "허용되지 않은 요청이에요.",
+    ErrorCode.PERSONA_NOT_FOUND: "없는 시연 계정이에요.",
+    ErrorCode.ACCOUNT_NOT_FOUND: "계정을 먼저 골라 주세요.",
+    ErrorCode.STATUS_WITH_FIELDS: "저장·제출은 다른 칸과 따로 요청해 주세요.",
+    ErrorCode.USER_ANSWER_ONLY: "이 칸은 대화로 직접 답해 주세요.",
+    ErrorCode.VERSION_CONFLICT: "다른 곳에서 먼저 고쳤어요. 새로 불러온 뒤 다시 해 주세요.",
+    ErrorCode.RESUME_NOT_READY: "꼭 필요한 칸을 모두 채우고 확인해야 저장할 수 있어요.",
+    ErrorCode.STAGE_ORDER: "지금 단계에서는 할 수 없어요.",
+    ErrorCode.NO_ACTIVE_ROUND: "아직 실업인정 회차가 없어요.",
+    ErrorCode.ROUND_CLOSED: "지난 회차는 고칠 수 없어요.",
+    ErrorCode.DUPLICATE_ACTIVITY: "이미 기록한 활동이에요.",
+    ErrorCode.APPLICATION_LOCKED: "이 신청서는 지금 작성할 수 없어요. 안내를 확인해 주세요.",
+    ErrorCode.CANNOT_SUBMIT: "아직 제출할 수 없어요. 남은 항목을 확인해 주세요.",
+    ErrorCode.FACT_NOT_DELETABLE: "이 줄은 지울 수 없어요.",
+    ErrorCode.TURN_IN_PROGRESS: "답을 만드는 중이에요. 끝난 뒤 다시 보내 주세요.",
+    ErrorCode.IDEMPOTENCY_MISMATCH: "같은 요청 키로 다른 내용을 보냈어요.",
+    ErrorCode.FILE_TOO_LARGE: "파일이 너무 커요. 4MB 이하로 올려 주세요.",
+    ErrorCode.UNSUPPORTED_FILE: "올릴 수 없는 파일 형식이에요.",
+    ErrorCode.EXTERNAL_UNAVAILABLE: "지금 목록을 불러올 수 없어요. 잠시 후 다시 시도해 주세요.",
+    ErrorCode.NOT_IMPLEMENTED: "아직 준비 중인 기능이에요.",
+    ErrorCode.TIMEOUT: "답이 너무 오래 걸려 멈췄어요. 다시 보내 주세요.",
 }
 
 
@@ -49,7 +79,12 @@ class AppError(Exception):
     code: ErrorCode = ErrorCode.INTERNAL_ERROR
     status: int = HTTPStatus.INTERNAL_SERVER_ERROR
 
-    def __init__(self, message: str | None = None, details: Any = None) -> None:
+    def __init__(
+        self, message: str | None = None, details: Any = None, *, code: ErrorCode | None = None
+    ) -> None:
+        # 같은 상태 코드 안에서 업무 코드만 다를 때: ConflictError(code=ErrorCode.ROUND_CLOSED)
+        if code is not None:
+            self.code = code
         self.message = message or DEFAULT_MESSAGES[self.code]
         self.details = details
         super().__init__(self.message)
@@ -58,6 +93,11 @@ class AppError(Exception):
 class BadRequestError(AppError):
     code = ErrorCode.BAD_REQUEST
     status = HTTPStatus.BAD_REQUEST
+
+
+class UnauthorizedError(AppError):
+    code = ErrorCode.UNAUTHORIZED
+    status = HTTPStatus.UNAUTHORIZED
 
 
 class NotFoundError(AppError):
@@ -70,6 +110,23 @@ class ConflictError(AppError):
     status = HTTPStatus.CONFLICT
 
 
+class PayloadTooLargeError(AppError):
+    code = ErrorCode.FILE_TOO_LARGE
+    status = HTTPStatus.REQUEST_ENTITY_TOO_LARGE
+
+
+class UnsupportedMediaError(AppError):
+    code = ErrorCode.UNSUPPORTED_FILE
+    status = HTTPStatus.UNSUPPORTED_MEDIA_TYPE
+
+
+class UnprocessableError(AppError):
+    """Pydantic 검증은 통과했지만 업무 규칙상 받을 수 없는 값 (422)."""
+
+    code = ErrorCode.VALIDATION_ERROR
+    status = HTTPStatus.UNPROCESSABLE_ENTITY
+
+
 class RateLimitedError(AppError):
     code = ErrorCode.RATE_LIMITED
     status = HTTPStatus.TOO_MANY_REQUESTS
@@ -78,6 +135,18 @@ class RateLimitedError(AppError):
 class LlmUnavailableError(AppError):
     code = ErrorCode.LLM_UNAVAILABLE
     status = HTTPStatus.SERVICE_UNAVAILABLE
+
+
+class ExternalUnavailableError(AppError):
+    code = ErrorCode.EXTERNAL_UNAVAILABLE
+    status = HTTPStatus.SERVICE_UNAVAILABLE
+
+
+class NotImplementedYetError(AppError):
+    """라우터 틀만 있고 아직 구현하지 않은 엔드포인트 (501). 기능 PR에서 지웁니다."""
+
+    code = ErrorCode.NOT_IMPLEMENTED
+    status = HTTPStatus.NOT_IMPLEMENTED
 
 
 def error_response(

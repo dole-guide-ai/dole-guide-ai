@@ -3,8 +3,15 @@ from fastapi import APIRouter, FastAPI
 from fastapi.testclient import TestClient
 from pydantic import BaseModel
 
-from app.core.errors import NotFoundError, register_exception_handlers
+from app.core.errors import (
+    DEFAULT_MESSAGES,
+    ConflictError,
+    NotFoundError,
+    NotImplementedYetError,
+    register_exception_handlers,
+)
 from app.core.request_id import RequestIdMiddleware
+from app.schemas.common import ErrorCode
 
 
 class ItemCreate(BaseModel):
@@ -25,6 +32,14 @@ def build_app() -> FastAPI:
     @router.post("/items")
     def create(item: ItemCreate) -> ItemCreate:
         return item
+
+    @router.get("/rounds/closed")
+    def closed() -> None:
+        raise ConflictError(code=ErrorCode.ROUND_CLOSED)
+
+    @router.get("/later")
+    def later() -> None:
+        raise NotImplementedYetError()
 
     @router.get("/boom")
     def boom() -> None:
@@ -79,3 +94,22 @@ def test_request_id_is_added_and_valid_incoming_id_is_kept(error_client: TestCli
 
     replaced = error_client.get("/nope", headers={"X-Request-ID": "bad id\nINJECT"})
     assert replaced.headers["X-Request-ID"] != "bad id\nINJECT"
+
+
+def test_every_error_code_has_default_message() -> None:
+    assert set(DEFAULT_MESSAGES) == set(ErrorCode)
+
+
+def test_domain_code_overrides_class_code(error_client: TestClient) -> None:
+    res = error_client.get("/rounds/closed")
+
+    assert res.status_code == 409
+    assert res.json()["code"] == "ROUND_CLOSED"
+    assert res.json()["message"] == DEFAULT_MESSAGES[ErrorCode.ROUND_CLOSED]
+
+
+def test_not_implemented_returns_501(error_client: TestClient) -> None:
+    res = error_client.get("/later")
+
+    assert res.status_code == 501
+    assert res.json()["code"] == "NOT_IMPLEMENTED"
