@@ -3,7 +3,7 @@
 이직 당시 나이로 수급자 유형을 정하고, 나이와 고용보험 가입기간으로 소정급여일수를 구합니다.
 1차 인정일부터 28일 간격으로 회차를 만들고, 인정일이 휴일이면 다음 평일로 옮깁니다.
 급여 소진 예정일과 수급기간 끝(이직 다음 날부터 12개월) 중 이른 날을 종료 예정일로 봅니다.
-지금은 계정 입장과 seed에 필요한 계산만 있고, 회차 활동 점검은 이후에 더합니다.
+종료 예정일이 지나면 종료 사유를 정하고, 남은 회차 수를 셉니다. 회차 활동 점검은 이후에 더합니다.
 """
 
 from dataclasses import dataclass
@@ -104,3 +104,22 @@ def build_rounds(
         recognition = next_business_day(recognition + timedelta(days=ROUND_INTERVAL_DAYS))
         round_no += 1
     return rounds
+
+
+def end_reason_on(today: date, benefit_end: date | None, period_end: date) -> str | None:
+    """종료 예정일이 지났으면 종료 사유, 아니면 None (설계 6.6, F-33).
+
+    급여 소진일과 수급기간 끝 중 먼저 오는 쪽이 사유입니다. 같은 날이면 수급기간 만료로 봅니다.
+    취업(employed)은 신고로 정해지므로 여기서 계산하지 않습니다.
+    """
+    end = expected_end_date(benefit_end, period_end)
+    if today <= end:
+        return None
+    if benefit_end is not None and benefit_end < period_end:
+        return "exhausted"
+    return "period_expired"
+
+
+def remaining_rounds(recognition_dates: list[date], today: date) -> int:
+    """오늘이 속한 회차를 포함해 아직 인정일이 지나지 않은 회차 수 (F-33)."""
+    return sum(1 for d in recognition_dates if d >= today)

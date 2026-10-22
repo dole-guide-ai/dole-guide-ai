@@ -14,6 +14,9 @@ TEST_DATABASE_URL = os.environ.get(
 if not (make_url(TEST_DATABASE_URL).database or "").endswith("_test"):
     raise RuntimeError("TEST_DATABASE_URL의 DB 이름은 _test로 끝나야 합니다. (예: dole_test)")
 os.environ["DATABASE_URL"] = TEST_DATABASE_URL
+# 테스트가 .env의 LangSmith 설정으로 트레이스를 보내지 않게 끕니다.
+# 실제 모델 평가는 evals/conftest.py가 .env 값으로 되돌립니다.
+os.environ["LANGSMITH_TRACING"] = "false"
 
 from alembic.config import Config  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
