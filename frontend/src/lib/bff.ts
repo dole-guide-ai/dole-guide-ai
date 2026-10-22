@@ -118,6 +118,10 @@ export const proxyToBackend = async (request: NextRequest, path: string[]): Prom
   const hasBody = !['GET', 'HEAD'].includes(request.method);
   // 토큰이 만료되면 한 번 다시 보내야 하므로 본문은 미리 읽어 둡니다(최대 4MB).
   const body = hasBody ? await request.arrayBuffer() : null;
+  // content-length 없이 오는 본문도 있으므로 실제로 읽은 크기로 한 번 더 확인합니다.
+  if (body && body.byteLength > MAX_UPLOAD_BYTES) {
+    return errorJson(413, 'FILE_TOO_LARGE', '파일이 너무 커요. 4MB 이하로 올려 주세요.');
+  }
 
   let token = request.cookies.get(VISITOR_COOKIE)?.value ?? null;
   let issued: string | null = null;

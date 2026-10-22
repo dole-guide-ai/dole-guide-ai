@@ -99,6 +99,13 @@ export const resetMockAuth = () => {
   deletedMyData.clear();
 };
 
+/** 계정에 들어갈 때 mock 대화·삭제 상태를 비우고 입장 계정을 정합니다. 혼합 모드 입장에서도 씁니다. */
+export const enterMockAccount = (personaId: string) => {
+  authenticatedPersonaId = personaId;
+  deletedMyData.clear();
+  resetMockChat();
+};
+
 export const resolveMock = async <T>(path: string, init?: RequestInit): Promise<T> => {
   const method = (init?.method ?? 'GET').toUpperCase();
   await wait(MOCK_DELAY_MS);
@@ -119,9 +126,7 @@ export const resolveMock = async <T>(path: string, init?: RequestInit): Promise<
   const accountMatch = /^\/accounts\/([a-z0-9_-]+)$/.exec(path);
   if (method === 'PUT' && accountMatch) {
     const account = mockAccount(accountMatch[1]);
-    authenticatedPersonaId = account.persona_id;
-    deletedMyData.clear();
-    resetMockChat();
+    enterMockAccount(account.persona_id);
     return account as T;
   }
 

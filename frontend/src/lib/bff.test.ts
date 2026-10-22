@@ -102,4 +102,17 @@ describe('proxyToBackend', () => {
     expect(res.status).toBe(413);
     expect((await res.json()).code).toBe('FILE_TOO_LARGE');
   });
+
+  it('content-length가 없어도 실제 본문이 4MB를 넘으면 413', async () => {
+    const request = new NextRequest('http://localhost/api/accounts/park/files', {
+      method: 'POST',
+      body: new Uint8Array(MAX_UPLOAD_BYTES + 1),
+    });
+    request.headers.delete('content-length');
+
+    const res = await proxyToBackend(request, ['accounts', 'park', 'files']);
+
+    expect(res.status).toBe(413);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
 });
