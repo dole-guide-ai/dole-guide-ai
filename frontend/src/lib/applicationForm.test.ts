@@ -192,4 +192,28 @@ describe('recognitionFromApplication 답변 변환', () => {
     });
     expect(form.field_states['work_and_employment.has_employment']).toBeUndefined();
   });
+
+  it('빈 다음 활동과 일부 칸이 빠진 근로내역은 답한 것으로 보지 않는다', () => {
+    const base = application().data;
+    const form = recognitionFromApplication(
+      application({
+        data: {
+          ...base,
+          work: {
+            has_work: answered('yes'),
+            entries: answered([
+              { worked_on: '2026-12-05', income_received_on: '2026-12-10', amount: 40000 },
+            ] as unknown as string),
+          },
+          next_plan: answered([] as unknown as string),
+        },
+      }),
+    );
+
+    expect(form.field_states['notification_and_plan.next_activity']).toBeUndefined();
+    expect(form.field_states['work_and_employment.work_details.total_hours']).toBeUndefined();
+    expect(form.field_states['work_and_employment.work_details.work_dates']).toMatchObject({
+      status: 'confirmed',
+    });
+  });
 });

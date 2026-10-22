@@ -64,7 +64,10 @@ const answerState = (
   field: FormField | undefined,
   periodStart: string,
 ): FieldMetaRead | undefined => {
-  if (field?.value == null) return undefined;
+  if (!field) return undefined;
+  const raw = field?.value;
+  // 빈 목록·빈 글자는 답이 없는 것과 같아 `답변 필요`로 남깁니다.
+  if (raw == null || raw === '' || (Array.isArray(raw) && raw.length === 0)) return undefined;
   const carried = field.answered_on != null && field.answered_on < periodStart;
   return {
     status: 'confirmed',
@@ -79,6 +82,13 @@ const answerState = (
         }
       : {}),
   };
+};
+
+/** 근로내역 한 칸(속성)은 모든 근로내역에 그 값이 있을 때만 답한 것으로 봅니다. */
+const entryField = (entries: FormField | undefined, key: string): FormField | undefined => {
+  const list = Array.isArray(entries?.value) ? (entries.value as Record<string, unknown>[]) : [];
+  const filled = list.length > 0 && list.every((entry) => entry[key] != null && entry[key] !== '');
+  return entries && { ...entries, value: filled ? list.map((entry) => entry[key]) : null };
 };
 
 const toWorkDetails = (entry: Record<string, unknown>): WorkDetails => ({
@@ -160,10 +170,13 @@ export const recognitionFromApplication = (app: ApplicationRead): RecognitionFor
     ['unemployment_credit', credit.application],
     ['notification_and_plan.payment_notification_method', data.notification_method],
     ['work_and_employment.has_work_or_service', data.work.has_work],
-    ['work_and_employment.work_details.work_dates', data.work.entries],
-    ['work_and_employment.work_details.total_hours', data.work.entries],
-    ['work_and_employment.work_details.income_date', data.work.entries],
-    ['work_and_employment.work_details.income_amount', data.work.entries],
+    ['work_and_employment.work_details.work_dates', entryField(data.work.entries, 'worked_on')],
+    ['work_and_employment.work_details.total_hours', entryField(data.work.entries, 'hours')],
+    [
+      'work_and_employment.work_details.income_date',
+      entryField(data.work.entries, 'income_received_on'),
+    ],
+    ['work_and_employment.work_details.income_amount', entryField(data.work.entries, 'amount')],
     ['work_and_employment.has_employment', data.employment.status],
     [
       'work_and_employment.has_industrial_accident_benefit_right',
