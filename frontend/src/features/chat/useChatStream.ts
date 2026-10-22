@@ -4,7 +4,9 @@ import { applyFormUpdateEvent } from '@/features/chat/applyFormUpdateEvent';
 import type { ChatAttachment } from '@/features/chat/chat.types';
 import { describeChatError } from '@/features/chat/chatErrors';
 import { chatReducer, initChatState } from '@/features/chat/chatReducer';
+import { useChatHistory } from '@/features/chat/useChatHistory';
 
+import { ApiError } from '@/lib/api';
 import { streamChat } from '@/lib/chatStream';
 import type { ChatInputKind } from '@/types/chat.types';
 import type { SessionRead } from '@/types/demo.types';
@@ -33,6 +35,24 @@ export const useChatStream = (session: SessionRead) => {
   if (state.sessionId !== sessionId) {
     dispatch({ type: 'reset', session });
   }
+
+  // F-03: 새로고침 뒤에는 서버에 저장된 대화로 말풍선을 되살립니다. 저장된 대화가 없으면 진입 안내를 둡니다.
+  const history = useChatHistory(session);
+  const pendingAsk = session.entry.pending_ask;
+  useEffect(() => {
+    if (history.data?.length) dispatch({ type: 'restore', messages: history.data, pendingAsk });
+  }, [history.data, pendingAsk]);
+  // 이전 대화를 못 받으면 대화가 없던 것처럼 보이지 않게 서버 문구를 말풍선으로 알립니다.
+  useEffect(() => {
+    if (!history.error) return;
+    dispatch({
+      type: 'system',
+      text:
+        history.error instanceof ApiError
+          ? history.error.message
+          : '이전 대화를 불러오지 못했어요. 새로고침해 주세요.',
+    });
+  }, [history.error]);
 
   useEffect(() => () => abortRef.current?.abort(), [sessionId]);
 
