@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { Button } from '@/components/Button';
 import { EvidenceLine } from '@/components/EvidenceLine';
 import { showsVisitNotice } from '@/features/dashboard/sessionNotices';
+import { PastRounds } from '@/features/procedure/PastRounds';
 import { RoundPanel } from '@/features/procedure/RoundPanel';
 import { RecognitionPanel } from '@/features/recognition/RecognitionPanel';
 import { ResumePanel } from '@/features/resume/ResumePanel';
@@ -146,7 +147,10 @@ export const PanelFrame = ({
           // E5b · 1.10 예외: 인정일을 모르면 회차 점검 대신 1차 실업인정일을 먼저 받습니다.
           <FirstDatePanel state={state} />
         ) : (
-          <RoundPanel session={session} onOpenForm={onOpenForm} />
+          <>
+            <RoundPanel session={session} onOpenForm={onOpenForm} />
+            <PastRounds session={session} />
+          </>
         ))}
 
       {panel === 'C' && (
