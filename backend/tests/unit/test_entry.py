@@ -34,6 +34,16 @@ def test_recognition_without_current_round_is_end() -> None:
     assert branch_id(procedure(stage="recognition"), "ready", None, None) == "END"
 
 
+def test_recognition_without_round_does_not_say_ended() -> None:
+    """종료 처리 전(실업인정 단계)에는 끝났다고 확정하지 않고 예정일과 확인 안내만 줍니다."""
+    waiting = procedure(stage="recognition", expected_end_date=date(2027, 6, 26))
+    entry = build_entry(waiting, "ready", None, None)
+    assert entry.branch_id == "END"
+    assert entry.title != "실업급여 수급이 끝났어요"
+    assert entry.next_step_text == "수급 종료 예정 : 06.26"
+    assert [m.template_id for m in entry.messages] == ["T-NO-ROUND"]
+
+
 def round_summary(no: int) -> RoundSummary:
     return RoundSummary.model_validate(
         {

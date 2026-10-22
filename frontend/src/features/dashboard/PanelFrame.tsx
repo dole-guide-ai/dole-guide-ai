@@ -64,7 +64,8 @@ export const PanelFrame = ({
   const reviewPanel = reviewStep ? STEP_PANEL[reviewStep] : undefined;
   const [isEditingResume, setIsEditingResume] = useState(false);
   // 수급이 끝나면(F-33) 고치던 중이었어도 읽기 전용으로 돌립니다.
-  const isResumeEditable = isEditingResume && entry.branch_id !== 'END';
+  const isEnded = state.stage === 'ended';
+  const isResumeEditable = isEditingResume && !isEnded;
 
   if (reviewPanel) {
     const info = PANEL_INFO[reviewPanel];
@@ -76,7 +77,7 @@ export const PanelFrame = ({
           </p>
           <div className="flex flex-wrap gap-2">
             {/* 수급이 끝난 계정은 지난 단계도 읽기만 합니다 (F-33). */}
-            {reviewPanel === 'A' && !isEditingResume && entry.branch_id !== 'END' && (
+            {reviewPanel === 'A' && !isEditingResume && !isEnded && (
               <Button variant="secondary" onClick={() => setIsEditingResume(true)}>
                 이력서 고치기
               </Button>
@@ -145,12 +146,10 @@ export const PanelFrame = ({
 
       {panel === 'A' && <ResumePanel session={session} onEditRequest={onEditRequest} />}
 
-      {panel === 'B' && entry.branch_id === 'END' && (
-        <BenefitEndedPanel derived={session.derived} />
-      )}
+      {panel === 'B' && isEnded && <BenefitEndedPanel derived={session.derived} />}
 
       {panel === 'B' &&
-        entry.branch_id !== 'END' &&
+        !isEnded &&
         (state.stage === 'eligibility_applied' || !state.next_recognition_date ? (
           // E5b · 1.10 예외: 인정일을 모르면 회차 점검 대신 1차 실업인정일을 먼저 받습니다.
           <FirstDatePanel state={state} />

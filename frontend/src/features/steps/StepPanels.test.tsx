@@ -93,6 +93,7 @@ describe('패널 E · Q · E5b (정적)', () => {
   it('수급이 끝난 계정은 지난 이력서를 다시 볼 때도 고칠 수 없다 (F-33)', () => {
     vi.spyOn(globalThis, 'fetch').mockReturnValue(new Promise(() => {}));
     const session = withPanel('lee', 'B');
+    session.state = { ...session.state, stage: 'ended' };
     session.entry = { ...session.entry, branch_id: 'END' };
 
     renderWithProviders(<PanelFrame session={session} reviewStep={1} />);
@@ -116,13 +117,28 @@ describe('패널 E · Q · E5b (정적)', () => {
       <QueryClientProvider client={queryClient}>
         <BigTextProvider>
           <PanelFrame
-            session={{ ...session, entry: { ...session.entry, branch_id: 'END' } }}
+            session={{
+              ...session,
+              state: { ...session.state, stage: 'ended' },
+              entry: { ...session.entry, branch_id: 'END' },
+            }}
             reviewStep={1}
           />
         </BigTextProvider>
       </QueryClientProvider>,
     );
     expect(screen.getByText(/\(읽기 전용\)/)).toBeInTheDocument();
+    vi.restoreAllMocks();
+  });
+
+  it('실업인정 단계에서 회차가 없을 뿐이면(END 분기) 이력서는 그대로 고칠 수 있다 (F-33)', () => {
+    vi.spyOn(globalThis, 'fetch').mockReturnValue(new Promise(() => {}));
+    const session = withPanel('lee', 'B', { stage: 'recognition' });
+    session.entry = { ...session.entry, branch_id: 'END' };
+
+    renderWithProviders(<PanelFrame session={session} reviewStep={1} />);
+
+    expect(screen.getByRole('button', { name: '이력서 고치기' })).toBeInTheDocument();
     vi.restoreAllMocks();
   });
 });

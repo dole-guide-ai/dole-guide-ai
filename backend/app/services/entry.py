@@ -50,6 +50,10 @@ _END_TEXT = {
     "employed": "취업해서 실업급여 수급이 끝났어요. 다시 일을 시작하신 걸 축하드려요.",
 }
 _END_DEFAULT = "실업급여 수급이 끝났어요."
+# 실업인정 단계인데 남은 회차가 없음(마지막 인정일 뒤, 종료 처리 전). 종료로 확정해 말하지 않습니다.
+NO_ROUND_TEXT = (
+    "남은 실업인정 회차가 없어요. 수급이 끝나는지와 다음 할 일은 관할 고용센터에 확인해 주세요."
+)
 
 
 def branch_id(
@@ -98,12 +102,16 @@ def build_entry(
     )
     title = _TITLE[step]
     messages: list[EntryMessage] = []
-    if branch == "END":
+    end = procedure.expected_end_date
+    if branch == "END" and procedure.stage == Stage.ENDED:
         title = END_TITLE
-        end = procedure.expected_end_date
         next_text = f"수급 종료 : {end:%m.%d}" if end else ""
         text = _END_TEXT.get(procedure.end_reason or "", _END_DEFAULT)
         messages.append(EntryMessage(template_id="T-END", text=text))
+    elif branch == "END":
+        # 종료 처리(`_close_if_ended`) 전이라 끝났다고 확정하지 않고 예정일과 확인 안내만 줍니다.
+        next_text = f"수급 종료 예정 : {end:%m.%d}" if end else ""
+        messages.append(EntryMessage(template_id="T-NO-ROUND", text=NO_ROUND_TEXT))
     elif round_ and procedure.last_round and round_.round == procedure.last_round:
         messages.append(EntryMessage(template_id="T-LAST", text=LAST_ROUND_TEXT))
     return Entry(
