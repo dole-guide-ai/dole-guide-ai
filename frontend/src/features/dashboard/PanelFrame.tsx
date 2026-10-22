@@ -63,6 +63,8 @@ export const PanelFrame = ({
   const panel = entry.panel;
   const reviewPanel = reviewStep ? STEP_PANEL[reviewStep] : undefined;
   const [isEditingResume, setIsEditingResume] = useState(false);
+  // 수급이 끝나면(F-33) 고치던 중이었어도 읽기 전용으로 돌립니다.
+  const isResumeEditable = isEditingResume && entry.branch_id !== 'END';
 
   if (reviewPanel) {
     const info = PANEL_INFO[reviewPanel];
@@ -70,7 +72,7 @@ export const PanelFrame = ({
       <aside className={ASIDE_CLASS} aria-label={`패널 ${info.name} (읽기 전용)`}>
         <div className="bg-ok-soft flex flex-wrap items-center justify-between gap-2 rounded-xl px-4 py-3">
           <p className="text-ok text-base font-semibold">
-            완료한 단계 · {info.name} {isEditingResume ? '(고치는 중)' : '(읽기 전용)'}
+            완료한 단계 · {info.name} {isResumeEditable ? '(고치는 중)' : '(읽기 전용)'}
           </p>
           <div className="flex flex-wrap gap-2">
             {/* 수급이 끝난 계정은 지난 단계도 읽기만 합니다 (F-33). */}
@@ -95,7 +97,7 @@ export const PanelFrame = ({
         {reviewPanel === 'A' && (
           <ResumePanel
             session={session}
-            isReadOnly={!isEditingResume}
+            isReadOnly={!isResumeEditable}
             onEditRequest={onEditRequest}
             saveLabel="다시 저장하기"
             onSaved={() => setIsEditingResume(false)}

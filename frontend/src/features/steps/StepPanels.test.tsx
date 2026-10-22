@@ -1,6 +1,9 @@
+import { QueryClientProvider } from '@tanstack/react-query';
 import { screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
+import { BigTextProvider } from '@/features/bigText/BigTextProvider';
 import { PanelFrame } from '@/features/dashboard/PanelFrame';
 
 import type { SessionRead } from '@/types/demo.types';
@@ -96,6 +99,30 @@ describe('패널 E · Q · E5b (정적)', () => {
 
     expect(screen.getByText(/완료한 단계 · 이력서/)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '이력서 고치기' })).not.toBeInTheDocument();
+    vi.restoreAllMocks();
+  });
+
+  it('이력서를 고치던 중에 수급이 끝나면 읽기 전용으로 돌아간다 (F-33)', async () => {
+    vi.spyOn(globalThis, 'fetch').mockReturnValue(new Promise(() => {}));
+    const session = withPanel('lee', 'B');
+    const { rerender, queryClient } = renderWithProviders(
+      <PanelFrame session={session} reviewStep={1} />,
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: '이력서 고치기' }));
+    expect(screen.getByText(/\(고치는 중\)/)).toBeInTheDocument();
+
+    rerender(
+      <QueryClientProvider client={queryClient}>
+        <BigTextProvider>
+          <PanelFrame
+            session={{ ...session, entry: { ...session.entry, branch_id: 'END' } }}
+            reviewStep={1}
+          />
+        </BigTextProvider>
+      </QueryClientProvider>,
+    );
+    expect(screen.getByText(/\(읽기 전용\)/)).toBeInTheDocument();
     vi.restoreAllMocks();
   });
 });
