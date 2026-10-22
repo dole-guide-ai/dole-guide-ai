@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { isServerSession } from '@/lib/accountSession';
 import { apiFetch } from '@/lib/api';
 import { applyFormUpdate } from '@/lib/formStore';
+import { queryKeys } from '@/lib/queryKeys';
 import type { FormPatchRead } from '@/types/chat.types';
 import type { ProcedurePatchCreate } from '@/types/procedure.types';
 
@@ -34,7 +35,7 @@ export const usePlanActivity = (sessionId?: string, personaId?: string) => {
     },
     onSuccess: ({ updates }) => {
       if (isServer) {
-        void queryClient.invalidateQueries({ queryKey: ['procedure', 'check', sessionId] });
+        void queryClient.invalidateQueries({ queryKey: queryKeys.roundCheckPrefix(sessionId) });
         return;
       }
       updates.forEach(applyFormUpdate);
