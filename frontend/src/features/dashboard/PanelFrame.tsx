@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { Button } from '@/components/Button';
 import { EvidenceLine } from '@/components/EvidenceLine';
 import { showsVisitNotice } from '@/features/dashboard/sessionNotices';
+import { BenefitEndedPanel } from '@/features/procedure/BenefitEndedPanel';
 import { RoundPanel } from '@/features/procedure/RoundPanel';
 import { RecognitionPanel } from '@/features/recognition/RecognitionPanel';
 import { ResumePanel } from '@/features/resume/ResumePanel';
@@ -141,7 +142,12 @@ export const PanelFrame = ({
 
       {panel === 'A' && <ResumePanel session={session} onEditRequest={onEditRequest} />}
 
+      {panel === 'B' && entry.branch_id === 'END' && (
+        <BenefitEndedPanel derived={session.derived} />
+      )}
+
       {panel === 'B' &&
+        entry.branch_id !== 'END' &&
         (state.stage === 'eligibility_applied' || !state.next_recognition_date ? (
           // E5b · 1.10 예외: 인정일을 모르면 회차 점검 대신 1차 실업인정일을 먼저 받습니다.
           <FirstDatePanel state={state} />

@@ -125,6 +125,11 @@ export const MOCK_PERSONAS: MockPersona[] = [
       required: 2,
       required_job_search: 1,
       can_presubmit_online: true,
+      // 270일 · 1차 9.29 기준 모의값 (F-33)
+      expected_end_date: '2027-06-11',
+      remaining_rounds: 8,
+      last_round: 11,
+      end_reason: null,
     },
   },
 ];

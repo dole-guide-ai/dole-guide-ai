@@ -155,7 +155,7 @@ export interface paths {
          * @description 지금 절차 단계, 수급자 유형, 소정급여일수, 수급기간 끝과 종료 예정일을 돌려줍니다.
          *
          *     종료 예정일은 급여 소진 예정일과 수급기간 끝(이직 다음 날부터 12개월) 중 이른 날이며, 실제는
-         *     고용센터 확인이 필요합니다.
+         *     고용센터 확인이 필요합니다. 회차가 만들어졌으면 남은 회차 수와 마지막 회차 번호도 들어갑니다.
          */
         get: operations["get_procedure"];
         put?: never;
@@ -1219,6 +1219,10 @@ export interface components {
             /** Expected End Date */
             expected_end_date?: string | null;
             end_reason?: components["schemas"]["EndReason"] | null;
+            /** Remaining Rounds */
+            remaining_rounds?: number | null;
+            /** Last Round */
+            last_round?: number | null;
         };
         /** ProfileDisplay */
         ProfileDisplay: {

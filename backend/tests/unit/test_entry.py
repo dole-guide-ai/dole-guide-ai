@@ -1,7 +1,8 @@
 from datetime import date
 
 from app.schemas.procedure import ProcedureRead
-from app.services.entry import branch_id
+from app.schemas.rounds import RoundSummary
+from app.services.entry import branch_id, build_entry
 
 
 def procedure(**overrides: object) -> ProcedureRead:
@@ -31,3 +32,36 @@ def test_repeat_recipient_goes_to_center_guide() -> None:
 
 def test_recognition_without_current_round_is_end() -> None:
     assert branch_id(procedure(stage="recognition"), "ready", None, None) == "END"
+
+
+def round_summary(no: int) -> RoundSummary:
+    return RoundSummary.model_validate(
+        {
+            "round": no,
+            "period_start": date(2026, 10, 1),
+            "period_end": date(2026, 10, 28),
+            "recognition_date": date(2026, 10, 28),
+            "attendance_required": False,
+            "status": "current",
+            "application_status": "draft",
+        }
+    )
+
+
+def test_last_round_gets_last_round_sentence() -> None:
+    """마지막 회차면 첫 안내에 마지막 회차 문장을 붙입니다 (F-33)."""
+    last = procedure(stage="recognition", last_round=9)
+    entry = build_entry(last, "ready", round_summary(9), 7)
+    assert [m.template_id for m in entry.messages] == ["T-LAST"]
+    assert "마지막 회차" in entry.messages[0].text
+    assert build_entry(last, "ready", round_summary(8), 7).messages == []
+
+
+def test_ended_account_shows_end_screen() -> None:
+    ended = procedure(stage="ended", end_reason="exhausted", expected_end_date=date(2027, 6, 26))
+    entry = build_entry(ended, "ready", None, None)
+    assert entry.branch_id == "END"
+    assert entry.title == "실업급여 수급이 끝났어요"
+    assert entry.next_step_text == "수급 종료 : 06.26"
+    assert entry.messages[0].template_id == "T-END"
+    assert "소정급여일수" in entry.messages[0].text
