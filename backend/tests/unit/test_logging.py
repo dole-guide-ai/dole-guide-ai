@@ -49,3 +49,15 @@ def test_middleware_sets_request_id_only_during_request() -> None:
 
     assert seen == ["abc12345-req"] == [res.headers["X-Request-ID"]]
     assert current_request_id.get() == "-"
+
+
+def test_uvicorn_error_logs_use_same_format() -> None:
+    from app.core.logging import UVICORN_ERROR_LOGGER, setup_logging
+
+    setup_logging()
+    uvicorn_error = logging.getLogger(UVICORN_ERROR_LOGGER)
+
+    assert uvicorn_error.propagate is False
+    [handler] = uvicorn_error.handlers
+    assert isinstance(handler.formatter, KstFormatter)
+    assert any(isinstance(f, RequestIdFilter) for f in handler.filters)

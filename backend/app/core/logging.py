@@ -9,6 +9,10 @@ from app.core.clock import KST
 from app.core.request_id import current_request_id
 
 FORMAT = "%(asctime)s %(levelname)s [%(request_id)s] %(name)s %(message)s"
+# uvicorn이 자기 핸들러를 붙여 루트 설정을 거치지 않는 로거.
+# 서버 시작·처리 못 한 예외가 여기로 옵니다.
+# 접속 로그(uvicorn.access)는 형식이 달라 그대로 둡니다.
+UVICORN_ERROR_LOGGER = "uvicorn.error"
 
 
 class KstFormatter(logging.Formatter):
@@ -31,3 +35,6 @@ def setup_logging(level: int = logging.INFO) -> None:
     handler.setFormatter(KstFormatter(FORMAT))
     handler.addFilter(RequestIdFilter())
     logging.basicConfig(level=level, handlers=[handler], force=True)
+    uvicorn_error = logging.getLogger(UVICORN_ERROR_LOGGER)
+    uvicorn_error.handlers = [handler]
+    uvicorn_error.propagate = False
