@@ -85,6 +85,8 @@ def test_lecture_limit_and_round_8_rules() -> None:
     # general 8차부터는 구직활동만 인정 (ACT-030)
     assert _keys(round_no=8) == ["work24_apply", "interview", "company_site_apply"]
     assert "step_lecture" in _keys(round_no=8, group="age65_or_disabled")
+    # 반복수급자는 일반 규칙을 따릅니다
+    assert _keys(round_no=8, group="repeat") == ["work24_apply", "interview", "company_site_apply"]
 
 
 def test_recommendation_id_round_trip() -> None:

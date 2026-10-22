@@ -64,4 +64,37 @@ describe('RecommendationBox (F-19 실제 서버 세션)', () => {
       '선택함',
     );
   });
+
+  it('추천을 받는 동안 안내를 보여 주고, 못 받으면 서버 문구를 보여 준다', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      Response.json(
+        { code: 'NO_ACTIVE_ROUND', message: '지금 진행 중인 회차가 없어요.' },
+        { status: 404 },
+      ),
+    );
+    renderWithProviders(
+      <RecommendationBox sessionId="acct-lee-2026-10-21" plannedIds={[]} personaId="lee" />,
+    );
+
+    expect(screen.getByText('추천을 고르는 중…')).toBeInTheDocument();
+    expect(await screen.findByRole('alert')).toHaveTextContent('지금 진행 중인 회차가 없어요.');
+  });
+
+  it('예정 활동으로 넣지 못하면(409) 서버 문구를 보여 준다', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (_input, init) =>
+      init?.method === 'POST'
+        ? Response.json(
+            { code: 'DUPLICATE_ACTIVITY', message: '이미 예정으로 넣은 활동이에요.' },
+            { status: 409 },
+          )
+        : Response.json(serverList),
+    );
+    renderWithProviders(
+      <RecommendationBox sessionId="acct-lee-2026-10-21" plannedIds={[]} personaId="lee" />,
+    );
+
+    await userEvent.click(await screen.findByRole('button', { name: /입사지원.* 선택/ }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('이미 예정으로 넣은 활동이에요.');
+  });
 });

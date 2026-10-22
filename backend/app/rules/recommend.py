@@ -10,10 +10,10 @@
 from dataclasses import dataclass
 from datetime import date, timedelta
 
-from app.rules.application import JOB_SEARCH, NON_JOB_SEARCH
+from app.rules.application import GENERAL_RULE_GROUPS, JOB_SEARCH, NON_JOB_SEARCH
 
 MAX_ITEMS = 3
-# general 그룹은 8차부터 구직활동만 인정합니다 (ACT-030).
+# 일반 규칙 그룹(반복수급자 포함)은 8차부터 구직활동만 인정합니다 (ACT-030).
 JOB_SEARCH_ONLY_FROM = 8
 # 단기·온라인 취업특강은 합쳐서 수급 기간 전체 2회까지 (ACT-043, ACT-117).
 LECTURE_LIMIT = 2
@@ -92,7 +92,7 @@ class Recommendation:
 
 
 def _allowed(candidate: Candidate, group: str, round_no: int, lectures_used: int) -> bool:
-    job_search_only = group == "general" and round_no >= JOB_SEARCH_ONLY_FROM
+    job_search_only = group in GENERAL_RULE_GROUPS and round_no >= JOB_SEARCH_ONLY_FROM
     if candidate.category == NON_JOB_SEARCH and job_search_only:
         return False
     return not (candidate.kind == "lecture" and lectures_used >= LECTURE_LIMIT)
