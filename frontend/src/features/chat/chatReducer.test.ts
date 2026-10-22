@@ -59,10 +59,22 @@ describe('chatReducer', () => {
       { id: 'h-2', role: 'assistant' as const, text: '어떤 활동이었어요?' },
     ];
 
-    expect(run([{ type: 'restore', messages: saved }]).messages).toEqual(saved);
+    const answered = run([{ type: 'restore', messages: saved, pendingAsk: null }]);
+    expect(answered.messages).toEqual(saved);
+    // 답을 마친 대화면 진입 선택지를 지웁니다
+    expect(answered.choices).toEqual([]);
+    const waiting = run([
+      {
+        type: 'restore',
+        messages: saved,
+        pendingAsk: { choices: ['고를게요'], import_kind: 'work24-activities' },
+      },
+    ]);
+    expect(waiting.choices).toEqual(['고를게요']);
+    expect(waiting.importKind).toBe('work24-activities');
     const continued = run([
       { type: 'user_sent', text: '추천해 주세요', inputKind: 'choice' },
-      { type: 'restore', messages: saved },
+      { type: 'restore', messages: saved, pendingAsk: null },
     ]);
     expect(continued.messages.at(-1)?.text).toBe('추천해 주세요');
   });

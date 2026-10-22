@@ -49,9 +49,10 @@ const fetchAll = async (personaId: string) => {
  */
 export const useChatHistory = (session: SessionRead) =>
   useQuery({
-    queryKey: queryKeys.messages(session.persona_id),
+    queryKey: queryKeys.messages(session.session_id),
     queryFn: () => fetchAll(session.persona_id),
     enabled: isServerSession(session.session_id),
-    staleTime: Infinity,
+    // 다시 입장(방문자 토큰이 바뀔 수 있음)하면 캐시를 쓰지 않고 새로 받습니다.
+    gcTime: 0,
     refetchOnWindowFocus: false,
   });

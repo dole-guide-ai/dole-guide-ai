@@ -1,7 +1,7 @@
 import type { ChatAttachment, ChatMessage } from '@/features/chat/chat.types';
 
 import type { ChatInputKind } from '@/types/chat.types';
-import type { SessionRead } from '@/types/demo.types';
+import type { EntryResult, SessionRead } from '@/types/demo.types';
 import type { ImportKind } from '@/types/imports.types';
 
 /**
@@ -23,8 +23,11 @@ export interface ChatState {
 
 export type ChatAction =
   | { type: 'reset'; session: SessionRead }
-  /** 새로고침 뒤 서버에 저장된 대화로 말풍선을 되살립니다 (F-03). 선택지는 세션의 멈춘 질문을 씁니다. */
-  | { type: 'restore'; messages: ChatMessage[] }
+  /**
+   * 새로고침 뒤 서버에 저장된 대화로 말풍선을 되살립니다 (F-03).
+   * 선택지·불러오기 종류는 멈춘 질문(`pending_ask`)의 것만 남기고, 답을 마친 대화면 비웁니다.
+   */
+  | { type: 'restore'; messages: ChatMessage[]; pendingAsk: EntryResult['pending_ask'] }
   | { type: 'user_sent'; text: string; inputKind: ChatInputKind; attachments?: ChatAttachment[] }
   | { type: 'token'; text: string }
   | {
@@ -46,7 +49,7 @@ export const initChatState = (session: SessionRead): ChatState => ({
     cite: message.cite,
   })),
   choices: session.entry.choices,
-  importKind: null,
+  importKind: session.entry.pending_ask?.import_kind ?? null,
   acceptsFile: session.entry.accepts_file ?? false,
   streamingId: null,
   nextId: 1,
@@ -77,7 +80,12 @@ export const chatReducer = (state: ChatState, action: ChatAction): ChatState => 
       if (state.messages.some((message) => message.role === 'user') || state.streamingId) {
         return state;
       }
-      return { ...state, messages: action.messages };
+      return {
+        ...state,
+        messages: action.messages,
+        choices: action.pendingAsk?.choices ?? [],
+        importKind: action.pendingAsk?.import_kind ?? null,
+      };
 
     case 'user_sent':
       return {

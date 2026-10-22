@@ -16,11 +16,12 @@ describe('sessionFromAccount', () => {
         question_id: 'activity.category',
         text: '어떤 활동이었어요?',
         choices: ['입사지원', '면접', '다른 활동'],
-        import_kind: null,
+        import_kind: 'work24-activities',
       },
     });
 
     expect(restored.entry.choices).toEqual(['입사지원', '면접', '다른 활동']);
+    expect(restored.entry.pending_ask?.import_kind).toBe('work24-activities');
     expect(sessionFromAccount({ ...account, pending_ask: null }).entry.choices).toEqual(
       account.entry.choices,
     );
