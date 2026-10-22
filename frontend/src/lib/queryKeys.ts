@@ -13,5 +13,8 @@ export const queryKeys = {
     ['procedure', 'check', sessionId, round] as const,
   recognitionForm: (sessionId: string, round: number | null) =>
     ['forms', 'recognition', sessionId, round] as const,
+  rounds: (personaId: string) => ['accounts', personaId, 'rounds'] as const,
+  application: (personaId: string, round: number) =>
+    ['accounts', personaId, 'rounds', round, 'application'] as const,
   roundRecommendations: (sessionId: string) => ['procedure', 'recommendations', sessionId] as const,
 };
