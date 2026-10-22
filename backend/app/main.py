@@ -17,6 +17,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.routing import APIRoute
 from sqlalchemy.exc import SQLAlchemyError
 
+from app.agent import gateway
 from app.api.routers import (
     accounts,
     activities,
@@ -44,6 +45,7 @@ from app.services.seed import load_personas
 setup_logging()
 settings = get_settings()
 settings.warn_missing_keys()
+gateway.configure_tracing()
 logger = logging.getLogger(__name__)
 
 
