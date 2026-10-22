@@ -23,6 +23,8 @@ export interface ChatState {
 
 export type ChatAction =
   | { type: 'reset'; session: SessionRead }
+  /** 새로고침 뒤 서버에 저장된 대화로 말풍선을 되살립니다 (F-03). 선택지는 세션의 멈춘 질문을 씁니다. */
+  | { type: 'restore'; messages: ChatMessage[] }
   | { type: 'user_sent'; text: string; inputKind: ChatInputKind; attachments?: ChatAttachment[] }
   | { type: 'token'; text: string }
   | {
@@ -69,6 +71,13 @@ export const chatReducer = (state: ChatState, action: ChatAction): ChatState => 
   switch (action.type) {
     case 'reset':
       return initChatState(action.session);
+
+    case 'restore':
+      // 이미 이번 화면에서 대화를 이어 갔으면 덮어쓰지 않습니다.
+      if (state.messages.some((message) => message.role === 'user') || state.streamingId) {
+        return state;
+      }
+      return { ...state, messages: action.messages };
 
     case 'user_sent':
       return {

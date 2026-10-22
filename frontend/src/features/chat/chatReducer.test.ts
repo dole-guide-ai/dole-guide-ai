@@ -52,4 +52,18 @@ describe('chatReducer', () => {
 
     expect(state.messages.map((m) => m.role)).toEqual(['assistant', 'assistant', 'user', 'system']);
   });
+
+  it('restore는 저장된 대화로 말풍선을 바꾸되, 이미 이어 간 대화는 덮지 않는다 (F-03)', () => {
+    const saved = [
+      { id: 'h-1', role: 'user' as const, text: '오늘 면접 봤어요' },
+      { id: 'h-2', role: 'assistant' as const, text: '어떤 활동이었어요?' },
+    ];
+
+    expect(run([{ type: 'restore', messages: saved }]).messages).toEqual(saved);
+    const continued = run([
+      { type: 'user_sent', text: '추천해 주세요', inputKind: 'choice' },
+      { type: 'restore', messages: saved },
+    ]);
+    expect(continued.messages.at(-1)?.text).toBe('추천해 주세요');
+  });
 });

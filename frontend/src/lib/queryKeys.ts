@@ -2,6 +2,7 @@ export const queryKeys = {
   health: ['health'] as const,
   personas: ['personas'] as const,
   forms: ['forms'] as const,
+  messages: (personaId: string) => ['accounts', personaId, 'messages'] as const,
   resumeForm: (sessionId: string) => ['forms', 'resume', sessionId] as const,
   procedure: ['procedure'] as const,
   imports: (kind: string, sessionId: string) => ['imports', kind, sessionId] as const,

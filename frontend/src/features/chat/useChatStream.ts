@@ -4,6 +4,7 @@ import { applyFormUpdateEvent } from '@/features/chat/applyFormUpdateEvent';
 import type { ChatAttachment } from '@/features/chat/chat.types';
 import { describeChatError } from '@/features/chat/chatErrors';
 import { chatReducer, initChatState } from '@/features/chat/chatReducer';
+import { useChatHistory } from '@/features/chat/useChatHistory';
 
 import { streamChat } from '@/lib/chatStream';
 import type { ChatInputKind } from '@/types/chat.types';
@@ -33,6 +34,12 @@ export const useChatStream = (session: SessionRead) => {
   if (state.sessionId !== sessionId) {
     dispatch({ type: 'reset', session });
   }
+
+  // F-03: 새로고침 뒤에는 서버에 저장된 대화로 말풍선을 되살립니다. 저장된 대화가 없으면 진입 안내를 둡니다.
+  const history = useChatHistory(session);
+  useEffect(() => {
+    if (history.data?.length) dispatch({ type: 'restore', messages: history.data });
+  }, [history.data]);
 
   useEffect(() => () => abortRef.current?.abort(), [sessionId]);
 
