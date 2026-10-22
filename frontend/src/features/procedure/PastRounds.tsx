@@ -6,6 +6,7 @@ import { PastRoundApplication } from '@/features/procedure/PastRoundApplication'
 import { usePastRounds } from '@/features/procedure/usePastRounds';
 
 import { isServerSession } from '@/lib/accountSession';
+import { ApiError } from '@/lib/api';
 import { formatShortDate } from '@/lib/dateFormat';
 import type { SessionRead } from '@/types/demo.types';
 
@@ -22,7 +23,17 @@ export const PastRounds = ({ session }: PastRoundsProps) => {
   const query = usePastRounds(session.persona_id, isServer);
   const [openRound, setOpenRound] = useState<number | null>(null);
 
-  if (!isServer || !query.data?.length) return null;
+  if (!isServer) return null;
+  if (query.isPending) return <p className="text-muted text-base">지난 회차를 불러오는 중…</p>;
+  if (query.isError) {
+    return (
+      <p role="alert" className="text-danger text-base">
+        {query.error instanceof ApiError ? query.error.message : '지난 회차를 불러오지 못했어요.'}
+      </p>
+    );
+  }
+  // 지난 회차가 없으면(1회차 등) 아무것도 보이지 않습니다.
+  if (!query.data.length) return null;
 
   return (
     <section aria-label="지난 회차 신청서" className="flex flex-col gap-2">

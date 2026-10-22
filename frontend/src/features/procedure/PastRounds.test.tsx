@@ -100,4 +100,17 @@ describe('PastRounds (F-04)', () => {
 
     expect(await screen.findByRole('region', { name: '지난 회차 신청서' })).toBeInTheDocument();
   });
+
+  it('지난 회차를 못 받으면 서버 문구를 보여 준다', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      Response.json(
+        { code: 'ACCOUNT_NOT_FOUND', message: '계정을 찾지 못했어요.' },
+        { status: 404 },
+      ),
+    );
+    renderWithProviders(<PastRounds session={serverSession()} />);
+
+    expect(screen.getByText('지난 회차를 불러오는 중…')).toBeInTheDocument();
+    expect(await screen.findByRole('alert')).toHaveTextContent('계정을 찾지 못했어요.');
+  });
 });
