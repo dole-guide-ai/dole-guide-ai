@@ -164,13 +164,17 @@ def locked_reason(data: dict[str, Any]) -> str | None:
     return None
 
 
+# 일반 수급자 규칙(4차부터 4주 2회)을 따르는 그룹. 반복수급자도 일반 규칙입니다.
+GENERAL_RULE_GROUPS = ("general", "repeat")
+
+
 def required_activities(recipient_group: str, round_no: int) -> tuple[int, int]:
     """회차별 필요 재취업활동 (전체 건수, 그중 구직활동 건수) (설계 6.2).
 
     1차는 실업인정 교육이라 활동 1건으로 셉니다. 4차부터 일반 수급자는 4주 2회(구직활동 1회 포함),
-    60세 이상·장애인은 4주 1회(자율)입니다. 8차 이후 일반의 "1주 1회 구직활동"은 회차 점검(F-18)이
-    주 단위로 셉니다.
+    60세 이상·장애인은 4주 1회(자율)입니다. 반복수급자는 일반 규칙을 따릅니다.
+    8차 이후 일반의 "1주 1회 구직활동"은 회차 점검(F-18)이 주 단위로 셉니다.
     """
-    if round_no <= 3 or recipient_group != "general":
+    if round_no <= 3 or recipient_group not in GENERAL_RULE_GROUPS:
         return (1, 0)
     return (2, 1)
