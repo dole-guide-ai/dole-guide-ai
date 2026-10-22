@@ -10,6 +10,9 @@ export const API_PATHS = {
   personas: '/personas',
   account,
   messages: (personaId: string) => `${account(personaId)}/messages`,
+  /** 회차 신청서. round가 없으면 지금 회차(`current`) */
+  application: (personaId: string, round: number | null) =>
+    `${account(personaId)}/rounds/${round ?? 'current'}/application`,
 
   LEGACY_RESUME: '/forms/resume',
   LEGACY_RESUME_CONFIRM: '/forms/resume/confirm',

@@ -1,7 +1,7 @@
 """실업인정 회차와 회차별 신청서를 다루는 라우터입니다.
 
 회차는 서버가 날짜로 계산해 만들기 때문에 회차를 만들거나 바꾸는 API는 없습니다.
-지금은 회차 목록 조회만 동작하고, 회차 점검·추천·신청서 조회와 제출은 501 틀입니다.
+회차 목록과 신청서 조회(F-23)가 동작하고, 회차 점검·추천·신청서 제출은 아직 501 틀입니다.
 경로의 round 자리에는 회차 번호(1, 2, …)나 오늘이 속한 회차를 뜻하는 current를 넣습니다.
 """
 
@@ -11,13 +11,14 @@ from fastapi import APIRouter, Depends, Path
 
 from app.api.deps import CurrentAccount, IfMatch, get_current_account
 from app.api.responses import error_responses
-from app.core.clock import Today
+from app.core.clock import Now, Today
 from app.core.db import DbSession
 from app.core.errors import NotImplementedYetError
 from app.schemas.application import ApplicationRead
 from app.schemas.common import JsonPatch, Page, UpdatesRead
 from app.schemas.rounds import RecommendationList, RoundCheck, RoundSummary
 from app.services import accounts as account_service
+from app.services import application as application_service
 
 router = APIRouter(prefix="/accounts/{persona_id}", tags=["rounds"])
 _auth = [Depends(get_current_account)]
@@ -73,19 +74,27 @@ def list_recommendations() -> RecommendationList:
 @router.get(
     "/rounds/{round}/application",
     summary="회차 신청서 조회",
-    dependencies=_auth,
-    responses=error_responses(401, 404, 501),
+    responses=error_responses(401, 404),
 )
-def get_application(round: RoundRef) -> ApplicationRead:
+def get_application(
+    db: DbSession, account: CurrentAccount, round: RoundRef, now: Now
+) -> ApplicationRead:
     """회차의 실업인정 신청서를 고용24 화면 순서대로 돌려줍니다. 작성내용 확인 화면도 이 응답으로
     그립니다.
 
     본인 답변 칸, 인정 활동에서 만든 구직활동 줄, 제출을 막는 항목과 경고, 지금 시각 기준 제출
     방식(submit_mode),
     잠금 사유(취업·산재), 신청인·지급계좌 표시값이 들어 있습니다. round에는 회차 번호나 current를
-    넣습니다. (아직 구현 전이라 501)
+    넣습니다.
+
+    구직활동 줄은 그 회차 대상기간의 실제 활동에서 만들고(같은 날 2건째는 excluded_rows),
+    지난 회차에 답한 통지 방법·실업크레딧은 이번 회차가 비어 있으면 불러옵니다.
+    제출 방식(submit_mode)은 실제 지금 시각(KST)으로 정합니다: 출석 회차 attend, 인정일 전 preview,
+    당일 17시 전 send, 17~18시 visit_today, 그 뒤 change. 막는 항목이 없고 send·attend일 때만
+    can_submit이 true이며, 경고(활동 부족·증빙 없음·실업크레딧)는 제출을 막지 않습니다.
+    오늘이 속한 회차가 없으면(current) 404 NO_ACTIVE_ROUND, 없는 회차 번호면 404입니다.
     """
-    raise NotImplementedYetError()
+    return application_service.read_application(db, account, round, now)
 
 
 @router.patch(
