@@ -28,11 +28,17 @@ def requires_llm() -> None:
         pytest.skip("모델 공급자 키가 없어 실제 모델 평가를 건너뜁니다.")
 
 
-# 실제 모델 평가는 서버와 같은 .env 설정으로 LangSmith에 트레이스를 남깁니다.
-# 루트 conftest가 테스트용으로 끈 값을 지우고 설정을 다시 읽습니다.
-os.environ.pop("LANGSMITH_TRACING", None)
-get_settings.cache_clear()
-gateway.configure_tracing()
+@pytest.fixture(scope="session", autouse=True)
+def eval_tracing() -> None:
+    """실제 모델 평가는 서버와 같은 .env 설정으로 LangSmith에 트레이스를 남깁니다.
+
+    루트 conftest가 테스트용으로 끈 값을 지우고 설정을 다시 읽습니다.
+    import 때가 아니라 evals 테스트가 실제로 돌 때만 하므로, tests/와 같이 실행해도
+    tests/ 쪽에는 트레이스가 켜지지 않습니다.
+    """
+    os.environ.pop("LANGSMITH_TRACING", None)
+    get_settings.cache_clear()
+    gateway.configure_tracing()
 
 
 # ── 골든셋 (evals/test_golden.py) ──

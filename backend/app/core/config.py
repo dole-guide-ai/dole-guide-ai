@@ -110,7 +110,11 @@ class Settings(BaseSettings):
         return bool(self.api_key_for(self.chat_target(role)[0]))
 
     def missing_required_keys(self) -> list[str]:
-        used = dict.fromkeys(PROVIDER_KEYS[p] for p in (self.agent_provider, self.extract_provider))
+        providers = [self.agent_provider, self.extract_provider]
+        if self.embedding_model:
+            # 임베딩 모델을 정했으면 그 공급자 키도 시작할 때 확인합니다(첫 검색에서 실패하지 않게).
+            providers.append(self.embedding_provider)
+        used = dict.fromkeys(PROVIDER_KEYS[p] for p in providers)
         names = [*used, *REQUIRED_OUTSIDE_LOCAL]
         return [name for name in names if not getattr(self, name)]
 

@@ -127,3 +127,9 @@ def test_tracing_on_with_key_and_hidden_io(settings, clean_langsmith_env) -> Non
     assert env["LANGSMITH_PROJECT"] == "test-project"
     assert env["LANGSMITH_ENDPOINT"] == "https://apac.api.smith.langchain.com"
     assert env["LANGSMITH_HIDE_INPUTS"] == env["LANGSMITH_HIDE_OUTPUTS"] == "true"
+
+
+def test_upstage_embeddings_send_at_most_100_per_request(settings) -> None:
+    settings(upstage_api_key="up-test-upstage", embedding_provider="upstage", embedding_model="m")
+
+    assert gateway.get_embeddings().chunk_size == 100

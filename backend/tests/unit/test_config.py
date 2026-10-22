@@ -144,3 +144,26 @@ def test_runtime_defaults() -> None:
     assert settings.visitor_ttl_days == 7
     assert settings.max_upload_mb == 4
     assert settings.turn_timeout_seconds == 180
+
+
+def test_embedding_provider_key_required_when_model_set(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("APP_ENV", "production")
+    for key in (
+        "OPENAI_API_KEY",
+        "AGENT_MODEL",
+        "EXTRACT_MODEL",
+        "INTERNAL_API_SECRET",
+        "ACCOUNT_ENCRYPTION_KEY",
+    ):
+        monkeypatch.setenv(key, "test-value")
+    monkeypatch.setenv("EMBEDDING_PROVIDER", "upstage")
+    monkeypatch.setenv("EMBEDDING_MODEL", "test-embed")
+
+    with pytest.raises(ValidationError, match="UPSTAGE_API_KEY"):
+        Settings(_env_file=None)
+
+
+def test_embedding_key_not_required_without_model(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("EMBEDDING_PROVIDER", "upstage")
+
+    assert "upstage_api_key" not in Settings(_env_file=None).missing_required_keys()

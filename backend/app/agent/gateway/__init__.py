@@ -13,6 +13,8 @@ from app.core.errors import AppError, LlmUnavailableError, RateLimitedError
 # None이면 OpenAI 기본 주소
 BASE_URLS: dict[str, str | None] = {"openai": None, "upstage": "https://api.upstage.ai/v1"}
 MAX_RETRIES = 1
+# 임베딩 요청 하나에 담는 문서 수. Upstage는 한 요청에 100개까지 받습니다(공식 API 문서).
+EMBEDDING_BATCH_SIZE: dict[str, int] = {"openai": 1000, "upstage": 100}
 
 
 def get_chat_model(role: ModelRole = "agent") -> BaseChatModel:
@@ -73,6 +75,7 @@ def _embeddings(provider: Provider, model: str) -> OpenAIEmbeddings:
         base_url=BASE_URLS[provider],
         timeout=settings.llm_timeout_seconds,
         max_retries=MAX_RETRIES,
+        chunk_size=EMBEDDING_BATCH_SIZE[provider],
         # 토큰 길이 검사는 OpenAI 토크나이저(tiktoken) 기준이라 다른 공급자에서는 끕니다.
         check_embedding_ctx_length=provider == "openai",
     )
