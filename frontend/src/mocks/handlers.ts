@@ -123,10 +123,12 @@ const invalid = (message = '바꿀 수 없는 칸이에요.') =>
   new ApiError('VALIDATION_ERROR', message, 422);
 
 /** 달력에 있는 날짜(YYYY-MM-DD)인지 봅니다. */
-const isCalendarDate = (value: unknown): value is string =>
-  typeof value === 'string' &&
-  ISO_DATE.test(value) &&
-  new Date(`${value}T00:00:00Z`).toISOString().slice(0, 10) === value;
+const isCalendarDate = (value: unknown): value is string => {
+  if (typeof value !== 'string' || !ISO_DATE.test(value)) return false;
+  const date = new Date(`${value}T00:00:00Z`);
+  // 13월처럼 없는 날짜는 Invalid Date라 toISOString 전에 걸러 냅니다.
+  return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
+};
 
 const addDays = (date: string, days: number) =>
   new Date(Date.parse(date) + days * DAY_MS).toISOString().slice(0, 10);

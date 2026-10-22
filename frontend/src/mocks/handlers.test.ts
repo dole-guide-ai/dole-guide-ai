@@ -221,7 +221,7 @@ describe('모의 API', () => {
     ).rejects.toMatchObject({ status: 409, code: 'STAGE_ORDER' });
 
     choiAt({ stage: 'eligibility_application' });
-    for (const value of ['2026-09-30', '2026-10-13', '2026-02-30']) {
+    for (const value of ['2026-09-30', '2026-10-13', '2026-02-30', '2026-13-01']) {
       await expect(
         patch({ op: 'replace', path: '/eligibility_applied_on', value }),
       ).rejects.toMatchObject({ status: 422 });

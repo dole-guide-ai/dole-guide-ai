@@ -34,7 +34,8 @@ def patch_procedure(
     db: Session, account: AccountContext, patch: list[JsonPatchOp], today: date
 ) -> UpdatesRead:
     # 수급이 끝난 계정(stage = ended)은 아래 단계 순서 검사에서 409 STAGE_ORDER로 막힙니다.
-    state = repo.get_procedure(db, account.user_id)
+    # 같은 사실을 두 요청이 동시에 넣어도 하나만 통과하도록(회차 중복 생성 방지) 행을 잠급니다.
+    state = repo.get_procedure(db, account.user_id, for_update=True)
     updates: list[FormUpdate] = []
     for op in patch:
         if op.op == "remove":
