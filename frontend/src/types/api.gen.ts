@@ -155,7 +155,7 @@ export interface paths {
          * @description 지금 절차 단계, 수급자 유형, 소정급여일수, 수급기간 끝과 종료 예정일을 돌려줍니다.
          *
          *     종료 예정일은 급여 소진 예정일과 수급기간 끝(이직 다음 날부터 12개월) 중 이른 날이며, 실제는
-         *     고용센터 확인이 필요합니다.
+         *     고용센터 확인이 필요합니다. 회차가 만들어졌으면 남은 회차 수와 마지막 회차 번호도 들어갑니다.
          */
         get: operations["get_procedure"];
         put?: never;
@@ -266,6 +266,9 @@ export interface paths {
          *
          *     구직활동 줄은 그 회차 대상기간의 실제 활동에서 만들고(같은 날 2건째는 excluded_rows),
          *     지난 회차에 답한 통지 방법·실업크레딧은 이번 회차가 비어 있으면 불러옵니다.
+         *     제출 방식(submit_mode)은 실제 지금 시각(KST)으로 정합니다: 출석 회차 attend, 인정일 전 preview,
+         *     당일 17시 전 send, 17~18시 visit_today, 그 뒤 change. 막는 항목이 없고 send·attend일 때만
+         *     can_submit이 true이며, 경고(활동 부족·증빙 없음·실업크레딧)는 제출을 막지 않습니다.
          *     오늘이 속한 회차가 없으면(current) 404 NO_ACTIVE_ROUND, 없는 회차 번호면 404입니다.
          */
         get: operations["get_application"];
@@ -362,8 +365,8 @@ export interface paths {
          *
          *     purpose가 resume_doc(이력서 서류)면 판독 뒤 지우고, evidence(구직활동 증빙)면 보관해 활동에
          *     연결합니다.
-         *     너무 크면 413 FILE_TOO_LARGE, 형식이 안 맞으면 415 UNSUPPORTED_FILE입니다. (아직 구현 전이라
-         *     501)
+         *     너무 크면 413 FILE_TOO_LARGE, 확장자나 파일 내용 형식이 안 맞으면 415 UNSUPPORTED_FILE.
+         *     같은 Idempotency-Key로 다시 보내면 처음 결과를 돌려주고, 내용이 다르면 409.
          */
         post: operations["upload_file"];
         delete?: never;
@@ -383,7 +386,6 @@ export interface paths {
          * 증빙 파일 열기
          * @description 보관한 구직활동 증빙 파일의 본문을 돌려줍니다. 자기 계정 파일만 열 수 있고, 다른 계정
          *     파일이면 404입니다.
-         *     (아직 구현 전이라 501)
          */
         get: operations["get_file"];
         put?: never;
@@ -1288,6 +1290,10 @@ export interface components {
             /** Expected End Date */
             expected_end_date?: string | null;
             end_reason?: components["schemas"]["EndReason"] | null;
+            /** Remaining Rounds */
+            remaining_rounds?: number | null;
+            /** Last Round */
+            last_round?: number | null;
         };
         /** ProfileDisplay */
         ProfileDisplay: {
@@ -2994,6 +3000,15 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
             /** @description Content Too Large */
             413: {
                 headers: {
@@ -3030,15 +3045,6 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Not Implemented */
-            501: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
         };
     };
     get_file: {
@@ -3060,7 +3066,6 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
                     "application/octet-stream": unknown;
                 };
             };
@@ -3093,15 +3098,6 @@ export interface operations {
             };
             /** @description Internal Server Error */
             500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Not Implemented */
-            501: {
                 headers: {
                     [name: string]: unknown;
                 };

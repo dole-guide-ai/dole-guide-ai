@@ -1,10 +1,12 @@
 import json
+import os
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
 import pytest
 
+from app.agent import gateway
 from app.core.config import get_settings
 from evals.golden.report import Report
 
@@ -22,8 +24,21 @@ def load_scenarios(area: str) -> list[dict[str, Any]]:
 @pytest.fixture
 def requires_llm() -> None:
     """실제 LLM을 호출하는 평가에서 사용합니다. API 키가 없으면 건너뜁니다."""
-    if not get_settings().llm_api_key:
-        pytest.skip("LLM_API_KEY가 없어 실제 모델 평가를 건너뜁니다.")
+    if not get_settings().has_llm_key():
+        pytest.skip("모델 공급자 키가 없어 실제 모델 평가를 건너뜁니다.")
+
+
+@pytest.fixture(scope="session", autouse=True)
+def eval_tracing() -> None:
+    """실제 모델 평가는 서버와 같은 .env 설정으로 LangSmith에 트레이스를 남깁니다.
+
+    루트 conftest가 테스트용으로 끈 값을 지우고 설정을 다시 읽습니다.
+    import 때가 아니라 evals 테스트가 실제로 돌 때만 하므로, tests/와 같이 실행해도
+    tests/ 쪽에는 트레이스가 켜지지 않습니다.
+    """
+    os.environ.pop("LANGSMITH_TRACING", None)
+    get_settings.cache_clear()
+    gateway.configure_tracing()
 
 
 # ── 골든셋 (evals/test_golden.py) ──

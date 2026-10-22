@@ -11,7 +11,7 @@ from fastapi import APIRouter, Depends, Path
 
 from app.api.deps import CurrentAccount, IfMatch, get_current_account
 from app.api.responses import error_responses
-from app.core.clock import Today
+from app.core.clock import Now, Today
 from app.core.db import DbSession
 from app.core.errors import NotImplementedYetError
 from app.schemas.application import ApplicationRead
@@ -77,7 +77,7 @@ def list_recommendations() -> RecommendationList:
     responses=error_responses(401, 404),
 )
 def get_application(
-    db: DbSession, account: CurrentAccount, round: RoundRef, today: Today
+    db: DbSession, account: CurrentAccount, round: RoundRef, now: Now
 ) -> ApplicationRead:
     """회차의 실업인정 신청서를 고용24 화면 순서대로 돌려줍니다. 작성내용 확인 화면도 이 응답으로
     그립니다.
@@ -89,9 +89,12 @@ def get_application(
 
     구직활동 줄은 그 회차 대상기간의 실제 활동에서 만들고(같은 날 2건째는 excluded_rows),
     지난 회차에 답한 통지 방법·실업크레딧은 이번 회차가 비어 있으면 불러옵니다.
+    제출 방식(submit_mode)은 실제 지금 시각(KST)으로 정합니다: 출석 회차 attend, 인정일 전 preview,
+    당일 17시 전 send, 17~18시 visit_today, 그 뒤 change. 막는 항목이 없고 send·attend일 때만
+    can_submit이 true이며, 경고(활동 부족·증빙 없음·실업크레딧)는 제출을 막지 않습니다.
     오늘이 속한 회차가 없으면(current) 404 NO_ACTIVE_ROUND, 없는 회차 번호면 404입니다.
     """
-    return application_service.read_application(db, account, round, today)
+    return application_service.read_application(db, account, round, now)
 
 
 @router.patch(
