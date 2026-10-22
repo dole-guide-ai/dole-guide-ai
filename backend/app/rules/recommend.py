@@ -120,12 +120,20 @@ def recommend_activities(
     round_no: int,
     lectures_used: int,
     desired_occupation: str | None,
+    planned: frozenset[tuple[str, str]] = frozenset(),
 ) -> list[Recommendation]:
-    """부족한 만큼 할 수 있는 활동을 최대 3개 고릅니다. 부족이 없으면 빈 목록입니다."""
+    """부족한 만큼 할 수 있는 활동을 최대 3개 고릅니다. 부족이 없으면 빈 목록입니다.
+
+    `planned`는 이미 예정으로 넣은 (종류, 경로)라 다시 추천하지 않습니다.
+    """
     if shortfall <= 0 and shortfall_job_search <= 0:
         return []
     needs_job = shortfall_job_search > 0
-    candidates = [c for c in CANDIDATES if _allowed(c, group, round_no, lectures_used)]
+    candidates = [
+        c
+        for c in CANDIDATES
+        if _allowed(c, group, round_no, lectures_used) and (c.kind, c.route) not in planned
+    ]
     ranked = sorted(
         candidates,
         key=lambda c: (
@@ -162,7 +170,8 @@ def parse_recommendation_id(value: str) -> tuple[int, Candidate] | None:
     """`rec_{회차}_{종류}`를 회차 번호와 후보로 나눕니다. 모양이 다르면 None."""
     prefix, _, rest = value.partition("_")
     round_text, _, key = rest.partition("_")
-    if prefix != "rec" or not round_text.isdigit() or key not in BY_KEY:
+    # isdigit()은 '²' 같은 숫자 기호도 참이라 ASCII 숫자만 받습니다.
+    if prefix != "rec" or not (round_text.isascii() and round_text.isdigit()) or key not in BY_KEY:
         return None
     return int(round_text), BY_KEY[key]
 

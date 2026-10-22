@@ -101,6 +101,7 @@ def test_recommendation_id_round_trip() -> None:
     assert (round_no, candidate.kind, candidate.route) == (4, "lecture", "step_online")
     assert parse_recommendation_id("rec_x_step_lecture") is None
     assert parse_recommendation_id("rec_4_unknown") is None
+    assert parse_recommendation_id("rec_²_work24_apply") is None
 
 
 def test_deadline_is_day_before_recognition_and_avoids_busy_days() -> None:
@@ -128,3 +129,11 @@ def test_planned_date_is_day_before_recognition_or_today() -> None:
     assert planned_date(date(2026, 12, 22), date(2026, 12, 16)) == date(2026, 12, 21)
     # 인정일 당일에는 전날이 지났으므로 오늘
     assert planned_date(date(2026, 12, 22), date(2026, 12, 22)) == date(2026, 12, 22)
+
+
+def test_already_planned_candidates_are_not_recommended_again() -> None:
+    assert _keys(planned=frozenset({("job_application", "work24")})) == [
+        "step_lecture",
+        "interview",
+        "company_site_apply",
+    ]

@@ -68,8 +68,13 @@ def test_pick_goes_in_as_planned_and_done_makes_it_count(
     assert update["value"]["activity_date"] == "2026-10-26"
     # 같은 키로 다시 보내면 한 번만 만듭니다
     assert _add(client, headers, "rec_4_work24_apply", key="pick-1").json() == res.json()
-    # 예정 활동은 계산에 안 넣으니 여전히 부족 → 추천이 그대로
-    assert len(client.get(URL, headers=headers).json()["items"]) == 3
+    # 예정 활동은 계산에 안 넣어 여전히 부족하지만, 이미 넣은 추천은 빼고 다음 후보를 보여 줍니다
+    items = client.get(URL, headers=headers).json()["items"]
+    assert [item["recommendation_id"] for item in items] == [
+        "rec_4_step_lecture",
+        "rec_4_interview",
+        "rec_4_company_site_apply",
+    ]
 
     done = recommendation_service.mark_done(
         db_session,
