@@ -2,11 +2,15 @@ import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 
 import { applyFormUpdateEvent } from '@/features/chat/applyFormUpdateEvent';
 import type { ChatAttachment } from '@/features/chat/chat.types';
+import { CHAT_ACTIONS } from '@/features/chat/chatActions';
 import { describeChatError } from '@/features/chat/chatErrors';
 import { chatReducer, initChatState } from '@/features/chat/chatReducer';
 
+import { ApiError } from '@/lib/api';
 import { streamChat } from '@/lib/chatStream';
-import type { ChatInputKind } from '@/types/chat.types';
+import { ERROR_CODES } from '@/lib/errorCodes';
+import { SSE_EVENTS } from '@/lib/sseEvents';
+import { type ChatInputKind, INPUT_KIND } from '@/types/chat.types';
 import type { SessionRead } from '@/types/demo.types';
 
 export interface SendOptions {
@@ -29,30 +33,35 @@ export const useChatStream = (session: SessionRead) => {
   const [inputText, setInputText] = useState('');
   const abortRef = useRef<AbortController | null>(null);
   const sessionId = session.session_id;
+  const personaId = session.persona_id;
 
   if (state.sessionId !== sessionId) {
-    dispatch({ type: 'reset', session });
+    dispatch({ type: CHAT_ACTIONS.RESET, session });
   }
 
   useEffect(() => () => abortRef.current?.abort(), [sessionId]);
 
   /** 업로드 실패처럼 스트림 밖에서 생긴 오류를 말풍선으로 보여 줍니다. */
-  const notifySystem = useCallback((text: string) => dispatch({ type: 'system', text }), []);
+  const notifySystem = useCallback(
+    (text: string) => dispatch({ type: CHAT_ACTIONS.SYSTEM, text }),
+    [],
+  );
 
   const send = useCallback(
     async (text: string, options: SendOptions = {}) => {
-      const { inputKind = 'text', fileIds, attachments, importIds } = options;
+      const { inputKind = INPUT_KIND.TEXT, fileIds, attachments, importIds } = options;
       const message = text.trim();
       if (!message || abortRef.current) return;
 
       const controller = new AbortController();
       abortRef.current = controller;
-      dispatch({ type: 'user_sent', text: message, inputKind, attachments });
+      dispatch({ type: CHAT_ACTIONS.USER_SENT, text: message, inputKind, attachments });
       setInputText('');
       setIsStreaming(true);
 
       try {
         const stream = await streamChat(
+          personaId,
           sessionId,
           { message, input_kind: inputKind, file_ids: fileIds, import_ids: importIds },
           controller.signal,
@@ -60,39 +69,45 @@ export const useChatStream = (session: SessionRead) => {
         for await (const event of stream) {
           if (controller.signal.aborted) break;
           switch (event.event) {
-            case 'token':
-              dispatch({ type: 'token', text: event.data.text });
+            case SSE_EVENTS.TOKEN:
+              dispatch({ type: CHAT_ACTIONS.TOKEN, text: event.data.text });
               break;
-            case 'tool_call':
+            case SSE_EVENTS.TOOL_CALL:
               setActiveTool(event.data.status === 'started' ? event.data.name : null);
               break;
-            case 'ask_user':
+            case SSE_EVENTS.ASK_USER:
               dispatch({
-                type: 'ask_user',
+                type: CHAT_ACTIONS.ASK_USER,
                 text: event.data.text,
                 choices: event.data.choices,
                 importKind: event.data.import_kind,
                 acceptsFile: event.data.accepts_file,
               });
               break;
-            case 'form_update':
+            case SSE_EVENTS.FORM_UPDATE:
               applyFormUpdateEvent(event.data);
               break;
-            case 'done':
-              dispatch({ type: 'done', cite: event.data.cite });
+            case SSE_EVENTS.DONE:
+              dispatch({ type: CHAT_ACTIONS.DONE, cite: event.data.cite });
               break;
-            case 'error': {
+            case SSE_EVENTS.ERROR: {
               const described = describeChatError(event.data);
-              dispatch({ type: 'system', text: described.text });
+              dispatch({ type: CHAT_ACTIONS.SYSTEM, text: described.text });
               if (described.restoresInput) setInputText(message);
               break;
             }
           }
         }
-      } catch {
+      } catch (error) {
         if (!controller.signal.aborted) {
-          dispatch({ type: 'system', text: describeChatError({ code: 'LLM_UNAVAILABLE' }).text });
-          setInputText(message);
+          // 턴 시작 전 실패(409 턴 진행 중 등)는 코드별 문구로, 그 밖은 답을 못 만든 것으로 봅니다.
+          const notStarted = error instanceof ApiError;
+          const described = describeChatError({
+            code: notStarted ? error.code : ERROR_CODES.LLM_UNAVAILABLE,
+          });
+          dispatch({ type: CHAT_ACTIONS.SYSTEM, text: described.text });
+          // 턴이 시작되지 않았으면 보낸 글을 항상 되돌려 다시 보낼 수 있게 합니다.
+          if (described.restoresInput || notStarted) setInputText(message);
         }
       } finally {
         if (abortRef.current === controller) abortRef.current = null;
@@ -100,7 +115,7 @@ export const useChatStream = (session: SessionRead) => {
         setIsStreaming(false);
       }
     },
-    [sessionId],
+    [personaId, sessionId],
   );
 
   return {

@@ -1,4 +1,6 @@
 import type { ChatAttachment, ChatMessage } from '@/features/chat/chat.types';
+import { CHAT_ROLE } from '@/features/chat/chat.types';
+import { CHAT_ACTIONS } from '@/features/chat/chatActions';
 
 import type { ChatInputKind } from '@/types/chat.types';
 import type { SessionRead } from '@/types/demo.types';
@@ -22,24 +24,29 @@ export interface ChatState {
 }
 
 export type ChatAction =
-  | { type: 'reset'; session: SessionRead }
-  | { type: 'user_sent'; text: string; inputKind: ChatInputKind; attachments?: ChatAttachment[] }
-  | { type: 'token'; text: string }
+  | { type: typeof CHAT_ACTIONS.RESET; session: SessionRead }
   | {
-      type: 'ask_user';
+      type: typeof CHAT_ACTIONS.USER_SENT;
+      text: string;
+      inputKind: ChatInputKind;
+      attachments?: ChatAttachment[];
+    }
+  | { type: typeof CHAT_ACTIONS.TOKEN; text: string }
+  | {
+      type: typeof CHAT_ACTIONS.ASK_USER;
       text: string;
       choices: string[];
       importKind?: ImportKind;
       acceptsFile?: boolean;
     }
-  | { type: 'done'; cite?: string }
-  | { type: 'system'; text: string };
+  | { type: typeof CHAT_ACTIONS.DONE; cite?: string }
+  | { type: typeof CHAT_ACTIONS.SYSTEM; text: string };
 
 export const initChatState = (session: SessionRead): ChatState => ({
   sessionId: session.session_id,
   messages: session.entry.messages.map((message, index) => ({
     id: `entry-${index}`,
-    role: 'assistant',
+    role: CHAT_ROLE.ASSISTANT,
     text: message.text,
     cite: message.cite,
   })),
@@ -67,13 +74,13 @@ const push = (state: ChatState, message: Omit<ChatMessage, 'id'>): ChatState => 
 
 export const chatReducer = (state: ChatState, action: ChatAction): ChatState => {
   switch (action.type) {
-    case 'reset':
+    case CHAT_ACTIONS.RESET:
       return initChatState(action.session);
 
-    case 'user_sent':
+    case CHAT_ACTIONS.USER_SENT:
       return {
         ...push(closeStreaming(state), {
-          role: 'user',
+          role: CHAT_ROLE.USER,
           text: action.text,
           inputKind: action.inputKind,
           attachments: action.attachments,
@@ -83,7 +90,7 @@ export const chatReducer = (state: ChatState, action: ChatAction): ChatState => 
         acceptsFile: false,
       };
 
-    case 'token': {
+    case CHAT_ACTIONS.TOKEN: {
       if (state.streamingId) {
         return {
           ...state,
@@ -94,21 +101,22 @@ export const chatReducer = (state: ChatState, action: ChatAction): ChatState => 
           ),
         };
       }
-      const started = push(state, { role: 'assistant', text: action.text });
+      const started = push(state, { role: CHAT_ROLE.ASSISTANT, text: action.text });
       return { ...started, streamingId: `m-${state.nextId}` };
     }
 
-    case 'ask_user':
+    case CHAT_ACTIONS.ASK_USER:
       return {
-        ...push(closeStreaming(state), { role: 'assistant', text: action.text }),
+        ...push(closeStreaming(state), { role: CHAT_ROLE.ASSISTANT, text: action.text }),
         choices: action.choices,
         importKind: action.importKind ?? null,
         acceptsFile: action.acceptsFile ?? false,
       };
 
-    case 'done': {
+    case CHAT_ACTIONS.DONE: {
       const targetId =
-        state.streamingId ?? [...state.messages].reverse().find((m) => m.role === 'assistant')?.id;
+        state.streamingId ??
+        [...state.messages].reverse().find((m) => m.role === CHAT_ROLE.ASSISTANT)?.id;
       const withCite = action.cite
         ? {
             ...state,
@@ -120,7 +128,7 @@ export const chatReducer = (state: ChatState, action: ChatAction): ChatState => 
       return closeStreaming(withCite);
     }
 
-    case 'system':
-      return push(closeStreaming(state), { role: 'system', text: action.text });
+    case CHAT_ACTIONS.SYSTEM:
+      return push(closeStreaming(state), { role: CHAT_ROLE.SYSTEM, text: action.text });
   }
 };

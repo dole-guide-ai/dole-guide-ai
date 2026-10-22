@@ -25,7 +25,7 @@ const mockApi = (chatEvents: SseMessage[] = []) =>
   vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
     const url = String(input);
     if (url.endsWith('/personas')) return Response.json({ items: cards, total: cards.length });
-    if (url.includes('/chat')) return sseResponse(chatEvents);
+    if (url.endsWith('/messages')) return sseResponse(chatEvents);
     if (url.endsWith('/forms/resume')) return Response.json(MOCK_RESUMES.park);
     if (url.endsWith('/procedure/current-round/check')) return Response.json(MOCK_ROUND_CHECKS.lee);
     return new Response('{}', { status: 404 });
@@ -131,9 +131,14 @@ describe('DashboardScreen', () => {
     const activities = getFormDrafts().activities.values.activities as { item_id: string }[];
     expect(activities.map((activity) => activity.item_id)).toEqual(['a1', 'a2', 'a3']);
 
-    const chatCall = fetchSpy.mock.calls.find(([input]) => String(input).includes('/chat'));
+    const chatCall = fetchSpy.mock.calls.find(([input]) => String(input).endsWith('/messages'));
     expect(chatCall?.[1]?.body).toBe(
-      JSON.stringify({ message: '이미 한 활동 기록할게요', input_kind: 'choice' }),
+      JSON.stringify({
+        text: '이미 한 활동 기록할게요',
+        input_kind: 'choice',
+        file_ids: [],
+        import_ids: [],
+      }),
     );
   });
 

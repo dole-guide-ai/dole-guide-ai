@@ -1,4 +1,5 @@
 import { getSession } from '@/lib/sessionStore';
+import { SSE_EVENTS } from '@/lib/sseEvents';
 import type { ChatCreate, SseMessage } from '@/types/chat.types';
 
 import { buildMockChatEvents } from './chatScripts';
@@ -37,6 +38,6 @@ export async function* mockChatStream(
   for (const event of events) {
     if (signal?.aborted) return;
     yield event;
-    await wait(event.event === 'tool_call' ? TOOL_DELAY_MS : TOKEN_DELAY_MS);
+    await wait(event.event === SSE_EVENTS.TOOL_CALL ? TOOL_DELAY_MS : TOKEN_DELAY_MS);
   }
 }

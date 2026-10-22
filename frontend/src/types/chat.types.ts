@@ -3,9 +3,13 @@
  * 백엔드 API가 올라오면 `api.gen.ts` 타입으로 바꿉니다.
  */
 
+import type { ERROR_CODES } from '@/lib/errorCodes';
+import type { SSE_EVENTS } from '@/lib/sseEvents';
 import type { ImportKind } from '@/types/imports.types';
 
-export type ChatInputKind = 'text' | 'voice' | 'choice';
+export const INPUT_KIND = { TEXT: 'text', VOICE: 'voice', CHOICE: 'choice' } as const;
+
+export type ChatInputKind = (typeof INPUT_KIND)[keyof typeof INPUT_KIND];
 
 /** POST /sessions/{session_id}/chat 본문 */
 export interface ChatCreate {
@@ -99,7 +103,11 @@ export interface FormPatchRead {
   updates: FormUpdateEvent[];
 }
 
-export type ChatErrorCode = 'LLM_UNAVAILABLE' | 'RATE_LIMITED' | 'INTERNAL_ERROR';
+export type ChatErrorCode =
+  | typeof ERROR_CODES.LLM_UNAVAILABLE
+  | typeof ERROR_CODES.RATE_LIMITED
+  | typeof ERROR_CODES.TIMEOUT
+  | typeof ERROR_CODES.INTERNAL_ERROR;
 
 export interface ErrorEvent {
   code: ChatErrorCode | string;
@@ -107,9 +115,9 @@ export interface ErrorEvent {
 }
 
 export type SseMessage =
-  | { event: 'token'; data: TokenEvent }
-  | { event: 'tool_call'; data: ToolCallEvent }
-  | { event: 'ask_user'; data: AskUserEvent }
-  | { event: 'form_update'; data: FormUpdateEvent }
-  | { event: 'done'; data: DoneEvent }
-  | { event: 'error'; data: ErrorEvent };
+  | { event: typeof SSE_EVENTS.TOKEN; data: TokenEvent }
+  | { event: typeof SSE_EVENTS.TOOL_CALL; data: ToolCallEvent }
+  | { event: typeof SSE_EVENTS.ASK_USER; data: AskUserEvent }
+  | { event: typeof SSE_EVENTS.FORM_UPDATE; data: FormUpdateEvent }
+  | { event: typeof SSE_EVENTS.DONE; data: DoneEvent }
+  | { event: typeof SSE_EVENTS.ERROR; data: ErrorEvent };

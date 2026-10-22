@@ -4,6 +4,7 @@ import { CONFIRMED_MESSAGE } from '@/features/recognition/recognitionLabels';
 import { getFormDrafts } from '@/lib/formStore';
 import { getSession } from '@/lib/sessionStore';
 import { citeOf } from '@/lib/sources';
+import { SSE_EVENTS } from '@/lib/sseEvents';
 import type { AskUserEvent, FormUpdateEvent, SseMessage } from '@/types/chat.types';
 import type { DerivedState, UserState } from '@/types/demo.types';
 import type { ImportKind } from '@/types/imports.types';
@@ -24,14 +25,14 @@ const TOKEN_SIZE = 6;
 const tokens = (text: string): SseMessage[] => {
   const chunks: SseMessage[] = [];
   for (let i = 0; i < text.length; i += TOKEN_SIZE) {
-    chunks.push({ event: 'token', data: { text: text.slice(i, i + TOKEN_SIZE) } });
+    chunks.push({ event: SSE_EVENTS.TOKEN, data: { text: text.slice(i, i + TOKEN_SIZE) } });
   }
   return chunks;
 };
 
 const say = (text: string, cite?: string, rule_refs?: string[]): SseMessage[] => [
   ...tokens(text),
-  { event: 'done', data: { cite, rule_refs } },
+  { event: SSE_EVENTS.DONE, data: { cite, rule_refs } },
 ];
 
 const ask = (
@@ -40,13 +41,13 @@ const ask = (
   choices: string[],
   import_kind?: ImportKind,
 ): SseMessage => ({
-  event: 'ask_user',
+  event: SSE_EVENTS.ASK_USER,
   data: { question_id, text, choices, ...(import_kind ? { import_kind } : {}) },
 });
 
 /** 서류·사진을 요청하는 질문 (2-0.4 `accepts_file`). 이 질문이 떠 있을 때만 파일 올리기가 켜집니다. */
 const askFile = (question_id: string, text: string, choices: string[]): SseMessage => ({
-  event: 'ask_user',
+  event: SSE_EVENTS.ASK_USER,
   data: { question_id, text, choices, accepts_file: true },
 });
 
@@ -70,8 +71,8 @@ const openImport = (kind: ImportKind, text: string): SseMessage[] => [
 const CAREER_IMPORT_TEXT = '통합경력증명에서 이력서에 넣을 항목을 골라 주세요. 고른 것만 넣어요.';
 
 const tool = (name: string): SseMessage[] => [
-  { event: 'tool_call', data: { name, status: 'started' } },
-  { event: 'tool_call', data: { name, status: 'finished' } },
+  { event: SSE_EVENTS.TOOL_CALL, data: { name, status: 'started' } },
+  { event: SSE_EVENTS.TOOL_CALL, data: { name, status: 'finished' } },
 ];
 
 type UpdateExtra = Omit<FormUpdateEvent, 'form' | 'path' | 'op'>;
@@ -82,7 +83,7 @@ const update = (
   path: string,
   op: FormUpdateEvent['op'],
   extra: UpdateExtra = {},
-): SseMessage => ({ event: 'form_update', data: { form, path, op, ...extra } });
+): SseMessage => ({ event: SSE_EVENTS.FORM_UPDATE, data: { form, path, op, ...extra } });
 
 // 목록은 줄을 바꿔 한 줄에 하나씩 보여 줍니다 (시연 개선 3번).
 const OVERVIEW = [
@@ -1565,7 +1566,9 @@ const assumeAndContinue = (
   if (rule?.stay) {
     return [
       ...say(rule.why),
-      ...(question && rule.reask !== false ? [{ event: 'ask_user', data: question } as const] : []),
+      ...(question && rule.reask !== false
+        ? [{ event: SSE_EVENTS.ASK_USER, data: question } as const]
+        : []),
     ];
   }
   const choice = rule?.choice ?? (rule?.run ? undefined : choices[0]);
@@ -1584,7 +1587,7 @@ const assumeAndContinue = (
     return [
       ...say(`${intro} 이 부분은 시연 대화가 아직 준비되지 않아 아래 선택지로 이어가 주세요.`),
       question
-        ? { event: 'ask_user', data: question }
+        ? { event: SSE_EVENTS.ASK_USER, data: question }
         : askEntry('mock.fallback', '어디부터 이어갈까요?', entryChoices),
     ];
   }
@@ -1622,10 +1625,12 @@ export const buildMockChatEvents = (
   importIds?: string[],
 ): SseMessage[] => {
   const events = scriptEvents(personaId, message, entryChoices, fileIds, importIds);
-  const said = events.map((event) => (event.event === 'token' ? event.data.text : '')).join('');
+  const said = events
+    .map((event) => (event.event === SSE_EVENTS.TOKEN ? event.data.text : ''))
+    .join('');
   if (said.includes(END_MARK)) endedPersonas.add(personaId);
-  const asked = [...events].reverse().find((event) => event.event === 'ask_user');
-  if (asked?.event === 'ask_user' && asked.data.question_id !== 'mock.fallback') {
+  const asked = [...events].reverse().find((event) => event.event === SSE_EVENTS.ASK_USER);
+  if (asked?.event === SSE_EVENTS.ASK_USER && asked.data.question_id !== 'mock.fallback') {
     lastAsk = { personaId, data: asked.data };
   }
   return events;

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { CHAT_ACTIONS } from '@/features/chat/chatActions';
 import { chatReducer, initChatState } from '@/features/chat/chatReducer';
 
 import { buildMockSession } from '@/mocks/handlers';
@@ -16,10 +17,10 @@ describe('chatReducer', () => {
 
   it('token은 한 말풍선에 이어 붙고 done에서 근거 줄이 붙는다', () => {
     const state = run([
-      { type: 'user_sent', text: '추천해 주세요', inputKind: 'choice' },
-      { type: 'token', text: '지금 인정되는 ' },
-      { type: 'token', text: '활동은 1건이에요.' },
-      { type: 'done', cite: '안내문' },
+      { type: CHAT_ACTIONS.USER_SENT, text: '추천해 주세요', inputKind: 'choice' },
+      { type: CHAT_ACTIONS.TOKEN, text: '지금 인정되는 ' },
+      { type: CHAT_ACTIONS.TOKEN, text: '활동은 1건이에요.' },
+      { type: CHAT_ACTIONS.DONE, cite: '안내문' },
     ]);
 
     const last = state.messages[state.messages.length - 1];
@@ -34,9 +35,9 @@ describe('chatReducer', () => {
 
   it('ask_user는 질문 말풍선을 만들고 선택지를 바꾼다', () => {
     const state = run([
-      { type: 'user_sent', text: '새 활동 기록할게요', inputKind: 'choice' },
-      { type: 'ask_user', text: '언제 하셨어요?', choices: ['오늘', '어제', '다른 날'] },
-      { type: 'done' },
+      { type: CHAT_ACTIONS.USER_SENT, text: '새 활동 기록할게요', inputKind: 'choice' },
+      { type: CHAT_ACTIONS.ASK_USER, text: '언제 하셨어요?', choices: ['오늘', '어제', '다른 날'] },
+      { type: CHAT_ACTIONS.DONE },
     ]);
 
     expect(state.messages[state.messages.length - 1].text).toBe('언제 하셨어요?');
@@ -45,9 +46,9 @@ describe('chatReducer', () => {
 
   it('system 메시지는 스트리밍 중이던 빈 말풍선을 정리하고 오류를 보여 준다', () => {
     const state = run([
-      { type: 'user_sent', text: '안녕', inputKind: 'text' },
-      { type: 'token', text: '' },
-      { type: 'system', text: '지금 답을 만들기 어려워요.' },
+      { type: CHAT_ACTIONS.USER_SENT, text: '안녕', inputKind: 'text' },
+      { type: CHAT_ACTIONS.TOKEN, text: '' },
+      { type: CHAT_ACTIONS.SYSTEM, text: '지금 답을 만들기 어려워요.' },
     ]);
 
     expect(state.messages.map((m) => m.role)).toEqual(['assistant', 'assistant', 'user', 'system']);
