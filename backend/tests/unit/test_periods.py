@@ -69,3 +69,7 @@ def test_first_recognition_must_be_after_waiting_and_before_end() -> None:
     assert first_recognition_in_range(applied, date(2026, 10, 20), end) is True
     assert first_recognition_in_range(applied, end, end) is True
     assert first_recognition_in_range(applied, date(2027, 7, 9), end) is False
+    # 종료 예정일이 토요일이면 그날을 넣어도 회차 인정일이 다음 월요일로 옮겨져 종료일 밖이 됩니다.
+    saturday_end = date(2027, 7, 10)
+    assert first_recognition_in_range(applied, saturday_end, saturday_end) is False
+    assert first_recognition_in_range(applied, date(2027, 7, 9), saturday_end) is True

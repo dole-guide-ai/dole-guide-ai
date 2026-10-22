@@ -109,6 +109,9 @@ def build_rounds(
 def first_recognition_in_range(applied_on: date, first: date, end_date: date) -> bool:
     """1차 인정일은 대기기간(신청일부터 7일) 뒤이고 종료 예정일 안이어야 합니다 (F-16).
 
-    종료 예정일 뒤 날짜를 받으면 회차가 수급기간 밖에 만들어집니다.
+    종료 예정일 뒤 날짜를 받으면 회차가 수급기간 밖에 만들어집니다. 회차는 휴일이면 다음 평일을
+    인정일로 저장하므로(`build_rounds`), 옮긴 날짜도 종료 예정일 안인지 봅니다.
     """
-    return applied_on + timedelta(days=WAITING_DAYS) < first <= end_date
+    return (
+        applied_on + timedelta(days=WAITING_DAYS) < first and next_business_day(first) <= end_date
+    )

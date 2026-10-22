@@ -1352,6 +1352,7 @@ export const mockProcedureUpdates = (path: string, value?: unknown): FormUpdateE
 };
 
 const DAY_MS = 86_400_000;
+const WAITING_DAYS = 7;
 
 /** 대본의 고정 날짜 대신 패널에 입력한 날짜를 상태·회차·상단 문구에 넣습니다. */
 const withEnteredDate = (
@@ -1372,7 +1373,15 @@ const withEnteredDate = (
       const today = String(getSession()?.state.demo_today ?? date);
       const dDay = Math.round((Date.parse(date) - Date.parse(today)) / DAY_MS);
       const period = value?.period as Record<string, string> | undefined;
-      return { ...update, value: { ...value, d_day: dDay, period: { ...period, end: date } } };
+      // 1회차 기간은 대기기간(신청일부터 7일) 다음 날부터 1차 인정일까지입니다.
+      const applied = getSession()?.state.eligibility_applied_date;
+      const start = applied
+        ? new Date(Date.parse(applied) + WAITING_DAYS * DAY_MS).toISOString().slice(0, 10)
+        : period?.start;
+      return {
+        ...update,
+        value: { ...value, d_day: dDay, period: { ...period, start, end: date } },
+      };
     }
     if (update.path === 'entry.next_step_text') {
       return { ...update, value: `다음 기한 : 1차 실업인정일 ${formatShortDate(date)}` };

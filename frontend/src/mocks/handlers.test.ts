@@ -10,8 +10,10 @@ import type { SessionRead } from '@/types/demo.types';
 import type { ImportListRead } from '@/types/imports.types';
 import type { RoundCheckRead } from '@/types/procedure.types';
 import type { RecognitionFormRead } from '@/types/recognition.types';
+
+type UpdatesRead = components['schemas']['UpdatesRead'];
 import { MOCK_ROUND_CHECKS } from '@/mocks/activities';
-import { resetMockAuth, resolveMock } from '@/mocks/handlers';
+import { buildMockSession, resetMockAuth, resolveMock } from '@/mocks/handlers';
 
 type AccountRead = components['schemas']['AccountRead'];
 
@@ -107,13 +109,10 @@ describe('모의 API', () => {
   });
 
   it('패널 버튼으로 교육 이수를 넣으면 대화 대본과 같은 단계 전환을 돌려준다 (F-16)', async () => {
-    const res = await resolveMock<{ updates: { form: string; path: string; value: unknown }[] }>(
-      '/accounts/choi/procedure',
-      {
-        method: 'PATCH',
-        body: JSON.stringify([{ op: 'replace', path: '/education_done', value: true }]),
-      },
-    );
+    const res = await resolveMock<UpdatesRead>('/accounts/choi/procedure', {
+      method: 'PATCH',
+      body: JSON.stringify([{ op: 'replace', path: '/education_done', value: true }]),
+    });
 
     const state = res.updates.find((update) => update.path === 'state');
     expect(state?.value).toMatchObject({ stage: 'eligibility_application', education_done: true });
@@ -129,20 +128,57 @@ describe('모의 API', () => {
   });
 
   it('패널에 입력한 1차 실업인정일을 모의 응답에도 그대로 쓴다 (F-16)', async () => {
-    const res = await resolveMock<{ updates: { path: string; value: unknown }[] }>(
-      '/accounts/choi/procedure',
-      {
-        method: 'PATCH',
-        body: JSON.stringify([
-          { op: 'replace', path: '/first_recognition_date', value: '2026-11-11' },
-        ]),
-      },
-    );
+    const res = await resolveMock<UpdatesRead>('/accounts/choi/procedure', {
+      method: 'PATCH',
+      body: JSON.stringify([
+        { op: 'replace', path: '/first_recognition_date', value: '2026-11-11' },
+      ]),
+    });
 
     const byPath = Object.fromEntries(res.updates.map((update) => [update.path, update.value]));
     expect(byPath.state).toMatchObject({ next_recognition_date: '2026-11-11' });
     expect(byPath.derived).toMatchObject({ period: { end: '2026-11-11' } });
     expect(byPath['entry.next_step_text']).toBe('다음 기한 : 1차 실업인정일 11.11(수)');
+  });
+
+  it('1차 인정일을 넣으면 입력한 신청일로 1회차 시작일도 다시 계산한다 (F-16)', async () => {
+    const choi = buildMockSession('choi');
+    setSession({
+      ...choi,
+      state: {
+        ...choi.state,
+        stage: 'eligibility_applied',
+        eligibility_applied_date: '2026-10-20',
+      },
+    });
+    const res = await resolveMock<UpdatesRead>('/accounts/choi/procedure', {
+      method: 'PATCH',
+      body: JSON.stringify([
+        { op: 'replace', path: '/first_recognition_date', value: '2026-11-11' },
+      ]),
+    });
+
+    const derived = res.updates.find((update) => update.path === 'derived');
+    expect(derived?.value).toMatchObject({ period: { start: '2026-10-27', end: '2026-11-11' } });
+    setSession(null);
+  });
+
+  it('모의 절차 PATCH도 지우기·교육 false는 422, 앞 단계를 건너뛰면 409로 막는다 (F-16)', async () => {
+    const patch = (op: object) =>
+      resolveMock('/accounts/choi/procedure', { method: 'PATCH', body: JSON.stringify([op]) });
+    const choi = buildMockSession('choi');
+    setSession({ ...choi, state: { ...choi.state, stage: 'education' } });
+
+    await expect(patch({ op: 'remove', path: '/education_done' })).rejects.toMatchObject({
+      status: 422,
+    });
+    await expect(
+      patch({ op: 'replace', path: '/education_done', value: false }),
+    ).rejects.toMatchObject({ status: 422 });
+    await expect(
+      patch({ op: 'replace', path: '/first_recognition_date', value: '2026-11-11' }),
+    ).rejects.toMatchObject({ status: 409, code: 'STAGE_ORDER' });
+    setSession(null);
   });
 
   it('없는 계정으로는 입장할 수 없다', async () => {

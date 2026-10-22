@@ -106,6 +106,13 @@ export const enterMockAccount = (personaId: string) => {
   resetMockChat();
 };
 
+/** 절차 사실을 넣을 수 있는 단계 (백엔드 `services/procedure.py`와 같음, F-16). */
+const PROCEDURE_STAGE: Record<string, string[]> = {
+  '/education_done': ['job_registration', 'education'],
+  '/eligibility_applied_on': ['eligibility_application'],
+  '/first_recognition_date': ['eligibility_applied'],
+};
+
 export const resolveMock = async <T>(path: string, init?: RequestInit): Promise<T> => {
   const method = (init?.method ?? 'GET').toUpperCase();
   await wait(MOCK_DELAY_MS);
@@ -131,8 +138,18 @@ export const resolveMock = async <T>(path: string, init?: RequestInit): Promise<
   }
 
   if (method === 'PATCH' && /^\/accounts\/[a-z0-9_-]+\/procedure$/.test(path)) {
-    const ops = parseBody<{ path: string; value?: unknown }[]>(init);
-    const updates = mockProcedureUpdates(ops?.[0]?.path ?? '', ops?.[0]?.value);
+    const ops = parseBody<{ op: string; path: string; value?: unknown }[]>(init);
+    const op = ops?.[0];
+    // 백엔드와 같이: 지우기·교육 이수 false는 422, 앞 단계를 건너뛰면 409 STAGE_ORDER.
+    if (!op || op.op === 'remove' || (op.path === '/education_done' && op.value !== true)) {
+      throw new ApiError('VALIDATION_ERROR', '바꿀 수 없는 칸이에요.', 422);
+    }
+    const stage = getSession()?.state.stage;
+    const allowed = PROCEDURE_STAGE[op.path];
+    if (stage && allowed && !allowed.includes(stage)) {
+      throw new ApiError('STAGE_ORDER', '앞 단계를 먼저 마쳐야 해요.', 409);
+    }
+    const updates = mockProcedureUpdates(op.path, op.value);
     if (!updates.length) throw new ApiError('VALIDATION_ERROR', '바꿀 수 없는 칸이에요.', 422);
     // 단계가 바뀌었으니 직전 질문은 잊고, 다음 자유 입력은 새 단계 첫 질문에 답한 것으로 봅니다.
     resetMockChat();
