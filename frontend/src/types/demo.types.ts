@@ -88,7 +88,11 @@ export interface EntryResult {
    * 새로고침 전 답을 기다리던 질문 (F-03, `AccountRead.pending_ask`). 있으면 그 선택지·불러오기 종류를 다시 띄우고,
    * 없으면 저장된 대화를 되살릴 때 진입 선택지를 지웁니다.
    */
-  pending_ask?: { choices: string[]; import_kind: ImportKind | null } | null;
+  pending_ask?: {
+    choices: string[];
+    import_kind: ImportKind | null;
+    accepts_file: boolean;
+  } | null;
   ui: { big_text: boolean };
   rule_refs: string[];
 }

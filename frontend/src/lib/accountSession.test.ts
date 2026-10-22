@@ -17,11 +17,13 @@ describe('sessionFromAccount', () => {
         text: '어떤 활동이었어요?',
         choices: ['입사지원', '면접', '다른 활동'],
         import_kind: 'work24-activities',
+        accepts_file: true,
       },
     });
 
     expect(restored.entry.choices).toEqual(['입사지원', '면접', '다른 활동']);
     expect(restored.entry.pending_ask?.import_kind).toBe('work24-activities');
+    expect(restored.entry.pending_ask?.accepts_file).toBe(true);
     expect(sessionFromAccount({ ...account, pending_ask: null }).entry.choices).toEqual(
       account.entry.choices,
     );

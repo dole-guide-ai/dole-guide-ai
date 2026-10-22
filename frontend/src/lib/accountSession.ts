@@ -78,6 +78,7 @@ export const sessionFromAccount = (account: AccountRead): SessionRead => {
         ? {
             choices: account.pending_ask.choices,
             import_kind: (account.pending_ask.import_kind as ImportKind | null) ?? null,
+            accepts_file: account.pending_ask.accepts_file ?? false,
           }
         : null,
       messages: entry.messages.map(({ template_id, text, cite }) => ({

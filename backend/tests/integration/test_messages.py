@@ -17,7 +17,11 @@ ASK = TurnMessage(
     role="assistant",
     kind="ask_user",
     text="어떤 활동이었어요?",
-    payload={"question_id": "activity.category", "choices": ["입사지원", "면접", "다른 활동"]},
+    payload={
+        "question_id": "activity.category",
+        "choices": ["입사지원", "면접", "다른 활동"],
+        "accepts_file": True,
+    },
 )
 
 
@@ -69,6 +73,7 @@ def test_refresh_restores_messages_and_pending_question(
         "text": "어떤 활동이었어요?",
         "choices": ["입사지원", "면접", "다른 활동"],
         "import_kind": None,
+        "accepts_file": True,
     }
 
     # 답하면 더는 멈춘 질문이 아닙니다

@@ -24,7 +24,10 @@ TEXT = "text"
 
 @dataclass
 class TurnMessage:
-    """턴 하나에서 화면에 남길 말풍선. `ask_user`면 payload에 question_id·choices·import_kind."""
+    """턴 하나에서 화면에 남길 말풍선.
+
+    `ask_user`면 payload에 question_id·choices·import_kind·accepts_file을 둡니다.
+    """
 
     role: str
     kind: str
@@ -54,6 +57,7 @@ def pending_ask(db: Session, user_id: uuid.UUID) -> AskUser | None:
         text=last.text or "",
         choices=last.payload.get("choices") or [],
         import_kind=last.payload.get("import_kind"),
+        accepts_file=bool(last.payload.get("accepts_file")),
     )
 
 

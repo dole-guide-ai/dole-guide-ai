@@ -731,6 +731,11 @@ export interface components {
             choices: string[];
             /** Import Kind */
             import_kind?: string | null;
+            /**
+             * Accepts File
+             * @default false
+             */
+            accepts_file: boolean;
         };
         /** Body_upload_file */
         Body_upload_file: {

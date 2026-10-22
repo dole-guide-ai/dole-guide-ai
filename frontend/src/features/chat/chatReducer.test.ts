@@ -67,11 +67,17 @@ describe('chatReducer', () => {
       {
         type: 'restore',
         messages: saved,
-        pendingAsk: { choices: ['고를게요'], import_kind: 'work24-activities' },
+        pendingAsk: {
+          choices: ['고를게요'],
+          import_kind: 'work24-activities',
+          accepts_file: true,
+        },
       },
     ]);
     expect(waiting.choices).toEqual(['고를게요']);
     expect(waiting.importKind).toBe('work24-activities');
+    expect(waiting.acceptsFile).toBe(true);
+    expect(answered.acceptsFile).toBe(false);
     const continued = run([
       { type: 'user_sent', text: '추천해 주세요', inputKind: 'choice' },
       { type: 'restore', messages: saved, pendingAsk: null },

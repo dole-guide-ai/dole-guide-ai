@@ -50,7 +50,7 @@ export const initChatState = (session: SessionRead): ChatState => ({
   })),
   choices: session.entry.choices,
   importKind: session.entry.pending_ask?.import_kind ?? null,
-  acceptsFile: session.entry.accepts_file ?? false,
+  acceptsFile: session.entry.pending_ask?.accepts_file ?? session.entry.accepts_file ?? false,
   streamingId: null,
   nextId: 1,
 });
@@ -85,6 +85,7 @@ export const chatReducer = (state: ChatState, action: ChatAction): ChatState => 
         messages: action.messages,
         choices: action.pendingAsk?.choices ?? [],
         importKind: action.pendingAsk?.import_kind ?? null,
+        acceptsFile: action.pendingAsk?.accepts_file ?? false,
       };
 
     case 'user_sent':
