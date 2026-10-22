@@ -138,19 +138,27 @@ export const resolveMock = async <T>(path: string, init?: RequestInit): Promise<
   }
 
   if (method === 'PATCH' && /^\/accounts\/[a-z0-9_-]+\/procedure$/.test(path)) {
-    const ops = parseBody<{ op: string; path: string; value?: unknown }[]>(init);
-    const op = ops?.[0];
-    // 백엔드와 같이: 지우기·교육 이수 false는 422, 앞 단계를 건너뛰면 409 STAGE_ORDER.
-    if (!op || op.op === 'remove' || (op.path === '/education_done' && op.value !== true)) {
-      throw new ApiError('VALIDATION_ERROR', '바꿀 수 없는 칸이에요.', 422);
+    const ops = parseBody<{ op: string; path: string; value?: unknown }[]>(init) ?? [];
+    if (!ops.length) throw new ApiError('VALIDATION_ERROR', '바꿀 수 없는 칸이에요.', 422);
+    // 백엔드와 같이 연산을 순서대로 처리하고, 앞 연산이 바꾼 단계로 다음 연산의 순서를 봅니다.
+    // 지우기·교육 이수 false는 422, 앞 단계를 건너뛰면 409 STAGE_ORDER. 하나라도 틀리면 아무것도 바꾸지 않습니다.
+    let stage = getSession()?.state.stage;
+    const updates: FormUpdateEvent[] = [];
+    for (const op of ops) {
+      if (op.op === 'remove' || (op.path === '/education_done' && op.value !== true)) {
+        throw new ApiError('VALIDATION_ERROR', '바꿀 수 없는 칸이에요.', 422);
+      }
+      const allowed = PROCEDURE_STAGE[op.path];
+      if (stage && allowed && !allowed.includes(stage)) {
+        throw new ApiError('STAGE_ORDER', '앞 단계를 먼저 마쳐야 해요.', 409);
+      }
+      const opUpdates = mockProcedureUpdates(op.path, op.value);
+      if (!opUpdates.length) throw new ApiError('VALIDATION_ERROR', '바꿀 수 없는 칸이에요.', 422);
+      const nextState = opUpdates.find((update) => update.path === 'state')?.value as
+        { stage?: typeof stage } | undefined;
+      stage = nextState?.stage ?? stage;
+      updates.push(...opUpdates);
     }
-    const stage = getSession()?.state.stage;
-    const allowed = PROCEDURE_STAGE[op.path];
-    if (stage && allowed && !allowed.includes(stage)) {
-      throw new ApiError('STAGE_ORDER', '앞 단계를 먼저 마쳐야 해요.', 409);
-    }
-    const updates = mockProcedureUpdates(op.path, op.value);
-    if (!updates.length) throw new ApiError('VALIDATION_ERROR', '바꿀 수 없는 칸이에요.', 422);
     // 단계가 바뀌었으니 직전 질문은 잊고, 다음 자유 입력은 새 단계 첫 질문에 답한 것으로 봅니다.
     resetMockChat();
     return { updates } as T;

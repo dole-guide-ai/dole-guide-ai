@@ -181,6 +181,26 @@ describe('모의 API', () => {
     setSession(null);
   });
 
+  it('모의 절차 PATCH는 여러 연산을 순서대로 처리한다 (F-16)', async () => {
+    const choi = buildMockSession('choi');
+    setSession({ ...choi, state: { ...choi.state, stage: 'education' } });
+
+    const res = await resolveMock<UpdatesRead>('/accounts/choi/procedure', {
+      method: 'PATCH',
+      body: JSON.stringify([
+        { op: 'replace', path: '/education_done', value: true },
+        { op: 'replace', path: '/eligibility_applied_on', value: '2026-10-20' },
+      ]),
+    });
+
+    const states = res.updates.filter((update) => update.path === 'state');
+    expect(states.at(-1)?.value).toMatchObject({
+      stage: 'eligibility_applied',
+      eligibility_applied_date: '2026-10-20',
+    });
+    setSession(null);
+  });
+
   it('없는 계정으로는 입장할 수 없다', async () => {
     await expect(resolveMock('/accounts/nobody', { method: 'PUT' })).rejects.toBeInstanceOf(
       ApiError,
