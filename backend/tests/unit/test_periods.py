@@ -28,9 +28,14 @@ def test_benefit_days_table() -> None:
 
 def test_end_dates() -> None:
     applied = date(2026, 1, 5)
-    assert benefit_end_date(applied, 120) == date(2026, 5, 12)
+    assert benefit_end_date(applied, 120) == date(2026, 5, 11)
     assert period_end_date(date(2026, 1, 31)) == date(2027, 1, 31)
-    assert expected_end_date(date(2026, 5, 12), date(2027, 1, 31)) == date(2026, 5, 12)
+    assert expected_end_date(date(2026, 5, 11), date(2027, 1, 31)) == date(2026, 5, 11)
+
+
+def test_period_end_on_leap_day() -> None:
+    # 2028-02-29 시작 → 2029-02-29가 없으므로 2월 말일에 끝남
+    assert period_end_date(date(2028, 2, 28)) == date(2029, 2, 28)
 
 
 def test_attendance_rounds() -> None:
@@ -41,7 +46,7 @@ def test_attendance_rounds() -> None:
 def test_build_rounds_every_28_days_and_skips_holidays() -> None:
     rounds = build_rounds("general", date(2026, 9, 1), date(2026, 9, 15), date(2026, 12, 31))
 
-    assert rounds[0].period_start == date(2026, 9, 9)
+    assert rounds[0].period_start == date(2026, 9, 8)
     assert rounds[0].recognition_date == date(2026, 9, 15)
     # 9.15 + 28 = 10.13(화)
     assert rounds[1].period_start == date(2026, 9, 16)

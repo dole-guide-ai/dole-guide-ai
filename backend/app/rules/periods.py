@@ -38,18 +38,25 @@ def benefit_days(age_at_separation: int, has_disability: bool, insured_years: fl
 
 
 def benefit_end_date(eligibility_applied_on: date, days: int) -> date:
-    """급여 소진 예정일: 대기기간 끝난 다음 날 + 소정급여일수 - 1 (매 회차 인정 가정)."""
-    first_paid_day = eligibility_applied_on + timedelta(days=WAITING_DAYS + 1)
+    """급여 소진 예정일: 첫 지급일 + 소정급여일수 - 1 (매 회차 인정 가정).
+
+    대기기간은 신청일부터 7일간(고용보험법 제49조)이라 첫 지급일은 신청일 + 7일입니다.
+    """
+    first_paid_day = eligibility_applied_on + timedelta(days=WAITING_DAYS)
     return first_paid_day + timedelta(days=days - 1)
 
 
 def period_end_date(separation_date: date) -> date:
-    """수급기간 끝: 이직일 다음 날부터 12개월."""
+    """수급기간 끝: 이직일 다음 날부터 12개월.
+
+    시작일의 1년 뒤 같은 날 전날에 끝납니다.
+    그날이 없으면(2월 29일) 그 달 말일에 끝납니다(민법 제160조).
+    """
     start = separation_date + timedelta(days=1)
     try:
         anniversary = start.replace(year=start.year + 1)
     except ValueError:  # 2월 29일
-        anniversary = start.replace(year=start.year + 1, day=28)
+        return start.replace(year=start.year + 1, day=28)
     return anniversary - timedelta(days=1)
 
 
@@ -80,7 +87,7 @@ def build_rounds(
 ) -> list[PlannedRound]:
     """1차 인정일부터 종료 예정일까지 회차를 만듭니다. 휴일이면 다음 평일로 옮깁니다."""
     rounds: list[PlannedRound] = []
-    start = eligibility_applied_on + timedelta(days=WAITING_DAYS + 1)
+    start = eligibility_applied_on + timedelta(days=WAITING_DAYS)
     recognition = next_business_day(first_recognition_date)
     round_no = 1
     while start <= end_date:

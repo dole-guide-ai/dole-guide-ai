@@ -294,7 +294,7 @@ def _materialize_rounds(
     ]
     repo.add_all(db, rounds)
     submitted_through = seed.get("submitted_through_round", 0)
-    prev = _prev_answers(seed.get("prev_answers"), planned)
+    prev = _prev_answers(seed.get("prev_answers"), planned, submitted_through)
     applications = []
     for r, p in zip(rounds, planned, strict=True):
         submitted = p.round_no <= submitted_through
@@ -322,7 +322,9 @@ def _materialize_rounds(
 
 
 def _prev_answers(
-    answers: dict[str, Any] | None, planned: list[periods.PlannedRound]
+    answers: dict[str, Any] | None,
+    planned: list[periods.PlannedRound],
+    submitted_through: int,
 ) -> recognition_form.RecognitionData:
     """직전 회차에 사용자가 답한 값을 seed에서 신청서 칸으로 옮깁니다 (source = user_answer)."""
     data = recognition_form.RecognitionData()
@@ -332,7 +334,8 @@ def _prev_answers(
     def answered(value: Any, on: date | None) -> dict[str, Any]:
         return {"value": value, "status": "confirmed", "source": "user_answer", "answered_on": on}
 
-    last = next((p for p in reversed(planned)), None)
+    # 답한 날은 마지막으로 제출한 회차의 인정일입니다.
+    last = next((p for p in planned if p.round_no == submitted_through), None)
     on = last.recognition_date if last else None
     payload = data.model_dump(mode="json")
     for key, value in (answers.get("credit") or {}).items():
