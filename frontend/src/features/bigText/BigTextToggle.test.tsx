@@ -1,9 +1,10 @@
-import { render, screen } from '@testing-library/react';
+import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { BigTextProvider } from '@/features/bigText/BigTextProvider';
 import { BigTextToggle } from '@/features/bigText/BigTextToggle';
+
+import { renderWithProviders } from '@/test/renderWithProviders';
 
 describe('BigTextToggle', () => {
   afterEach(() => {
@@ -11,11 +12,7 @@ describe('BigTextToggle', () => {
   });
 
   it('누르면 바로 루트의 글자 크기 표시가 바뀌고 문구가 다음 동작으로 바뀐다 (F-06)', async () => {
-    render(
-      <BigTextProvider>
-        <BigTextToggle />
-      </BigTextProvider>,
-    );
+    renderWithProviders(<BigTextToggle />);
 
     await userEvent.click(screen.getByRole('button', { name: '글자 크게' }));
     expect(document.documentElement.dataset.bigText).toBe('true');
