@@ -1,6 +1,6 @@
 import { ApiError } from '@/lib/api';
 import { getFormDrafts } from '@/lib/formStore';
-import { getSession } from '@/lib/sessionStore';
+import { getSession, setSession } from '@/lib/sessionStore';
 import type { components } from '@/types/api.gen';
 import type { FormPatchCreate, FormUpdateEvent } from '@/types/chat.types';
 import type { SessionRead } from '@/types/demo.types';
@@ -113,6 +113,82 @@ const PROCEDURE_STAGE: Record<string, string[]> = {
   '/first_recognition_date': ['eligibility_applied'],
 };
 
+type JsonPatchOp = components['schemas']['JsonPatchOp'];
+
+const DAY_MS = 86_400_000;
+const WAITING_DAYS = 7;
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+const invalid = (message = '바꿀 수 없는 칸이에요.') =>
+  new ApiError('VALIDATION_ERROR', message, 422);
+
+/** 달력에 있는 날짜(YYYY-MM-DD)인지 봅니다. */
+const isCalendarDate = (value: unknown): value is string =>
+  typeof value === 'string' &&
+  ISO_DATE.test(value) &&
+  new Date(`${value}T00:00:00Z`).toISOString().slice(0, 10) === value;
+
+const addDays = (date: string, days: number) =>
+  new Date(Date.parse(date) + days * DAY_MS).toISOString().slice(0, 10);
+
+/** 한 연산이 백엔드(`services/procedure.py`)와 같은 조건을 지키는지 봅니다. 어기면 422·409. */
+const checkProcedureOp = (op: JsonPatchOp, state: SessionRead['state']) => {
+  if (op.op === 'remove') throw invalid();
+  const allowed = PROCEDURE_STAGE[op.path];
+  if (!allowed) throw invalid();
+  if (!allowed.includes(state.stage)) {
+    throw new ApiError('STAGE_ORDER', '앞 단계를 먼저 마쳐야 해요.', 409);
+  }
+  if (op.path === '/education_done') {
+    if (op.value !== true) throw invalid();
+    if (state.resume_status !== 'ready') {
+      throw new ApiError('STAGE_ORDER', '이력서를 먼저 저장해 주세요.', 409);
+    }
+    return;
+  }
+  if (!isCalendarDate(op.value)) throw invalid('날짜를 YYYY-MM-DD로 보내 주세요.');
+  if (op.path === '/eligibility_applied_on') {
+    if (!(state.separation_date < op.value && op.value <= state.demo_today)) {
+      throw invalid('신청일은 그만둔 다음 날부터 오늘까지만 넣을 수 있어요.');
+    }
+    return;
+  }
+  const applied = state.eligibility_applied_date;
+  if (!applied || op.value <= addDays(applied, WAITING_DAYS)) {
+    throw invalid('1차 실업인정일은 신청일부터 7일 대기기간이 지난 뒤의 날짜예요.');
+  }
+};
+
+/**
+ * 모의 `PATCH /accounts/{id}/procedure` (F-16). 백엔드와 같이 연산을 순서대로 검사·처리하고,
+ * 앞 연산이 바꾼 상태를 다음 연산에 넘깁니다(교육 이수 + 신청일을 한 번에 보내도 둘 다 남음).
+ * 하나라도 틀리면 아무것도 바꾸지 않고, 세션 저장소는 화면이 응답을 적용할 때 바뀝니다.
+ */
+const mockProcedurePatch = (ops: JsonPatchOp[]): FormUpdateEvent[] => {
+  const original = getSession();
+  if (!original || !ops.length) throw invalid();
+  const updates: FormUpdateEvent[] = [];
+  try {
+    for (const op of ops) {
+      const current = getSession() ?? original;
+      checkProcedureOp(op, current.state);
+      const opUpdates = mockProcedureUpdates(op.path, op.value);
+      if (!opUpdates.length) throw invalid();
+      // 다음 연산의 대본이 이 연산 뒤 상태에서 이어지도록 상태·파생값을 잠시 세션에 둡니다.
+      const value = (path: string) => opUpdates.find((update) => update.path === path)?.value;
+      setSession({
+        ...current,
+        state: (value('state') as SessionRead['state'] | undefined) ?? current.state,
+        derived: (value('derived') as SessionRead['derived'] | undefined) ?? current.derived,
+      });
+      updates.push(...opUpdates);
+    }
+  } finally {
+    setSession(original);
+  }
+  return updates;
+};
+
 export const resolveMock = async <T>(path: string, init?: RequestInit): Promise<T> => {
   const method = (init?.method ?? 'GET').toUpperCase();
   await wait(MOCK_DELAY_MS);
@@ -138,27 +214,7 @@ export const resolveMock = async <T>(path: string, init?: RequestInit): Promise<
   }
 
   if (method === 'PATCH' && /^\/accounts\/[a-z0-9_-]+\/procedure$/.test(path)) {
-    const ops = parseBody<{ op: string; path: string; value?: unknown }[]>(init) ?? [];
-    if (!ops.length) throw new ApiError('VALIDATION_ERROR', '바꿀 수 없는 칸이에요.', 422);
-    // 백엔드와 같이 연산을 순서대로 처리하고, 앞 연산이 바꾼 단계로 다음 연산의 순서를 봅니다.
-    // 지우기·교육 이수 false는 422, 앞 단계를 건너뛰면 409 STAGE_ORDER. 하나라도 틀리면 아무것도 바꾸지 않습니다.
-    let stage = getSession()?.state.stage;
-    const updates: FormUpdateEvent[] = [];
-    for (const op of ops) {
-      if (op.op === 'remove' || (op.path === '/education_done' && op.value !== true)) {
-        throw new ApiError('VALIDATION_ERROR', '바꿀 수 없는 칸이에요.', 422);
-      }
-      const allowed = PROCEDURE_STAGE[op.path];
-      if (stage && allowed && !allowed.includes(stage)) {
-        throw new ApiError('STAGE_ORDER', '앞 단계를 먼저 마쳐야 해요.', 409);
-      }
-      const opUpdates = mockProcedureUpdates(op.path, op.value);
-      if (!opUpdates.length) throw new ApiError('VALIDATION_ERROR', '바꿀 수 없는 칸이에요.', 422);
-      const nextState = opUpdates.find((update) => update.path === 'state')?.value as
-        { stage?: typeof stage } | undefined;
-      stage = nextState?.stage ?? stage;
-      updates.push(...opUpdates);
-    }
+    const updates = mockProcedurePatch(parseBody<JsonPatchOp[]>(init) ?? []);
     // 단계가 바뀌었으니 직전 질문은 잊고, 다음 자유 입력은 새 단계 첫 질문에 답한 것으로 봅니다.
     resetMockChat();
     return { updates } as T;

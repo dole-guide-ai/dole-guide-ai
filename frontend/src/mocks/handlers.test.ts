@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { sessionFromAccount } from '@/lib/accountSession';
 import { ApiError } from '@/lib/api';
 import { applyFormUpdate, resetForms } from '@/lib/formStore';
-import { setSession } from '@/lib/sessionStore';
+import { getSession, setSession } from '@/lib/sessionStore';
 import type { components } from '@/types/api.gen';
 import type { FormPatchRead } from '@/types/chat.types';
 import type { SessionRead } from '@/types/demo.types';
@@ -19,6 +19,11 @@ type AccountRead = components['schemas']['AccountRead'];
 
 const enter = async (personaId: string) =>
   sessionFromAccount(await resolveMock<AccountRead>(`/accounts/${personaId}`, { method: 'PUT' }));
+
+const choiAt = (state: Partial<SessionRead['state']>) => {
+  const choi = buildMockSession('choi');
+  setSession({ ...choi, state: { ...choi.state, ...state } });
+};
 
 describe('모의 API', () => {
   beforeEach(() => resetMockAuth());
@@ -109,6 +114,7 @@ describe('모의 API', () => {
   });
 
   it('패널 버튼으로 교육 이수를 넣으면 대화 대본과 같은 단계 전환을 돌려준다 (F-16)', async () => {
+    choiAt({ stage: 'education', resume_status: 'ready' });
     const res = await resolveMock<UpdatesRead>('/accounts/choi/procedure', {
       method: 'PATCH',
       body: JSON.stringify([{ op: 'replace', path: '/education_done', value: true }]),
@@ -128,6 +134,7 @@ describe('모의 API', () => {
   });
 
   it('패널에 입력한 1차 실업인정일을 모의 응답에도 그대로 쓴다 (F-16)', async () => {
+    choiAt({ stage: 'eligibility_applied', eligibility_applied_date: '2026-10-12' });
     const res = await resolveMock<UpdatesRead>('/accounts/choi/procedure', {
       method: 'PATCH',
       body: JSON.stringify([
@@ -182,22 +189,48 @@ describe('모의 API', () => {
   });
 
   it('모의 절차 PATCH는 여러 연산을 순서대로 처리한다 (F-16)', async () => {
-    const choi = buildMockSession('choi');
-    setSession({ ...choi, state: { ...choi.state, stage: 'education' } });
+    choiAt({ stage: 'education', resume_status: 'ready' });
 
     const res = await resolveMock<UpdatesRead>('/accounts/choi/procedure', {
       method: 'PATCH',
       body: JSON.stringify([
         { op: 'replace', path: '/education_done', value: true },
-        { op: 'replace', path: '/eligibility_applied_on', value: '2026-10-20' },
+        { op: 'replace', path: '/eligibility_applied_on', value: '2026-10-11' },
       ]),
     });
 
     const states = res.updates.filter((update) => update.path === 'state');
+    // 앞 연산(교육 이수)이 바꾼 상태가 다음 연산 결과에도 남습니다
     expect(states.at(-1)?.value).toMatchObject({
       stage: 'eligibility_applied',
-      eligibility_applied_date: '2026-10-20',
+      education_done: true,
+      eligibility_applied_date: '2026-10-11',
     });
+    // 응답을 만드는 동안 세션 저장소는 바꾸지 않습니다
+    expect(getSession()?.state.stage).toBe('education');
+    setSession(null);
+  });
+
+  it('모의 절차 PATCH도 이력서 저장 전 교육 이수와 범위 밖 날짜를 막는다 (F-16)', async () => {
+    const patch = (op: object) =>
+      resolveMock('/accounts/choi/procedure', { method: 'PATCH', body: JSON.stringify([op]) });
+
+    choiAt({ stage: 'job_registration', resume_status: 'outdated' });
+    await expect(
+      patch({ op: 'replace', path: '/education_done', value: true }),
+    ).rejects.toMatchObject({ status: 409, code: 'STAGE_ORDER' });
+
+    choiAt({ stage: 'eligibility_application' });
+    for (const value of ['2026-09-30', '2026-10-13', '2026-02-30']) {
+      await expect(
+        patch({ op: 'replace', path: '/eligibility_applied_on', value }),
+      ).rejects.toMatchObject({ status: 422 });
+    }
+
+    choiAt({ stage: 'eligibility_applied', eligibility_applied_date: '2026-10-12' });
+    await expect(
+      patch({ op: 'replace', path: '/first_recognition_date', value: '2026-10-19' }),
+    ).rejects.toMatchObject({ status: 422 });
     setSession(null);
   });
 
