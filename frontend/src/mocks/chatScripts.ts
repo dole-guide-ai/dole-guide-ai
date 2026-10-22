@@ -1,6 +1,7 @@
 import { OPEN_FORM_MESSAGE } from '@/features/procedure/activityLabels';
 import { CONFIRMED_MESSAGE } from '@/features/recognition/recognitionLabels';
 
+import { formatShortDate } from '@/lib/dateFormat';
 import { getFormDrafts } from '@/lib/formStore';
 import { getSession } from '@/lib/sessionStore';
 import { citeOf } from '@/lib/sources';
@@ -1333,6 +1334,61 @@ let lastAsk: { personaId: string; data: AskUserEvent } | null = null;
 const endedPersonas = new Set<string>();
 
 /** 계정을 고를 때(`PUT /accounts/{id}`)와 이력서를 저장해 단계가 바뀔 때 비웁니다. */
+/**
+ * 패널 버튼으로 절차 사실을 넣을 때(`PATCH /accounts/{id}/procedure`, F-16)의 모의 응답.
+ * 대화 대본(최영수 E6 → E5a → E5b → E4a)과 같은 상태 전환을 `form_update`로 돌려줍니다.
+ */
+export const mockProcedureUpdates = (path: string, value?: unknown): FormUpdateEvent[] => {
+  const events =
+    path === '/education_done'
+      ? CHOI_STEPS['네, 이수했어요']([])
+      : path === '/eligibility_applied_on'
+        ? CHOI_STEPS['방문 신청했어요']([])
+        : path === '/first_recognition_date'
+          ? choiFirstDate()
+          : [];
+  const updates = events.flatMap((event) => (event.event === 'form_update' ? [event.data] : []));
+  return typeof value === 'string' ? withEnteredDate(updates, path, value) : updates;
+};
+
+const DAY_MS = 86_400_000;
+const WAITING_DAYS = 7;
+
+/** 대본의 고정 날짜 대신 패널에 입력한 날짜를 상태·회차·상단 문구에 넣습니다. */
+const withEnteredDate = (
+  updates: FormUpdateEvent[],
+  path: string,
+  date: string,
+): FormUpdateEvent[] =>
+  updates.map((update) => {
+    const value = update.value as Record<string, unknown> | undefined;
+    if (path === '/eligibility_applied_on' && update.path === 'state') {
+      return { ...update, value: { ...value, eligibility_applied_date: date } };
+    }
+    if (path !== '/first_recognition_date') return update;
+    if (update.path === 'state') {
+      return { ...update, value: { ...value, next_recognition_date: date } };
+    }
+    if (update.path === 'derived') {
+      const today = String(getSession()?.state.demo_today ?? date);
+      const dDay = Math.round((Date.parse(date) - Date.parse(today)) / DAY_MS);
+      const period = value?.period as Record<string, string> | undefined;
+      // 1회차 기간은 대기기간(신청일부터 7일) 다음 날부터 1차 인정일까지입니다.
+      const applied = getSession()?.state.eligibility_applied_date;
+      const start = applied
+        ? new Date(Date.parse(applied) + WAITING_DAYS * DAY_MS).toISOString().slice(0, 10)
+        : period?.start;
+      return {
+        ...update,
+        value: { ...value, d_day: dDay, period: { ...period, start, end: date } },
+      };
+    }
+    if (update.path === 'entry.next_step_text') {
+      return { ...update, value: `다음 기한 : 1차 실업인정일 ${formatShortDate(date)}` };
+    }
+    return update;
+  });
+
 export const resetMockChat = () => {
   lastAsk = null;
   endedPersonas.clear();

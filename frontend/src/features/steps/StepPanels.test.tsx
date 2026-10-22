@@ -35,7 +35,7 @@ describe('패널 E · Q · E5b (정적)', () => {
     );
 
     expect(screen.getByText('아직 이수 전')).toBeInTheDocument();
-    expect(screen.getByText(/교육 다 들었어요/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '교육을 다 들었어요' })).toBeInTheDocument();
     expect(screen.getByText(/인터넷 사전제출 또는 센터 방문/)).toBeInTheDocument();
   });
 

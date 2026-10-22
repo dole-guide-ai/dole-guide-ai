@@ -1,6 +1,6 @@
 import { ApiError } from '@/lib/api';
 import { getFormDrafts } from '@/lib/formStore';
-import { getSession } from '@/lib/sessionStore';
+import { getSession, setSession } from '@/lib/sessionStore';
 import type { components } from '@/types/api.gen';
 import type { FormPatchCreate, FormUpdateEvent } from '@/types/chat.types';
 import type { SessionRead } from '@/types/demo.types';
@@ -16,7 +16,7 @@ import {
   MOCK_RECOMMENDATIONS,
   MOCK_ROUND_CHECKS,
 } from './activities';
-import { resetMockChat } from './chatScripts';
+import { mockProcedureUpdates, resetMockChat } from './chatScripts';
 import { MOCK_AFTER_RESUME_ENTRIES, MOCK_ENTRIES } from './entries';
 import { MOCK_IMPORTS, mockImportList } from './imports';
 import { MOCK_MY_DATA, MOCK_MY_DATA_DELETE_UPDATES, MOCK_NOT_STORED } from './myData';
@@ -106,6 +106,107 @@ export const enterMockAccount = (personaId: string) => {
   resetMockChat();
 };
 
+/** 절차 사실을 넣을 수 있는 단계 (백엔드 `services/procedure.py`와 같음, F-16). */
+const PROCEDURE_STAGE: Record<string, string[]> = {
+  '/education_done': ['job_registration', 'education'],
+  '/eligibility_applied_on': ['eligibility_application'],
+  '/first_recognition_date': ['eligibility_applied'],
+};
+
+type JsonPatchOp = components['schemas']['JsonPatchOp'];
+
+const DAY_MS = 86_400_000;
+const WAITING_DAYS = 7;
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+const invalid = (message = '바꿀 수 없는 칸이에요.') =>
+  new ApiError('VALIDATION_ERROR', message, 422);
+
+/** 달력에 있는 날짜(YYYY-MM-DD)인지 봅니다. */
+const isCalendarDate = (value: unknown): value is string => {
+  if (typeof value !== 'string' || !ISO_DATE.test(value)) return false;
+  const date = new Date(`${value}T00:00:00Z`);
+  // 13월처럼 없는 날짜는 Invalid Date라 toISOString 전에 걸러 냅니다.
+  return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
+};
+
+const addDays = (date: string, days: number) =>
+  new Date(Date.parse(date) + days * DAY_MS).toISOString().slice(0, 10);
+
+/** 토·일이면 다음 월요일, 아니면 그날. */
+const nextWeekday = (date: string) => {
+  const day = new Date(`${date}T00:00:00Z`).getUTCDay();
+  return day === 6 ? addDays(date, 2) : day === 0 ? addDays(date, 1) : date;
+};
+
+/** 한 연산이 백엔드(`services/procedure.py`)와 같은 조건을 지키는지 봅니다. 어기면 422·409. */
+const checkProcedureOp = (op: JsonPatchOp, { state, derived }: SessionRead) => {
+  if (op.op === 'remove') throw invalid();
+  const allowed = PROCEDURE_STAGE[op.path];
+  if (!allowed) throw invalid();
+  if (!allowed.includes(state.stage)) {
+    throw new ApiError('STAGE_ORDER', '앞 단계를 먼저 마쳐야 해요.', 409);
+  }
+  if (op.path === '/education_done') {
+    if (op.value !== true) throw invalid();
+    if (state.resume_status !== 'ready') {
+      throw new ApiError('STAGE_ORDER', '이력서를 먼저 저장해 주세요.', 409);
+    }
+    return;
+  }
+  if (!isCalendarDate(op.value)) throw invalid('날짜를 YYYY-MM-DD로 보내 주세요.');
+  if (op.path === '/eligibility_applied_on') {
+    if (!(state.separation_date < op.value && op.value <= state.demo_today)) {
+      throw invalid('신청일은 그만둔 다음 날부터 오늘까지만 넣을 수 있어요.');
+    }
+    return;
+  }
+  const applied = state.eligibility_applied_date;
+  if (!applied || op.value <= addDays(applied, WAITING_DAYS)) {
+    throw invalid('1차 실업인정일은 신청일부터 7일 대기기간이 지난 뒤의 날짜예요.');
+  }
+  // 백엔드처럼 주말이면 다음 평일로 옮긴 날이 수급 종료 예정일 안이어야 합니다(모의는 공휴일을 따지지 않음).
+  const end = derived.expected_end_date;
+  if (end && nextWeekday(op.value) > end) {
+    throw invalid('1차 실업인정일은 수급 종료 예정일 안의 날짜예요.');
+  }
+};
+
+/**
+ * 모의 `PATCH /accounts/{id}/procedure` (F-16). 백엔드와 같이 연산을 순서대로 검사·처리하고,
+ * 앞 연산이 바꾼 상태를 다음 연산에 넘깁니다(교육 이수 + 신청일을 한 번에 보내도 둘 다 남음).
+ * 하나라도 틀리면 아무것도 바꾸지 않고, 세션 저장소는 화면이 응답을 적용할 때 바뀝니다.
+ */
+const mockProcedurePatch = (ops: JsonPatchOp[]): FormUpdateEvent[] => {
+  const original = getSession();
+  if (!original || !ops.length) throw invalid();
+  const updates: FormUpdateEvent[] = [];
+  try {
+    for (const op of ops) {
+      const current = getSession() ?? original;
+      checkProcedureOp(op, current);
+      // 백엔드(`build_rounds`)처럼 1차 인정일이 주말이면 다음 평일로 옮겨 화면에 보여 줍니다.
+      const opValue =
+        op.path === '/first_recognition_date' && typeof op.value === 'string'
+          ? nextWeekday(op.value)
+          : op.value;
+      const opUpdates = mockProcedureUpdates(op.path, opValue);
+      if (!opUpdates.length) throw invalid();
+      // 다음 연산의 대본이 이 연산 뒤 상태에서 이어지도록 상태·파생값을 잠시 세션에 둡니다.
+      const value = (path: string) => opUpdates.find((update) => update.path === path)?.value;
+      setSession({
+        ...current,
+        state: (value('state') as SessionRead['state'] | undefined) ?? current.state,
+        derived: (value('derived') as SessionRead['derived'] | undefined) ?? current.derived,
+      });
+      updates.push(...opUpdates);
+    }
+  } finally {
+    setSession(original);
+  }
+  return updates;
+};
+
 export const resolveMock = async <T>(path: string, init?: RequestInit): Promise<T> => {
   const method = (init?.method ?? 'GET').toUpperCase();
   await wait(MOCK_DELAY_MS);
@@ -128,6 +229,13 @@ export const resolveMock = async <T>(path: string, init?: RequestInit): Promise<
     const account = mockAccount(accountMatch[1]);
     enterMockAccount(account.persona_id);
     return account as T;
+  }
+
+  if (method === 'PATCH' && /^\/accounts\/[a-z0-9_-]+\/procedure$/.test(path)) {
+    const updates = mockProcedurePatch(parseBody<JsonPatchOp[]>(init) ?? []);
+    // 단계가 바뀌었으니 직전 질문은 잊고, 다음 자유 입력은 새 단계 첫 질문에 답한 것으로 봅니다.
+    resetMockChat();
+    return { updates } as T;
   }
 
   // 새로 고침 뒤에는 모듈 상태가 비므로, 저장된 세션의 계정으로 이어 갑니다 (모의 전용).

@@ -85,7 +85,10 @@ def build_rounds(
     first_recognition_date: date,
     end_date: date,
 ) -> list[PlannedRound]:
-    """1차 인정일부터 종료 예정일까지 회차를 만듭니다. 휴일이면 다음 평일로 옮깁니다."""
+    """1차 인정일부터 종료 예정일까지 회차를 만듭니다. 휴일이면 다음 평일로 옮깁니다.
+
+    마지막 회차의 대상기간은 종료 예정일까지만입니다. 인정일은 그 뒤여도 그대로 둡니다.
+    """
     rounds: list[PlannedRound] = []
     start = eligibility_applied_on + timedelta(days=WAITING_DAYS)
     recognition = next_business_day(first_recognition_date)
@@ -95,7 +98,7 @@ def build_rounds(
             PlannedRound(
                 round_no=round_no,
                 period_start=start,
-                period_end=recognition,
+                period_end=min(recognition, end_date),
                 recognition_date=recognition,
                 attendance_required=is_attendance_round(group, round_no),
             )
@@ -104,6 +107,17 @@ def build_rounds(
         recognition = next_business_day(recognition + timedelta(days=ROUND_INTERVAL_DAYS))
         round_no += 1
     return rounds
+
+
+def first_recognition_in_range(applied_on: date, first: date, end_date: date) -> bool:
+    """1차 인정일은 대기기간(신청일부터 7일) 뒤이고 종료 예정일 안이어야 합니다 (F-16).
+
+    종료 예정일 뒤 날짜를 받으면 회차가 수급기간 밖에 만들어집니다. 회차는 휴일이면 다음 평일을
+    인정일로 저장하므로(`build_rounds`), 옮긴 날짜도 종료 예정일 안인지 봅니다.
+    """
+    return (
+        applied_on + timedelta(days=WAITING_DAYS) < first and next_business_day(first) <= end_date
+    )
 
 
 def end_reason_on(today: date, benefit_end: date | None, period_end: date) -> str | None:
