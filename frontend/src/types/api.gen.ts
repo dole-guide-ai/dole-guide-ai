@@ -1337,6 +1337,12 @@ export interface components {
             details?: unknown;
         };
         /**
+         * EvidenceKind
+         * @description 칸 값의 근거 종류 (상세기획 2-0.6 근거 보기).
+         * @enum {string}
+         */
+        EvidenceKind: "utterance" | "document" | "import" | "computed";
+        /**
          * ExcludedRow
          * @description 계산에서 뺀 활동 (같은 날 2건째 등). 신청서에는 넣지 않고 참고로만 보여 줍니다.
          */
@@ -1388,6 +1394,19 @@ export interface components {
             is_deletable: boolean;
         };
         /**
+         * FieldEvidence
+         * @description 근거 보기 (F-11): 원래 문장(quote)과 기준일(date), 바꾼 이유(note).
+         */
+        FieldEvidence: {
+            kind: components["schemas"]["EvidenceKind"];
+            /** Date */
+            date?: string | null;
+            /** Quote */
+            quote?: string | null;
+            /** Note */
+            note?: string | null;
+        };
+        /**
          * FieldSource
          * @enum {string}
          */
@@ -1429,10 +1448,7 @@ export interface components {
              * @default false
              */
             transformed: boolean;
-            /** Evidence */
-            evidence?: {
-                [key: string]: unknown;
-            } | null;
+            evidence?: components["schemas"]["FieldEvidence"] | null;
             /** Answered On */
             answered_on?: string | null;
         };
@@ -1463,10 +1479,7 @@ export interface components {
              * @default false
              */
             transformed: boolean;
-            /** Evidence */
-            evidence?: {
-                [key: string]: unknown;
-            } | null;
+            evidence?: components["schemas"]["FieldEvidence"] | null;
             /** Completeness */
             completeness?: {
                 [key: string]: number;
