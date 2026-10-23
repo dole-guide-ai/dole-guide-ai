@@ -459,7 +459,8 @@ export interface paths {
          * @description 고용24 이력보기를 흉내 낸 모의 경력·자격·훈련 목록을 돌려줍니다. 이미 이력서에 넣은 항목은
          *     is_recorded로 표시합니다.
          *
-         *     고른 항목을 실제로 넣는 일은 대화 메시지(import_ids)로 합니다. (아직 구현 전이라 501)
+         *     항목 값(values)은 category·title·detail입니다.
+         *     고른 항목을 실제로 넣는 일은 대화 메시지(import_ids)로 합니다.
          */
         get: operations["list_career_certificates"];
         put?: never;
@@ -481,7 +482,8 @@ export interface paths {
          * 고용24 입사지원 내역 불러오기 (모의)
          * @description 고용24 구직활동 불러오기를 흉내 낸 모의 입사지원 목록을 돌려줍니다. 이미 기록한 활동은
          *     is_recorded로 표시합니다.
-         *     (아직 구현 전이라 501)
+         *
+         *     항목 값(values)은 category·title·detail·date(지원일)입니다.
          */
         get: operations["list_job_applications"];
         put?: never;
@@ -3752,15 +3754,6 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Not Implemented */
-            501: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
         };
     };
     list_job_applications: {
@@ -3813,15 +3806,6 @@ export interface operations {
             };
             /** @description Internal Server Error */
             500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Not Implemented */
-            501: {
                 headers: {
                     [name: string]: unknown;
                 };
