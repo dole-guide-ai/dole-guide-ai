@@ -115,11 +115,10 @@ def test_progress_summary_after_enter(client: TestClient) -> None:
     assert {c["persona_id"]: c["progress_summary"] for c in cards}["lee"] == "실업인정 중"
 
 
-def test_skeleton_endpoint_is_501_after_auth(client: TestClient) -> None:
+def test_account_endpoint_needs_token_first(client: TestClient) -> None:
+    """계정 경로는 토큰부터 확인합니다. 501 틀은 모두 구현돼 남은 것이 없습니다."""
     headers = new_visitor(client)
     client.put("/accounts/park", headers=headers)
 
     assert client.get("/accounts/park/trainings").status_code == 401
-    res = client.get("/accounts/park/trainings", headers=headers)
-    assert res.status_code == 501
-    assert res.json()["code"] == "NOT_IMPLEMENTED"
+    assert client.get("/accounts/park/trainings", headers=headers).status_code == 200
