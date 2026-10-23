@@ -226,3 +226,19 @@ def test_wrong_value_shapes_do_not_crash() -> None:
     assert "too_many" not in {i.code for i in check_resume(data, PARK_SEPARATION, TODAY)}
     resume_completeness(data)
     assert ask(data) == "resume.wish_experience"
+
+
+def test_date_field_keeps_original_sentence_and_base_date() -> None:
+    """F-11: 작년 3월 → 2025-03은 확인 필요이고, 근거에 원래 문장과 기준일이 남습니다."""
+    from datetime import date
+
+    from app.rules.resume import date_field, needs_check, normalize_date
+
+    today = date(2026, 10, 12)
+    expr = "작년 3월부터"
+    f = date_field(expr, normalize_date(expr, today, date(2026, 9, 30)), today)
+
+    assert f.value == "2025-03"
+    assert needs_check(f)
+    assert f.evidence is not None
+    assert (f.evidence.kind, f.evidence.quote, f.evidence.date) == ("utterance", expr, today)

@@ -100,6 +100,28 @@ class FieldSource(StrEnum):
     ACCOUNT = "account"
 
 
+class EvidenceKind(StrEnum):
+    """칸 값의 근거 종류 (상세기획 2-0.6 근거 보기)."""
+
+    UTTERANCE = "utterance"  # 대화에서 한 말
+    DOCUMENT = "document"  # 판독한 서류
+    IMPORT = "import"  # 고용24 불러오기
+    COMPUTED = "computed"  # 규칙이 계산·변환
+
+
+# 필드 이름 `date`가 타입 이름을 가리지 않게 별칭을 둡니다.
+_Date = date
+
+
+class FieldEvidence(BaseModel):
+    """근거 보기 (F-11): 원래 문장(quote)과 기준일(date), 바꾼 이유(note)."""
+
+    kind: EvidenceKind
+    date: _Date | None = None
+    quote: str | None = None
+    note: str | None = None
+
+
 class FormField(BaseModel):
     """서류 칸 하나. 이력서·신청서 jsonb 안에서 값과 상태를 같이 둡니다 (설계 3.11 `Field`)."""
 
@@ -107,7 +129,7 @@ class FormField(BaseModel):
     status: FieldStatus = FieldStatus.MISSING
     source: FieldSource | None = None
     transformed: bool = False
-    evidence: dict[str, Any] | None = None
+    evidence: FieldEvidence | None = None
     answered_on: date | None = None
 
 
@@ -159,7 +181,7 @@ class FormUpdate(BaseModel):
     status: FieldStatus | None = None
     source: FieldSource | None = None
     transformed: bool = False
-    evidence: dict[str, Any] | None = None
+    evidence: FieldEvidence | None = None
     completeness: dict[str, int] | None = None
 
 

@@ -10,7 +10,13 @@ from dataclasses import dataclass, field
 from datetime import date
 from typing import Any
 
-from app.schemas.common import FieldSource, FieldStatus, FormField
+from app.schemas.common import (
+    EvidenceKind,
+    FieldEvidence,
+    FieldSource,
+    FieldStatus,
+    FormField,
+)
 from app.schemas.forms.resume import Career, Education, OccupationStatus, ResumeData
 from app.schemas.resume import Completeness
 
@@ -82,7 +88,7 @@ def _suggested(value: Any, note: str) -> FormField:
         status=FieldStatus.EXTRACTED,
         source=FieldSource.AUTO,
         transformed=True,
-        evidence={"kind": "computed", "note": note},
+        evidence=FieldEvidence(kind=EvidenceKind.COMPUTED, note=note),
     )
 
 
@@ -150,6 +156,21 @@ def normalize_date(
 
 
 # ── 자동 값 ─────────────────────────────────────────────
+
+
+def date_field(expr: str, result: DateResult, today: date) -> FormField:
+    """대화에서 받은 날짜 표현을 칸으로. 바꾼 값이면 확인 필요(extracted + transformed)이고,
+    근거 보기에 원래 문장과 기준일이 남습니다 (F-11 완료 기준: '작년 3월' → 2025-03).
+    """
+    return FormField(
+        value=result.value,
+        status=FieldStatus.EXTRACTED if result.value else FieldStatus.MISSING,
+        source=FieldSource.USER_ANSWER,
+        transformed=result.transformed,
+        evidence=FieldEvidence(
+            kind=EvidenceKind.UTTERANCE, date=today, quote=expr.strip(), note=result.note
+        ),
+    )
 
 
 def career_months(careers: list[Career]) -> int:
