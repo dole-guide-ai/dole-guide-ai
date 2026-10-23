@@ -51,11 +51,6 @@ export interface DerivedState {
   required: number | null;
   required_job_search: number | null;
   can_presubmit_online: boolean;
-  /** 수급 종료 예정일(급여 소진일·수급기간 끝 중 이른 날), 남은 회차(이번 포함), 마지막 회차 (F-33) */
-  expected_end_date?: string | null;
-  remaining_rounds?: number | null;
-  last_round?: number | null;
-  end_reason?: 'exhausted' | 'period_expired' | 'employed' | null;
 }
 
 export type PanelId = 'A' | 'B' | 'C' | 'E' | 'Q';

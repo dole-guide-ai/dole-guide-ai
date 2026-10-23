@@ -4,12 +4,10 @@ from app.rules.periods import (
     benefit_days,
     benefit_end_date,
     build_rounds,
-    end_reason_on,
     expected_end_date,
     is_attendance_round,
     period_end_date,
     recipient_group,
-    remaining_rounds,
 )
 
 
@@ -62,18 +60,3 @@ def test_build_rounds_moves_weekend_to_monday() -> None:
     rounds = build_rounds("general", date(2026, 10, 1), date(2026, 10, 17), date(2026, 11, 1))
 
     assert rounds[0].recognition_date == date(2026, 10, 19)
-
-
-def test_end_reason_is_whichever_end_comes_first() -> None:
-    """종료 예정일이 지나야 종료이고, 먼저 오는 쪽이 사유입니다 (설계 6.6, F-33)."""
-    period_end = date(2027, 9, 30)
-    assert end_reason_on(date(2027, 3, 1), date(2027, 3, 1), period_end) is None
-    assert end_reason_on(date(2027, 3, 2), date(2027, 3, 1), period_end) == "exhausted"
-    assert end_reason_on(date(2027, 10, 1), date(2027, 12, 1), period_end) == "period_expired"
-    assert end_reason_on(date(2027, 10, 1), None, period_end) == "period_expired"
-
-
-def test_remaining_rounds_counts_today_and_later() -> None:
-    dates = [date(2026, 10, 1), date(2026, 10, 21), date(2026, 11, 18)]
-    assert remaining_rounds(dates, date(2026, 10, 21)) == 2
-    assert remaining_rounds(dates, date(2026, 11, 19)) == 0

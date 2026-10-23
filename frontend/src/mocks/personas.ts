@@ -125,11 +125,6 @@ export const MOCK_PERSONAS: MockPersona[] = [
       required: 2,
       required_job_search: 1,
       can_presubmit_online: true,
-      // 270일 · 신청일 9.15 기준: 대기기간 다음 날(9.22) + 269일 (F-33)
-      expected_end_date: '2027-06-18',
-      remaining_rounds: 8,
-      last_round: 11,
-      end_reason: null,
     },
   },
 ];

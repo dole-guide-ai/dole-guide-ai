@@ -43,24 +43,6 @@ class JobSearchRow(BaseModel):
     file_ids: list[str] = []
 
 
-class OtherActivityRow(BaseModel):
-    """구직활동 외 활동사항 한 줄 (취업특강·직업훈련 등). 인정 활동에서 만듭니다."""
-
-    activity_id: str
-    activity_date: date
-    kind: str
-    details: str | None = None
-
-
-class ExcludedRow(BaseModel):
-    """계산에서 뺀 활동 (같은 날 2건째 등). 신청서에는 넣지 않고 참고로만 보여 줍니다."""
-
-    activity_id: str
-    reason: str
-    activity_date: date
-    company_name: str | None = None
-
-
 class ChecklistItem(BaseModel):
     key: str
     text: str
@@ -75,17 +57,8 @@ class ApplicationRead(BaseModel):
     round: int
     status: ApplicationStatus
     lock_version: int
-    # 실업인정 정보등록 칸 (회차에서 계산, F-23)
-    period_start: date
-    period_end: date
-    recognition_date: date
-    attendance_required: bool
-    required_activities: int
-    required_job_search: int
     data: RecognitionData
     job_search_rows: list[JobSearchRow] = []
-    other_rows: list[OtherActivityRow] = []
-    excluded_rows: list[ExcludedRow] = []
     checklist: Checklist
     submit_mode: SubmitMode
     can_submit: bool
