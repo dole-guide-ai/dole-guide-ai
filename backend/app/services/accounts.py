@@ -293,7 +293,7 @@ def _materialize(db: Session, user_id: uuid.UUID, seed: dict[str, Any], anchor: 
                 user_id=user_id,
                 schema_version=resume_form.SCHEMA_VERSION,
                 status=resume["status"],
-                data=resume_form.ResumeData.model_validate(resume["data"]).model_dump(mode="json"),
+                data=seed_resume(resume["data"], resume["field_status"]).model_dump(mode="json"),
                 saved_at=datetime.combine(saved_on, datetime.min.time(), KST) if saved_on else None,
             )
         )
@@ -368,6 +368,35 @@ def _materialize_rounds(
             )
         )
     repo.add_all(db, applications)
+
+
+# 칸이 아니라 칸을 담는 묶음. 나머지 dict 값(희망임금 등)은 칸 하나의 값입니다.
+_RESUME_GROUPS = {"job_preferences", "competencies", "additional_info"}
+
+
+def seed_resume(data: dict[str, Any], status: str) -> resume_form.ResumeData:
+    """seed의 값만 있는 이력서를 칸마다 {value, status, source=seed}로 감쌉니다."""
+
+    def field(value: Any) -> dict[str, Any]:
+        return {"value": value, "status": status, "source": "seed"}
+
+    def item(raw: dict[str, Any]) -> dict[str, Any]:
+        return {k: v if k == "item_id" else field(v) for k, v in raw.items()}
+
+    def wrap(raw: dict[str, Any]) -> dict[str, Any]:
+        out: dict[str, Any] = {}
+        for key, value in raw.items():
+            if key in _RESUME_GROUPS:
+                out[key] = wrap(value)
+            elif isinstance(value, list) and all(
+                isinstance(v, dict) and "item_id" in v for v in value
+            ):
+                out[key] = [item(v) for v in value]
+            else:
+                out[key] = field(value)
+        return out
+
+    return resume_form.ResumeData.model_validate(wrap(data))
 
 
 def _prev_answers(

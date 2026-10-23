@@ -138,6 +138,7 @@ class FormUpdate(BaseModel):
     value: Any = None
     status: FieldStatus | None = None
     source: FieldSource | None = None
+    transformed: bool = False
     evidence: dict[str, Any] | None = None
     completeness: dict[str, int] | None = None
 
