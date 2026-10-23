@@ -6,15 +6,15 @@ import type { FormPatchCreate, FormUpdateEvent } from '@/types/chat.types';
 import type { SessionRead } from '@/types/demo.types';
 import type { ImportKind } from '@/types/imports.types';
 import type { MyDataDelete, MyDataRead } from '@/types/myData.types';
-import type { ProcedurePatchCreate } from '@/types/procedure.types';
+import type { ProcedurePatchCreate, RoundActivity } from '@/types/procedure.types';
 import type { RecognitionConfirmCreate } from '@/types/recognition.types';
 
 import {
   MOCK_ACTIVITY_REMOVALS,
   MOCK_NEXT_ROUND_CHECKS,
   MOCK_PLANNED_ACTIVITIES,
-  MOCK_RECOMMENDATIONS,
   MOCK_ROUND_CHECKS,
+  mockRecommendations,
 } from './activities';
 import { resetMockChat } from './chatScripts';
 import { MOCK_AFTER_RESUME_ENTRIES, MOCK_ENTRIES } from './entries';
@@ -182,7 +182,15 @@ export const resolveMock = async <T>(path: string, init?: RequestInit): Promise<
   }
 
   if (method === 'GET' && path === '/procedure/current-round/recommendations') {
-    const recommendations = personaId ? MOCK_RECOMMENDATIONS[personaId] : undefined;
+    const session = getSession();
+    const round = getFormDrafts().activities.values as { activities?: RoundActivity[] };
+    const recommendations = personaId
+      ? mockRecommendations(
+          personaId,
+          session?.state.next_recognition_date ?? null,
+          round.activities ?? [],
+        )
+      : undefined;
     if (!recommendations) throw new ApiError('NOT_FOUND', '추천할 활동이 없어요.', 404);
     return recommendations as T;
   }
