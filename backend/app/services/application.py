@@ -57,7 +57,7 @@ def find_round(db: Session, user_id: uuid.UUID, round_ref: str, today: date):
     return found, rounds
 
 
-def _previous_answers(db: Session, rounds: list, round_no: int) -> dict | None:
+def previous_answers(db: Session, rounds: list, round_no: int) -> dict | None:
     """이번 회차 바로 전까지 제출한 회차 중 가장 최근 신청서의 답."""
     for r in reversed([r for r in rounds if r.round_no < round_no]):
         previous = repo.get_application(db, r.round_id)
@@ -99,7 +99,7 @@ def read_application(
     required, required_job_search = rules.required_activities(group, target.round_no)
 
     data = rules.carry_previous_answers(
-        application.data, _previous_answers(db, rounds, target.round_no)
+        application.data, previous_answers(db, rounds, target.round_no)
     )
     activities = rules.build_form_activities(
         activity_inputs(db, account.user_id, target.period_start, target.period_end),
@@ -155,7 +155,7 @@ SUBMIT_VALUE_MESSAGE = "제출 방식은 글자로, 준비물은 글자 목록�
 LOCKED_MESSAGE = "이미 제출한 신청서예요. 고칠 게 있으면 고용센터에 문의해 주세요."
 
 
-def _writable(db: Session, account: AccountContext, round_ref: str, now: datetime):
+def writable_application(db: Session, account: AccountContext, round_ref: str, now: datetime):
     """고칠 수 있는 신청서인지 확인하고 (회차, 신청서 행)을 돌려줍니다."""
     # 수급이 끝난 계정은 신청서를 고칠 수 없습니다 (F-33 완료 기준).
     account_service.ensure_not_ended(db, account.user_id)
@@ -185,7 +185,7 @@ def patch_application(
     대화의 본인 답변 기록(`record_user_answer`)으로만 채웁니다.
     답은 받을 때마다 바로 저장되므로 임시저장은 따로 없습니다.
     """
-    target, application = _writable(db, account, round_ref, now)
+    target, application = writable_application(db, account, round_ref, now)
     check_if_match(if_match, application.lock_version)
     submit_ops = [op for op in patch if op.path in SUBMIT_PATHS]
     if not submit_ops:
@@ -251,7 +251,7 @@ def record_user_answer(
 
     답한 날(answered_on)을 남기고 lock_version을 올립니다. 제출 뒤·지난 회차는 409입니다.
     """
-    _, application = _writable(db, account, round_ref, now)
+    _, application = writable_application(db, account, round_ref, now)
     data, updates = apply_patch(
         application.data, patch, form=FormName.APPLICATION, source=FieldSource.USER_ANSWER
     )

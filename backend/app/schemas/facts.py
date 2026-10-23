@@ -5,13 +5,22 @@
 """
 
 from datetime import date
+from enum import StrEnum
 
 from pydantic import BaseModel
 
 
+class FactGroup(StrEnum):
+    """내 정보 창의 묶음: 작성한 서류 · 절차 상태 · 내가 답한 내용(이것만 지울 수 있음)."""
+
+    RESUME = "resume"
+    PROCEDURE = "procedure"
+    FACTS = "facts"
+
+
 class FactRead(BaseModel):
     fact_id: str
-    group: str
+    group: FactGroup
     label: str
     value: str | None = None
     answered_on: date | None = None

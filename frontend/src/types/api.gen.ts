@@ -495,9 +495,9 @@ export interface paths {
         };
         /**
          * 내 정보 (내가 답한 내용)
-         * @description 이력서와 지금 회차 신청서에서 사용자가 직접 답한 칸을 한 줄씩 모아 보여 주고, 서비스가
-         *     저장하지 않는 정보 목록을 함께 돌려줍니다.
-         *     (아직 구현 전이라 501)
+         * @description 작성한 서류(이력서 상태), 절차 상태(단계·다음 실업인정일), 내가 답한 내용(지금 회차 신청서의
+         *     실업크레딧·통지 방법, 이력서에서 대화로 답한 칸)을 한 줄씩 모아 보여 주고, 서비스가 저장하지
+         *     않는 정보 목록을 함께 돌려줍니다. 지울 수 있는 줄은 내가 답한 내용(group=facts)뿐입니다.
          */
         get: operations["list_facts"];
         put?: never;
@@ -520,10 +520,11 @@ export interface paths {
         post?: never;
         /**
          * 내가 답한 내용 한 줄 지우기
-         * @description 그 칸을 답변 필요 상태로 되돌리고, 바뀐 칸을 돌려줍니다.
+         * @description 그 칸을 답변 필요 상태로 되돌리고, 바뀐 칸을 돌려줍니다. 신청서 답은 지난 회차 답을 다시
+         *     불러오지 않습니다.
          *
-         *     지난 회차 신청서의 답처럼 지울 수 없는 줄이면 409 FACT_NOT_DELETABLE입니다. (아직 구현 전이라
-         *     501)
+         *     서류·절차 줄은 409 FACT_NOT_DELETABLE, 이미 제출한 신청서면 409 APPLICATION_LOCKED,
+         *     없는 줄은 404입니다.
          */
         delete: operations["delete_fact"];
         options?: never;
@@ -1293,6 +1294,12 @@ export interface components {
          * @enum {string}
          */
         ExternalSource: "live" | "snapshot";
+        /**
+         * FactGroup
+         * @description 내 정보 창의 묶음: 작성한 서류 · 절차 상태 · 내가 답한 내용(이것만 지울 수 있음).
+         * @enum {string}
+         */
+        FactGroup: "resume" | "procedure" | "facts";
         /** FactList */
         FactList: {
             /** Items */
@@ -1306,8 +1313,7 @@ export interface components {
         FactRead: {
             /** Fact Id */
             fact_id: string;
-            /** Group */
-            group: string;
+            group: components["schemas"]["FactGroup"];
             /** Label */
             label: string;
             /** Value */
@@ -3891,15 +3897,6 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Not Implemented */
-            501: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
         };
     };
     delete_fact: {
@@ -3962,15 +3959,6 @@ export interface operations {
             };
             /** @description Internal Server Error */
             500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Not Implemented */
-            501: {
                 headers: {
                     [name: string]: unknown;
                 };

@@ -11,6 +11,8 @@ from dataclasses import dataclass, field
 from datetime import date, datetime
 from typing import Any
 
+from app.schemas.common import FieldStatus
+
 JOB_SEARCH = "job_search"
 NON_JOB_SEARCH = "non_job_search"
 
@@ -135,6 +137,11 @@ def _is_empty(node: Any) -> bool:
     return not isinstance(node, dict) or node.get("value") in (None, "", [])
 
 
+def _withdrawn(node: Any) -> bool:
+    """내 정보에서 지운 답(F-31). 지난 회차 답을 다시 불러오지 않습니다."""
+    return isinstance(node, dict) and node.get("status") == FieldStatus.REJECTED
+
+
 def carry_previous_answers(data: dict[str, Any], previous: dict[str, Any] | None) -> dict[str, Any]:
     """이번 회차에 아직 답이 없으면 지난 회차에 답한 통지 방법·실업크레딧을 불러옵니다.
 
@@ -145,12 +152,21 @@ def carry_previous_answers(data: dict[str, Any], previous: dict[str, Any] | None
         return data
     merged = {**data}
     for key in _CARRIED_FIELDS:
-        if _is_empty(merged.get(key)) and not _is_empty(previous.get(key)):
+        current_node = merged.get(key)
+        if (
+            _is_empty(current_node)
+            and not _withdrawn(current_node)
+            and not _is_empty(previous.get(key))
+        ):
             merged[key] = previous[key]
     for group in _CARRIED_GROUPS:
         current = {**(merged.get(group) or {})}
         for key, node in (previous.get(group) or {}).items():
-            if _is_empty(current.get(key)) and not _is_empty(node):
+            if (
+                _is_empty(current.get(key))
+                and not _withdrawn(current.get(key))
+                and not _is_empty(node)
+            ):
                 current[key] = node
         merged[group] = current
     return merged
