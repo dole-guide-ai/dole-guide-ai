@@ -1,6 +1,0 @@
-{
-  "id": "procedure/round-009",
-  "description": "구직 외 과정 = 구직신청서 내실화(규칙표 기준 없음) → needs_check, 인정 건수 제외",
-  "source": "상세기획 2-2.12",
-  "pending": "회차 점검 check_round(F-18)의 needs_check 판정"
-}

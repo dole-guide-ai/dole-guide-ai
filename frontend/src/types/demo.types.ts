@@ -1,5 +1,3 @@
-import type { ImportKind } from '@/types/imports.types';
-
 /**
  * 상세기획 1장(사용자 상태 모델·진입 분기)에 맞춘 임시 타입.
  * 백엔드 API가 올라오면 `pnpm gen:api`로 만든 `api.gen.ts` 타입으로 바꿉니다.
@@ -53,11 +51,6 @@ export interface DerivedState {
   required: number | null;
   required_job_search: number | null;
   can_presubmit_online: boolean;
-  /** 수급 종료 예정일(급여 소진일·수급기간 끝 중 이른 날), 남은 회차(이번 포함), 마지막 회차 (F-33) */
-  expected_end_date?: string | null;
-  remaining_rounds?: number | null;
-  last_round?: number | null;
-  end_reason?: 'exhausted' | 'period_expired' | 'employed' | null;
 }
 
 export type PanelId = 'A' | 'B' | 'C' | 'E' | 'Q';
@@ -84,15 +77,6 @@ export interface EntryResult {
   choices: string[];
   /** 첫 안내가 서류·사진을 요청하면 true (2-0.4 `accepts_file`과 같은 뜻) */
   accepts_file?: boolean;
-  /**
-   * 새로고침 전 답을 기다리던 질문 (F-03, `AccountRead.pending_ask`). 있으면 그 선택지·불러오기 종류를 다시 띄우고,
-   * 없으면 저장된 대화를 되살릴 때 진입 선택지를 지웁니다.
-   */
-  pending_ask?: {
-    choices: string[];
-    import_kind: ImportKind | null;
-    accepts_file: boolean;
-  } | null;
   ui: { big_text: boolean };
   rule_refs: string[];
 }

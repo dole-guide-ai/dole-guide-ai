@@ -3,7 +3,7 @@
 이직 당시 나이로 수급자 유형을 정하고, 나이와 고용보험 가입기간으로 소정급여일수를 구합니다.
 1차 인정일부터 28일 간격으로 회차를 만들고, 인정일이 휴일이면 다음 평일로 옮깁니다.
 급여 소진 예정일과 수급기간 끝(이직 다음 날부터 12개월) 중 이른 날을 종료 예정일로 봅니다.
-종료 예정일이 지나면 종료 사유를 정하고, 남은 회차 수를 셉니다. 회차 활동 점검은 이후에 더합니다.
+지금은 계정 입장과 seed에 필요한 계산만 있고, 회차 활동 점검은 이후에 더합니다.
 """
 
 from dataclasses import dataclass
@@ -64,17 +64,10 @@ def expected_end_date(benefit_end: date | None, period_end: date) -> date:
     return min(benefit_end, period_end) if benefit_end else period_end
 
 
-ATTENDANCE_ROUNDS = (1, 4, 8)
-
-
 def is_attendance_round(group: str, round_no: int) -> bool:
-    """1·4·8차는 고용센터 출석 회차입니다. 60세 이상·장애인도 4·8차에 출석합니다.
-
-    상세기획 결정 기록(60세 이상·장애인도 4·8차 출석), 2-3.6, 고용24 「재취업을 위한 약속」
-    ("1차, 4차 및 8차 실업인정일을 제외하고 … 온라인 신청 가능"). 반복수급자는 지원하지 않습니다.
-    """
-    del group  # 그룹과 상관없이 같습니다. 반복수급자 분기가 생기면 여기서 나눕니다.
-    return round_no in ATTENDANCE_ROUNDS
+    """일반은 1·4·8차, 60세 이상·장애인은 1·4차 (반복수급자는 지원하지 않음)."""
+    rounds = (1, 4, 8) if group == "general" else (1, 4)
+    return round_no in rounds
 
 
 @dataclass(frozen=True)
@@ -92,10 +85,7 @@ def build_rounds(
     first_recognition_date: date,
     end_date: date,
 ) -> list[PlannedRound]:
-    """1차 인정일부터 종료 예정일까지 회차를 만듭니다. 휴일이면 다음 평일로 옮깁니다.
-
-    마지막 회차의 대상기간은 종료 예정일까지만입니다. 인정일은 그 뒤여도 그대로 둡니다.
-    """
+    """1차 인정일부터 종료 예정일까지 회차를 만듭니다. 휴일이면 다음 평일로 옮깁니다."""
     rounds: list[PlannedRound] = []
     start = eligibility_applied_on + timedelta(days=WAITING_DAYS)
     recognition = next_business_day(first_recognition_date)
@@ -105,7 +95,7 @@ def build_rounds(
             PlannedRound(
                 round_no=round_no,
                 period_start=start,
-                period_end=min(recognition, end_date),
+                period_end=recognition,
                 recognition_date=recognition,
                 attendance_required=is_attendance_round(group, round_no),
             )
@@ -114,33 +104,3 @@ def build_rounds(
         recognition = next_business_day(recognition + timedelta(days=ROUND_INTERVAL_DAYS))
         round_no += 1
     return rounds
-
-
-def first_recognition_in_range(applied_on: date, first: date, end_date: date) -> bool:
-    """1차 인정일은 대기기간(신청일부터 7일) 뒤이고 종료 예정일 안이어야 합니다 (F-16).
-
-    종료 예정일 뒤 날짜를 받으면 회차가 수급기간 밖에 만들어집니다. 회차는 휴일이면 다음 평일을
-    인정일로 저장하므로(`build_rounds`), 옮긴 날짜도 종료 예정일 안인지 봅니다.
-    """
-    return (
-        applied_on + timedelta(days=WAITING_DAYS) < first and next_business_day(first) <= end_date
-    )
-
-
-def end_reason_on(today: date, benefit_end: date | None, period_end: date) -> str | None:
-    """종료 예정일이 지났으면 종료 사유, 아니면 None (설계 6.6, F-33).
-
-    급여 소진일과 수급기간 끝 중 먼저 오는 쪽이 사유입니다. 같은 날이면 수급기간 만료로 봅니다.
-    취업(employed)은 신고로 정해지므로 여기서 계산하지 않습니다.
-    """
-    end = expected_end_date(benefit_end, period_end)
-    if today <= end:
-        return None
-    if benefit_end is not None and benefit_end < period_end:
-        return "exhausted"
-    return "period_expired"
-
-
-def remaining_rounds(recognition_dates: list[date], today: date) -> int:
-    """오늘이 속한 회차를 포함해 아직 인정일이 지나지 않은 회차 수 (F-33)."""
-    return sum(1 for d in recognition_dates if d >= today)

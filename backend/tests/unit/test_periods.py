@@ -4,13 +4,10 @@ from app.rules.periods import (
     benefit_days,
     benefit_end_date,
     build_rounds,
-    end_reason_on,
     expected_end_date,
-    first_recognition_in_range,
     is_attendance_round,
     period_end_date,
     recipient_group,
-    remaining_rounds,
 )
 
 
@@ -43,9 +40,7 @@ def test_period_end_on_leap_day() -> None:
 
 def test_attendance_rounds() -> None:
     assert [n for n in range(1, 10) if is_attendance_round("general", n)] == [1, 4, 8]
-    # 60세 이상·장애인도 4·8차 출석 (상세기획 결정, 평가 시나리오 form-011)
-    assert [n for n in range(1, 10) if is_attendance_round("age_60_64", n)] == [1, 4, 8]
-    assert [n for n in range(1, 10) if is_attendance_round("age65_or_disabled", n)] == [1, 4, 8]
+    assert [n for n in range(1, 10) if is_attendance_round("age_60_64", n)] == [1, 4]
 
 
 def test_build_rounds_every_28_days_and_skips_holidays() -> None:
@@ -65,38 +60,3 @@ def test_build_rounds_moves_weekend_to_monday() -> None:
     rounds = build_rounds("general", date(2026, 10, 1), date(2026, 10, 17), date(2026, 11, 1))
 
     assert rounds[0].recognition_date == date(2026, 10, 19)
-
-
-def test_first_recognition_must_be_after_waiting_and_before_end() -> None:
-    applied, end = date(2026, 10, 12), date(2027, 7, 8)
-    assert first_recognition_in_range(applied, date(2026, 10, 19), end) is False
-    assert first_recognition_in_range(applied, date(2026, 10, 20), end) is True
-    assert first_recognition_in_range(applied, end, end) is True
-    assert first_recognition_in_range(applied, date(2027, 7, 9), end) is False
-    # 종료 예정일이 토요일이면 그날을 넣어도 회차 인정일이 다음 월요일로 옮겨져 종료일 밖이 됩니다.
-    saturday_end = date(2027, 7, 10)
-    assert first_recognition_in_range(applied, saturday_end, saturday_end) is False
-    assert first_recognition_in_range(applied, date(2027, 7, 9), saturday_end) is True
-
-
-def test_end_reason_is_whichever_end_comes_first() -> None:
-    """종료 예정일이 지나야 종료이고, 먼저 오는 쪽이 사유입니다 (설계 6.6, F-33)."""
-    period_end = date(2027, 9, 30)
-    assert end_reason_on(date(2027, 3, 1), date(2027, 3, 1), period_end) is None
-    assert end_reason_on(date(2027, 3, 2), date(2027, 3, 1), period_end) == "exhausted"
-    assert end_reason_on(date(2027, 10, 1), date(2027, 12, 1), period_end) == "period_expired"
-    assert end_reason_on(date(2027, 10, 1), None, period_end) == "period_expired"
-
-
-def test_remaining_rounds_counts_today_and_later() -> None:
-    dates = [date(2026, 10, 1), date(2026, 10, 21), date(2026, 11, 18)]
-    assert remaining_rounds(dates, date(2026, 10, 21)) == 2
-    assert remaining_rounds(dates, date(2026, 11, 19)) == 0
-
-
-def test_last_round_period_stops_at_end_date() -> None:
-    """마지막 회차의 대상기간은 종료 예정일을 넘지 않습니다 (인정일은 그대로)."""
-    rounds = build_rounds("general", date(2026, 10, 12), date(2026, 11, 4), date(2026, 11, 20))
-    last = rounds[-1]
-    assert last.period_end == date(2026, 11, 20)
-    assert last.recognition_date > date(2026, 11, 20)

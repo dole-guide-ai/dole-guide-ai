@@ -63,11 +63,6 @@ def get_user(db: Session, visitor_id: uuid.UUID, persona_id: str) -> User | None
     )
 
 
-def lock_user(db: Session, user_id: uuid.UUID) -> None:
-    """같은 계정의 쓰기를 줄 세우려고 계정 행을 트랜잭션 끝까지 잠급니다."""
-    db.execute(select(User.user_id).where(User.user_id == user_id).with_for_update())
-
-
 def get_user_by_id(db: Session, user_id: uuid.UUID) -> User | None:
     return db.get(User, user_id)
 
@@ -86,14 +81,8 @@ def delete_user(db: Session, user: User) -> None:
     db.flush()
 
 
-def get_procedure(
-    db: Session, user_id: uuid.UUID, *, for_update: bool = False
-) -> ProcedureState | None:
-    """절차 상태를 돌려줍니다.
-
-    고칠 때는 `for_update=True`로 행을 잠가 같은 사실을 동시에 넣는 요청을 줄 세웁니다.
-    """
-    return db.get(ProcedureState, user_id, with_for_update=for_update)
+def get_procedure(db: Session, user_id: uuid.UUID) -> ProcedureState | None:
+    return db.get(ProcedureState, user_id)
 
 
 def get_resume(db: Session, user_id: uuid.UUID) -> Resume | None:
@@ -108,17 +97,10 @@ def list_rounds(db: Session, user_id: uuid.UUID) -> list[Round]:
     return list(db.scalars(select(Round).where(Round.user_id == user_id).order_by(Round.round_no)))
 
 
-def get_application(
-    db: Session, round_id: uuid.UUID, *, for_update: bool = False
-) -> RecognitionApplication | None:
-    """회차 신청서를 돌려줍니다.
-
-    고칠 때는 `for_update=True`로 행을 잠가 동시에 저장한 답이 덮이지 않게 합니다.
-
-    조회만 할 때는 잠그지 않습니다.
-    """
-    query = select(RecognitionApplication).where(RecognitionApplication.round_id == round_id)
-    return db.scalar(query.with_for_update() if for_update else query)
+def get_application(db: Session, round_id: uuid.UUID) -> RecognitionApplication | None:
+    return db.scalar(
+        select(RecognitionApplication).where(RecognitionApplication.round_id == round_id)
+    )
 
 
 def new_user(visitor_id: uuid.UUID, persona_id: str, anchor_date: object) -> User:

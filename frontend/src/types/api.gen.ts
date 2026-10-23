@@ -155,7 +155,7 @@ export interface paths {
          * @description 지금 절차 단계, 수급자 유형, 소정급여일수, 수급기간 끝과 종료 예정일을 돌려줍니다.
          *
          *     종료 예정일은 급여 소진 예정일과 수급기간 끝(이직 다음 날부터 12개월) 중 이른 날이며, 실제는
-         *     고용센터 확인이 필요합니다. 회차가 만들어졌으면 남은 회차 수와 마지막 회차 번호도 들어갑니다.
+         *     고용센터 확인이 필요합니다.
          */
         get: operations["get_procedure"];
         put?: never;
@@ -171,11 +171,7 @@ export interface paths {
          *     보내며, 각각 한 번만 입력할 수 있습니다.
          *     1차 인정일이 들어오면 서버가 회차와 회차별 신청서를 한꺼번에 만듭니다. 회차 자체를 바꾸는 값은
          *     없습니다.
-         *
-         *     - 단계 순서를 어기거나 이미 입력한 값이면 409 STAGE_ORDER
-         *     - 날짜 형식이 틀리거나 범위 밖이면 422
-         *       (신청일은 그만둔 다음 날~오늘, 1차 인정일은 대기기간 7일 뒤)
-         *     - 응답의 entry는 바뀐 첫 화면(진입 결과)입니다.
+         *     (아직 구현 전이라 501)
          */
         patch: operations["patch_procedure"];
         trace?: never;
@@ -237,10 +233,10 @@ export interface paths {
         };
         /**
          * 부족한 활동 추천
-         * @description 이번 회차에 활동이 모자랄 때 증빙이 쉬운 순서로 추천 최대 3개와 기한 문구를 돌려줍니다.
+         * @description 이번 회차에 활동이 모자랄 때 증빙이 쉬운 순서로 추천 3개와 기한 문구를 돌려줍니다.
          *
-         *     부족하지 않으면 빈 목록입니다. 오늘이 속한 회차가 없으면 404 NO_ACTIVE_ROUND.
-         *     고른 추천은 `POST …/activities`에 `recommendation_id`만 보내 예정 활동으로 넣습니다.
+         *     직업훈련·특강·집단상담 후보에는 고용24 조회 결과(실제 과정·일정)를 붙입니다. (아직 구현 전이라
+         *     501)
          */
         get: operations["list_recommendations"];
         put?: never;
@@ -266,14 +262,7 @@ export interface paths {
          *     본인 답변 칸, 인정 활동에서 만든 구직활동 줄, 제출을 막는 항목과 경고, 지금 시각 기준 제출
          *     방식(submit_mode),
          *     잠금 사유(취업·산재), 신청인·지급계좌 표시값이 들어 있습니다. round에는 회차 번호나 current를
-         *     넣습니다.
-         *
-         *     구직활동 줄은 그 회차 대상기간의 실제 활동에서 만들고(같은 날 2건째는 excluded_rows),
-         *     지난 회차에 답한 통지 방법·실업크레딧은 이번 회차가 비어 있으면 불러옵니다.
-         *     제출 방식(submit_mode)은 실제 지금 시각(KST)으로 정합니다: 출석 회차 attend, 인정일 전 preview,
-         *     당일 17시 전 send, 17~18시 visit_today, 그 뒤 change. 막는 항목이 없고 send·attend일 때만
-         *     can_submit이 true이며, 경고(활동 부족·증빙 없음·실업크레딧)는 제출을 막지 않습니다.
-         *     오늘이 속한 회차가 없으면(current) 404 NO_ACTIVE_ROUND, 없는 회차 번호면 404입니다.
+         *     넣습니다. (아직 구현 전이라 501)
          */
         get: operations["get_application"];
         put?: never;
@@ -282,17 +271,14 @@ export interface paths {
         options?: never;
         head?: never;
         /**
-         * 회차 신청서 제출
-         * @description 신청서를 제출(모의)합니다. 본인 답변은 대화로만 채우고 받을 때마다 바로 저장됩니다.
+         * 회차 신청서 고치기 · 제출
+         * @description JSON Patch로 칸을 고치면 바로 저장됩니다(임시저장 경로는 따로 없음).
          *
-         *     - 제출: `/status`를 `submitted`로, `/submit_mode`를 GET이 알려 준 방식(send·attend)으로
-         *       보냅니다. 출석 회차면 `/attend_items`에 `["id_card", "eligibility_card"]`(준비물 체크)도.
-         *     - 방식이 다르거나(인정일 전 preview 등) 막는 항목이 남았거나 준비물을 체크하지 않았으면
-         *       409 CANNOT_SUBMIT, 이미 제출했으면 409 APPLICATION_LOCKED, 지난 회차면 409 ROUND_CLOSED,
-         *       If-Match가 GET의 ETag와 다르면 409 VERSION_CONFLICT입니다.
-         *     - 본인 답변 칸을 고치려 하면 422 USER_ANSWER_ONLY, 제출 칸과 다른 칸을 섞으면 422입니다.
-         *
-         *     제출은 status만 바꾸고 본인 답변은 지우지 않습니다. 응답 entry는 바뀐 첫 화면입니다.
+         *     제출은 `/status`를 `submitted`로, `/submit_mode`를 GET이 알려 준 방식(send·attend)으로 보냅니다.
+         *     출석 회차면 `/attend_items`도 보냅니다.
+         *     막는 항목이 남았거나 방식이 다르면 409 CANNOT_SUBMIT, 지난 회차면 409 ROUND_CLOSED, 본인 답변
+         *     칸을 고치려 하면 422입니다.
+         *     (아직 구현 전이라 501)
          */
         patch: operations["patch_application"];
         trace?: never;
@@ -316,12 +302,12 @@ export interface paths {
          * 구직활동 추가
          * @description 활동을 직접 기록하거나, 추천을 예정 활동으로 넣습니다.
          *
-         *     - 추천 넣기(F-19): recommendation_id만 보냅니다. 인정일 전날(오늘이 인정일이면 오늘) 예정으로
-         *       들어가고 계산에는 넣지 않습니다. 지금 추천 목록에 없으면 409 CONFLICT, 같은 추천을 이미
-         *       넣었으면 409 DUPLICATE_ACTIVITY, 오늘이 속한 회차가 없으면 404 NO_ACTIVE_ROUND입니다.
-         *     - 직접 기록: 날짜·종류·경로·회사 등 활동 값을 보냅니다. (활동 기록 기능에서 붙일 예정이라 501)
+         *     - 직접 기록: 날짜·종류·경로·회사 등 활동 값을 보냅니다.
+         *     - 추천 넣기: recommendation_id만 보냅니다.
          *
-         *     Idempotency-Key 헤더를 주면 같은 요청이 두 번 와도 한 번만 만듭니다.
+         *     날짜·회사·종류가 같은 활동이 이미 있으면 409 DUPLICATE_ACTIVITY, 지난 회차 날짜면 409
+         *     ROUND_CLOSED입니다.
+         *     Idempotency-Key 헤더를 주면 같은 요청이 두 번 와도 한 번만 만듭니다. (아직 구현 전이라 501)
          */
         post: operations["create_activity"];
         delete?: never;
@@ -505,8 +491,7 @@ export interface paths {
          * @description 화면에 보일 대화 말풍선을 순서대로 돌려줍니다. 새로고침했을 때 대화를 그대로 복원하는 데
          *     씁니다.
          *
-         *     한 번에 100개까지 돌려주고, 더 있으면 next_cursor를 줍니다. cursor를 주면 그 다음부터 이어서
-         *     돌려줍니다. 답을 기다리던 질문은 계정 조회(`GET /accounts/{id}`)의 pending_ask로 옵니다.
+         *     cursor를 주면 그 다음부터 이어서 돌려줍니다. (아직 구현 전이라 501)
          */
         get: operations["list_messages"];
         put?: never;
@@ -678,43 +663,12 @@ export interface components {
             status: components["schemas"]["ApplicationStatus"];
             /** Lock Version */
             lock_version: number;
-            /**
-             * Period Start
-             * Format: date
-             */
-            period_start: string;
-            /**
-             * Period End
-             * Format: date
-             */
-            period_end: string;
-            /**
-             * Recognition Date
-             * Format: date
-             */
-            recognition_date: string;
-            /** Attendance Required */
-            attendance_required: boolean;
-            /** Required Activities */
-            required_activities: number;
-            /** Required Job Search */
-            required_job_search: number;
             data: components["schemas"]["RecognitionData"];
             /**
              * Job Search Rows
              * @default []
              */
             job_search_rows: components["schemas"]["JobSearchRow"][];
-            /**
-             * Other Rows
-             * @default []
-             */
-            other_rows: components["schemas"]["OtherActivityRow"][];
-            /**
-             * Excluded Rows
-             * @default []
-             */
-            excluded_rows: components["schemas"]["ExcludedRow"][];
             checklist: components["schemas"]["Checklist"];
             submit_mode: components["schemas"]["SubmitMode"];
             /** Can Submit */
@@ -740,11 +694,6 @@ export interface components {
             choices: string[];
             /** Import Kind */
             import_kind?: string | null;
-            /**
-             * Accepts File
-             * @default false
-             */
-            accepts_file: boolean;
         };
         /** Body_upload_file */
         Body_upload_file: {
@@ -918,23 +867,6 @@ export interface components {
             message: string;
             /** Details */
             details?: unknown;
-        };
-        /**
-         * ExcludedRow
-         * @description 계산에서 뺀 활동 (같은 날 2건째 등). 신청서에는 넣지 않고 참고로만 보여 줍니다.
-         */
-        ExcludedRow: {
-            /** Activity Id */
-            activity_id: string;
-            /** Reason */
-            reason: string;
-            /**
-             * Activity Date
-             * Format: date
-             */
-            activity_date: string;
-            /** Company Name */
-            company_name?: string | null;
         };
         /**
          * ExternalSource
@@ -1213,23 +1145,6 @@ export interface components {
              */
             created_at: string;
         };
-        /**
-         * OtherActivityRow
-         * @description 구직활동 외 활동사항 한 줄 (취업특강·직업훈련 등). 인정 활동에서 만듭니다.
-         */
-        OtherActivityRow: {
-            /** Activity Id */
-            activity_id: string;
-            /**
-             * Activity Date
-             * Format: date
-             */
-            activity_date: string;
-            /** Kind */
-            kind: string;
-            /** Details */
-            details?: string | null;
-        };
         /** Page[ActivityRead] */
         Page_ActivityRead_: {
             /** Items */
@@ -1303,10 +1218,6 @@ export interface components {
             /** Expected End Date */
             expected_end_date?: string | null;
             end_reason?: components["schemas"]["EndReason"] | null;
-            /** Remaining Rounds */
-            remaining_rounds?: number | null;
-            /** Last Round */
-            last_round?: number | null;
         };
         /** ProfileDisplay */
         ProfileDisplay: {
@@ -1454,7 +1365,6 @@ export interface components {
         Recommendation: {
             /** Recommendation Id */
             recommendation_id: string;
-            category: components["schemas"]["ActivityCategory"];
             /** Kind */
             kind: string;
             /** Title */
@@ -2301,6 +2211,15 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
+            /** @description Not Implemented */
+            501: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
         };
     };
     list_rounds: {
@@ -2487,6 +2406,15 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
+            /** @description Not Implemented */
+            501: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
         };
     };
     get_application: {
@@ -2541,6 +2469,15 @@ export interface operations {
             };
             /** @description Internal Server Error */
             500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Implemented */
+            501: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -2618,6 +2555,15 @@ export interface operations {
             };
             /** @description Internal Server Error */
             500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Implemented */
+            501: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -3428,6 +3374,15 @@ export interface operations {
             };
             /** @description Internal Server Error */
             500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Implemented */
+            501: {
                 headers: {
                     [name: string]: unknown;
                 };

@@ -5,7 +5,6 @@
 
 import type { components } from '@/types/api.gen';
 import type { BranchId, EntryResult, ResumeStatus, SessionRead } from '@/types/demo.types';
-import type { ImportKind } from '@/types/imports.types';
 
 type AccountRead = components['schemas']['AccountRead'];
 
@@ -17,11 +16,6 @@ const RESUME_BY_BRANCH: Partial<Record<string, ResumeStatus>> = {
 // 2026-03-01 이후 수급자격을 신청한 사람부터 2026년 실업인정 안내문 기준을 적용합니다.
 const RULE_SET_FROM = '2026-03-01';
 
-const SERVER_SESSION_PREFIX = 'acct-';
-
-/** 실제 백엔드 계정에서 만든 세션인지 (모의 세션 ID는 `mock-`로 시작합니다). */
-export const isServerSession = (sessionId: string) => sessionId.startsWith(SERVER_SESSION_PREFIX);
-
 export const sessionFromAccount = (account: AccountRead): SessionRead => {
   const { procedure, current_round: round, entry, today } = account;
   const group = procedure.recipient_group;
@@ -30,7 +24,7 @@ export const sessionFromAccount = (account: AccountRead): SessionRead => {
     : null;
 
   return {
-    session_id: `${SERVER_SESSION_PREFIX}${account.persona_id}-${today}`,
+    session_id: `acct-${account.persona_id}-${today}`,
     persona_id: account.persona_id,
     state: {
       separation_date: procedure.separation_date,
@@ -62,25 +56,12 @@ export const sessionFromAccount = (account: AccountRead): SessionRead => {
       required: null,
       required_job_search: null,
       can_presubmit_online: procedure.age_at_separation < 65,
-      expected_end_date: procedure.expected_end_date ?? null,
-      remaining_rounds: procedure.remaining_rounds ?? null,
-      last_round: procedure.last_round ?? null,
-      end_reason: procedure.end_reason ?? null,
     },
     entry: {
       ...entry,
       branch_id: entry.branch_id as BranchId,
       panel: entry.panel as EntryResult['panel'],
       progress: entry.progress as EntryResult['progress'],
-      // 새로고침 전 답을 기다리던 질문이 있으면 그 선택지·불러오기 종류를 다시 띄웁니다 (F-03).
-      choices: account.pending_ask?.choices ?? entry.choices,
-      pending_ask: account.pending_ask
-        ? {
-            choices: account.pending_ask.choices,
-            import_kind: (account.pending_ask.import_kind as ImportKind | null) ?? null,
-            accepts_file: account.pending_ask.accepts_file ?? false,
-          }
-        : null,
       messages: entry.messages.map(({ template_id, text, cite }) => ({
         template_id,
         text,

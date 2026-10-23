@@ -37,8 +37,6 @@ export interface WorkAndEmployment {
   has_work_or_service: boolean | null;
   /** 근로 있음일 때만 */
   work_details?: WorkDetails | null;
-  /** 근로내역이 여러 건일 때 전부 (있으면 work_details 대신 이 목록을 보여 줌) */
-  work_entries?: WorkDetails[] | null;
   has_employment: boolean | null;
   has_industrial_accident_benefit_right: boolean | null;
   answered_on: string | null;
@@ -91,7 +89,7 @@ export interface NotificationAndPlan {
   next_activity: { value: string | null; memo: string | null; answered_on: string | null };
 }
 
-export type ConsentValue = 'agree' | 'agree_required_only' | 'disagree' | 'decide_on_work24';
+export type ConsentValue = 'agree' | 'disagree' | 'decide_on_work24';
 
 /** 2-3.6 제출 버튼 상태 */
 export type SubmitMode = 'attend' | 'preview' | 'send' | 'visit_today' | 'change';
