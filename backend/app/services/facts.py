@@ -21,6 +21,7 @@ from app.schemas.common import (
     FieldStatus,
     FormName,
     FormUpdate,
+    PatchOpName,
     UpdatesRead,
 )
 from app.schemas.facts import FactGroup, FactList, FactRead
@@ -38,8 +39,6 @@ from app.services.application import (
 )
 
 FACT_NOT_FOUND_MESSAGE = "지울 줄을 찾지 못했어요."
-# shortcut: #179의 PatchOpName이 develop에 들어오면 PatchOpName.REPLACE로 바꿉니다.
-REPLACE_OP = "replace"
 ID_SEP = "."
 PATH_SEP = "/"
 
@@ -273,7 +272,7 @@ def _withdraw_application(
             FormUpdate(
                 form=FormName.APPLICATION,
                 path=path,
-                op=REPLACE_OP,
+                op=PatchOpName.REPLACE,
                 value=None,
                 status=FieldStatus.REJECTED,
                 source=FieldSource.USER_ANSWER,
