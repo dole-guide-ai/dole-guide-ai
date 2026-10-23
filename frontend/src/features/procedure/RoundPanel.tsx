@@ -96,11 +96,7 @@ export const RoundPanel = ({ session, onOpenForm }: RoundPanelProps) => {
       </section>
 
       {check.recommendations_open && (
-        <RecommendationBox
-          sessionId={session.session_id}
-          plannedIds={plannedIds}
-          personaId={session.persona_id}
-        />
+        <RecommendationBox sessionId={session.session_id} plannedIds={plannedIds} />
       )}
 
       <div className="flex flex-col gap-2">

@@ -1,8 +1,7 @@
 """실업인정 회차와 회차별 신청서를 다루는 라우터입니다.
 
 회차는 서버가 날짜로 계산해 만들기 때문에 회차를 만들거나 바꾸는 API는 없습니다.
-회차 목록과 신청서 조회·제출(F-23·F-27), 부족한 활동 추천(F-19)이 동작하고,
-회차 점검은 아직 501 틀입니다.
+회차 목록과 신청서 조회·제출(F-23·F-27)이 동작하고, 회차 점검·추천은 아직 501 틀입니다.
 경로의 round 자리에는 회차 번호(1, 2, …)나 오늘이 속한 회차를 뜻하는 current를 넣습니다.
 """
 
@@ -21,7 +20,6 @@ from app.schemas.common import JsonPatch, Page, UpdatesRead
 from app.schemas.rounds import RecommendationList, RoundCheck, RoundSummary
 from app.services import accounts as account_service
 from app.services import application as application_service
-from app.services import recommendations as recommendation_service
 
 router = APIRouter(prefix="/accounts/{persona_id}", tags=["rounds"])
 _auth = [Depends(get_current_account)]
@@ -62,17 +60,16 @@ def get_current_round() -> RoundCheck:
 @router.get(
     "/rounds/current/recommendations",
     summary="부족한 활동 추천",
-    responses=error_responses(401, 404),
+    dependencies=_auth,
+    responses=error_responses(401, 404, 501),
 )
-def list_recommendations(
-    db: DbSession, account: CurrentAccount, today: Today
-) -> RecommendationList:
-    """이번 회차에 활동이 모자랄 때 증빙이 쉬운 순서로 추천 최대 3개와 기한 문구를 돌려줍니다.
+def list_recommendations() -> RecommendationList:
+    """이번 회차에 활동이 모자랄 때 증빙이 쉬운 순서로 추천 3개와 기한 문구를 돌려줍니다.
 
-    부족하지 않으면 빈 목록입니다. 오늘이 속한 회차가 없으면 404 NO_ACTIVE_ROUND.
-    고른 추천은 `POST …/activities`에 `recommendation_id`만 보내 예정 활동으로 넣습니다.
+    직업훈련·특강·집단상담 후보에는 고용24 조회 결과(실제 과정·일정)를 붙입니다. (아직 구현 전이라
+    501)
     """
-    return recommendation_service.list_recommendations(db, account, today)
+    raise NotImplementedYetError()
 
 
 @router.get(
