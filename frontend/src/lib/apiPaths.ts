@@ -16,6 +16,9 @@ export const API_PATHS = {
   /** 회차 신청서. round가 없으면 지금 회차(`current`) */
   application: (personaId: string, round: number | null) =>
     `${account(personaId)}/rounds/${round ?? 'current'}/application`,
+  /** 내 정보 (F-31). factId가 있으면 그 한 줄 */
+  facts: (personaId: string, factId?: string) =>
+    `${account(personaId)}/facts${factId ? `/${encodeURIComponent(factId)}` : ''}`,
 
   LEGACY_RESUME: '/forms/resume',
   LEGACY_RESUME_CONFIRM: '/forms/resume/confirm',
