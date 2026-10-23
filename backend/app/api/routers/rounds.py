@@ -2,7 +2,6 @@
 
 회차는 서버가 날짜로 계산해 만들기 때문에 회차를 만들거나 바꾸는 API는 없습니다.
 회차 목록과 신청서 조회·제출(F-23·F-27), 부족한 활동 추천(F-19)이 동작하고,
-회차 점검은 아직 501 틀입니다.
 경로의 round 자리에는 회차 번호(1, 2, …)나 오늘이 속한 회차를 뜻하는 current를 넣습니다.
 """
 
@@ -14,7 +13,6 @@ from app.api.deps import CurrentAccount, IfMatch, get_current_account
 from app.api.responses import error_responses
 from app.core.clock import Now, Today
 from app.core.db import DbSession
-from app.core.errors import NotImplementedYetError
 from app.core.etag import etag
 from app.schemas.application import ApplicationRead
 from app.schemas.common import JsonPatch, Page, UpdatesRead
@@ -22,6 +20,7 @@ from app.schemas.rounds import RecommendationList, RoundCheck, RoundSummary
 from app.services import accounts as account_service
 from app.services import application as application_service
 from app.services import recommendations as recommendation_service
+from app.services import rounds as round_service
 
 router = APIRouter(prefix="/accounts/{persona_id}", tags=["rounds"])
 _auth = [Depends(get_current_account)]
@@ -46,17 +45,18 @@ def list_rounds(db: DbSession, account: CurrentAccount, today: Today) -> Page[Ro
     "/rounds/current",
     summary="이번 회차 점검",
     dependencies=_auth,
-    responses=error_responses(401, 404, 501),
+    responses=error_responses(401, 404),
 )
-def get_current_round() -> RoundCheck:
+def get_current_round(db: DbSession, account: CurrentAccount, today: Today) -> RoundCheck:
     """오늘이 속한 회차의 재취업활동 점검 결과를 돌려줍니다.
 
     필요 건수와 인정 건수, 남은 건수, D-day, 활동별 인정 상태와 경고, 필요한 증빙, 구직 외 활동 누적
     사용 횟수가 들어 있습니다.
-    숫자는 모두 규칙 함수가 계산합니다. 아직 회차가 없으면 404 NO_ACTIVE_ROUND. (아직 구현 전이라
-    501)
+    숫자는 모두 규칙 함수(`check_round`, 상세기획 2-2.6)가 계산합니다. `status`는 회차 상태,
+    `check_status`는 충족(satisfied)·부족(short)·확인 필요(needs_check)입니다. 일반 수급자 8차부터는
+    `weeks`에 7일마다의 구직활동 수가 들어갑니다. 아직 회차가 없으면 404 NO_ACTIVE_ROUND.
     """
-    raise NotImplementedYetError()
+    return round_service.read_current(db, account.user_id, today)
 
 
 @router.get(

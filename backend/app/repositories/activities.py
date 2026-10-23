@@ -3,10 +3,10 @@
 import uuid
 from datetime import date
 
-from sqlalchemy import select
+from sqlalchemy import delete, insert, select
 from sqlalchemy.orm import Session
 
-from app.models import Activity
+from app.models import Activity, activity_files
 
 
 def list_between(db: Session, user_id: uuid.UUID, start: date, end: date) -> list[Activity]:
@@ -28,17 +28,6 @@ def list_between(db: Session, user_id: uuid.UUID, start: date, end: date) -> lis
     )
 
 
-def count_done_kind(db: Session, user_id: uuid.UUID, kind: str) -> int:
-    """이미 한(예정이 아닌) 활동 중 그 종류의 수. 누적 한도(특강 2회 등) 계산에 씁니다."""
-    return len(
-        db.scalars(
-            select(Activity.activity_id).where(
-                Activity.user_id == user_id, Activity.kind == kind, Activity.planned.is_(False)
-            )
-        ).all()
-    )
-
-
 def get(db: Session, user_id: uuid.UUID, activity_id: uuid.UUID) -> Activity | None:
     return db.scalar(
         select(Activity).where(Activity.user_id == user_id, Activity.activity_id == activity_id)
@@ -49,3 +38,44 @@ def add(db: Session, activity: Activity) -> Activity:
     db.add(activity)
     db.flush()
     return activity
+
+
+def list_all(db: Session, user_id: uuid.UUID) -> list[Activity]:
+    """계정의 모든 활동을 날짜·기록 순서대로. 회차는 대상기간으로 나눠 씁니다."""
+    return list(
+        db.scalars(
+            select(Activity)
+            .where(Activity.user_id == user_id)
+            .order_by(Activity.activity_date, Activity.created_at, Activity.activity_id)
+        )
+    )
+
+
+def file_ids_by_activity(
+    db: Session, activity_ids: list[uuid.UUID]
+) -> dict[uuid.UUID, list[uuid.UUID]]:
+    """활동마다 연결한 증빙 파일 ID. 활동 ID는 이미 user_id로 거른 것만 받습니다."""
+    if not activity_ids:
+        return {}
+    rows = db.execute(
+        select(activity_files.c.activity_id, activity_files.c.file_id).where(
+            activity_files.c.activity_id.in_(activity_ids)
+        )
+    )
+    found: dict[uuid.UUID, list[uuid.UUID]] = {}
+    for activity_id, file_id in rows:
+        found.setdefault(activity_id, []).append(file_id)
+    return found
+
+
+def link_files(db: Session, activity_id: uuid.UUID, file_ids: list[uuid.UUID]) -> None:
+    if file_ids:
+        db.execute(
+            insert(activity_files),
+            [{"activity_id": activity_id, "file_id": file_id} for file_id in file_ids],
+        )
+
+
+def remove(db: Session, activity: Activity) -> None:
+    """활동을 지웁니다. 증빙 연결(activity_files)도 같이 지워집니다(CASCADE)."""
+    db.execute(delete(Activity).where(Activity.activity_id == activity.activity_id))

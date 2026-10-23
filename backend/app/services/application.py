@@ -15,7 +15,6 @@ from app.core.errors import ConflictError, NotFoundError, UnprocessableError
 from app.core.etag import check_if_match
 from app.core.json_patch import apply_patch
 from app.repositories import accounts as repo
-from app.repositories import activities as activity_repo
 from app.rules import application as rules
 from app.schemas.application import (
     ApplicationRead,
@@ -35,8 +34,9 @@ from app.schemas.common import (
     UpdatesRead,
 )
 from app.schemas.forms.recognition import RecognitionData
-from app.schemas.rounds import ApplicationStatus
+from app.schemas.rounds import ApplicationStatus, WarningId
 from app.services import accounts as account_service
+from app.services import rounds as round_service
 from app.services.accounts import AccountContext
 from app.services.profile import read_profile_display
 
@@ -47,10 +47,7 @@ ROUND_NOT_FOUND_MESSAGE = "그 회차의 신청서가 없어요."
 def find_round(db: Session, user_id: uuid.UUID, round_ref: str, today: date):
     rounds = repo.list_rounds(db, user_id)
     if round_ref == CURRENT:
-        found = next((r for r in rounds if r.period_start <= today <= r.recognition_date), None)
-        if found is None:
-            raise NotFoundError(code=ErrorCode.NO_ACTIVE_ROUND)
-        return found, rounds
+        return round_service.current_round(rounds, today), rounds
     found = next((r for r in rounds if r.round_no == int(round_ref)), None)
     if found is None:
         raise NotFoundError(message=ROUND_NOT_FOUND_MESSAGE)
@@ -66,26 +63,6 @@ def _previous_answers(db: Session, rounds: list, round_no: int) -> dict | None:
     return None
 
 
-def activity_inputs(db: Session, user_id: uuid.UUID, start: date, end: date):
-    return [
-        rules.ActivityInput(
-            activity_id=str(a.activity_id),
-            activity_date=a.activity_date,
-            category=a.category,
-            kind=a.kind,
-            route=a.route,
-            org_name=a.org_name,
-            job_title=a.job_title,
-            search_method=a.search_method,
-            apply_method=a.apply_method,
-            contact_dept=a.contact_dept,
-            result=a.result,
-            planned=a.planned,
-        )
-        for a in activity_repo.list_between(db, user_id, start, end)
-    ]
-
-
 def read_application(
     db: Session, account: AccountContext, round_ref: str, now: datetime
 ) -> ApplicationRead:
@@ -94,29 +71,27 @@ def read_application(
     application = repo.get_application(db, target.round_id)
     if application is None:
         raise NotFoundError(message=ROUND_NOT_FOUND_MESSAGE)
-    procedure = repo.get_procedure(db, account.user_id)
-    group = procedure.recipient_group if procedure else "general"
-    required, required_job_search = rules.required_activities(group, target.round_no)
+    context = round_service.evaluate_round(db, account.user_id, target, rounds, now.date())
+    check = context.result
 
     data = rules.carry_previous_answers(
         application.data, _previous_answers(db, rounds, target.round_no)
     )
-    activities = rules.build_form_activities(
-        activity_inputs(db, account.user_id, target.period_start, target.period_end),
-        target.period_start,
-        target.period_end,
-    )
-    counted = len(activities.job_search) + len(activities.other)
+    statuses = {a.activity_id: a.status for a in check.activities}
+    activities = rules.build_form_activities(context.inputs, statuses)
+    # 증빙이 필요한데 없는 인정 활동 수 (회차 점검 W5와 같은 기준)
+    counted_ids = {row["activity_id"] for row in activities.job_search + activities.other}
     evidence_missing = sum(
-        1 for row in activities.job_search if rules.needs_evidence(row.get("route"))
+        1
+        for w in check.warnings
+        if w.id == WarningId.NO_EVIDENCE and counted_ids.intersection(w.activity_ids)
     )
     blocking, warnings = rules.checklist(
         data,
         activities.job_search,
-        counted,
-        required,
+        check.remaining,
+        check.remaining_job_search,
         evidence_missing,
-        required_job_search=required_job_search,
     )
     locked = rules.locked_reason(data)
     mode = rules.submit_mode(now, target.recognition_date, target.attendance_required)
@@ -128,8 +103,8 @@ def read_application(
         period_end=target.period_end,
         recognition_date=target.recognition_date,
         attendance_required=target.attendance_required,
-        required_activities=required,
-        required_job_search=required_job_search,
+        required_activities=check.required,
+        required_job_search=check.required_job_search,
         data=RecognitionData.model_validate(data),
         job_search_rows=[JobSearchRow.model_validate(row) for row in activities.job_search],
         other_rows=[OtherActivityRow.model_validate(row) for row in activities.other],

@@ -47,5 +47,5 @@ class ActivityRead(BaseModel):
     hours: float | None = None
     planned: bool
     source: str
-    state: str | None = None
+    status: str | None = None
     file_ids: list[str] = []
