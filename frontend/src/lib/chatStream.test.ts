@@ -50,14 +50,14 @@ describe('streamChat', () => {
         ),
     );
 
-    await expect(
-      streamChat('lee', { text: '합성', input_kind: 'text', file_ids: [], import_ids: [] }),
-    ).rejects.toMatchObject({
-      code: 'TURN_IN_PROGRESS',
-      status: 409,
-    });
-    await expect(
-      streamChat('lee', { text: '합성', input_kind: 'text', file_ids: [], import_ids: [] }),
-    ).rejects.toBeInstanceOf(ApiError);
+    const error = await streamChat('lee', {
+      text: '합성',
+      input_kind: 'text',
+      file_ids: [],
+      import_ids: [],
+    }).catch((e: unknown) => e);
+
+    expect(error).toBeInstanceOf(ApiError);
+    expect(error).toMatchObject({ code: 'TURN_IN_PROGRESS', status: 409 });
   });
 });

@@ -44,6 +44,23 @@ describe('chatReducer', () => {
     expect(state.choices).toEqual(['오늘', '어제', '다른 날']);
   });
 
+  it('턴 시작 전에 거절되면 보낸 말풍선을 지우고 이전 선택지를 되살린다', () => {
+    const asked = run([
+      { type: CHAT_ACTIONS.ASK_USER, text: '언제 하셨어요?', choices: ['오늘', '어제', '다른 날'] },
+      { type: CHAT_ACTIONS.DONE },
+    ]);
+    const sent = chatReducer(asked, {
+      type: CHAT_ACTIONS.USER_SENT,
+      text: '오늘',
+      inputKind: 'choice',
+    });
+
+    const state = chatReducer(sent, { type: CHAT_ACTIONS.SEND_REJECTED });
+
+    expect(state.messages).toEqual(asked.messages);
+    expect(state.choices).toEqual(['오늘', '어제', '다른 날']);
+  });
+
   it('system 메시지는 스트리밍 중이던 빈 말풍선을 정리하고 오류를 보여 준다', () => {
     const state = run([
       { type: CHAT_ACTIONS.USER_SENT, text: '안녕', inputKind: 'text' },

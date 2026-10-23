@@ -106,11 +106,13 @@ export const useChatStream = (session: SessionRead) => {
           else if (event.event === SSE_EVENTS.ERROR) showError(event.data.code);
         }
       } catch (error) {
-        // 턴 시작 전 실패(409 턴 진행 중 등)는 코드별 문구로 알리고 보낸 글을 되돌립니다.
+        // 턴 시작 전 실패(409 턴 진행 중 등)는 보낸 말풍선을 지우고 글을 입력창에 되돌립니다.
         // 그 밖(연결 끊김 등)은 답을 못 만든 것으로 봅니다.
         if (!controller.signal.aborted) {
-          if (error instanceof ApiError) showError(error.code, true);
-          else showError(ERROR_CODES.LLM_UNAVAILABLE);
+          if (error instanceof ApiError) {
+            dispatch({ type: CHAT_ACTIONS.SEND_REJECTED });
+            showError(error.code, true);
+          } else showError(ERROR_CODES.LLM_UNAVAILABLE);
         }
       } finally {
         if (abortRef.current === controller) abortRef.current = null;

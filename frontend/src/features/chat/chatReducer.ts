@@ -21,6 +21,8 @@ export interface ChatState {
   acceptsFile: boolean;
   streamingId: string | null;
   nextId: number;
+  /** 마지막으로 보낸 말풍선과 보내기 전 선택지. 턴 시작 전에 거절되면 이 상태로 되돌립니다. */
+  lastSent?: Pick<ChatState, 'choices' | 'importKind' | 'acceptsFile'> & { messageId: string };
 }
 
 export type ChatAction =
@@ -47,6 +49,8 @@ export type ChatAction =
       inputKind: ChatInputKind;
       attachments?: ChatAttachment[];
     }
+  /** 턴이 시작되기 전에 거절됐으면(409 등) 보낸 말풍선을 지우고 선택지를 되살립니다. */
+  | { type: typeof CHAT_ACTIONS.SEND_REJECTED }
   | { type: typeof CHAT_ACTIONS.TOKEN; text: string }
   | {
       type: typeof CHAT_ACTIONS.ASK_USER;
@@ -106,9 +110,10 @@ export const chatReducer = (state: ChatState, action: ChatAction): ChatState => 
         acceptsFile: action.pendingAsk?.accepts_file ?? false,
       };
 
-    case CHAT_ACTIONS.USER_SENT:
+    case CHAT_ACTIONS.USER_SENT: {
+      const closed = closeStreaming(state);
       return {
-        ...push(closeStreaming(state), {
+        ...push(closed, {
           role: CHAT_ROLE.USER,
           text: action.text,
           inputKind: action.inputKind,
@@ -117,7 +122,25 @@ export const chatReducer = (state: ChatState, action: ChatAction): ChatState => 
         choices: [],
         importKind: null,
         acceptsFile: false,
+        lastSent: {
+          messageId: `m-${closed.nextId}`,
+          choices: state.choices,
+          importKind: state.importKind,
+          acceptsFile: state.acceptsFile,
+        },
       };
+    }
+
+    case CHAT_ACTIONS.SEND_REJECTED: {
+      if (!state.lastSent) return state;
+      const { messageId, ...ask } = state.lastSent;
+      return {
+        ...state,
+        ...ask,
+        messages: state.messages.filter((message) => message.id !== messageId),
+        lastSent: undefined,
+      };
+    }
 
     case CHAT_ACTIONS.TOKEN: {
       if (state.streamingId) {

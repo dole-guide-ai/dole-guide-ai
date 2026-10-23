@@ -68,10 +68,13 @@ export interface Completeness {
   total: number;
 }
 
+/** 백엔드(JSON Patch: add·replace·remove)와 예전 화면 연산(set·append)을 함께 받습니다. */
+export type FormUpdateOp = components['schemas']['FormUpdate']['op'] | 'set' | 'append';
+
 export interface FormUpdateEvent {
   form: FormKind;
   path: string;
-  op: 'set' | 'append' | 'remove';
+  op: FormUpdateOp;
   value?: unknown;
   status?: FieldStatus;
   transformed?: boolean;
