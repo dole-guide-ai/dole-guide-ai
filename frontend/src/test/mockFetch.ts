@@ -8,7 +8,3 @@ export const mockFetchJson = (body: unknown, init: ResponseInit = { status: 200 
       headers: { 'Content-Type': 'application/json' },
     }),
   );
-
-// 응답이 오지 않는 요청(로딩 상태를 붙잡아 두는 테스트용)
-export const mockFetchPending = () =>
-  vi.spyOn(globalThis, 'fetch').mockReturnValue(new Promise(() => {}));

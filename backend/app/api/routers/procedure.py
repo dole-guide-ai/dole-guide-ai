@@ -9,7 +9,6 @@ from fastapi import APIRouter
 
 from app.api.deps import CurrentAccount
 from app.api.responses import error_responses
-from app.core.clock import Today
 from app.core.db import DbSession
 from app.core.errors import NotImplementedYetError
 from app.schemas.common import JsonPatch, UpdatesRead
@@ -20,13 +19,13 @@ router = APIRouter(prefix="/accounts/{persona_id}", tags=["procedure"])
 
 
 @router.get("/procedure", summary="절차 상태 조회", responses=error_responses(401, 404))
-def get_procedure(db: DbSession, account: CurrentAccount, today: Today) -> ProcedureRead:
+def get_procedure(db: DbSession, account: CurrentAccount) -> ProcedureRead:
     """지금 절차 단계, 수급자 유형, 소정급여일수, 수급기간 끝과 종료 예정일을 돌려줍니다.
 
     종료 예정일은 급여 소진 예정일과 수급기간 끝(이직 다음 날부터 12개월) 중 이른 날이며, 실제는
-    고용센터 확인이 필요합니다. 회차가 만들어졌으면 남은 회차 수와 마지막 회차 번호도 들어갑니다.
+    고용센터 확인이 필요합니다.
     """
-    return account_service.read_procedure(db, account.user_id, today)
+    return account_service.read_procedure(db, account.user_id)
 
 
 @router.patch(

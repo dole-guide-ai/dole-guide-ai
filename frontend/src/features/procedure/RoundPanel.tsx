@@ -5,7 +5,6 @@ import { useState } from 'react';
 import { Button } from '@/components/Button';
 import { EvidenceLine } from '@/components/EvidenceLine';
 import { ActivityList } from '@/features/procedure/ActivityList';
-import { BenefitEndNote } from '@/features/procedure/BenefitEndNote';
 import { DdayCard } from '@/features/procedure/DdayCard';
 import { RecommendationBox } from '@/features/procedure/RecommendationBox';
 import { RequirementCard } from '@/features/procedure/RequirementCard';
@@ -78,7 +77,6 @@ export const RoundPanel = ({ session, onOpenForm }: RoundPanelProps) => {
       <DdayCard state={session.state} derived={session.derived} />
       <RequirementCard check={check} />
       <RoundProgress markers={check.round_markers} />
-      <BenefitEndNote derived={session.derived} />
 
       <section className="flex flex-col gap-2">
         <h3 className="text-base font-bold">이번 회차 활동</h3>
