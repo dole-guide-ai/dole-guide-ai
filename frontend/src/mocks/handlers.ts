@@ -19,6 +19,7 @@ import {
 import { resetMockChat } from './chatScripts';
 import { MOCK_AFTER_RESUME_ENTRIES, MOCK_ENTRIES } from './entries';
 import { MOCK_IMPORTS, mockImportList } from './imports';
+import { hasRestoredValues } from './mockPersistence';
 import { MOCK_MY_DATA, MOCK_MY_DATA_DELETE_UPDATES, MOCK_NOT_STORED } from './myData';
 import { findMockPersona, MOCK_PERSONAS } from './personas';
 import { mockRecognitionForm } from './recognition';
@@ -134,6 +135,15 @@ export const resolveMock = async <T>(path: string, init?: RequestInit): Promise<
   const personaId = authenticatedPersonaId ?? getSession()?.persona_id ?? null;
 
   if (method === 'GET' && path === '/forms/resume') {
+    // 새로고침 뒤 되살린 패널 값이 있으면 시드 대신 그 값을 돌려줍니다 (F-03).
+    const restored = getFormDrafts().resume;
+    if (hasRestoredValues(restored.values)) {
+      return {
+        ...restored.values,
+        field_states: restored.fields,
+        completeness: restored.completeness,
+      } as T;
+    }
     const resume = personaId ? MOCK_RESUMES[personaId] : undefined;
     if (!resume) throw new ApiError('NOT_FOUND', '이력서 초안이 없어요.', 404);
     return resume as T;
@@ -173,6 +183,8 @@ export const resolveMock = async <T>(path: string, init?: RequestInit): Promise<
 
   if (method === 'GET' && path === '/procedure/current-round/check') {
     const round = getSession()?.derived.current_round;
+    const restored = getFormDrafts().activities.values;
+    if (hasRestoredValues(restored) && restored.round === round) return restored as T;
     const check = personaId
       ? ((round ? MOCK_NEXT_ROUND_CHECKS[personaId]?.[round] : undefined) ??
         MOCK_ROUND_CHECKS[personaId])
@@ -226,6 +238,10 @@ export const resolveMock = async <T>(path: string, init?: RequestInit): Promise<
   }
 
   if (method === 'GET' && path === '/forms/recognition') {
+    const restoredForm = getFormDrafts().recognition;
+    if (hasRestoredValues(restoredForm.values)) {
+      return { ...restoredForm.values, field_states: restoredForm.fields } as T;
+    }
     const form = personaId
       ? mockRecognitionForm(personaId, getFormDrafts().activities.values)
       : undefined;
