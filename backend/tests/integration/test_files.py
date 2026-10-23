@@ -4,6 +4,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.core.config import get_settings
+from app.schemas.common import ErrorCode
 from app.services import files as file_service
 
 pytestmark = pytest.mark.integration
@@ -87,6 +88,18 @@ def test_accepts_docx_as_resume_doc(client: TestClient, entered_headers):
 
     assert res.status_code == 201
     assert res.json()["mime_type"].endswith("wordprocessingml.document")
+
+
+def test_resume_doc_cannot_be_opened(client: TestClient, entered_headers):
+    """이력서 서류는 판독용이라 다시 열 수 없습니다. 증빙만 열립니다 (설계 3.7)."""
+    headers = entered_headers("park")
+    file_id = upload(client, headers, "이력서.pdf", PDF, purpose="resume_doc").json()["file_id"]
+
+    res = client.get(f"/accounts/park/files/{file_id}", headers=headers)
+
+    assert res.status_code == 404
+    assert res.json()["code"] == ErrorCode.NOT_FOUND
+    assert {"code", "message", "details"} <= res.json().keys()
 
 
 def test_rejects_too_large(client: TestClient, entered_headers, monkeypatch: pytest.MonkeyPatch):

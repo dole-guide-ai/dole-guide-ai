@@ -61,7 +61,7 @@ def _previous_answers(db: Session, rounds: list, round_no: int) -> dict | None:
     """이번 회차 바로 전까지 제출한 회차 중 가장 최근 신청서의 답."""
     for r in reversed([r for r in rounds if r.round_no < round_no]):
         previous = repo.get_application(db, r.round_id)
-        if previous is not None and previous.status == "submitted":
+        if previous is not None and previous.status == ApplicationStatus.SUBMITTED:
             return previous.data
     return None
 

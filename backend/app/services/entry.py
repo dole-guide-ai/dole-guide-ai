@@ -6,9 +6,20 @@
 첫 안내 문구 템플릿과 덧붙임 규칙은 이후에 채웁니다.
 """
 
+from enum import StrEnum
+
 from app.schemas.accounts import Entry, EntryFlags, EntryMessage, EntryUi, Progress
 from app.schemas.procedure import ProcedureRead, Stage
 from app.schemas.rounds import RoundSummary
+
+
+class ResumeState(StrEnum):
+    """진입 분기에서 보는 이력서 상태 (이력서가 없으면 None)."""
+
+    DRAFT = "draft"  # 고치는 중
+    OUTDATED = "outdated"  # 저장했지만 퇴사일 이전 이력서
+    READY = "ready"  # 퇴사 뒤에 저장함
+
 
 _STAGE_STEP = {
     Stage.JOB_REGISTRATION: 1,
@@ -58,7 +69,7 @@ NO_ROUND_TEXT = (
 
 def branch_id(
     procedure: ProcedureRead,
-    resume_status: str | None,
+    resume_status: ResumeState | None,
     round_: RoundSummary | None,
     d_day: int | None,
 ) -> str:
@@ -78,16 +89,16 @@ def branch_id(
         return "E5b"
     if stage == Stage.ELIGIBILITY_APPLICATION:
         return "E5a"
-    if stage == Stage.EDUCATION or resume_status == "ready":
+    if stage == Stage.EDUCATION or resume_status == ResumeState.READY:
         return "E6"
-    if resume_status == "draft":
+    if resume_status == ResumeState.DRAFT:
         return "E7c"
-    return "E7b" if resume_status == "outdated" else "E7a"
+    return "E7b" if resume_status == ResumeState.OUTDATED else "E7a"
 
 
 def build_entry(
     procedure: ProcedureRead,
-    resume_status: str | None,
+    resume_status: ResumeState | None,
     round_: RoundSummary | None,
     d_day: int | None,
 ) -> Entry:

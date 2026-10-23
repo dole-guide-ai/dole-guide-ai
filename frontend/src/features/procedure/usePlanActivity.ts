@@ -1,8 +1,10 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { isServerSession } from '@/lib/accountSession';
-import { apiFetch } from '@/lib/api';
-import { applyFormUpdate } from '@/lib/formStore';
+import { apiFetch, apiSend } from '@/lib/api';
+import { API_PATHS } from '@/lib/apiPaths';
+import { applyFormUpdates } from '@/lib/formStore';
+import { IDEMPOTENCY_HEADER } from '@/lib/idempotency';
 import { queryKeys } from '@/lib/queryKeys';
 import type { FormPatchRead } from '@/types/chat.types';
 import type { ProcedurePatchCreate } from '@/types/procedure.types';
@@ -20,9 +22,9 @@ export const usePlanActivity = (sessionId?: string, personaId?: string) => {
   return useMutation({
     mutationFn: (recommendationId: string) => {
       if (isServer) {
-        return apiFetch<FormPatchRead>(`/accounts/${encodeURIComponent(personaId)}/activities`, {
+        return apiFetch<FormPatchRead>(API_PATHS.activities(personaId), {
           method: 'POST',
-          headers: { 'Idempotency-Key': `plan-${recommendationId}` },
+          headers: { [IDEMPOTENCY_HEADER]: `plan-${recommendationId}` },
           body: JSON.stringify({ recommendation_id: recommendationId }),
         });
       }
@@ -31,9 +33,9 @@ export const usePlanActivity = (sessionId?: string, personaId?: string) => {
         op: 'append',
         value: { recommendation_id: recommendationId },
       };
-      return apiFetch<FormPatchRead>('/procedure', { method: 'PATCH', body: JSON.stringify(body) });
+      return apiSend<FormPatchRead>(API_PATHS.LEGACY_PROCEDURE, 'PATCH', body);
     },
-    onSuccess: ({ updates }) => {
+    onSuccess: (result) => {
       if (isServer) {
         void queryClient.invalidateQueries({ queryKey: queryKeys.roundCheckPrefix(sessionId) });
         // 고른 추천이 다시 열었을 때도 선택 가능하게 남지 않도록 추천 목록도 새로 받습니다.
@@ -42,7 +44,7 @@ export const usePlanActivity = (sessionId?: string, personaId?: string) => {
         });
         return;
       }
-      updates.forEach(applyFormUpdate);
+      applyFormUpdates(result);
     },
   });
 };

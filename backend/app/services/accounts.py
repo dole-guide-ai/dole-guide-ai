@@ -9,30 +9,34 @@
 import shutil
 import uuid
 from dataclasses import dataclass
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, time
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core import crypto
 from app.core.clock import KST
 from app.core.config import get_settings
+from app.core.db import create_or_existing
 from app.core.errors import ConflictError, NotFoundError
 from app.repositories import accounts as repo
 from app.rules import periods
 from app.schemas.accounts import AccountRead, PersonaCard, PersonaDisplay, PersonaList
+from app.schemas.application import SubmitMode
 from app.schemas.common import ErrorCode
 from app.schemas.forms import recognition as recognition_form
 from app.schemas.forms import resume as resume_form
 from app.schemas.procedure import ProcedureRead, Stage
+from app.schemas.resume import ResumeStatus
 from app.schemas.rounds import ApplicationStatus, RoundStatus, RoundSummary
 from app.services import messages as message_service
-from app.services.entry import build_entry
+from app.services.entry import ResumeState, build_entry
 from app.services.seed import at
 
+# seed에서 이미 낸 회차는 인정일 이 시각에 낸 것으로 둡니다.
+SEED_SUBMITTED_AT = time(10)
 ENDED_MESSAGE = "실업급여 수급이 끝나서 더 고칠 수 없어요."
 
 STAGE_LABEL = {
@@ -92,22 +96,19 @@ def enter(
     """있으면 그대로, 없으면 seed로 만듭니다. 두 번째 값은 새로 만들었는지."""
     persona = _persona_or_404(db, persona_id)
     user = repo.get_user(db, visitor_id, persona_id)
-    created = user is None
+    created = False
     if user is None:
-        try:
-            user = repo.new_user(visitor_id, persona_id, today)
-            repo.add_all(db, [user])
-            _materialize(db, user.user_id, persona.seed, today)
-            db.commit()
-        except IntegrityError:
-            # 버튼 두 번·탭 두 개처럼 같은 계정 입장이 동시에 오면 한쪽만 만들어집니다.
-            # 늦은 쪽은 되돌리고 먼저 만들어진 계정을 이어서 돌려줍니다.
-            # PUT은 여러 번 보내도 결과가 같아야 하기 때문입니다.
-            db.rollback()
-            user = repo.get_user(db, visitor_id, persona_id)
-            if user is None:
-                raise
-            created = False
+
+        def create() -> repo.User:
+            new = repo.new_user(visitor_id, persona_id, today)
+            repo.add_all(db, [new])
+            _materialize(db, new.user_id, persona.seed, today)
+            return new
+
+        # 같은 계정 입장이 동시에 오면 먼저 만들어진 계정을 이어서 돌려줍니다(PUT은 멱등).
+        user, created = create_or_existing(
+            db, create, lambda: repo.get_user(db, visitor_id, persona_id)
+        )
     account = AccountContext(user.user_id, user.persona_id, user.anchor_date)
     return read_account(db, account, today), created
 
@@ -232,17 +233,17 @@ def read_rounds(db: Session, user_id: uuid.UUID, today: date) -> list[RoundSumma
     return summaries
 
 
-def _resume_status(db: Session, user_id: uuid.UUID, procedure: ProcedureRead) -> str | None:
-    """1장 1.2 resume_status: none / outdated / draft / ready."""
+def _resume_status(db: Session, user_id: uuid.UUID, procedure: ProcedureRead) -> ResumeState | None:
+    """1장 1.2 resume_status: 없음(None) / outdated / draft / ready."""
     resume = repo.get_resume(db, user_id)
     if resume is None:
         return None
-    if resume.status == "draft":
-        return "draft"
+    if resume.status == ResumeStatus.DRAFT:
+        return ResumeState.DRAFT
     saved_on = resume.saved_at.astimezone(KST).date() if resume.saved_at else None
     if saved_on is None or saved_on <= procedure.separation_date:
-        return "outdated"
-    return "ready"
+        return ResumeState.OUTDATED
+    return ResumeState.READY
 
 
 # ── seed → 계정 행 ─────────────────────────────────────────────
@@ -356,11 +357,10 @@ def _materialize_rounds(
             repo.RecognitionApplication(
                 round_id=r.round_id,
                 user_id=user_id,
-                status="submitted" if submitted else "draft",
-                submit_mode=("attend" if p.attendance_required else "send") if submitted else None,
+                status=ApplicationStatus.SUBMITTED if submitted else ApplicationStatus.DRAFT,
+                submit_mode=_submit_mode(p) if submitted else None,
                 submitted_at=(
-                    datetime.combine(p.recognition_date, datetime.min.time(), KST)
-                    + timedelta(hours=10)
+                    datetime.combine(p.recognition_date, SEED_SUBMITTED_AT, KST)
                     if submitted
                     else None
                 ),
@@ -368,6 +368,11 @@ def _materialize_rounds(
             )
         )
     repo.add_all(db, applications)
+
+
+def _submit_mode(planned: periods.PlannedRound) -> SubmitMode:
+    """seed에서 이미 낸 회차의 제출 방식: 출석 회차면 출석, 아니면 온라인 제출."""
+    return SubmitMode.ATTEND if planned.attendance_required else SubmitMode.SEND
 
 
 # 칸이 아니라 칸을 담는 묶음. 나머지 dict 값(희망임금 등)은 칸 하나의 값입니다.

@@ -31,6 +31,8 @@ from app.schemas.common import (
 
 STATUS_PATH = "/status"
 ITEM_ID = "item_id"
+# 새 반복 항목에 붙이는 짧은 ID 길이
+ITEM_ID_LENGTH = 8
 
 
 def split_status(patch: list[JsonPatchOp]) -> JsonPatchOp | None:
@@ -156,7 +158,7 @@ def _apply_to_list(
 
 
 def _new_item(value: dict[str, Any], source: FieldSource) -> dict[str, Any]:
-    item: dict[str, Any] = {ITEM_ID: str(value.get(ITEM_ID) or uuid.uuid4().hex[:8])}
+    item: dict[str, Any] = {ITEM_ID: str(value.get(ITEM_ID) or uuid.uuid4().hex[:ITEM_ID_LENGTH])}
     for key, raw in value.items():
         if key != ITEM_ID:
             item[key] = _confirmed(None, raw, source)

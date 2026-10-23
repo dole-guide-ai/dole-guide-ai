@@ -12,14 +12,9 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 from app.repositories import messages as repo
-from app.schemas.accounts import AskUser
-from app.schemas.messages import MessageList, MessageRead
+from app.schemas.messages import AskUserEvent, MessageKind, MessageList, MessageRead, MessageRole
 
 PAGE_SIZE = 100
-USER = "user"
-ASSISTANT = "assistant"
-ASK_USER = "ask_user"
-TEXT = "text"
 
 
 @dataclass
@@ -29,8 +24,8 @@ class TurnMessage:
     `ask_user`면 payload에 question_id·choices·import_kind·accepts_file을 둡니다.
     """
 
-    role: str
-    kind: str
+    role: MessageRole
+    kind: MessageKind
     text: str | None
     payload: dict[str, Any] | None = field(default=None)
 
@@ -47,18 +42,16 @@ def list_messages(db: Session, user_id: uuid.UUID, cursor: int | None) -> Messag
     )
 
 
-def pending_ask(db: Session, user_id: uuid.UUID) -> AskUser | None:
-    """마지막 말풍선이 질문(ask_user)이면 아직 답하지 않은 것이므로 그 질문을 돌려줍니다."""
+def pending_ask(db: Session, user_id: uuid.UUID) -> AskUserEvent | None:
+    """마지막 말풍선이 질문(ask_user)이면 아직 답하지 않은 것이므로 그 질문을 돌려줍니다.
+
+    질문 말풍선의 payload는 ask_user 이벤트를 그대로 담은 것이라 같은 모양으로 되살립니다.
+    """
     last = repo.last(db, user_id)
-    if last is None or last.kind != ASK_USER or not last.payload:
+    if last is None or last.kind != MessageKind.ASK_USER or not last.payload:
         return None
-    return AskUser(
-        question_id=last.payload.get("question_id", ""),
-        text=last.text or "",
-        choices=last.payload.get("choices") or [],
-        import_kind=last.payload.get("import_kind"),
-        accepts_file=bool(last.payload.get("accepts_file")),
-    )
+    # 질문 글은 말풍선 text에 있으므로 payload와 합쳐 되살립니다.
+    return AskUserEvent.model_validate({**last.payload, "text": last.text or ""})
 
 
 def save_turn(db: Session, user_id: uuid.UUID, messages: list[TurnMessage]) -> None:
@@ -66,5 +59,11 @@ def save_turn(db: Session, user_id: uuid.UUID, messages: list[TurnMessage]) -> N
     seq = repo.next_seq(db, user_id)
     for offset, message in enumerate(messages):
         repo.add(
-            db, user_id, seq + offset, message.role, message.kind, message.text, message.payload
+            db,
+            user_id,
+            seq + offset,
+            MessageRole(message.role).value,
+            MessageKind(message.kind).value,
+            message.text,
+            message.payload,
         )

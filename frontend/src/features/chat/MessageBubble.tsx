@@ -2,13 +2,16 @@ import Image from 'next/image';
 
 import { EvidenceLine } from '@/components/EvidenceLine';
 import type { ChatMessage } from '@/features/chat/chat.types';
+import { CHAT_ROLE } from '@/features/chat/chat.types';
+
+import { INPUT_KIND } from '@/types/chat.types';
 
 interface MessageBubbleProps {
   message: ChatMessage;
 }
 
 export const MessageBubble = ({ message }: MessageBubbleProps) => {
-  if (message.role === 'system') {
+  if (message.role === CHAT_ROLE.SYSTEM) {
     return (
       <p
         role="alert"
@@ -19,11 +22,11 @@ export const MessageBubble = ({ message }: MessageBubbleProps) => {
     );
   }
 
-  const isUser = message.role === 'user';
+  const isUser = message.role === CHAT_ROLE.USER;
 
   const bubble = (
     <div className={`flex min-w-0 flex-1 flex-col gap-1 ${isUser ? 'items-end' : 'items-start'}`}>
-      {isUser && message.inputKind === 'voice' && (
+      {isUser && message.inputKind === INPUT_KIND.VOICE && (
         <span className="text-muted text-xs">음성 입력</span>
       )}
       {message.attachments?.map((attachment) => (

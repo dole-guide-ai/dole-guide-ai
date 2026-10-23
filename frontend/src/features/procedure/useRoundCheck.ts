@@ -4,7 +4,9 @@ import { useQuery } from '@tanstack/react-query';
 
 import { isServerSession } from '@/lib/accountSession';
 import { apiFetch } from '@/lib/api';
+import { API_PATHS } from '@/lib/apiPaths';
 import { replaceFormDraft } from '@/lib/formStore';
+import { STALE_TIME } from '@/lib/queryConfig';
 import { queryKeys } from '@/lib/queryKeys';
 import { roundCheckFromServer } from '@/lib/roundCheck';
 import type { components } from '@/types/api.gen';
@@ -30,11 +32,11 @@ export const useRoundCheck = (sessionId: string, round: number | null, account?:
     queryFn: async () =>
       isServer
         ? roundCheckFromServer(
-            await apiFetch<RoundCheck>(`/accounts/${account.personaId}/rounds/current`),
+            await apiFetch<RoundCheck>(API_PATHS.currentRound(account.personaId)),
             account.ruleGroup,
           )
-        : apiFetch<RoundCheckRead>('/procedure/current-round/check'),
-    staleTime: Infinity,
+        : apiFetch<RoundCheckRead>(API_PATHS.LEGACY_ROUND_CHECK),
+    staleTime: STALE_TIME.UNTIL_UPDATED,
     refetchOnWindowFocus: false,
   });
 

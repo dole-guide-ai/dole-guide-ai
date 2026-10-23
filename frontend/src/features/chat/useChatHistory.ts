@@ -4,6 +4,7 @@ import type { ChatMessage, ChatRole } from '@/features/chat/chat.types';
 
 import { isServerSession } from '@/lib/accountSession';
 import { apiFetch } from '@/lib/api';
+import { API_PATHS } from '@/lib/apiPaths';
 import { queryKeys } from '@/lib/queryKeys';
 import type { components } from '@/types/api.gen';
 import type { ChatInputKind } from '@/types/chat.types';
@@ -35,7 +36,7 @@ const fetchAll = async (personaId: string) => {
   while (cursor !== null && cursor !== undefined) {
     const query: string = cursor ? `?cursor=${cursor}` : '';
     const page: MessageList = await apiFetch<MessageList>(
-      `/accounts/${encodeURIComponent(personaId)}/messages${query}`,
+      `${API_PATHS.messages(personaId)}${query}`,
     );
     items.push(...page.items);
     cursor = page.next_cursor;

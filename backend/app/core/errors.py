@@ -16,6 +16,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from app.core.config import get_settings
 from app.schemas.common import ErrorCode, ErrorResponse, FieldError
 
 logger = logging.getLogger(__name__)
@@ -62,7 +63,9 @@ DEFAULT_MESSAGES: dict[ErrorCode, str] = {
     ErrorCode.FACT_NOT_DELETABLE: "이 줄은 지울 수 없어요.",
     ErrorCode.TURN_IN_PROGRESS: "답을 만드는 중이에요. 끝난 뒤 다시 보내 주세요.",
     ErrorCode.IDEMPOTENCY_MISMATCH: "같은 요청 키로 다른 내용을 보냈어요.",
-    ErrorCode.FILE_TOO_LARGE: "파일이 너무 커요. 4MB 이하로 올려 주세요.",
+    ErrorCode.FILE_TOO_LARGE: (
+        f"파일이 너무 커요. {get_settings().max_upload_mb}MB 이하로 올려 주세요."
+    ),
     ErrorCode.UNSUPPORTED_FILE: "올릴 수 없는 파일 형식이에요.",
     ErrorCode.EXTERNAL_UNAVAILABLE: "지금 목록을 불러올 수 없어요. 잠시 후 다시 시도해 주세요.",
     ErrorCode.NOT_IMPLEMENTED: "아직 준비 중인 기능이에요.",

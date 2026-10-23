@@ -3,7 +3,7 @@ import Image from 'next/image';
 import { PersonaList } from '@/features/auth/PersonaList';
 import { HealthStatus } from '@/features/health/HealthStatus';
 
-import { IS_MOCK_API, usesMock } from '@/lib/api';
+import { IS_MOCK_API, usesMockScreens } from '@/lib/mockMode';
 
 /** 시안 1-1 로그인 화면: 시연 고지(①) → 가상 계정 카드(②). */
 export const LoginScreen = () => (
@@ -39,7 +39,7 @@ export const LoginScreen = () => (
         <span>
           {IS_MOCK_API
             ? '모의 응답 모드'
-            : usesMock('/screens')
+            : usesMockScreens()
               ? '혼합 모드(계정만 서버)'
               : '서버 모드'}
         </span>

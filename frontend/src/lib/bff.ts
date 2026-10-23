@@ -3,13 +3,19 @@
  * 브라우저의 HttpOnly 쿠키에 든 방문자 토큰을 Authorization 헤더로 바꾸고, 공유 비밀 헤더를 붙여 백엔드를 부릅니다.
  * 쿠키가 없거나 토큰이 만료됐으면 방문자를 새로 만들어 쿠키를 심고, 응답 본문은 스트림 그대로 돌려줍니다.
  */
-
 import { type NextRequest, NextResponse } from 'next/server';
 
-export const VISITOR_COOKIE = 'dole_visitor';
-export const MAX_UPLOAD_BYTES = 4 * 1024 * 1024;
+import { ERROR_CODES } from '@/lib/errorCodes';
+import { serverConfig } from '@/lib/serverConfig';
 
-const COOKIE_MAX_AGE_SECONDS = 30 * 24 * 60 * 60;
+export const VISITOR_COOKIE = 'dole_visitor';
+const BYTES_PER_MB = 1024 * 1024;
+export const MAX_UPLOAD_MB = 4;
+export const MAX_UPLOAD_BYTES = MAX_UPLOAD_MB * BYTES_PER_MB;
+
+const SECONDS_PER_DAY = 24 * 60 * 60;
+// 쿠키는 길게 두고, 실제 만료는 백엔드가 방문자 마지막 접속 + 7일로 판단합니다.
+const COOKIE_MAX_AGE_SECONDS = 30 * SECONDS_PER_DAY;
 const FORWARD_REQUEST_HEADERS = [
   'accept',
   'content-type',
@@ -28,11 +34,15 @@ const FORWARD_RESPONSE_HEADERS = [
 // 브라우저가 직접 부르면 안 되는 백엔드 경로 (토큰이 본문으로 나옴)
 const BLOCKED_PATHS = new Set(['visitors']);
 
-const backendBase = () => process.env.API_BASE_URL ?? 'http://localhost:8000';
-const internalSecret = () => process.env.BACKEND_INTERNAL_SECRET ?? '';
-
 const errorJson = (status: number, code: string, message: string) =>
   NextResponse.json({ code, message, details: null }, { status });
+
+const fileTooLarge = () =>
+  errorJson(
+    413,
+    ERROR_CODES.FILE_TOO_LARGE,
+    `파일이 너무 커요. ${MAX_UPLOAD_MB}MB 이하로 올려 주세요.`,
+  );
 
 const backendHeaders = (token: string | null, from?: Headers): Headers => {
   const headers = new Headers();
@@ -42,14 +52,14 @@ const backendHeaders = (token: string | null, from?: Headers): Headers => {
       if (value) headers.set(name, value);
     }
   }
-  const secret = internalSecret();
+  const secret = serverConfig.internalSecret();
   if (secret) headers.set('X-Internal-Secret', secret);
   if (token) headers.set('Authorization', `Bearer ${token}`);
   return headers;
 };
 
 const createVisitor = async (signal: AbortSignal): Promise<string | null> => {
-  const res = await fetch(`${backendBase()}/visitors`, {
+  const res = await fetch(`${serverConfig.backendBaseUrl()}/visitors`, {
     method: 'POST',
     headers: backendHeaders(null),
     signal,
@@ -86,7 +96,7 @@ const toClientResponse = (upstream: Response, setToken: string | null): NextResp
   if (setToken) {
     response.cookies.set(VISITOR_COOKIE, setToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: serverConfig.secureCookie(),
       sameSite: 'lax',
       path: '/',
       maxAge: COOKIE_MAX_AGE_SECONDS,
@@ -107,14 +117,14 @@ const isUnauthorizedVisitor = async (res: Response) => {
 /** `/api/<path>` 요청을 백엔드 `/<path>`로 넘깁니다. 쿠키가 없거나 만료면 방문자를 새로 만듭니다. */
 export const proxyToBackend = async (request: NextRequest, path: string[]): Promise<Response> => {
   if (path.length === 0 || BLOCKED_PATHS.has(path[0])) {
-    return errorJson(404, 'NOT_FOUND', '찾는 정보가 없어요.');
+    return errorJson(404, ERROR_CODES.NOT_FOUND, '찾는 정보가 없어요.');
   }
   const length = Number(request.headers.get('content-length') ?? 0);
   if (length > MAX_UPLOAD_BYTES) {
-    return errorJson(413, 'FILE_TOO_LARGE', '파일이 너무 커요. 4MB 이하로 올려 주세요.');
+    return fileTooLarge();
   }
 
-  const target = `${backendBase()}/${path.map(encodeURIComponent).join('/')}${request.nextUrl.search}`;
+  const target = `${serverConfig.backendBaseUrl()}/${path.map(encodeURIComponent).join('/')}${request.nextUrl.search}`;
   const hasBody = !['GET', 'HEAD'].includes(request.method);
   let token = request.cookies.get(VISITOR_COOKIE)?.value ?? null;
   let issued: string | null = null;
@@ -124,11 +134,11 @@ export const proxyToBackend = async (request: NextRequest, path: string[]): Prom
     const body = hasBody ? await request.arrayBuffer() : null;
     // content-length 없이 오는 본문도 있으므로 실제로 읽은 크기로 한 번 더 확인합니다.
     if (body && body.byteLength > MAX_UPLOAD_BYTES) {
-      return errorJson(413, 'FILE_TOO_LARGE', '파일이 너무 커요. 4MB 이하로 올려 주세요.');
+      return fileTooLarge();
     }
     if (!token) {
       token = issued = await createVisitor(request.signal);
-      if (!token) return errorJson(503, 'INTERNAL_ERROR', '잠시 후 다시 시도해 주세요.');
+      if (!token) return errorJson(503, ERROR_CODES.INTERNAL_ERROR, '잠시 후 다시 시도해 주세요.');
     }
     let upstream = await forward(request, target, token, body);
     if (!issued && (await isUnauthorizedVisitor(upstream))) {
@@ -142,7 +152,7 @@ export const proxyToBackend = async (request: NextRequest, path: string[]): Prom
     console.error('bff proxy failed', error instanceof Error ? error.name : 'unknown');
     return errorJson(
       502,
-      'INTERNAL_ERROR',
+      ERROR_CODES.INTERNAL_ERROR,
       '일시적인 문제가 생겼어요. 잠시 후 다시 시도해 주세요.',
     );
   }

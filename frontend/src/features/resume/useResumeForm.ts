@@ -4,7 +4,9 @@ import { useQuery } from '@tanstack/react-query';
 
 import { isServerSession } from '@/lib/accountSession';
 import { apiFetch } from '@/lib/api';
+import { API_PATHS } from '@/lib/apiPaths';
 import { type FormDraft, replaceFormDraft } from '@/lib/formStore';
+import { STALE_TIME } from '@/lib/queryConfig';
 import { queryKeys } from '@/lib/queryKeys';
 import { resumeFromServer } from '@/lib/resumeForm';
 import type { components } from '@/types/api.gen';
@@ -34,8 +36,8 @@ export const useResumeForm = (sessionId: string, personaId?: string) => {
     queryFn: async () =>
       isServer
         ? resumeFromServer(await apiFetch<ResumeRead>(resumePath(personaId)))
-        : apiFetch<ResumeDraftRead>('/forms/resume'),
-    staleTime: Infinity,
+        : apiFetch<ResumeDraftRead>(API_PATHS.LEGACY_RESUME),
+    staleTime: STALE_TIME.UNTIL_UPDATED,
     refetchOnWindowFocus: false,
   });
 

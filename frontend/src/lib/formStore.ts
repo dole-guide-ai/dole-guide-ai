@@ -61,8 +61,29 @@ export const replaceFormDraft = (form: FormKind, draft: FormDraft) => {
   emit();
 };
 
+const LIST_END = '-';
+
+/**
+ * 백엔드의 JSON Pointer 경로·JSON Patch 연산(`/careers/-` add, `/hope_wage` replace)을
+ * 저장소의 점 경로·연산(`careers` append, `hope_wage` set)으로 바꿉니다. 점 경로는 그대로 둡니다.
+ */
+export const toStoreUpdate = (
+  path: string,
+  op: FormUpdateEvent['op'],
+): { path: string; op: 'set' | 'append' | 'remove' } => {
+  if (!path.startsWith('/')) {
+    return { path, op: op === 'add' ? 'append' : op === 'replace' ? 'set' : op };
+  }
+  const parts = path.slice(1).split('/');
+  const appends = op === 'add' && parts.at(-1) === LIST_END;
+  if (appends) parts.pop();
+  const storeOp = op === 'remove' ? 'remove' : appends || op === 'append' ? 'append' : 'set';
+  return { path: parts.join('.'), op: storeOp };
+};
+
 export const applyFormUpdateToDraft = (draft: FormDraft, event: FormUpdateEvent): FormDraft => {
-  const { path, op, value } = event;
+  const { value } = event;
+  const { path, op } = toStoreUpdate(event.path, event.op);
   let values = draft.values;
   const fields = { ...draft.fields };
 
@@ -86,6 +107,10 @@ export const applyFormUpdateToDraft = (draft: FormDraft, event: FormUpdateEvent)
 
   return { values, fields, completeness: event.completeness ?? draft.completeness };
 };
+
+/** 쓰기 응답 `{updates}`의 바뀐 칸을 모두 적용합니다. */
+export const applyFormUpdates = ({ updates }: { updates: FormUpdateEvent[] }) =>
+  updates.forEach(applyFormUpdate);
 
 export const applyFormUpdate = (event: FormUpdateEvent) => {
   drafts = { ...drafts, [event.form]: applyFormUpdateToDraft(drafts[event.form], event) };
