@@ -64,7 +64,11 @@ export const RecognitionPanel = ({
     session.persona_id,
   );
   const draft = useRecognitionDraft();
-  const confirm = useConfirmRecognition();
+  const confirm = useConfirmRecognition(
+    session.session_id,
+    session.persona_id,
+    session.derived.current_round,
+  );
 
   if (query.isPending) return <p className="text-muted text-base">신청서를 정리하는 중…</p>;
   if (query.isError) {
@@ -90,8 +94,13 @@ export const RecognitionPanel = ({
   const workList = work.work_entries?.length ? work.work_entries : [work.work_details ?? null];
 
   const handleSubmit = () => {
-    const mode = form.submit_mode === 'attend' ? 'attend' : 'send';
-    confirm.mutate({ submit_mode: mode }, { onSuccess: () => onConfirmed?.(mode) });
+    // 서버가 정한 방식(send·attend)으로만 보냅니다. 인정일 전(preview)·지난 뒤에는 보내지 않습니다 (F-27).
+    const mode = form.submit_mode;
+    if (mode !== 'send' && mode !== 'attend') return;
+    confirm.mutate(
+      { submit_mode: mode, attend_items: mode === 'attend' ? form.attend_items : undefined },
+      { onSuccess: () => onConfirmed?.(mode) },
+    );
   };
 
   return (
