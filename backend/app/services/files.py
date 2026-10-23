@@ -37,6 +37,9 @@ FILE_TYPES: dict[str, tuple[str, tuple[bytes, ...]]] = {
     ),
 }
 FILE_NAME_MAX = 200
+# 이름이 비었거나 경로만 있던 파일에 붙이는 이름
+DEFAULT_FILE_NAME = "file"
+BYTES_PER_MB = 1024 * 1024
 
 
 def upload(
@@ -50,12 +53,7 @@ def upload(
     content = _read_limited(stream)
     name = _clean_name(file_name)
     mime = _check_type(name, content)
-    # 같은 키로 이름이나 내용이 다른 파일을 보내면 다른 요청으로 보고 409입니다.
-    body = {
-        "purpose": purpose.value,
-        "file_name": name,
-        "sha256": hashlib.sha256(content).hexdigest(),
-    }
+    body = _idempotency_body(purpose, name, content)
     # 이번 요청이 디스크에 쓴 파일. 쓰자마자 기록해서 행 저장이 실패해도 지울 수 있게 합니다.
     written: list[tuple[str, Path]] = []
 
@@ -121,13 +119,22 @@ def _store(
     )
 
 
+def _idempotency_body(purpose: FilePurpose, name: str, content: bytes) -> dict[str, str]:
+    """같은 키로 다시 온 요청이 같은 요청인지 비교할 값. 이름이나 내용이 다르면 409입니다."""
+    return {
+        "purpose": purpose.value,
+        "file_name": name,
+        "sha256": hashlib.sha256(content).hexdigest(),
+    }
+
+
 def _remove_written(written: list[tuple[str, Path]]) -> None:
     for _, path in written:
         path.unlink(missing_ok=True)
 
 
 def _read_limited(stream: BinaryIO) -> bytes:
-    limit = get_settings().max_upload_mb * 1024 * 1024
+    limit = get_settings().max_upload_mb * BYTES_PER_MB
     content = stream.read(limit + 1)
     if len(content) > limit:
         raise PayloadTooLargeError()
@@ -139,7 +146,7 @@ def _read_limited(stream: BinaryIO) -> bytes:
 def _clean_name(file_name: str | None) -> str:
     # 경로 부분은 버리고 이름만 남깁니다(../ 같은 값 방지). 저장 경로에는 쓰지 않습니다.
     name = PurePath((file_name or "").replace("\\", "/")).name.strip()
-    return name[-FILE_NAME_MAX:] or "file"
+    return name[-FILE_NAME_MAX:] or DEFAULT_FILE_NAME
 
 
 def _check_type(name: str, content: bytes) -> str:
