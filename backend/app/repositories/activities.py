@@ -26,3 +26,26 @@ def list_between(db: Session, user_id: uuid.UUID, start: date, end: date) -> lis
             .order_by(Activity.activity_date, Activity.created_at, Activity.activity_id)
         )
     )
+
+
+def count_done_kind(db: Session, user_id: uuid.UUID, kind: str) -> int:
+    """이미 한(예정이 아닌) 활동 중 그 종류의 수. 누적 한도(특강 2회 등) 계산에 씁니다."""
+    return len(
+        db.scalars(
+            select(Activity.activity_id).where(
+                Activity.user_id == user_id, Activity.kind == kind, Activity.planned.is_(False)
+            )
+        ).all()
+    )
+
+
+def get(db: Session, user_id: uuid.UUID, activity_id: uuid.UUID) -> Activity | None:
+    return db.scalar(
+        select(Activity).where(Activity.user_id == user_id, Activity.activity_id == activity_id)
+    )
+
+
+def add(db: Session, activity: Activity) -> Activity:
+    db.add(activity)
+    db.flush()
+    return activity
