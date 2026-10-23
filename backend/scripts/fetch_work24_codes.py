@@ -30,7 +30,8 @@ def fetch(dtl_gb: str, root_tag: str) -> ET.Element:
         sys.exit("backend/.env에 WORK24_API_KEY를 넣어 주세요.")
     params = {"authKey": key, "returnType": "XML", "target": "CMCD", "dtlGb": dtl_gb}
     res = httpx.get(URL, params=params, timeout=30)
-    res.raise_for_status()
+    if res.is_error:  # raise_for_status 예외 메시지에는 키가 든 URL이 찍혀서 직접 처리
+        sys.exit(f"고용24 API 오류: HTTP {res.status_code} (dtlGb={dtl_gb})")
     root = ET.fromstring(res.content)
     if root.tag != root_tag:  # 인증 실패도 200으로 오므로 루트 태그로 확인
         sys.exit(f"dtlGb={dtl_gb} 응답이 {root_tag}가 아니에요. 인증키·사용 승인을 확인해 주세요.")
@@ -71,6 +72,9 @@ if __name__ == "__main__":
         "regions": flatten(fetch("1", "cmcdRegion"), "regionCd", "regionNm"),
         "occupations": flatten(fetch("2", "cmcdJobs"), "jobsCd", "jobsNm"),
     }
+    for key, rows in codes.items():  # 빈 응답으로 기존 기준표를 덮어쓰지 않게
+        if not rows or not all(r["code"] and r["name"] for r in rows):
+            sys.exit(f"{key} 응답이 비었거나 코드·이름 없는 행이 있어 저장하지 않았어요.")
     CODES_JSON.parent.mkdir(parents=True, exist_ok=True)
     CODES_JSON.write_text(dump(codes), encoding="utf-8", newline="\n")
     print(f"지역 {len(codes['regions'])}건, 직종 {len(codes['occupations'])}건 → {CODES_JSON.name}")

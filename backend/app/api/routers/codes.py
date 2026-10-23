@@ -24,7 +24,7 @@ def list_regions(_: CurrentVisitor) -> Page[CodeRead]:
     return Page(items=items, total=len(items))
 
 
-@router.get("/occupations", summary="세부 직종 이름 검색", responses=error_responses(401))
+@router.get("/occupations", summary="세부 직종 이름 검색", responses=error_responses(401, 422))
 def search_occupations(
     _: CurrentVisitor,
     q: Annotated[str, Query(max_length=50, description="직종 이름 일부. 띄어쓰기 무시")],
