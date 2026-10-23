@@ -1,3 +1,4 @@
+import { QueryClientProvider } from '@tanstack/react-query';
 import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -96,5 +97,33 @@ describe('RecommendationBox (F-19 실제 서버 세션)', () => {
     await userEvent.click(await screen.findByRole('button', { name: /입사지원.* 선택/ }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent('이미 예정으로 넣은 활동이에요.');
+  });
+
+  it('회차가 바뀌면 그 회차 기준 추천을 다시 받는다 (점검 11, N5)', async () => {
+    const fetchSpy = vi
+      .spyOn(globalThis, 'fetch')
+      .mockImplementation(async () => Response.json(serverList));
+    const { rerender, queryClient } = renderWithProviders(
+      <RecommendationBox
+        sessionId="acct-lee-2026-10-21"
+        plannedIds={[]}
+        personaId="lee"
+        round={4}
+      />,
+    );
+    await screen.findByText(/1\. 입사지원 \(고용24\)/);
+
+    rerender(
+      <QueryClientProvider client={queryClient}>
+        <RecommendationBox
+          sessionId="acct-lee-2026-10-21"
+          plannedIds={[]}
+          personaId="lee"
+          round={5}
+        />
+      </QueryClientProvider>,
+    );
+
+    await vi.waitFor(() => expect(fetchSpy).toHaveBeenCalledTimes(2));
   });
 });

@@ -18,6 +18,7 @@ from app.rules import recommend as rules
 from app.schemas.activities import ActivityCreate
 from app.schemas.common import ErrorCode, FieldSource, FormName, FormUpdate, UpdatesRead
 from app.schemas.rounds import Recommendation, RecommendationList
+from app.services import accounts as account_service
 from app.services import idempotency
 from app.services.accounts import AccountContext
 from app.services.application import CURRENT, activity_inputs, find_round
@@ -107,6 +108,8 @@ def add_recommended(
     """추천 `선택`: 그 활동을 예정(planned)으로 이번 회차에 넣습니다. 계산에는 넣지 않습니다."""
     # 다른 키로 같은 추천이 동시에 와도 중복 검사와 저장이 겹치지 않게 계정 단위로 줄 세웁니다.
     repo.lock_user(db, account.user_id)
+    # 수급이 끝난 계정은 활동을 고칠 수 없습니다 (F-33 완료 기준).
+    account_service.ensure_not_ended(db, account.user_id)
     target, picks, inputs, _, _ = _current(db, account, today)
     parsed = rules.parse_recommendation_id(recommendation_id)
     if parsed is None or parsed[0] != target.round_no:
@@ -168,6 +171,7 @@ def mark_done(
     org_name: str | None = None,
 ) -> UpdatesRead:
     """사용자가 예정 활동을 "했어요"라고 하면 실제 활동으로 바꿉니다 (대화 도구가 부릅니다)."""
+    account_service.ensure_not_ended(db, account.user_id)
     activity = activity_repo.get(db, account.user_id, activity_id)
     if activity is None:
         raise NotFoundError(message=PLANNED_NOT_FOUND_MESSAGE)

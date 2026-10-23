@@ -1,3 +1,4 @@
+import { formatKoreanDate } from '@/lib/dateFormat';
 import { citeOf } from '@/lib/sources';
 import type { FormUpdateEvent } from '@/types/chat.types';
 import type {
@@ -230,4 +231,34 @@ export const MOCK_ACTIVITY_REMOVALS: Record<string, FormUpdateEvent[]> = {
     set('shortfall', 1),
     set('status', 'short'),
   ],
+};
+
+const DAY_MS = 86_400_000;
+
+/**
+ * 지금 회차 기준 모의 추천 (2-2.8). 고를 활동은 같고, 기한 문구만 이번 회차 인정일 전날과
+ * 이미 인정된 활동이 있는 날로 만듭니다. 회차가 바뀌면(4차 → 5차) 그 회차 날짜로 바뀝니다 (F-19).
+ */
+export const mockRecommendations = (
+  personaId: string,
+  recognitionDate: string | null,
+  activities: RoundActivity[],
+): RecommendationsRead | undefined => {
+  const base = MOCK_RECOMMENDATIONS[personaId];
+  if (!base || !recognitionDate) return base;
+  const dayBefore = new Date(Date.parse(recognitionDate) - DAY_MS).toISOString().slice(0, 10);
+  const busy = [
+    ...new Set(
+      activities
+        .filter((activity) => activity.status === 'counted' || activity.status === 'same_day')
+        .map((activity) => activity.date),
+    ),
+  ].sort();
+  const avoid = busy.length
+    ? `${busy.map((date) => formatKoreanDate(date).replace(/\(.\)$/, '')).join('·')}이 아닌 다른 날, `
+    : '';
+  return {
+    ...base,
+    deadline_text: `${avoid}인정일 전날 ${formatKoreanDate(dayBefore)}까지 하시길 권해요.`,
+  };
 };

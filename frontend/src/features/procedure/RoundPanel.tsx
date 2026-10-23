@@ -100,6 +100,7 @@ export const RoundPanel = ({ session, onOpenForm }: RoundPanelProps) => {
           sessionId={session.session_id}
           plannedIds={plannedIds}
           personaId={session.persona_id}
+          round={session.derived.current_round}
         />
       )}
 
