@@ -87,7 +87,8 @@ export const RecognitionPanel = ({
   const work = form.work_and_employment;
   const activity = form.reemployment_activity;
   const plan = form.notification_and_plan;
-  const shortBy = activity.required.activities - activity.counted.activities;
+  // 규칙으로 셀 수 없는 회차(필요 건수 null)는 부족 안내를 띄우지 않습니다.
+  const shortBy = (activity.required.activities ?? 0) - activity.counted.activities;
   const prevChip = (path: string, answeredOn?: string | null) => selfChip(fields[path], answeredOn);
   const workPath = (key: string) => `work_and_employment.${key}`;
   // 한 회차에 근로내역이 여러 건이면 모두 보여 줍니다(고용24도 근로내역을 건별로 적음).
@@ -230,7 +231,7 @@ export const RecognitionPanel = ({
             <p className="bg-brand-soft text-brand rounded-xl px-4 py-2 text-sm">
               {form.recognition_round}차 실업인정 필수 등록 요건: 재취업활동{' '}
               {activity.required.activities}회 등록 대상
-              {activity.required.job_search > 0 &&
+              {(activity.required.job_search ?? 0) > 0 &&
                 `, 구직활동 ${activity.required.job_search}회 이상 포함`}
             </p>
             {shortBy > 0 && (

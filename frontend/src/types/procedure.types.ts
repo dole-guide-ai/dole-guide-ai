@@ -115,12 +115,6 @@ export interface RecommendationItem {
  * `{ path: "activities", op: "append", value: { recommendation_id } }`로 예정 활동을 더합니다.
  * 응답은 `FormPatchRead`(적용할 `form_update`들)입니다.
  */
-export interface ProcedurePatchCreate {
-  path: string;
-  op: 'set' | 'append' | 'remove';
-  value?: unknown;
-}
-
 /** GET /procedure/current-round/recommendations */
 export interface RecommendationsRead {
   items: RecommendationItem[];

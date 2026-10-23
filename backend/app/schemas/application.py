@@ -80,8 +80,9 @@ class ApplicationRead(BaseModel):
     period_end: date
     recognition_date: date
     attendance_required: bool
-    required_activities: int
-    required_job_search: int
+    # 회차 점검과 같은 값. 규칙으로 셀 수 없으면(대상기간 변경 등) None
+    required_activities: int | None
+    required_job_search: int | None
     data: RecognitionData
     job_search_rows: list[JobSearchRow] = []
     other_rows: list[OtherActivityRow] = []

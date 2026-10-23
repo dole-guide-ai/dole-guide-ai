@@ -6,7 +6,8 @@ import { isServerSession } from '@/lib/accountSession';
 import { apiFetch } from '@/lib/api';
 import { API_PATHS } from '@/lib/apiPaths';
 import { recognitionFromApplication } from '@/lib/applicationForm';
-import { replaceFormDraft } from '@/lib/formStore';
+import { IF_MATCH_HEADER, ifMatch } from '@/lib/etag';
+import { getFormDrafts, replaceFormDraft } from '@/lib/formStore';
 import { queryKeys } from '@/lib/queryKeys';
 import type { components } from '@/types/api.gen';
 import type {
@@ -35,7 +36,13 @@ const submitToServer = async (personaId: string, round: number | null, body: Con
       ? [{ op: 'replace', path: '/attend_items', value: body.attend_items }]
       : []),
   ];
-  await apiFetch(path, { method: 'PATCH', body: JSON.stringify(patch) });
+  // 화면에 띄운 신청서 버전으로 제출합니다. 그 사이 다른 탭에서 먼저 냈으면 409 VERSION_CONFLICT.
+  const lockVersion = getFormDrafts().recognition.values.lock_version as number | undefined;
+  await apiFetch(path, {
+    method: 'PATCH',
+    headers: { [IF_MATCH_HEADER]: ifMatch(lockVersion) },
+    body: JSON.stringify(patch),
+  });
   try {
     return recognitionFromApplication(await apiFetch<ApplicationRead>(path));
   } catch {

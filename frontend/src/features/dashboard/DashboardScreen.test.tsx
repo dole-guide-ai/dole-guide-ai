@@ -7,13 +7,13 @@ import { DashboardScreen } from '@/features/dashboard/DashboardScreen';
 import { getFormDrafts, resetForms } from '@/lib/formStore';
 import { setSession } from '@/lib/sessionStore';
 import type { SseMessage } from '@/types/chat.types';
-import { MOCK_ROUND_CHECKS } from '@/mocks/activities';
 import { buildMockSession } from '@/mocks/handlers';
 import { MOCK_PERSONAS } from '@/mocks/personas';
 import { MOCK_RESUMES } from '@/mocks/resumes';
 import { mockFetchRoutes, PENDING } from '@/test/mockFetch';
 import { sseResponse } from '@/test/mockSse';
 import { renderWithProviders } from '@/test/renderWithProviders';
+import { LEE_ROUND_CHECK, LEE_ROUND_CHECK_SATISFIED } from '@/test/roundCheckFixture';
 
 const push = vi.fn();
 const replace = vi.fn();
@@ -28,7 +28,7 @@ const mockApi = (chatEvents: SseMessage[] = []) =>
     if (url.endsWith('/personas')) return Response.json({ items: cards, total: cards.length });
     if (url.endsWith('/messages')) return sseResponse(chatEvents);
     if (url.endsWith('/forms/resume')) return Response.json(MOCK_RESUMES.park);
-    if (url.endsWith('/procedure/current-round/check')) return Response.json(MOCK_ROUND_CHECKS.lee);
+    if (url.endsWith('/rounds/current')) return Response.json(LEE_ROUND_CHECK);
     return new Response('{}', { status: 404 });
   });
 
@@ -100,14 +100,9 @@ describe('DashboardScreen', () => {
         event: 'form_update',
         data: {
           form: 'activities',
-          path: 'activities',
-          op: 'append',
-          value: {
-            ...MOCK_ROUND_CHECKS.lee.activities[0],
-            item_id: 'a3',
-            date: '2026-12-16',
-            org_name: 'OO물산',
-          },
+          path: '/round_check',
+          op: 'replace',
+          value: LEE_ROUND_CHECK_SATISFIED,
         },
       },
       { event: 'done', data: { cite: '시험용 출처 자료' } },

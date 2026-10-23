@@ -1,0 +1,53 @@
+{
+  "effective_from": "2026-03-01",
+  "source": "2026 실업인정 인정기준 안내문 (2026-03-01 이후 수급자격 신청자), 취업드림수첩 2025, 고용24 화면 실측",
+  "review": { "status": "not_verified", "reviewer": null, "reviewed_on": null },
+  "kinds": [
+    { "kind": "job_application", "label": "입사지원", "category": "job_search", "rule_refs": ["ACT-001", "ACT-056", "ACT-058"] },
+    { "kind": "interview", "label": "면접", "category": "job_search", "rule_refs": ["ACT-002"] },
+    { "kind": "job_fair_interview", "label": "채용행사 면접", "category": "job_search", "rule_refs": ["ACT-003", "ACT-059"] },
+    { "kind": "lecture", "label": "취업특강", "category": "non_job_search", "limit_group": "lecture", "rule_refs": ["ACT-004", "ACT-043", "ACT-117", "ACT-131"] },
+    { "kind": "external_lecture", "label": "외부 4시간 이상 특강·집단상담", "category": "non_job_search", "rule_refs": ["ACT-047"] },
+    { "kind": "training", "label": "직업훈련", "category": "non_job_search", "by_hours": true, "rule_refs": ["ACT-051", "ACT-052", "ACT-053"] },
+    { "kind": "aptitude_test", "label": "직업심리검사", "category": "non_job_search", "limit_group": "aptitude_test", "rule_refs": ["ACT-044", "ACT-119"] },
+    { "kind": "counseling", "label": "심리안정 프로그램", "category": "non_job_search", "limit_group": "counseling", "rule_refs": ["ACT-045", "ACT-120"] },
+    { "kind": "volunteer", "label": "자원봉사", "category": "non_job_search", "limit_group": "volunteer", "groups": ["age_60_64", "age65_or_disabled"], "rule_refs": ["ACT-046", "ACT-125", "ACT-065"] },
+    { "kind": "private_academy", "label": "어학·취미 학원", "category": "non_job_search", "allowed": false, "rule_refs": ["ACT-054"] },
+    { "kind": "first_education", "label": "1차 실업인정 교육", "category": "non_job_search", "only_round": 1, "rule_refs": ["ACT-020", "ACT-130"] }
+  ],
+  "limits": [
+    { "group": "lecture", "label": "취업특강", "max": 2, "rule_refs": ["ACT-043", "ACT-117"] },
+    { "group": "aptitude_test", "label": "직업심리검사", "max": 1, "rule_refs": ["ACT-044", "ACT-119"] },
+    { "group": "counseling", "label": "심리안정 프로그램", "max": 1, "rule_refs": ["ACT-045", "ACT-120"] },
+    { "group": "volunteer", "label": "자원봉사", "max": 1, "rule_refs": ["ACT-046", "ACT-125"] }
+  ],
+  "training_hours": { "min_counted": 15, "full_round": 30, "rule_refs": ["ACT-051", "ACT-052", "ACT-053"] },
+  "job_search_only_from_round": { "round": 8, "groups": ["general"], "rule_refs": ["ACT-030"] },
+  "routes": [
+    { "route": "work24", "label": "고용24", "evidence": [], "rule_refs": ["ACT-132"] },
+    { "route": "step_online", "label": "온라인 취업특강(STEP)", "evidence": [], "rule_refs": [] },
+    { "route": "portal", "label": "취업포털", "evidence": ["채용공고", "입사지원일이 적힌 취업활동증명서"], "rule_refs": ["ACT-133"] },
+    { "route": "email", "label": "이메일", "evidence": ["채용공고", "보낸편지함 캡처(발송일·받는 주소)"], "rule_refs": ["ACT-134"] },
+    { "route": "company_site", "label": "기업 홈페이지", "evidence": ["채용공고", "지원 완료 화면 캡처(날짜가 보이게)"], "rule_refs": ["ACT-136"] },
+    { "route": "newspaper", "label": "구인 신문", "evidence": ["신문 공고", "면접확인서"], "rule_refs": ["ACT-135"] },
+    { "route": "interview", "label": "면접", "evidence": ["면접확인서", "명함"], "rule_refs": ["ACT-137"] },
+    { "route": "referral", "label": "지인 소개", "evidence": ["면접확인서", "명함"], "rule_refs": ["ACT-138"] },
+    { "route": "job_fair", "label": "채용행사", "evidence": ["박람회 지원·면접 확인 자료"], "rule_refs": ["ACT-139"] },
+    { "route": "mail", "label": "우편", "evidence": ["채용공고", "등기영수증"], "rule_refs": ["ACT-140"] },
+    { "route": "fax", "label": "팩스", "evidence": ["채용공고", "팩스송신확인증"], "rule_refs": ["ACT-140"] },
+    { "route": "training", "label": "직업훈련", "evidence": ["수강증명서", "대상 기간 출석부"], "rule_refs": ["ACT-141", "ACT-050"] }
+  ],
+  "required": {
+    "rule_refs": ["ACT-020", "ACT-023", "ACT-026", "ACT-028", "ACT-030"],
+    "rows": [
+      { "rounds": [1, 1], "groups": ["general", "age_60_64", "age65_or_disabled"], "total": 1, "job_search": 0, "first_education": true },
+      { "rounds": [2, 3], "groups": ["general", "age_60_64", "age65_or_disabled"], "total": 1, "job_search": 0 },
+      { "rounds": [4, 7], "groups": ["general"], "total": 2, "job_search": 1 },
+      { "rounds": [4, null], "groups": ["age_60_64", "age65_or_disabled"], "total": 1, "job_search": 0 },
+      { "rounds": [8, null], "groups": ["general"], "weekly_job_search": true }
+    ]
+  },
+  "same_day_rule_refs": ["ACT-055", "ACT-110"],
+  "period_rule_refs": ["DUE-044", "DUE-090", "DUE-091"],
+  "same_company_rule_refs": ["ACT-014", "ACT-088"]
+}

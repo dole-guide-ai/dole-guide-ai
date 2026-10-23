@@ -1,4 +1,4 @@
-"""실업인정 신청서를 만드는 규칙 함수입니다 (설계 6.7·7절, 상세기획 2-3.2·2-3.4).
+"""실업인정 신청서를 만드는 규칙 함수.
 
 구직활동 10칸은 저장하지 않고, 그 회차 대상기간의 인정 활동에서 매번 만듭니다.
 같은 날 활동이 여러 건이면 1건만 인정하고 나머지는 참고로 따로 둡니다(설계 6.4).
@@ -11,7 +11,9 @@ from dataclasses import dataclass, field
 from datetime import date, datetime
 from typing import Any
 
+from app.schemas.activities import ActivityRoute, ApplyMethod, SearchMethod
 from app.schemas.common import FieldStatus
+from app.schemas.rounds import ActivityStatus
 
 JOB_SEARCH = "job_search"
 NON_JOB_SEARCH = "non_job_search"
@@ -19,18 +21,18 @@ NON_JOB_SEARCH = "non_job_search"
 # 2-2 경로(route) → 고용24 응모 방식 (상세기획 2-3.4, 2026-10-19 결정).
 # 회사 홈페이지·취업 사이트는 고용24 선택지에 없어 `기타`로 둡니다.
 _APPLY_METHOD = {
-    "work24": "고용24(워크넷)",
-    "email": "전자메일",
-    "mail": "우편",
-    "fax": "FAX",
-    "visit": "직접방문",
-    "interview": "직접방문",
-    "company_site": "기타",
-    "job_site": "기타",
+    ActivityRoute.WORK24: ApplyMethod.WORK24,
+    ActivityRoute.EMAIL: ApplyMethod.EMAIL,
+    ActivityRoute.MAIL: ApplyMethod.MAIL,
+    ActivityRoute.FAX: ApplyMethod.FAX,
+    ActivityRoute.VISIT: ApplyMethod.VISIT,
+    ActivityRoute.INTERVIEW: ApplyMethod.VISIT,
+    ActivityRoute.COMPANY_SITE: ApplyMethod.OTHER,
+    ActivityRoute.PORTAL: ApplyMethod.OTHER,
 }
 # 고용24로 지원했으면 공고도 고용24에서 찾은 것이라 구직 방법을 정할 수 있습니다.
 # 그 밖에는 대화로 물어서 채웁니다 (F-25).
-_SEARCH_METHOD = {"work24": "고용24(워크넷)"}
+_SEARCH_METHOD = {ActivityRoute.WORK24: SearchMethod.WORK24}
 
 # 지난 회차 답을 불러오는 칸 (2-3.3: 지난 답을 보여 주고 유지할지만 묻는 칸)
 _CARRIED_FIELDS = ("notification_method",)
@@ -38,11 +40,13 @@ _CARRIED_GROUPS = ("credit",)
 
 
 def apply_method_from_route(route: str | None) -> str | None:
-    return _APPLY_METHOD.get(route or "")
+    method = _APPLY_METHOD.get(route or "")  # StrEnum 키는 같은 글자로 찾을 수 있습니다
+    return method.value if method else None
 
 
 def search_method_from_route(route: str | None) -> str | None:
-    return _SEARCH_METHOD.get(route or "")
+    method = _SEARCH_METHOD.get(route or "")
+    return method.value if method else None
 
 
 @dataclass(frozen=True)
@@ -61,6 +65,10 @@ class ActivityInput:
     contact_dept: str | None = None
     result: str | None = None
     planned: bool = False
+    hours: float | None = None
+    source: str = ""
+    # 증빙 파일을 하나 이상 연결했는지 (activity_files)
+    has_evidence: bool = False
 
 
 @dataclass
@@ -72,48 +80,46 @@ class FormActivities:
     excluded: list[dict[str, Any]] = field(default_factory=list)
 
 
-def _representative_rank(activity: ActivityInput) -> tuple[bool, bool]:
-    """같은 날 활동 중 대표로 인정할 순서: 구직활동 먼저, 그다음 증빙이 필요 없는 고용24 경로."""
-    return (activity.category != JOB_SEARCH, activity.route != "work24")
+# 신청서에 넣지 않고 참고 목록(excluded)에 이유와 함께 두는 계산 결과
+_EXCLUDED = (
+    ActivityStatus.SAME_DAY,
+    ActivityStatus.NOT_ALLOWED,
+    ActivityStatus.LIMIT_OVER,
+    ActivityStatus.NEEDS_CHECK,
+)
 
 
 def build_form_activities(
-    activities: list[ActivityInput], period_start: date, period_end: date
+    activities: list[ActivityInput], statuses: dict[str, ActivityStatus]
 ) -> FormActivities:
-    """대상기간 안의 실제 활동으로 신청서 활동 칸을 만듭니다. 예정 활동은 넣지 않습니다.
+    """회차 점검(`check_round`) 결과대로 신청서 활동 칸을 만듭니다.
 
-    같은 날 활동은 1건만 인정합니다(설계 6.4).
-    대표는 구직활동·고용24 경로(증빙 불필요)를 먼저 고르고,
-    같으면 먼저 기록한 것입니다. 나머지는 `same_day`로 참고 목록에 둡니다.
+    인정 계산(`counted`)인 활동만 신청서 줄이 되고, 같은 날·불인정·한도 초과·확인 필요는 이유와
+    함께 참고 목록에 둡니다. 예정·기간 밖 활동은 넣지 않습니다.
     """
     result = FormActivities()
-    by_day: dict[date, list[ActivityInput]] = {}
-    for activity in activities:
-        if activity.planned or not period_start <= activity.activity_date <= period_end:
-            continue
-        by_day.setdefault(activity.activity_date, []).append(activity)
-    for day in sorted(by_day):
-        first, *rest = sorted(by_day[day], key=_representative_rank)
-        if first.category == JOB_SEARCH:
-            result.job_search.append(_job_search_row(first))
-        else:
+    for activity in sorted(activities, key=lambda a: a.activity_date):
+        status = statuses.get(activity.activity_id)
+        if status == ActivityStatus.COUNTED and activity.category == JOB_SEARCH:
+            result.job_search.append(_job_search_row(activity))
+        elif status == ActivityStatus.COUNTED:
             result.other.append(
                 {
-                    "activity_id": first.activity_id,
-                    "activity_date": first.activity_date,
-                    "kind": first.kind,
-                    "details": first.org_name,
+                    "activity_id": activity.activity_id,
+                    "activity_date": activity.activity_date,
+                    "kind": activity.kind,
+                    "details": activity.org_name,
                 }
             )
-        result.excluded += [
-            {
-                "activity_id": other.activity_id,
-                "reason": "same_day",
-                "activity_date": other.activity_date,
-                "company_name": other.org_name,
-            }
-            for other in rest
-        ]
+        elif status in _EXCLUDED:
+            result.excluded.append(
+                {
+                    "activity_id": activity.activity_id,
+                    "reason": status.value,
+                    "activity_date": activity.activity_date,
+                    "company_name": activity.org_name,
+                }
+            )
     return result
 
 
@@ -183,22 +189,6 @@ def locked_reason(data: dict[str, Any]) -> str | None:
     return None
 
 
-# 일반 수급자 규칙(4차부터 4주 2회)을 따르는 그룹. 반복수급자도 일반 규칙입니다.
-GENERAL_RULE_GROUPS = ("general", "repeat")
-
-
-def required_activities(recipient_group: str, round_no: int) -> tuple[int, int]:
-    """회차별 필요 재취업활동 (전체 건수, 그중 구직활동 건수) (설계 6.2).
-
-    1차는 실업인정 교육이라 활동 1건으로 셉니다. 4차부터 일반 수급자는 4주 2회(구직활동 1회 포함),
-    60세 이상·장애인은 4주 1회(자율)입니다. 반복수급자는 일반 규칙을 따릅니다.
-    8차 이후 일반의 "1주 1회 구직활동"은 회차 점검(F-18)이 주 단위로 셉니다.
-    """
-    if round_no <= 3 or recipient_group not in GENERAL_RULE_GROUPS:
-        return (1, 0)
-    return (2, 1)
-
-
 # ── 제출 방식 · 체크리스트 (F-26, 상세기획 2-3.6) ─────────────────────────────
 
 SEND_DEADLINE_HOUR = 17  # 인정일 당일 인터넷 제출 마감
@@ -247,10 +237,9 @@ def _answered(node: Any) -> bool:
 def checklist(
     data: dict[str, Any],
     job_search: list[dict[str, Any]],
-    counted: int,
-    required: int,
+    remaining: int,
+    remaining_job_search: int,
     evidence_missing: int,
-    required_job_search: int = 0,
 ) -> tuple[list[dict[str, str]], list[dict[str, str]]]:
     """제출을 막는 항목(blocking)과 경고(warnings)를 나눕니다 (상세기획 2-3.6).
 
@@ -276,21 +265,14 @@ def checklist(
     credit = (data.get("credit") or {}).get("application")
     if not _answered(credit):
         warnings.append({"key": "unemployment_credit", "text": "실업크레딧 답"})
-    short_by = max(required - counted, 0)
-    short_job_search = max(required_job_search - len(job_search), 0)
-    if short_by or short_job_search:
-        parts = [f"필요 활동 {short_by}건 부족"] if short_by else []
-        if short_job_search:
-            parts.append(f"구직활동 {short_job_search}건 부족")
+    if remaining or remaining_job_search:
+        parts = [f"필요 활동 {remaining}건 부족"] if remaining else []
+        if remaining_job_search:
+            parts.append(f"구직활동 {remaining_job_search}건 부족")
         warnings.append({"key": "requirement_met", "text": " · ".join(parts)})
     if evidence_missing:
         warnings.append({"key": "evidence_ok", "text": f"증빙 {evidence_missing}건 없음"})
     return blocking, warnings
-
-
-def needs_evidence(route: str | None) -> bool:
-    """고용24 지원은 고용24에 기록이 남아 증빙이 필요 없고, 그 밖의 경로는 필요합니다 (2-2.4)."""
-    return route != "work24"
 
 
 def can_submit(mode: str, blocking: list[dict[str, str]], locked: str | None) -> bool:
