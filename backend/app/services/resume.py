@@ -99,6 +99,8 @@ def save_resume_fields(
         )
 
     resume.data = data.model_dump(mode="json")
+    # 저장한 이력서를 고치면 다시 저장할 때까지 초안입니다 (5/5가 깨질 수 있음).
+    resume.status = ResumeStatus.DRAFT
     resume.lock_version += 1
     db.commit()
 
@@ -152,6 +154,8 @@ def patch_resume(
     now: datetime,
 ) -> UpdatesRead:
     """직접 고치기는 칸마다 confirmed·direct로 쓰고, `/status`는 저장(saved)·다시 고치기(draft)."""
+    # 같은 버전을 읽은 두 PATCH가 모두 통과하지 않게 계정 행을 잠근 뒤 버전을 봅니다.
+    repo.lock_user(db, account.user_id)
     resume = repo.get_resume(db, account.user_id)
     check_if_match(if_match, resume.lock_version if resume else 0)
     status_ops = [op for op in patch if op.path == "/status"]

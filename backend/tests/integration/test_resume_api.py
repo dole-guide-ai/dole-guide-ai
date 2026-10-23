@@ -67,6 +67,11 @@ def test_empty_resume_then_fill_and_save(
     assert "월급 단위" in hint and "프레스 반장" in hint and "학점" not in hint
     assert client.get("/accounts/park/resume", headers=headers).json()["status"] == "saved"
 
+    # 저장한 뒤 칸을 고치면 다시 초안
+    _patch(client, headers, [{"op": "remove", "path": "/resume_title"}])
+    again = client.get("/accounts/park/resume", headers=headers).json()
+    assert again["status"] == "draft" and not again["can_save"]
+
 
 def test_version_conflict_and_status_with_fields(
     client: TestClient, entered_headers: Callable[[str], dict[str, str]]
