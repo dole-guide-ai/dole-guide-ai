@@ -4,6 +4,7 @@
 고친 활동은 출처가 직접 입력(direct)이 됩니다.
 """
 
+import re
 import uuid
 from datetime import date
 from decimal import Decimal, InvalidOperation
@@ -34,6 +35,9 @@ DATE_MESSAGE = "활동 날짜는 이번 회차 대상기간 안이어야 해요.
 BAD_VALUE_MESSAGE = "고칠 수 없는 칸이거나 형식이 맞지 않아요."
 MIN_HOURS = Decimal(0)
 MAX_HOURS = Decimal(24)  # 하루 활동 시간
+HOURS_DECIMALS = 1  # activities.hours는 Numeric(5, 1)
+# fromisoformat은 20261021·주 날짜도 받아서 YYYY-MM-DD(ASCII 숫자)만 먼저 거릅니다.
+ISO_DATE = re.compile(r"\d{4}-\d{2}-\d{2}", re.ASCII)
 # 지울 수 없는 칸
 REQUIRED = {ActivityField.ACTIVITY_DATE, ActivityField.KIND}
 # 글자 칸은 컬럼 길이까지 받습니다.
@@ -60,6 +64,8 @@ def patch_activity(
     if not in_round(activity.activity_date):
         raise ConflictError(code=ErrorCode.ROUND_CLOSED)
 
+    if not patch:  # 고칠 칸이 없으면 출처도 바꾸지 않습니다.
+        raise UnprocessableError(BAD_VALUE_MESSAGE)
     values = {_field(index, op): _value(index, op) for index, op in enumerate(patch)}
     if not in_round(values.get(ActivityField.ACTIVITY_DATE, activity.activity_date)):
         raise UnprocessableError(
@@ -96,21 +102,31 @@ def _field(index: int, op: JsonPatchOp) -> ActivityField:
 
 def _value(index: int, op: JsonPatchOp) -> Any:
     field = _field(index, op)
+    # add·replace는 value가 꼭 있어야 합니다(RFC 6902). 명시한 null은 지우기로 봅니다.
+    if op.op != PatchOpName.REMOVE and "value" not in op.model_fields_set:
+        raise _bad(index, PatchErrorType.REQUIRED)
     if op.op == PatchOpName.REMOVE or op.value is None:
         if field in REQUIRED:
             raise _bad(index, PatchErrorType.REQUIRED)
         return None
     if field == ActivityField.ACTIVITY_DATE:
+        if not isinstance(op.value, str) or not ISO_DATE.fullmatch(op.value):
+            raise _bad(index, PatchErrorType.DATE_FORMAT)
         try:
             return date.fromisoformat(op.value)
-        except TypeError, ValueError:
+        except ValueError:
             raise _bad(index, PatchErrorType.DATE_FORMAT) from None
     if field == ActivityField.HOURS:
         try:
             hours = Decimal(str(op.value))
         except InvalidOperation:
             raise _bad(index, PatchErrorType.NUMBER) from None
-        if not MIN_HOURS <= hours <= MAX_HOURS:
+        # NaN은 비교에서 500이 나므로 먼저 거르고, 소수는 저장되는 자리수까지만 받습니다.
+        if (
+            not hours.is_finite()
+            or hours.as_tuple().exponent < -HOURS_DECIMALS
+            or not MIN_HOURS <= hours <= MAX_HOURS
+        ):
             raise _bad(index, PatchErrorType.NUMBER)
         return hours
     text = op.value.strip() if isinstance(op.value, str) else ""

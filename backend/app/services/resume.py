@@ -239,8 +239,9 @@ def work24_hint(data: resume_form.ResumeData) -> str:
 
 # 직접 입력한 날짜는 고용24 칸 형식(연-월, 자격 취득일만 연-월-일도)이어야 저장합니다 (F-12).
 DATE_FORMAT_MESSAGE = "날짜는 2004-03처럼 연-월로 넣어 주세요."
-_YM = re.compile(r"\d{4}-(0[1-9]|1[0-2])")
-_YMD = re.compile(r"\d{4}-(0[1-9]|1[0-2])(-(0[1-9]|[12]\d|3[01]))?")
+_YM = re.compile(r"\d{4}-(0[1-9]|1[0-2])", re.ASCII)
+_YMD = re.compile(r"\d{4}-(0[1-9]|1[0-2])(-\d{2})?", re.ASCII)
+YM_LENGTH = len("YYYY-MM")
 DATE_FIELD_SUFFIX = "_date"
 # 연-월-일까지 받는 칸 (자격 취득일)
 FULL_DATE_FIELDS = ("acquired_date",)
@@ -250,7 +251,15 @@ def _date_ok(path: str, value: Any) -> bool:
     if not path.endswith(DATE_FIELD_SUFFIX) or value is None:
         return True
     pattern = _YMD if path.rsplit("/", 1)[-1] in FULL_DATE_FIELDS else _YM
-    return isinstance(value, str) and pattern.fullmatch(value) is not None
+    if not isinstance(value, str) or pattern.fullmatch(value) is None:
+        return False
+    if len(value) == YM_LENGTH:
+        return True
+    try:  # 2011-02-31처럼 달력에 없는 날은 막습니다.
+        date.fromisoformat(value)
+    except ValueError:
+        return False
+    return True
 
 
 def _procedure_or_404(db: Session, user_id: uuid.UUID):

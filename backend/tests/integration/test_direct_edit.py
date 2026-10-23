@@ -47,6 +47,11 @@ def test_edit_activity_marks_direct_and_checks_format(
         [{"op": "remove", "path": "/kind"}],
         [{"op": "replace", "path": "/hours", "value": 30}],
         [{"op": "replace", "path": "/activity_date", "value": "2020-01-01"}],
+        [{"op": "replace", "path": "/activity_date", "value": "20261021"}],
+        [{"op": "replace", "path": "/hours", "value": 1.25}],
+        [{"op": "replace", "path": "/hours", "value": "NaN"}],
+        [{"op": "replace", "path": "/org_name"}],
+        [],
     ):
         bad = _patch(client, headers, activity_id, ops)
         assert bad.status_code == 422, ops
@@ -92,3 +97,9 @@ def test_resume_date_must_be_year_month(
         json=[{"op": "replace", "path": "/certifications/l1/acquired_date", "value": "2011-05-20"}],
     )
     assert ok.status_code == 200, ok.text
+    for value in ("２００４-03", "2011-02-31"):
+        path = "/certifications/l1/acquired_date" if "-31" in value else "/careers/c1/start_date"
+        res = client.patch(
+            url, headers=headers, json=[{"op": "replace", "path": path, "value": value}]
+        )
+        assert res.status_code == 422, value
