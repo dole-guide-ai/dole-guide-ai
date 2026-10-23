@@ -141,3 +141,31 @@ def test_account_without_round_has_no_current_check(client: TestClient, entered_
 
     assert res.status_code == 404
     assert res.json()["code"] == "NO_ACTIVE_ROUND"
+
+
+def test_patching_activity_recounts_and_rederives_category(
+    client: TestClient, entered_headers: Headers
+):
+    """F-12: 고치면 회차 점검을 다시 계산하고, kind를 바꾸면 구분도 다시 정합니다."""
+    headers = entered_headers("lee")
+    activities = client.get(ACTIVITIES, headers=headers).json()["items"]
+    trading = next(a for a in activities if a["org_name"] == "OO상사")
+
+    # 같은 날이라 빠졌던 OO상사를 다른 날로 옮기면 인정 계산이 됩니다.
+    moved = client.patch(
+        f"{ACTIVITIES}/{trading['activity_id']}",
+        headers=headers,
+        json=[{"op": "replace", "path": "/activity_date", "value": TODAY.isoformat()}],
+    )
+    assert moved.status_code == 200
+    assert _by_org(_round_check(moved))["OO상사"] == "counted"
+    assert _round_check(moved)["check_status"] == "satisfied"
+
+    # 종류를 특강으로 바꾸면 구분이 구직 외 활동이 되고, 구직활동은 1건으로 줄어듭니다.
+    lecture = client.patch(
+        f"{ACTIVITIES}/{trading['activity_id']}",
+        headers=headers,
+        json=[{"op": "replace", "path": "/kind", "value": "lecture"}],
+    )
+    assert lecture.json()["updates"][0]["value"]["category"] == "non_job_search"
+    assert _round_check(lecture)["counted_job_search"] == 1
