@@ -53,7 +53,7 @@ def to_inputs(db: Session, activities: list[Activity]) -> list[ActivityInput]:
             planned=a.planned,
             hours=float(a.hours) if a.hours is not None else None,
             source=a.source,
-            has_evidence=bool(evidence.get(a.activity_id)),
+            file_ids=tuple(str(f) for f in evidence.get(a.activity_id, [])),
         )
         for a in activities
     ]

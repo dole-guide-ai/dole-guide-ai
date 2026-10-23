@@ -68,8 +68,12 @@ class ActivityInput:
     planned: bool = False
     hours: float | None = None
     source: str = ""
-    # 증빙 파일을 하나 이상 연결했는지 (activity_files)
-    has_evidence: bool = False
+    # 연결한 증빙 파일 ID (activity_files)
+    file_ids: tuple[str, ...] = ()
+
+    @property
+    def has_evidence(self) -> bool:
+        return bool(self.file_ids)
 
 
 @dataclass
@@ -135,6 +139,8 @@ def _job_search_row(activity: ActivityInput) -> dict[str, Any]:
         "job_search_method": activity.search_method or search_method_from_route(activity.route),
         "application_method": activity.apply_method or apply_method_from_route(activity.route),
         "activity_result": activity.result,
+        # 신청서에서 증빙을 눌러 열 수 있게 연결한 파일 ID를 같이 둡니다 (F-21).
+        "file_ids": list(activity.file_ids),
         # 응답 칸은 아니지만 증빙 필요 여부(F-26)를 판단하려고 경로를 같이 둡니다.
         "route": activity.route,
     }

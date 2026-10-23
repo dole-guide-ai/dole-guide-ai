@@ -73,7 +73,7 @@ def test_same_day_prefers_activity_with_evidence_over_record_order():
     result = check(
         [
             act("a1", date(2026, 12, 8), route="company_site", org="OO상사"),
-            act("a2", date(2026, 12, 8), route="email", org="OO유통", has_evidence=True),
+            act("a2", date(2026, 12, 8), route="email", org="OO유통", file_ids=("f1",)),
         ]
     )
 

@@ -245,7 +245,11 @@ def patch_activity(
 
     if not patch:  # 고칠 칸이 없으면 출처도 바꾸지 않습니다.
         raise UnprocessableError(BAD_VALUE_MESSAGE)
-    values = {_field(index, op): _value(index, op) for index, op in enumerate(patch)}
+    # 증빙 파일 붙이기·떼기는 칸 고치기와 따로 처리합니다 (F-21). 출처는 바꾸지 않습니다.
+    file_ops = [(i, op) for i, op in enumerate(patch) if op.path.startswith(FILE_IDS_PATH)]
+    field_ops = [(i, op) for i, op in enumerate(patch) if not op.path.startswith(FILE_IDS_PATH)]
+    _apply_file_ops(db, account, activity.activity_id, file_ops)
+    values = {_field(index, op): _value(index, op) for index, op in field_ops}
     if not in_round(values.get(ActivityField.ACTIVITY_DATE, activity.activity_date)):
         raise UnprocessableError(
             DATE_MESSAGE,
@@ -256,7 +260,8 @@ def patch_activity(
     # 구분(구직/구직 외)은 종류로 코드가 정합니다 (상세기획 2-2.2). 표에 없는 종류면 그대로 둡니다.
     if rule := load_rules().kind(activity.kind):
         activity.category = rule.category
-    activity.source = FieldSource.DIRECT
+    if values:
+        activity.source = FieldSource.DIRECT
     db.flush()
     # 날짜·종류가 바뀌면 인정 계산이 달라지므로 다시 계산한 회차 점검도 같이 돌려줍니다.
     result = UpdatesRead(
@@ -267,6 +272,30 @@ def patch_activity(
     )
     db.commit()
     return result
+
+
+FILE_IDS_PATH = "/file_ids"
+
+
+def _apply_file_ops(
+    db: Session, account: AccountContext, activity_id: uuid.UUID, ops: list[tuple[int, JsonPatchOp]]
+) -> None:
+    """`add /file_ids/-`(value=파일 ID)로 증빙을 붙이고 `remove /file_ids/{파일 ID}`로 뗍니다.
+
+    내 계정의 증빙 파일만 붙일 수 있고(아니면 404), 이미 붙은 파일은 다시 붙이지 않습니다.
+    """
+    linked = set(activity_repo.file_ids_by_activity(db, [activity_id]).get(activity_id, []))
+    for index, op in ops:
+        if op.op == PatchOpName.ADD and op.path == f"{FILE_IDS_PATH}/-":
+            [file_id] = _evidence_files(db, account.user_id, [str(op.value)])
+            if file_id not in linked:
+                activity_repo.link_files(db, activity_id, [file_id])
+                linked.add(file_id)
+        elif op.op == PatchOpName.REMOVE:
+            file_id = _uuid(op.path.removeprefix(f"{FILE_IDS_PATH}/"))
+            activity_repo.unlink_file(db, activity_id, file_id)
+        else:
+            raise _bad(index, PatchErrorType.UNKNOWN_PATH)
 
 
 def _uuid(raw: str) -> uuid.UUID:
