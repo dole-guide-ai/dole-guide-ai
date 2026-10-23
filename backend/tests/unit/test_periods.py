@@ -40,7 +40,9 @@ def test_period_end_on_leap_day() -> None:
 
 def test_attendance_rounds() -> None:
     assert [n for n in range(1, 10) if is_attendance_round("general", n)] == [1, 4, 8]
-    assert [n for n in range(1, 10) if is_attendance_round("age_60_64", n)] == [1, 4]
+    # 60세 이상·장애인도 4·8차 출석 (상세기획 결정, 평가 시나리오 form-011)
+    assert [n for n in range(1, 10) if is_attendance_round("age_60_64", n)] == [1, 4, 8]
+    assert [n for n in range(1, 10) if is_attendance_round("age65_or_disabled", n)] == [1, 4, 8]
 
 
 def test_build_rounds_every_28_days_and_skips_holidays() -> None:

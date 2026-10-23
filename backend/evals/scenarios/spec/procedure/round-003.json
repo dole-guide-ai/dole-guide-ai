@@ -1,0 +1,20 @@
+{
+  "id": "procedure/round-003",
+  "description": "4차 general, 특강 2건(다른 날) → 건수 충족·구직 미충족, 추천 1순위 구직활동",
+  "source": "상세기획 2-2.12",
+  "rule": "recommend",
+  "args": {
+    "shortfall": 0,
+    "shortfall_job_search": 1,
+    "group": "general",
+    "round": 4,
+    "lectures_used": 2
+  },
+  "expected": {
+    "keys": [
+      "work24_apply",
+      "interview",
+      "company_site_apply"
+    ]
+  }
+}

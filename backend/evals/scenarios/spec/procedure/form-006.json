@@ -1,0 +1,66 @@
+{
+  "id": "procedure/form-006",
+  "description": "이메일 지원 활동, 구직 방법 미입력 → 구직활동 칸이 제출을 막음",
+  "source": "상세기획 2-3.10",
+  "rule": "checklist",
+  "args": {
+    "data": {
+      "work": {
+        "has_work": {
+          "value": "no",
+          "status": "confirmed",
+          "source": "user_answer"
+        }
+      },
+      "employment": {
+        "status": {
+          "value": "none",
+          "status": "confirmed",
+          "source": "user_answer"
+        }
+      },
+      "industrial_accident": {
+        "receiving": {
+          "value": "no",
+          "status": "confirmed",
+          "source": "user_answer"
+        }
+      },
+      "credit": {
+        "application": {
+          "value": "wish",
+          "status": "confirmed",
+          "source": "user_answer"
+        }
+      },
+      "notification_method": {
+        "value": "sms",
+        "status": "confirmed",
+        "source": "user_answer"
+      },
+      "next_plan": {
+        "value": "job_search",
+        "status": "confirmed",
+        "source": "user_answer"
+      }
+    },
+    "job_search_rows": [
+      {
+        "company_name": "OO물류",
+        "recruitment_contact": "인사팀",
+        "recruitment_occupation": "일반 사무",
+        "job_search_method": null,
+        "application_method": "전자메일",
+        "activity_result": "서류전형 심사진행 중"
+      }
+    ],
+    "counted": 2,
+    "required": 2
+  },
+  "expected": {
+    "blocking": [
+      "job_search_fields"
+    ],
+    "can_submit": false
+  }
+}
