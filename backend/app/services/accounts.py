@@ -28,6 +28,7 @@ from app.schemas.application import SubmitMode
 from app.schemas.common import ErrorCode
 from app.schemas.forms import recognition as recognition_form
 from app.schemas.forms import resume as resume_form
+from app.schemas.imports import ImportKind
 from app.schemas.procedure import ProcedureRead, Stage
 from app.schemas.resume import ResumeStatus
 from app.schemas.rounds import ApplicationStatus, RoundStatus, RoundSummary
@@ -298,6 +299,25 @@ def _materialize(db: Session, user_id: uuid.UUID, seed: dict[str, Any], anchor: 
                 saved_at=datetime.combine(saved_on, datetime.min.time(), KST) if saved_on else None,
             )
         )
+    imports = seed.get("imports") or {}
+    for kind, key in (
+        (ImportKind.CAREER_CERTIFICATE, "career_certificates"),
+        (ImportKind.JOB_APPLICATION, "job_applications"),
+    ):
+        for position, raw in enumerate(imports.get(key, [])):
+            rows.append(
+                repo.Work24Import(
+                    user_id=user_id,
+                    source_id=raw["import_id"],
+                    kind=kind,
+                    category=raw["category"],
+                    title=raw["title"],
+                    detail=raw["detail"],
+                    item_date=at(anchor, raw.get("date_offset")),
+                    position=position,
+                    is_recorded=bool(raw.get("is_recorded", False)),
+                )
+            )
     for activity in seed.get("activities", []):
         rows.append(
             repo.Activity(

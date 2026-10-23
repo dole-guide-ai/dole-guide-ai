@@ -65,3 +65,50 @@ def test_imports_need_token_and_entered_account(
 
     assert res.status_code == 404
     assert res.json()["code"] == "ACCOUNT_NOT_FOUND"
+
+
+def test_lee_applies_job_application_and_round_is_satisfied(
+    client: TestClient, entered_headers: Callable[[str], dict[str, str]]
+) -> None:
+    """F-10 완료 기준: 이정호가 OO물산 1건을 고르면 활동에 들어가고, 다시 고르면 넣지 않습니다."""
+    headers = entered_headers("lee")
+    url = "/accounts/lee/imports"
+
+    res = client.post(f"{url}/apply", headers=headers, json={"import_ids": ["wa_003"]})
+
+    assert res.status_code == 200, res.text
+    added = res.json()["updates"][0]["value"]
+    assert (added["org_name"], added["source"], added["route"]) == ("OO물산", "import", "work24")
+    check = next(u["value"] for u in res.json()["updates"] if u["path"] == "/round_check")
+    assert check["check_status"] == "satisfied"
+    items = client.get(f"{url}/job-applications", headers=headers).json()["items"]
+    assert all(item["is_recorded"] for item in items)
+    again = client.post(f"{url}/apply", headers=headers, json={"import_ids": ["wa_003"]})
+    assert again.status_code == 409
+
+
+def test_park_applies_career_and_license_to_resume(
+    client: TestClient, entered_headers: Callable[[str], dict[str, str]]
+) -> None:
+    headers = entered_headers("park")
+
+    res = client.post(
+        "/accounts/park/imports/apply",
+        headers=headers,
+        json={"import_ids": ["cc_career_001", "cc_license_001"]},
+    )
+
+    assert res.status_code == 200, res.text
+    resume = client.get("/accounts/park/resume", headers=headers).json()["data"]
+    career = resume["careers"][0]
+    assert (career["company_name"]["value"], career["start_date"]["value"]) == ("OO산업", "2004-03")
+    assert career["company_name"]["source"] == "import"
+    assert resume["certifications"][0]["acquired_date"]["value"] == "2011-05-20"
+    training = client.post(
+        "/accounts/park/imports/apply", headers=headers, json={"import_ids": ["cc_training_001"]}
+    )
+    missing = client.post(
+        "/accounts/park/imports/apply", headers=headers, json={"import_ids": ["nope"]}
+    )
+    assert training.status_code == 422
+    assert missing.status_code == 404
