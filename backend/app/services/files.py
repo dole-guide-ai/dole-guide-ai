@@ -72,13 +72,16 @@ def upload(
 
 
 def open_file(db: Session, account: AccountContext, file_id: str) -> tuple[File, Path]:
-    """자기 계정 파일만 엽니다. 남의 파일·없는 파일·지운 파일은 모두 404입니다."""
+    """자기 계정의 구직활동 증빙만 엽니다.
+
+    남의 파일·없는 파일·지운 파일, 그리고 판독용 이력서 서류(resume_doc)는 모두 404입니다.
+    """
     try:
         parsed = uuid.UUID(file_id)
     except ValueError:
         raise NotFoundError() from None
     row = repo.get_for_user(db, account.user_id, parsed)
-    if row is None:
+    if row is None or row.purpose != FilePurpose.EVIDENCE:
         raise NotFoundError()
     path = _upload_root() / row.storage_key
     if not path.is_file():
