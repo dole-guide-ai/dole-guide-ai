@@ -555,9 +555,10 @@ export interface paths {
          *
          *     이벤트 순서: tool_call → form_update(여러 번) → token(여러 번) → done → ask_user. 이름은
          *     shared/sse-events.json을 따릅니다.
-         *     같은 계정의 턴이 이미 진행 중이면 409 TURN_IN_PROGRESS, 턴 도중 실패는 error 이벤트로 보냅니다.
-         *     턴은 3분을 넘기지 않습니다.
-         *     (아직 구현 전이라 501)
+         *     같은 계정의 턴이 이미 진행 중이면 409 TURN_IN_PROGRESS입니다. 같은 Idempotency-Key로 다시 보내면
+         *     턴을 다시 돌리지 않고 409입니다(결과는 GET /messages로 다시 읽음).
+         *     턴 도중 실패는 error 이벤트로 보내고, 3분을 넘으면 error{TIMEOUT}으로 끝납니다.
+         *     연결이 끊기면(멈추기·탭 닫기) 턴을 멈추고 그때까지의 말풍선을 저장합니다.
          */
         post: operations["send_message"];
         delete?: never;
@@ -630,7 +631,7 @@ export interface components {
             procedure: components["schemas"]["ProcedureRead"];
             current_round?: components["schemas"]["RoundSummary"] | null;
             entry: components["schemas"]["Entry"];
-            pending_ask?: components["schemas"]["AskUser"] | null;
+            pending_ask?: components["schemas"]["AskUserEvent"] | null;
         };
         /**
          * ActivityCategory
@@ -782,8 +783,8 @@ export interface components {
          * @enum {string}
          */
         ApplicationStatus: "draft" | "submitted";
-        /** AskUser */
-        AskUser: {
+        /** AskUserEvent */
+        AskUserEvent: {
             /** Question Id */
             question_id: string;
             /** Text */
@@ -4065,7 +4066,6 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
                     "text/event-stream": unknown;
                 };
             };
@@ -4107,24 +4107,6 @@ export interface operations {
             };
             /** @description Internal Server Error */
             500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Not Implemented */
-            501: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Service Unavailable */
-            503: {
                 headers: {
                     [name: string]: unknown;
                 };

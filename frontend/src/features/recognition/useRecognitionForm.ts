@@ -4,8 +4,10 @@ import { useQuery } from '@tanstack/react-query';
 
 import { isServerSession } from '@/lib/accountSession';
 import { apiFetch } from '@/lib/api';
+import { API_PATHS } from '@/lib/apiPaths';
 import { recognitionFromApplication } from '@/lib/applicationForm';
 import { type FormDraft, replaceFormDraft } from '@/lib/formStore';
+import { STALE_TIME } from '@/lib/queryConfig';
 import { queryKeys } from '@/lib/queryKeys';
 import type { components } from '@/types/api.gen';
 import type { RecognitionFormRead } from '@/types/recognition.types';
@@ -20,9 +22,7 @@ export const toRecognitionDraft = (read: RecognitionFormRead): FormDraft => {
 
 /** 실제 서버: `GET /accounts/{id}/rounds/{round}/application`(F-23)을 패널 C 모양으로 바꿉니다. */
 const fetchApplication = async (personaId: string, round: number | null) => {
-  const app = await apiFetch<ApplicationRead>(
-    `/accounts/${encodeURIComponent(personaId)}/rounds/${round ?? 'current'}/application`,
-  );
+  const app = await apiFetch<ApplicationRead>(API_PATHS.application(personaId, round));
   return recognitionFromApplication(app);
 };
 
@@ -36,9 +36,9 @@ export const useRecognitionForm = (sessionId: string, round: number | null, pers
     queryKey: queryKeys.recognitionForm(sessionId, round),
     queryFn: () =>
       !isServerSession(sessionId) || !personaId
-        ? apiFetch<RecognitionFormRead>('/forms/recognition')
+        ? apiFetch<RecognitionFormRead>(API_PATHS.LEGACY_RECOGNITION)
         : fetchApplication(personaId, round),
-    staleTime: Infinity,
+    staleTime: STALE_TIME.UNTIL_UPDATED,
     refetchOnWindowFocus: false,
   });
 

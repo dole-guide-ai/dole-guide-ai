@@ -1,6 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 
 import { apiFetch } from '@/lib/api';
+import { API_PATHS } from '@/lib/apiPaths';
+import { STALE_TIME } from '@/lib/queryConfig';
 import { queryKeys } from '@/lib/queryKeys';
 import type { ImportKind, ImportListRead } from '@/types/imports.types';
 
@@ -8,6 +10,6 @@ import type { ImportKind, ImportListRead } from '@/types/imports.types';
 export const useImportList = (kind: ImportKind, sessionId: string) =>
   useQuery({
     queryKey: queryKeys.imports(kind, sessionId),
-    queryFn: () => apiFetch<ImportListRead>(`/imports/${kind}`),
-    staleTime: 0,
+    queryFn: () => apiFetch<ImportListRead>(API_PATHS.legacyImports(kind)),
+    staleTime: STALE_TIME.ALWAYS_REFETCH,
   });

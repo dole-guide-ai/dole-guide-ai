@@ -5,6 +5,7 @@ import { resumePath } from '@/features/resume/useResumeForm';
 
 import { isServerSession, sessionFromAccount } from '@/lib/accountSession';
 import { apiFetch } from '@/lib/api';
+import { API_PATHS } from '@/lib/apiPaths';
 import { applyFormUpdate } from '@/lib/formStore';
 import { queryKeys } from '@/lib/queryKeys';
 import { getSession, setSession } from '@/lib/sessionStore';
@@ -43,7 +44,7 @@ export const useConfirmResume = (sessionId?: string, personaId?: string) => {
     mutationFn: () =>
       isServer
         ? saveToServer(personaId)
-        : apiFetch<SessionRead>('/forms/resume/confirm', { method: 'POST', body: '{}' }),
+        : apiFetch<SessionRead>(API_PATHS.LEGACY_RESUME_CONFIRM, { method: 'POST', body: '{}' }),
     onSuccess: (session) => {
       // 이미 저장한 이력서를 고쳐 다시 저장하면(2-1.6) 단계가 그대로라 지금 초안을 확정 상태로만 바꿉니다.
       if (!isServer && getSession()?.state.resume_status === 'ready') {

@@ -22,14 +22,14 @@ def add(
     request_hash: str,
     status_code: int,
     response: dict[str, Any] | None,
-) -> None:
-    db.add(
-        IdempotencyKey(
-            user_id=user_id,
-            key=key,
-            request_hash=request_hash,
-            status_code=status_code,
-            response=response,
-        )
+) -> IdempotencyKey:
+    row = IdempotencyKey(
+        user_id=user_id,
+        key=key,
+        request_hash=request_hash,
+        status_code=status_code,
+        response=response,
     )
+    db.add(row)
     db.flush()
+    return row

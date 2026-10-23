@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { applyFormUpdate, getFormDrafts, resetForms } from '@/lib/formStore';
+import { applyFormUpdate, getFormDrafts, resetForms, toStoreUpdate } from '@/lib/formStore';
 
 describe('formStore', () => {
   beforeEach(() => resetForms());
@@ -65,5 +65,21 @@ describe('formStore', () => {
     expect(getFormDrafts().resume.values).toEqual({});
     expect(getFormDrafts().resume.fields).toEqual({});
     expect(getFormDrafts().activities.values).toEqual({ items: [{ item_id: 'a1' }] });
+  });
+});
+
+describe('toStoreUpdate', () => {
+  it('JSON Pointer 경로와 JSON Patch 연산을 저장소 형식으로 바꾼다', () => {
+    expect(toStoreUpdate('/careers/-', 'add')).toEqual({ path: 'careers', op: 'append' });
+    expect(toStoreUpdate('/job_preferences/hope_wage', 'replace')).toEqual({
+      path: 'job_preferences.hope_wage',
+      op: 'set',
+    });
+    expect(toStoreUpdate('/careers/0', 'remove')).toEqual({ path: 'careers.0', op: 'remove' });
+  });
+
+  it('점 경로와 예전 연산은 그대로 둔다', () => {
+    expect(toStoreUpdate('careers', 'append')).toEqual({ path: 'careers', op: 'append' });
+    expect(toStoreUpdate('hope_wage', 'set')).toEqual({ path: 'hope_wage', op: 'set' });
   });
 });

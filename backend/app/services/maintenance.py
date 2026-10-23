@@ -2,7 +2,8 @@
 
 마지막 접속 후 7일이 지난 방문자를 지우면 계정과 모든 데이터가 함께 지워지고, 업로드 폴더도
 지웁니다.
-24시간 지난 멱등성 키도 함께 지웁니다. 다른 프로세스가 이미 돌고 있으면 건너뜁니다.
+보관 시간(IDEMPOTENCY_TTL_HOURS)이 지난 멱등성 키도 함께 지웁니다.
+다른 프로세스가 이미 돌고 있으면 건너뜁니다.
 """
 
 import logging
@@ -32,7 +33,9 @@ def run_cleanup(db: Session, now: datetime) -> CleanupResult:
         return CleanupResult(ran=False)
     user_ids = repo.expired_user_ids(db, now)
     visitors = repo.delete_expired_visitors(db, now)
-    keys = repo.delete_old_idempotency_keys(db, now - timedelta(hours=24))
+    keys = repo.delete_old_idempotency_keys(
+        db, now - timedelta(hours=get_settings().idempotency_ttl_hours)
+    )
     db.commit()
     upload_root = Path(get_settings().upload_dir)
     for user_id in user_ids:

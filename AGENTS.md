@@ -58,7 +58,8 @@ uv run alembic upgrade head
 
 ## 코드 스타일 요약
 
-- 프론트: 컴포넌트 파일 PascalCase, 훅·유틸 camelCase, 라우트 폴더 kebab-case. 라우트 파일 외 컴포넌트는 `export const` 화살표 함수, 한 파일 한 컴포넌트, Props는 `{Component}Props` interface. `@/` 절대 경로. 쿼리 키는 `lib/queryKeys.ts`, SSE 이름은 `shared/sse-events.json`.
+- 프론트: 컴포넌트 파일 PascalCase, 훅·유틸 camelCase, 라우트 폴더 kebab-case. 라우트 파일 외 컴포넌트는 `export const` 화살표 함수, 한 파일 한 컴포넌트, Props는 `{Component}Props` interface. `@/` 절대 경로. 쿼리 키는 `lib/queryKeys.ts`, SSE 이름은 `shared/sse-events.json`(`lib/sseEvents.ts`).
+- 공통(프론트·백엔드): 숫자·식별 문자열은 이름 붙인 상수나 enum으로 한 곳에 두고, 두 곳 이상 반복되는 로직은 순수 함수·공용 훅으로 뺍니다. 위치는 `.claude/rules/frontend.md`·`backend.md`의 "상수·반복 코드" 절.
 - Tailwind CSS v4(현재 4.3) 문법으로만 작성합니다.
   - `tailwind.config.js`를 만들지 않습니다. 테마는 `src/app/globals.css`의 `@theme`에 CSS 변수로 정의합니다.
   - v3 지시어(`@tailwind base` 등) 금지, `@apply`는 최소화합니다.

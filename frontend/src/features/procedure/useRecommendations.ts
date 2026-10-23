@@ -2,6 +2,8 @@ import { useQuery } from '@tanstack/react-query';
 
 import { isServerSession } from '@/lib/accountSession';
 import { apiFetch } from '@/lib/api';
+import { API_PATHS } from '@/lib/apiPaths';
+import { STALE_TIME } from '@/lib/queryConfig';
 import { queryKeys } from '@/lib/queryKeys';
 import { recommendationsFromServer } from '@/lib/recommendations';
 import type { components } from '@/types/api.gen';
@@ -25,11 +27,9 @@ export const useRecommendations = (
     queryFn: async () =>
       isServerSession(sessionId) && personaId
         ? recommendationsFromServer(
-            await apiFetch<RecommendationList>(
-              `/accounts/${encodeURIComponent(personaId)}/rounds/current/recommendations`,
-            ),
+            await apiFetch<RecommendationList>(API_PATHS.recommendations(personaId)),
           )
-        : apiFetch<RecommendationsRead>('/procedure/current-round/recommendations'),
+        : apiFetch<RecommendationsRead>(API_PATHS.LEGACY_ROUND_RECOMMENDATIONS),
     enabled,
-    staleTime: Infinity,
+    staleTime: STALE_TIME.UNTIL_UPDATED,
   });

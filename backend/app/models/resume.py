@@ -14,19 +14,22 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.db import Base
-from app.models._columns import UpdatedAt, UuidPk, in_check, user_fk
+from app.models._columns import UpdatedAt, UuidPk, enum_values, in_check, user_fk
+from app.schemas.resume import ResumeStatus
 
 
 class Resume(Base):
     """이력서. 계정당 하나, 버전 없이 최신이 최종. 칸마다 값과 상태를 data에 둡니다."""
 
     __tablename__ = "resumes"
-    __table_args__ = (CheckConstraint(in_check("status", ("draft", "saved")), name="status"),)
+    __table_args__ = (
+        CheckConstraint(in_check("status", enum_values(ResumeStatus)), name="status"),
+    )
 
     resume_id: Mapped[UuidPk]
     user_id: Mapped[uuid.UUID] = user_fk(unique=True)
     schema_version: Mapped[str] = mapped_column(String(40))
-    status: Mapped[str] = mapped_column(String(10), default="draft")
+    status: Mapped[str] = mapped_column(String(10), default=ResumeStatus.DRAFT.value)
     data: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
     saved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     lock_version: Mapped[int] = mapped_column(Integer, default=1)

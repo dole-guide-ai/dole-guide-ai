@@ -1,7 +1,8 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
-import { apiFetch } from '@/lib/api';
-import { applyFormUpdate } from '@/lib/formStore';
+import { apiSend } from '@/lib/api';
+import { API_PATHS } from '@/lib/apiPaths';
+import { applyFormUpdates } from '@/lib/formStore';
 import { queryKeys } from '@/lib/queryKeys';
 import type { MyDataDelete, MyDataDeleteRead } from '@/types/myData.types';
 
@@ -14,9 +15,9 @@ export const useDeleteMyData = (sessionId: string) => {
 
   return useMutation({
     mutationFn: (body: MyDataDelete) =>
-      apiFetch<MyDataDeleteRead>('/me/data', { method: 'DELETE', body: JSON.stringify(body) }),
-    onSuccess: ({ updates }) => {
-      updates.forEach(applyFormUpdate);
+      apiSend<MyDataDeleteRead>(API_PATHS.LEGACY_MY_DATA, 'DELETE', body),
+    onSuccess: (result) => {
+      applyFormUpdates(result);
       void queryClient.invalidateQueries({ queryKey: queryKeys.myData(sessionId) });
     },
   });

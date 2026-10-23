@@ -5,9 +5,12 @@
 
 from datetime import datetime
 from enum import StrEnum
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
+
+# 메시지 하나의 최대 글자 수
+MESSAGE_MAX_CHARS = 2000
 
 
 class InputKind(StrEnum):
@@ -16,8 +19,23 @@ class InputKind(StrEnum):
     CHOICE = "choice"
 
 
+class MessageRole(StrEnum):
+    USER = "user"
+    ASSISTANT = "assistant"
+
+
+class MessageKind(StrEnum):
+    """말풍선 종류. 사용자 말풍선은 입력 방식(InputKind)과 같은 값을 씁니다."""
+
+    TEXT = "text"
+    VOICE = "voice"
+    CHOICE = "choice"
+    ASK_USER = "ask_user"
+    ERROR = "error"
+
+
 class MessageCreate(BaseModel):
-    text: str = Field(min_length=1, max_length=2000)
+    text: str = Field(min_length=1, max_length=MESSAGE_MAX_CHARS)
     input_kind: InputKind = InputKind.TEXT
     file_ids: list[str] = []
     import_ids: list[str] = []
@@ -36,3 +54,37 @@ class MessageList(BaseModel):
     items: list[MessageRead]
     total: int
     next_cursor: int | None = None
+
+
+# ── 대화 턴 SSE 이벤트 페이로드
+# 노션 「API · ERD 설계」 4절, 프론트 types/chat.types.ts와 같은 모양입니다.
+# 이벤트 이름은 shared/sse-events.json을 따릅니다(app/agent/events.py).
+
+
+class TokenEvent(BaseModel):
+    text: str
+
+
+class ToolCallEvent(BaseModel):
+    name: str
+    status: Literal["started", "finished"]
+
+
+class AskUserEvent(BaseModel):
+    question_id: str
+    text: str
+    choices: list[str] = []
+    import_kind: str | None = None
+    accepts_file: bool = False
+
+
+class DoneEvent(BaseModel):
+    cite: str | None = None
+    rule_refs: list[str] = []
+
+
+class ErrorEvent(BaseModel):
+    """턴 도중 실패. code는 LLM_UNAVAILABLE·RATE_LIMITED·INTERNAL_ERROR·TIMEOUT."""
+
+    code: str
+    message: str

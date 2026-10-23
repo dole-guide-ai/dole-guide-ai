@@ -4,6 +4,7 @@ import { resumePath } from '@/features/resume/useResumeForm';
 
 import { isServerSession } from '@/lib/accountSession';
 import { ApiError, apiFetch } from '@/lib/api';
+import { API_PATHS } from '@/lib/apiPaths';
 import { applyFormUpdate, getFormDrafts } from '@/lib/formStore';
 import { queryKeys } from '@/lib/queryKeys';
 import { resumePatchOp } from '@/lib/resumeForm';
@@ -24,7 +25,7 @@ export const usePatchResumeField = (sessionId?: string, personaId?: string) => {
   return useMutation({
     mutationFn: async (body: FormPatchCreate) => {
       if (!isServer) {
-        return apiFetch<FormPatchRead>('/forms/resume', {
+        return apiFetch<FormPatchRead>(API_PATHS.LEGACY_RESUME, {
           method: 'PATCH',
           body: JSON.stringify(body),
         });

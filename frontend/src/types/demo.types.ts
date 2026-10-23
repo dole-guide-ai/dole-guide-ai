@@ -1,4 +1,4 @@
-import type { ImportKind } from '@/types/imports.types';
+import type { AskUserEvent } from '@/types/chat.types';
 
 /**
  * 상세기획 1장(사용자 상태 모델·진입 분기)에 맞춘 임시 타입.
@@ -88,11 +88,7 @@ export interface EntryResult {
    * 새로고침 전 답을 기다리던 질문 (F-03, `AccountRead.pending_ask`). 있으면 그 선택지·불러오기 종류를 다시 띄우고,
    * 없으면 저장된 대화를 되살릴 때 진입 선택지를 지웁니다.
    */
-  pending_ask?: {
-    choices: string[];
-    import_kind: ImportKind | null;
-    accepts_file: boolean;
-  } | null;
+  pending_ask?: Pick<AskUserEvent, 'choices' | 'import_kind' | 'accepts_file'> | null;
   ui: { big_text: boolean };
   rule_refs: string[];
 }

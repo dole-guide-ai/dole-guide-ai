@@ -4,6 +4,7 @@ import { toRecognitionDraft } from '@/features/recognition/useRecognitionForm';
 
 import { isServerSession } from '@/lib/accountSession';
 import { apiFetch } from '@/lib/api';
+import { API_PATHS } from '@/lib/apiPaths';
 import { recognitionFromApplication } from '@/lib/applicationForm';
 import { replaceFormDraft } from '@/lib/formStore';
 import { queryKeys } from '@/lib/queryKeys';
@@ -26,7 +27,7 @@ interface ConfirmBody extends RecognitionConfirmCreate {
  * PATCH가 성공하면 제출은 된 것이라, 다시 받기가 실패해도 성공으로 보고 null을 돌려줍니다.
  */
 const submitToServer = async (personaId: string, round: number | null, body: ConfirmBody) => {
-  const path = `/accounts/${encodeURIComponent(personaId)}/rounds/${round ?? 'current'}/application`;
+  const path = API_PATHS.application(personaId, round);
   const patch = [
     { op: 'replace', path: '/status', value: 'submitted' },
     { op: 'replace', path: '/submit_mode', value: body.submit_mode },
@@ -57,7 +58,7 @@ export const useConfirmRecognition = (
     mutationFn: (body: ConfirmBody): Promise<RecognitionFormRead | null> =>
       sessionId && personaId && isServerSession(sessionId)
         ? submitToServer(personaId, round, body)
-        : apiFetch<RecognitionFormRead>('/forms/recognition/confirm', {
+        : apiFetch<RecognitionFormRead>(API_PATHS.LEGACY_RECOGNITION_CONFIRM, {
             method: 'POST',
             body: JSON.stringify({ submit_mode: body.submit_mode }),
           }),
