@@ -16,6 +16,7 @@ import type { MyDataGroup } from '@/types/myData.types';
  */
 interface MyDataDialogProps {
   sessionId: string;
+  personaId?: string;
   onClose: () => void;
 }
 
@@ -30,9 +31,9 @@ const GROUPS: MyDataGroup[] = ['resume', 'procedure', 'facts'];
 const errorText = (error: unknown, fallback: string) =>
   error instanceof ApiError ? error.message : fallback;
 
-export const MyDataDialog = ({ sessionId, onClose }: MyDataDialogProps) => {
-  const query = useMyData(sessionId, true);
-  const remove = useDeleteMyData(sessionId);
+export const MyDataDialog = ({ sessionId, personaId, onClose }: MyDataDialogProps) => {
+  const query = useMyData(sessionId, true, personaId);
+  const remove = useDeleteMyData(sessionId, personaId);
 
   useEffect(() => {
     const handleKey = (event: KeyboardEvent) => {

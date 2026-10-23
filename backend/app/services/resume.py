@@ -134,7 +134,7 @@ def read_resume(db: Session, account: AccountContext) -> ResumeRead:
     """이력서가 아직 없으면(박진수) 빈 초안을 lock_version 0으로 돌려줍니다."""
     procedure = _procedure_or_404(db, account.user_id)
     resume = repo.get_resume(db, account.user_id)
-    data = _data(resume)
+    data = read_resume_data(resume)
     question = rules.next_resume_question(
         data, entry_branch=_branch(data), separation_date=procedure.separation_date
     )
@@ -197,7 +197,7 @@ def patch_resume(
 def _save(db: Session, account: AccountContext, now: datetime) -> UpdatesRead:
     procedure = _procedure_or_404(db, account.user_id)
     resume = repo.get_resume(db, account.user_id)
-    data = _data(resume)
+    data = read_resume_data(resume)
     if resume is None or not rules.can_save_resume(data):
         raise ConflictError(code=ErrorCode.RESUME_NOT_READY)
     branch = _branch(data)
@@ -269,7 +269,7 @@ def _procedure_or_404(db: Session, user_id: uuid.UUID):
     return procedure
 
 
-def _data(resume: repo.Resume | None) -> resume_form.ResumeData:
+def read_resume_data(resume: repo.Resume | None) -> resume_form.ResumeData:
     if resume is None:
         return resume_form.ResumeData()
     return resume_form.ResumeData.model_validate(_upgrade_legacy(resume.data))
