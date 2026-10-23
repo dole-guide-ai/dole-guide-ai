@@ -27,7 +27,7 @@ from app.schemas.common import (
     FormName,
     FormUpdate,
     JsonPatchOp,
-    PatchErrorReason,
+    PatchErrorType,
     PatchOpName,
     UpdatesRead,
 )
@@ -83,7 +83,7 @@ def save_resume_fields(
         if not _shape_ok(w):
             raise UnprocessableError(
                 "값 모양이 맞지 않아요.",
-                details=[{"field": f"writes[{index}]", "reason": "bad_shape"}],
+                details=[{"field": f"writes[{index}]", "type": PatchErrorType.BAD_SHAPE}],
             )
         json_patch.set_field(raw, w.path, w.model_dump(mode="json", exclude={"path"}))
     try:
@@ -98,7 +98,7 @@ def save_resume_fields(
     if too_many:
         raise UnprocessableError(
             "고용24는 3개까지만 넣을 수 있어요.",
-            details=[{"field": p, "reason": "too_many"} for p in too_many],
+            details=[{"field": p, "type": PatchErrorType.TOO_MANY} for p in too_many],
         )
 
     resume.data = data.model_dump(mode="json")
@@ -178,7 +178,7 @@ def patch_resume(
         if op.op != PatchOpName.REMOVE and not _date_ok(op.path, op.value):
             raise UnprocessableError(
                 DATE_FORMAT_MESSAGE,
-                details=[{"field": f"patch[{index}]", "reason": PatchErrorReason.DATE_FORMAT}],
+                details=[{"field": f"patch[{index}]", "type": PatchErrorType.DATE_FORMAT}],
             )
     # shortcut: 항목 통째로 지우기(remove /careers/c1)는 칸 쓰기로 표현할 수 없어 아직 422입니다.
     writes = [

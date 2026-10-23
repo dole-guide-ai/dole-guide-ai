@@ -84,7 +84,7 @@ def test_resume_date_must_be_year_month(
         headers=headers,
         json=[{"op": "replace", "path": "/careers/c1/start_date", "value": "2004년 3월"}],
     )
-    assert bad.status_code == 422 and bad.json()["details"][0]["reason"] == "date_format"
+    assert bad.status_code == 422 and bad.json()["details"][0]["type"] == "date_format"
     assert client.get(url, headers=headers).json()["data"]["careers"] == []
     ok = client.patch(
         url,

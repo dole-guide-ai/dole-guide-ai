@@ -117,8 +117,8 @@ class PatchOpName(StrEnum):
     REMOVE = "remove"
 
 
-class PatchErrorReason(StrEnum):
-    """칸 고치기 422의 details.reason (입력값 대신 이유만 알립니다)."""
+class PatchErrorType(StrEnum):
+    """칸 고치기 422의 details.type (CONVENTIONS 7절 `[{field, type}]`, 입력값 대신 이유만)."""
 
     UNKNOWN_PATH = "unknown_path"
     REQUIRED = "required"
@@ -126,6 +126,8 @@ class PatchErrorReason(StrEnum):
     NUMBER = "number"
     TEXT = "text"
     OUT_OF_ROUND = "out_of_round"
+    BAD_SHAPE = "bad_shape"
+    TOO_MANY = "too_many"
 
 
 class JsonPatchOp(BaseModel):

@@ -20,7 +20,7 @@ from app.schemas.common import (
     ErrorCode,
     FieldSource,
     JsonPatchOp,
-    PatchErrorReason,
+    PatchErrorType,
     PatchOpName,
     UpdatesRead,
 )
@@ -64,9 +64,7 @@ def patch_activity(
     if not in_round(values.get(ActivityField.ACTIVITY_DATE, activity.activity_date)):
         raise UnprocessableError(
             DATE_MESSAGE,
-            details=[
-                {"field": ActivityField.ACTIVITY_DATE, "reason": PatchErrorReason.OUT_OF_ROUND}
-            ],
+            details=[{"field": ActivityField.ACTIVITY_DATE, "type": PatchErrorType.OUT_OF_ROUND}],
         )
     for field, value in values.items():
         setattr(activity, field, value)
@@ -82,10 +80,10 @@ def _uuid(raw: str) -> uuid.UUID:
         raise NotFoundError(message=NOT_FOUND_MESSAGE) from None
 
 
-def _bad(index: int, reason: PatchErrorReason) -> UnprocessableError:
+def _bad(index: int, error_type: PatchErrorType) -> UnprocessableError:
     """몇 번째 연산이 왜 틀렸는지만 알립니다 (입력값은 넣지 않음)."""
     return UnprocessableError(
-        BAD_VALUE_MESSAGE, details=[{"field": f"patch[{index}]", "reason": reason}]
+        BAD_VALUE_MESSAGE, details=[{"field": f"patch[{index}]", "type": error_type}]
     )
 
 
@@ -93,29 +91,29 @@ def _field(index: int, op: JsonPatchOp) -> ActivityField:
     try:
         return ActivityField(op.path.removeprefix("/"))
     except ValueError:
-        raise _bad(index, PatchErrorReason.UNKNOWN_PATH) from None
+        raise _bad(index, PatchErrorType.UNKNOWN_PATH) from None
 
 
 def _value(index: int, op: JsonPatchOp) -> Any:
     field = _field(index, op)
     if op.op == PatchOpName.REMOVE or op.value is None:
         if field in REQUIRED:
-            raise _bad(index, PatchErrorReason.REQUIRED)
+            raise _bad(index, PatchErrorType.REQUIRED)
         return None
     if field == ActivityField.ACTIVITY_DATE:
         try:
             return date.fromisoformat(op.value)
         except TypeError, ValueError:
-            raise _bad(index, PatchErrorReason.DATE_FORMAT) from None
+            raise _bad(index, PatchErrorType.DATE_FORMAT) from None
     if field == ActivityField.HOURS:
         try:
             hours = Decimal(str(op.value))
         except InvalidOperation:
-            raise _bad(index, PatchErrorReason.NUMBER) from None
+            raise _bad(index, PatchErrorType.NUMBER) from None
         if not MIN_HOURS <= hours <= MAX_HOURS:
-            raise _bad(index, PatchErrorReason.NUMBER)
+            raise _bad(index, PatchErrorType.NUMBER)
         return hours
     text = op.value.strip() if isinstance(op.value, str) else ""
     if not 0 < len(text) <= TEXT_LIMITS[field]:
-        raise _bad(index, PatchErrorReason.TEXT)
+        raise _bad(index, PatchErrorType.TEXT)
     return text
