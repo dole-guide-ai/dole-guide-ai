@@ -86,14 +86,8 @@ def delete_user(db: Session, user: User) -> None:
     db.flush()
 
 
-def get_procedure(
-    db: Session, user_id: uuid.UUID, *, for_update: bool = False
-) -> ProcedureState | None:
-    """절차 상태를 돌려줍니다.
-
-    고칠 때는 `for_update=True`로 행을 잠가 같은 사실을 동시에 넣는 요청을 줄 세웁니다.
-    """
-    return db.get(ProcedureState, user_id, with_for_update=for_update)
+def get_procedure(db: Session, user_id: uuid.UUID) -> ProcedureState | None:
+    return db.get(ProcedureState, user_id)
 
 
 def get_resume(db: Session, user_id: uuid.UUID) -> Resume | None:

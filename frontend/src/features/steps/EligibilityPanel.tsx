@@ -1,6 +1,5 @@
 import { EvidenceLine } from '@/components/EvidenceLine';
 import { FieldRow } from '@/features/resume/FieldRow';
-import { ProcedureFactForm } from '@/features/steps/ProcedureFactForm';
 
 import { citeOf } from '@/lib/sources';
 import type { DerivedState, UserState } from '@/types/demo.types';
@@ -12,8 +11,6 @@ import type { DerivedState, UserState } from '@/types/demo.types';
 interface EligibilityPanelProps {
   state: UserState;
   derived: DerivedState;
-  /** 있으면 수급자격 신청일 입력을 보입니다 (F-16) */
-  personaId?: string;
   isReadOnly?: boolean;
 }
 
@@ -27,12 +24,7 @@ const PRESUBMIT_CONDITIONS = [
   '그만둔 날 기준 만 65세 미만이에요',
 ];
 
-export const EligibilityPanel = ({
-  state,
-  derived,
-  personaId,
-  isReadOnly = false,
-}: EligibilityPanelProps) => {
+export const EligibilityPanel = ({ state, derived, isReadOnly = false }: EligibilityPanelProps) => {
   const isApplied = state.stage === 'eligibility_applied' || state.stage === 'recognition';
 
   return (
@@ -85,15 +77,10 @@ export const EligibilityPanel = ({
           고용센터에 확인해 주세요.
         </p>
       )}
-      {!isReadOnly && !isApplied && personaId && (
-        <ProcedureFactForm
-          personaId={personaId}
-          path="/eligibility_applied_on"
-          dateLabel="수급자격 신청일"
-          defaultDate={state.demo_today}
-          buttonLabel="신청을 마쳤어요"
-          hint="고용센터에서 수급자격 신청을 마쳤으면 신청한 날을 넣어 주세요. 다음 단계에서 1차 실업인정일을 받아요."
-        />
+      {!isReadOnly && !isApplied && (
+        <p className="text-muted text-sm">
+          신청을 마치면 대화창에 알려 주세요. 다음 단계에서 1차 실업인정일을 받아요.
+        </p>
       )}
       <EvidenceLine cite={SOURCE} />
     </div>

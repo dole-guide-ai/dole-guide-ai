@@ -171,11 +171,7 @@ export interface paths {
          *     보내며, 각각 한 번만 입력할 수 있습니다.
          *     1차 인정일이 들어오면 서버가 회차와 회차별 신청서를 한꺼번에 만듭니다. 회차 자체를 바꾸는 값은
          *     없습니다.
-         *
-         *     - 단계 순서를 어기거나 이미 입력한 값이면 409 STAGE_ORDER
-         *     - 날짜 형식이 틀리거나 범위 밖이면 422
-         *       (신청일은 그만둔 다음 날~오늘, 1차 인정일은 대기기간 7일 뒤)
-         *     - 응답의 entry는 바뀐 첫 화면(진입 결과)입니다.
+         *     (아직 구현 전이라 501)
          */
         patch: operations["patch_procedure"];
         trace?: never;
@@ -2294,6 +2290,15 @@ export interface operations {
             };
             /** @description Internal Server Error */
             500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Implemented */
+            501: {
                 headers: {
                     [name: string]: unknown;
                 };
