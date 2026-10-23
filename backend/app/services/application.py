@@ -44,7 +44,7 @@ CURRENT = "current"
 ROUND_NOT_FOUND_MESSAGE = "그 회차의 신청서가 없어요."
 
 
-def _find_round(db: Session, user_id: uuid.UUID, round_ref: str, today: date):
+def find_round(db: Session, user_id: uuid.UUID, round_ref: str, today: date):
     rounds = repo.list_rounds(db, user_id)
     if round_ref == CURRENT:
         found = next((r for r in rounds if r.period_start <= today <= r.recognition_date), None)
@@ -66,7 +66,7 @@ def _previous_answers(db: Session, rounds: list, round_no: int) -> dict | None:
     return None
 
 
-def _activity_inputs(db: Session, user_id: uuid.UUID, start: date, end: date):
+def activity_inputs(db: Session, user_id: uuid.UUID, start: date, end: date):
     return [
         rules.ActivityInput(
             activity_id=str(a.activity_id),
@@ -90,7 +90,7 @@ def read_application(
     db: Session, account: AccountContext, round_ref: str, now: datetime
 ) -> ApplicationRead:
     """신청서와 지금 시각(KST) 기준 제출 방식·제출 전 확인을 돌려줍니다 (F-23·F-26)."""
-    target, rounds = _find_round(db, account.user_id, round_ref, now.date())
+    target, rounds = find_round(db, account.user_id, round_ref, now.date())
     application = repo.get_application(db, target.round_id)
     if application is None:
         raise NotFoundError(message=ROUND_NOT_FOUND_MESSAGE)
@@ -102,7 +102,7 @@ def read_application(
         application.data, _previous_answers(db, rounds, target.round_no)
     )
     activities = rules.build_form_activities(
-        _activity_inputs(db, account.user_id, target.period_start, target.period_end),
+        activity_inputs(db, account.user_id, target.period_start, target.period_end),
         target.period_start,
         target.period_end,
     )
@@ -157,7 +157,7 @@ LOCKED_MESSAGE = "이미 제출한 신청서예요. 고칠 게 있으면 고용�
 
 def _writable(db: Session, account: AccountContext, round_ref: str, now: datetime):
     """고칠 수 있는 신청서인지 확인하고 (회차, 신청서 행)을 돌려줍니다."""
-    target, _ = _find_round(db, account.user_id, round_ref, now.date())
+    target, _ = find_round(db, account.user_id, round_ref, now.date())
     # 대화의 답 저장과 제출이 겹쳐도 나중 저장이 앞 답을 덮지 않게 행을 잠급니다.
     application = repo.get_application(db, target.round_id, for_update=True)
     if application is None:
