@@ -5,7 +5,6 @@
 
 import type { components } from '@/types/api.gen';
 import type { BranchId, EntryResult, ResumeStatus, SessionRead } from '@/types/demo.types';
-import type { ImportKind } from '@/types/imports.types';
 
 type AccountRead = components['schemas']['AccountRead'];
 
@@ -72,15 +71,6 @@ export const sessionFromAccount = (account: AccountRead): SessionRead => {
       branch_id: entry.branch_id as BranchId,
       panel: entry.panel as EntryResult['panel'],
       progress: entry.progress as EntryResult['progress'],
-      // 새로고침 전 답을 기다리던 질문이 있으면 그 선택지·불러오기 종류를 다시 띄웁니다 (F-03).
-      choices: account.pending_ask?.choices ?? entry.choices,
-      pending_ask: account.pending_ask
-        ? {
-            choices: account.pending_ask.choices,
-            import_kind: (account.pending_ask.import_kind as ImportKind | null) ?? null,
-            accepts_file: account.pending_ask.accepts_file ?? false,
-          }
-        : null,
       messages: entry.messages.map(({ template_id, text, cite }) => ({
         template_id,
         text,

@@ -1,39 +1,31 @@
 """대화 기록 조회와 메시지 보내기를 맡는 라우터입니다.
 
 메시지를 보내는 요청 하나가 곧 대화 턴 하나이고, 응답은 SSE 스트림으로 흘려보냅니다.
-턴 안의 처리는 LangGraph가 맡을 예정이며, 메시지 보내기는 아직 501 틀입니다.
-대화 기록 조회(새로고침 복원, F-03)는 동작합니다.
+턴 안의 처리는 LangGraph가 맡을 예정이며, 지금은 501 틀입니다.
 """
 
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query
 
-from app.api.deps import CurrentAccount, IdempotencyKey, get_current_account
+from app.api.deps import IdempotencyKey, get_current_account
 from app.api.responses import error_responses
-from app.core.db import DbSession
 from app.core.errors import NotImplementedYetError
 from app.schemas.messages import MessageCreate, MessageList
-from app.services import messages as message_service
 
 router = APIRouter(
     prefix="/accounts/{persona_id}", tags=["messages"], dependencies=[Depends(get_current_account)]
 )
 
 
-@router.get("/messages", summary="대화 기록", responses=error_responses(401, 404))
-def list_messages(
-    db: DbSession,
-    account: CurrentAccount,
-    cursor: Annotated[int | None, Query(ge=0)] = None,
-) -> MessageList:
+@router.get("/messages", summary="대화 기록", responses=error_responses(401, 404, 501))
+def list_messages(cursor: Annotated[int | None, Query(ge=0)] = None) -> MessageList:
     """화면에 보일 대화 말풍선을 순서대로 돌려줍니다. 새로고침했을 때 대화를 그대로 복원하는 데
     씁니다.
 
-    한 번에 100개까지 돌려주고, 더 있으면 next_cursor를 줍니다. cursor를 주면 그 다음부터 이어서
-    돌려줍니다. 답을 기다리던 질문은 계정 조회(`GET /accounts/{id}`)의 pending_ask로 옵니다.
+    cursor를 주면 그 다음부터 이어서 돌려줍니다. (아직 구현 전이라 501)
     """
-    return message_service.list_messages(db, account.user_id, cursor)
+    raise NotImplementedYetError()
 
 
 @router.post(
