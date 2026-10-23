@@ -27,6 +27,8 @@ from app.schemas.common import (
     FormName,
     FormUpdate,
     JsonPatchOp,
+    PatchErrorReason,
+    PatchOpName,
     UpdatesRead,
 )
 from app.schemas.forms import resume as resume_form
@@ -173,9 +175,10 @@ def patch_resume(
         raise UnprocessableError("저장은 /status를 saved로 보내 주세요.")
 
     for index, op in enumerate(patch):
-        if op.op != "remove" and not _date_ok(op.path, op.value):
+        if op.op != PatchOpName.REMOVE and not _date_ok(op.path, op.value):
             raise UnprocessableError(
-                DATE_FORMAT_MESSAGE, details=[{"field": f"patch[{index}]", "reason": "date_format"}]
+                DATE_FORMAT_MESSAGE,
+                details=[{"field": f"patch[{index}]", "reason": PatchErrorReason.DATE_FORMAT}],
             )
     # shortcut: 항목 통째로 지우기(remove /careers/c1)는 칸 쓰기로 표현할 수 없어 아직 422입니다.
     writes = [
@@ -238,12 +241,15 @@ def work24_hint(data: resume_form.ResumeData) -> str:
 DATE_FORMAT_MESSAGE = "날짜는 2004-03처럼 연-월로 넣어 주세요."
 _YM = re.compile(r"\d{4}-(0[1-9]|1[0-2])")
 _YMD = re.compile(r"\d{4}-(0[1-9]|1[0-2])(-(0[1-9]|[12]\d|3[01]))?")
+DATE_FIELD_SUFFIX = "_date"
+# 연-월-일까지 받는 칸 (자격 취득일)
+FULL_DATE_FIELDS = ("acquired_date",)
 
 
 def _date_ok(path: str, value: Any) -> bool:
-    if not path.endswith("_date") or value is None:
+    if not path.endswith(DATE_FIELD_SUFFIX) or value is None:
         return True
-    pattern = _YMD if path.endswith("/acquired_date") else _YM
+    pattern = _YMD if path.rsplit("/", 1)[-1] in FULL_DATE_FIELDS else _YM
     return isinstance(value, str) and pattern.fullmatch(value) is not None
 
 

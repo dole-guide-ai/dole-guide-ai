@@ -12,29 +12,36 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 from app.core.errors import ConflictError, NotFoundError, UnprocessableError
+from app.models import Activity
 from app.repositories import accounts as repo
 from app.repositories import activities as activity_repo
-from app.schemas.common import ErrorCode, FieldSource, JsonPatchOp, UpdatesRead
+from app.schemas.activities import ActivityField
+from app.schemas.common import (
+    ErrorCode,
+    FieldSource,
+    JsonPatchOp,
+    PatchErrorReason,
+    PatchOpName,
+    UpdatesRead,
+)
 from app.services import accounts as account_service
 from app.services.accounts import AccountContext
 from app.services.application import CURRENT, find_round
 from app.services.recommendations import activity_update
 
 NOT_FOUND_MESSAGE = "활동을 찾지 못했어요."
-CLOSED_MESSAGE = "지난 회차 활동은 고칠 수 없어요."
 DATE_MESSAGE = "활동 날짜는 이번 회차 대상기간 안이어야 해요."
-# 칸 이름 → 최대 글자 수. 날짜·시간은 따로 검사합니다.
-TEXT_FIELDS = {
-    "kind": 40,
-    "route": 40,
-    "org_name": 100,
-    "job_title": 100,
-    "search_method": 40,
-    "apply_method": 40,
-    "contact_dept": 100,
-    "result": 100,
+BAD_VALUE_MESSAGE = "고칠 수 없는 칸이거나 형식이 맞지 않아요."
+MIN_HOURS = Decimal(0)
+MAX_HOURS = Decimal(24)  # 하루 활동 시간
+# 지울 수 없는 칸
+REQUIRED = {ActivityField.ACTIVITY_DATE, ActivityField.KIND}
+# 글자 칸은 컬럼 길이까지 받습니다.
+TEXT_LIMITS = {
+    f: Activity.__table__.c[f].type.length
+    for f in ActivityField
+    if f not in (ActivityField.ACTIVITY_DATE, ActivityField.HOURS)
 }
-REQUIRED = {"activity_date", "kind"}
 
 
 def patch_activity(
@@ -46,21 +53,26 @@ def patch_activity(
     if activity is None:
         raise NotFoundError(message=NOT_FOUND_MESSAGE)
     target, _ = find_round(db, account.user_id, CURRENT, today)
-    period = (target.period_start, target.recognition_date)
-    if not period[0] <= activity.activity_date <= period[1]:
-        raise ConflictError(code=ErrorCode.ROUND_CLOSED, message=CLOSED_MESSAGE)
 
-    values = {op.path.removeprefix("/"): _value(index, op) for index, op in enumerate(patch)}
-    new_date = values.get("activity_date", activity.activity_date)
-    if not period[0] <= new_date <= period[1]:
+    def in_round(day: date) -> bool:
+        return target.period_start <= day <= target.recognition_date
+
+    if not in_round(activity.activity_date):
+        raise ConflictError(code=ErrorCode.ROUND_CLOSED)
+
+    values = {_field(index, op): _value(index, op) for index, op in enumerate(patch)}
+    if not in_round(values.get(ActivityField.ACTIVITY_DATE, activity.activity_date)):
         raise UnprocessableError(
-            DATE_MESSAGE, details=[{"field": "activity_date", "reason": "out_of_round"}]
+            DATE_MESSAGE,
+            details=[
+                {"field": ActivityField.ACTIVITY_DATE, "reason": PatchErrorReason.OUT_OF_ROUND}
+            ],
         )
-    for name, value in values.items():
-        setattr(activity, name, value)
+    for field, value in values.items():
+        setattr(activity, field, value)
     activity.source = FieldSource.DIRECT
     db.commit()
-    return UpdatesRead(updates=[activity_update(activity, "replace")])
+    return UpdatesRead(updates=[activity_update(activity, PatchOpName.REPLACE)])
 
 
 def _uuid(raw: str) -> uuid.UUID:
@@ -70,35 +82,40 @@ def _uuid(raw: str) -> uuid.UUID:
         raise NotFoundError(message=NOT_FOUND_MESSAGE) from None
 
 
+def _bad(index: int, reason: PatchErrorReason) -> UnprocessableError:
+    """몇 번째 연산이 왜 틀렸는지만 알립니다 (입력값은 넣지 않음)."""
+    return UnprocessableError(
+        BAD_VALUE_MESSAGE, details=[{"field": f"patch[{index}]", "reason": reason}]
+    )
+
+
+def _field(index: int, op: JsonPatchOp) -> ActivityField:
+    try:
+        return ActivityField(op.path.removeprefix("/"))
+    except ValueError:
+        raise _bad(index, PatchErrorReason.UNKNOWN_PATH) from None
+
+
 def _value(index: int, op: JsonPatchOp) -> Any:
-    """칸 하나의 새 값. 틀리면 몇 번째 연산이 왜 틀렸는지만 422로 알립니다(입력값은 넣지 않음)."""
-    name = op.path.removeprefix("/")
-
-    def bad(reason: str) -> UnprocessableError:
-        return UnprocessableError(
-            "고칠 수 없는 칸이거나 형식이 맞지 않아요.",
-            details=[{"field": f"patch[{index}]", "reason": reason}],
-        )
-
-    if name not in TEXT_FIELDS and name not in ("activity_date", "hours"):
-        raise bad("unknown_path")
-    if op.op == "remove" or op.value is None:
-        if name in REQUIRED:
-            raise bad("required")
+    field = _field(index, op)
+    if op.op == PatchOpName.REMOVE or op.value is None:
+        if field in REQUIRED:
+            raise _bad(index, PatchErrorReason.REQUIRED)
         return None
-    if name == "activity_date":
+    if field == ActivityField.ACTIVITY_DATE:
         try:
             return date.fromisoformat(op.value)
         except TypeError, ValueError:
-            raise bad("date_format") from None
-    if name == "hours":
+            raise _bad(index, PatchErrorReason.DATE_FORMAT) from None
+    if field == ActivityField.HOURS:
         try:
             hours = Decimal(str(op.value))
         except InvalidOperation:
-            raise bad("number") from None
-        if not Decimal(0) <= hours <= Decimal(24):
-            raise bad("number")
+            raise _bad(index, PatchErrorReason.NUMBER) from None
+        if not MIN_HOURS <= hours <= MAX_HOURS:
+            raise _bad(index, PatchErrorReason.NUMBER)
         return hours
-    if not isinstance(op.value, str) or not 0 < len(op.value.strip()) <= TEXT_FIELDS[name]:
-        raise bad("text")
-    return op.value.strip()
+    text = op.value.strip() if isinstance(op.value, str) else ""
+    if not 0 < len(text) <= TEXT_LIMITS[field]:
+        raise _bad(index, PatchErrorReason.TEXT)
+    return text

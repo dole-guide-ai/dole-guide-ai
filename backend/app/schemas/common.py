@@ -111,6 +111,23 @@ class FormField(BaseModel):
     answered_on: date | None = None
 
 
+class PatchOpName(StrEnum):
+    ADD = "add"
+    REPLACE = "replace"
+    REMOVE = "remove"
+
+
+class PatchErrorReason(StrEnum):
+    """칸 고치기 422의 details.reason (입력값 대신 이유만 알립니다)."""
+
+    UNKNOWN_PATH = "unknown_path"
+    REQUIRED = "required"
+    DATE_FORMAT = "date_format"
+    NUMBER = "number"
+    TEXT = "text"
+    OUT_OF_ROUND = "out_of_round"
+
+
 class JsonPatchOp(BaseModel):
     """JSON Patch 한 줄. `path`는 `/careers/{item_id}/company_name`처럼 칸을 가리킵니다."""
 
