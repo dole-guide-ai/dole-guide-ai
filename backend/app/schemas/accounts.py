@@ -9,6 +9,7 @@ from datetime import date, datetime
 
 from pydantic import BaseModel
 
+from app.schemas.messages import AskUserEvent
 from app.schemas.procedure import ProcedureRead
 from app.schemas.rounds import RoundSummary
 
@@ -71,17 +72,11 @@ class Entry(BaseModel):
     rule_refs: list[str] = []
 
 
-class AskUser(BaseModel):
-    question_id: str
-    text: str
-    choices: list[str] = []
-    import_kind: str | None = None
-
-
 class AccountRead(BaseModel):
     persona_id: str
     today: date
     procedure: ProcedureRead
     current_round: RoundSummary | None = None
     entry: Entry
-    pending_ask: AskUser | None = None
+    # 답을 기다리던 질문. 대화 턴의 ask_user 이벤트와 같은 모양입니다 (F-03).
+    pending_ask: AskUserEvent | None = None

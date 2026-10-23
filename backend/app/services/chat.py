@@ -33,28 +33,17 @@ from app.schemas.messages import (
     ErrorEvent,
     MessageCreate,
     MessageKind,
-    MessageList,
-    MessageRead,
     MessageRole,
 )
+from app.services import messages as message_service
 from app.services.accounts import AccountContext
 from app.services.idempotency import request_hash
+from app.services.messages import TurnMessage
 
 logger = logging.getLogger(__name__)
 
-PAGE_SIZE = 50
 
-
-@dataclass(frozen=True)
-class Bubble:
-    """저장할 AI 말풍선 하나."""
-
-    kind: MessageKind
-    text: str | None
-    payload: dict[str, Any] | None
-
-
-def assistant_bubbles(events: Iterable[TurnEvent]) -> list[Bubble]:
+def assistant_bubbles(events: Iterable[TurnEvent]) -> list[TurnMessage]:
     """턴에서 나간 이벤트를 화면용 AI 말풍선으로 바꿉니다(순수 함수).
 
     글자(token)는 이어 붙여 말풍선 하나로, 근거(done)는 그 말풍선에 싣고, 질문(ask_user)과
@@ -62,7 +51,7 @@ def assistant_bubbles(events: Iterable[TurnEvent]) -> list[Bubble]:
     """
     texts: list[str] = []
     done: dict[str, Any] | None = None
-    tail: list[Bubble] = []
+    tail: list[TurnMessage] = []
     for event in events:
         payload = event.data.model_dump(mode="json", exclude_none=True)
         if event.name == TOKEN:
@@ -70,12 +59,16 @@ def assistant_bubbles(events: Iterable[TurnEvent]) -> list[Bubble]:
         elif event.name == DONE:
             done = payload
         elif event.name == ASK_USER:
-            tail.append(Bubble(MessageKind.ASK_USER, payload["text"], payload))
+            tail.append(_assistant(MessageKind.ASK_USER, payload["text"], payload))
         elif event.name == ERROR:
-            tail.append(Bubble(MessageKind.ERROR, payload["message"], payload))
+            tail.append(_assistant(MessageKind.ERROR, payload["message"], payload))
     text = "".join(texts).strip() or None
-    answer = [Bubble(MessageKind.TEXT, text, done)] if text or done else []
+    answer = [_assistant(MessageKind.TEXT, text, done)] if text or done else []
     return answer + tail
+
+
+def _assistant(kind: MessageKind, text: str | None, payload: dict[str, Any] | None) -> TurnMessage:
+    return TurnMessage(MessageRole.ASSISTANT, kind, text, payload)
 
 
 def _error_event(code: ErrorCode, message: str | None = None) -> TurnEvent:
@@ -106,15 +99,11 @@ class Turn:
         finally:
             # 끝까지 갔든, 실패했든, 연결이 끊겨 닫혔든 응답기를 멈추고 말풍선을 남깁니다.
             source.close()
-            for bubble in assistant_bubbles(sent):
-                repo.add(
-                    self.db,
-                    self.account.user_id,
-                    MessageRole.ASSISTANT,
-                    bubble.kind,
-                    bubble.text,
-                    bubble.payload,
-                )
+            message_service.save_turn(
+                self.db,
+                self.account.user_id,
+                assistant_bubbles(sent),
+            )
             self.db.commit()
 
     @staticmethod
@@ -147,7 +136,11 @@ def start_turn(
         idempotency_repo.add(
             db, account.user_id, idempotency_key, request_hash(body), HTTPStatus.OK, None
         )
-    repo.add(db, account.user_id, MessageRole.USER, MessageKind(body.input_kind), body.text)
+    message_service.save_turn(
+        db,
+        account.user_id,
+        [TurnMessage(MessageRole.USER, MessageKind(body.input_kind), body.text)],
+    )
     turn_input = responder.TurnInput(
         user_id=account.user_id,
         persona_id=account.persona_id,
@@ -158,11 +151,3 @@ def start_turn(
         import_ids=body.import_ids,
     )
     return Turn(db, account, turn_input)
-
-
-def list_messages(db: Session, account: AccountContext, cursor: int | None) -> MessageList:
-    # 하나 더 읽어서 다음 페이지가 있는지 압니다(쿼리를 더 하지 않음).
-    rows, total = repo.list_after(db, account.user_id, cursor or 0, PAGE_SIZE + 1)
-    page = [MessageRead.model_validate(row, from_attributes=True) for row in rows[:PAGE_SIZE]]
-    has_more = len(rows) > PAGE_SIZE
-    return MessageList(items=page, total=total, next_cursor=page[-1].seq if has_more else None)

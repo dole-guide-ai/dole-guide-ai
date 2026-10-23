@@ -18,6 +18,7 @@ from app.core.clock import Today
 from app.core.db import DbSession
 from app.schemas.messages import MessageCreate, MessageList
 from app.services import chat as chat_service
+from app.services import messages as message_service
 
 router = APIRouter(prefix="/accounts/{persona_id}", tags=["messages"])
 
@@ -30,12 +31,13 @@ def list_messages(
     account: CurrentAccount,
     cursor: Annotated[int | None, Query(ge=0)] = None,
 ) -> MessageList:
-    """화면에 보일 대화 말풍선을 오래된 순서로 50개씩 돌려줍니다. 새로고침했을 때 대화를 그대로
-    복원하는 데 씁니다.
+    """화면에 보일 대화 말풍선을 순서대로 돌려줍니다. 새로고침했을 때 대화를 그대로 복원하는 데
+    씁니다.
 
-    cursor(받은 마지막 seq)를 주면 그 다음부터 이어서 돌려줍니다.
+    한 번에 100개까지 돌려주고, 더 있으면 next_cursor를 줍니다. cursor를 주면 그 다음부터 이어서
+    돌려줍니다. 답을 기다리던 질문은 계정 조회(`GET /accounts/{id}`)의 pending_ask로 옵니다.
     """
-    return chat_service.list_messages(db, account, cursor)
+    return message_service.list_messages(db, account.user_id, cursor)
 
 
 @router.post(

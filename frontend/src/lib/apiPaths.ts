@@ -10,6 +10,9 @@ export const API_PATHS = {
   personas: '/personas',
   account,
   messages: (personaId: string) => `${account(personaId)}/messages`,
+  activities: (personaId: string) => `${account(personaId)}/activities`,
+  currentRound: (personaId: string) => `${account(personaId)}/rounds/current`,
+  recommendations: (personaId: string) => `${account(personaId)}/rounds/current/recommendations`,
   /** 회차 신청서. round가 없으면 지금 회차(`current`) */
   application: (personaId: string, round: number | null) =>
     `${account(personaId)}/rounds/${round ?? 'current'}/application`,

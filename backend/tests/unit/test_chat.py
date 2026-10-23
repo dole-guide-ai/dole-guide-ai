@@ -4,10 +4,12 @@ from app.schemas.messages import (
     DoneEvent,
     ErrorEvent,
     MessageKind,
+    MessageRole,
     TokenEvent,
     ToolCallEvent,
 )
-from app.services.chat import Bubble, assistant_bubbles
+from app.services.chat import assistant_bubbles
+from app.services.messages import TurnMessage
 
 
 def test_tokens_join_into_one_answer_with_cite() -> None:
@@ -21,7 +23,12 @@ def test_tokens_join_into_one_answer_with_cite() -> None:
     )
 
     assert bubbles == [
-        Bubble(MessageKind.TEXT, "1건 남았어요.", {"cite": "안내문", "rule_refs": []})
+        TurnMessage(
+            MessageRole.ASSISTANT,
+            MessageKind.TEXT,
+            "1건 남았어요.",
+            {"cite": "안내문", "rule_refs": []},
+        )
     ]
 
 

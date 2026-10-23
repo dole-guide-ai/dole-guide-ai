@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { Button } from '@/components/Button';
 import { EvidenceLine } from '@/components/EvidenceLine';
 import { ActivityList } from '@/features/procedure/ActivityList';
+import { BenefitEndNote } from '@/features/procedure/BenefitEndNote';
 import { DdayCard } from '@/features/procedure/DdayCard';
 import { RecommendationBox } from '@/features/procedure/RecommendationBox';
 import { RequirementCard } from '@/features/procedure/RequirementCard';
@@ -28,19 +29,28 @@ interface RoundPanelProps {
 }
 
 export const RoundPanel = ({ session, onOpenForm }: RoundPanelProps) => {
-  const query = useRoundCheck(session.session_id, session.derived.current_round);
+  const query = useRoundCheck(session.session_id, session.derived.current_round, {
+    personaId: session.persona_id,
+    ruleGroup: session.derived.rule_group,
+  });
   const draft = useRoundDraft();
   const [isAskingShort, setIsAskingShort] = useState(false);
   const remove = useRemoveActivity();
 
   if (query.isPending) return <p className="text-muted text-base">이번 회차 활동을 불러오는 중…</p>;
   if (query.isError) {
+    // 점검을 못 받아도(예: 회차 점검 API 준비 전) 신청서로는 넘어갈 수 있게 버튼을 남깁니다 (F-22).
     return (
-      <p role="alert" className="text-danger text-base">
-        {query.error instanceof ApiError
-          ? query.error.message
-          : '이번 회차 활동을 불러오지 못했어요.'}
-      </p>
+      <div className="flex flex-col gap-3">
+        <p role="alert" className="text-danger text-base">
+          {query.error instanceof ApiError
+            ? query.error.message
+            : '이번 회차 활동을 불러오지 못했어요.'}
+        </p>
+        <Button size="lg" onClick={onOpenForm} disabled={!onOpenForm}>
+          활동 정리 끝 · 신청서 만들기
+        </Button>
+      </div>
     );
   }
 
@@ -77,6 +87,7 @@ export const RoundPanel = ({ session, onOpenForm }: RoundPanelProps) => {
       <DdayCard state={session.state} derived={session.derived} />
       <RequirementCard check={check} />
       <RoundProgress markers={check.round_markers} />
+      <BenefitEndNote derived={session.derived} />
 
       <section className="flex flex-col gap-2">
         <h3 className="text-base font-bold">이번 회차 활동</h3>
@@ -94,7 +105,12 @@ export const RoundPanel = ({ session, onOpenForm }: RoundPanelProps) => {
       </section>
 
       {check.recommendations_open && (
-        <RecommendationBox sessionId={session.session_id} plannedIds={plannedIds} />
+        <RecommendationBox
+          sessionId={session.session_id}
+          plannedIds={plannedIds}
+          personaId={session.persona_id}
+          round={session.derived.current_round}
+        />
       )}
 
       <div className="flex flex-col gap-2">

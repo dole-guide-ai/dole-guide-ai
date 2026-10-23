@@ -26,15 +26,19 @@ export interface ToolCallEvent {
   status: (typeof TOOL_STATUS)[keyof typeof TOOL_STATUS];
 }
 
-export interface AskUserEvent {
-  question_id: string;
-  text: string;
-  choices: string[];
-  /** 고용24 불러오기 목록을 열 때 (2-0.4). 대화창 안에서 고르게 합니다. */
-  import_kind?: ImportKind;
-  /** 이 질문이 서류·사진을 요청할 때만 true (2-0.4). 프론트는 이때만 `파일 올리기`를 켭니다. */
+/**
+ * 질문 이벤트이자 새로고침 뒤 멈춘 질문(`AccountRead.pending_ask`). 백엔드 스키마를 그대로 쓰고,
+ * 불러오기 종류만 화면이 아는 값으로 좁힙니다.
+ * - `import_kind`: 고용24 불러오기 목록을 열 때 (2-0.4)
+ * - `accepts_file`: 서류·사진을 요청할 때만 true. 이때만 `파일 올리기`를 켭니다 (2-0.4)
+ */
+export type AskUserEvent = Omit<
+  components['schemas']['AskUserEvent'],
+  'import_kind' | 'accepts_file'
+> & {
+  import_kind?: ImportKind | null;
   accepts_file?: boolean;
-}
+};
 
 export type FormKind = 'resume' | 'activities' | 'recognition' | 'procedure';
 

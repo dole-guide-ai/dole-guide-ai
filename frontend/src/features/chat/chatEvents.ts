@@ -25,7 +25,7 @@ export const chatActionFor = (event: BubbleEvent): ChatAction => {
         type: CHAT_ACTIONS.ASK_USER,
         text: event.data.text,
         choices: event.data.choices,
-        importKind: event.data.import_kind,
+        importKind: event.data.import_kind ?? undefined,
         acceptsFile: event.data.accepts_file,
       };
     case SSE_EVENTS.DONE:

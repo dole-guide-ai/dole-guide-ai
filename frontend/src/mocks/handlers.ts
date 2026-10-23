@@ -216,7 +216,8 @@ export const resolveMock = async <T>(path: string, init?: RequestInit): Promise<
     if (!item || deletedMyData.has(item.item_id)) {
       throw new ApiError(ERROR_CODES.NOT_FOUND, '지울 정보를 찾지 못했어요.', 404);
     }
-    if (!item.is_deletable) throw new ApiError('CONFLICT', '이 정보는 지울 수 없어요.', 409);
+    if (!item.is_deletable)
+      throw new ApiError(ERROR_CODES.CONFLICT, '이 정보는 지울 수 없어요.', 409);
     deletedMyData.add(item.item_id);
     return { updates: MOCK_MY_DATA_DELETE_UPDATES[item.item_id] ?? [] } as T;
   }
@@ -235,7 +236,7 @@ export const resolveMock = async <T>(path: string, init?: RequestInit): Promise<
       ? mockRecognitionForm(personaId, getFormDrafts().activities.values)
       : undefined;
     if (!form || !body || body.submit_mode !== form.submit_mode) {
-      throw new ApiError('CONFLICT', '지금은 이 방법으로 낼 수 없어요.', 409);
+      throw new ApiError(ERROR_CODES.CONFLICT, '지금은 이 방법으로 낼 수 없어요.', 409);
     }
     // 실제 제출이 아니므로 `submitted`로 바꾸지 않고 `mock_submission`에만 적습니다 (2-3.7).
     return {

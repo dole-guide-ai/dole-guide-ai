@@ -8,6 +8,7 @@ type ServerErrorCode = components['schemas']['ErrorCode'];
  */
 export const ERROR_CODES = {
   NOT_FOUND: 'NOT_FOUND',
+  CONFLICT: 'CONFLICT',
   VALIDATION_ERROR: 'VALIDATION_ERROR',
   FILE_TOO_LARGE: 'FILE_TOO_LARGE',
   TURN_IN_PROGRESS: 'TURN_IN_PROGRESS',
