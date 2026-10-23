@@ -16,7 +16,6 @@ import { MyDataDialog } from '@/features/myData/MyDataDialog';
 import { OPEN_FORM_MESSAGE } from '@/features/procedure/activityLabels';
 import { CONFIRMED_MESSAGE } from '@/features/recognition/recognitionLabels';
 
-import { isServerSession } from '@/lib/accountSession';
 import { ApiError } from '@/lib/api';
 import { resetForms } from '@/lib/formStore';
 import { setSession } from '@/lib/sessionStore';
@@ -52,15 +51,6 @@ export const DashboardView = ({ session, personaName }: DashboardViewProps) => {
   useEffect(() => {
     setIsBig(bigTextDefault);
   }, [session.session_id, bigTextDefault, setIsBig]);
-
-  // F-22: 실제 서버 세션은 대화 응답을 기다리지 않고 바로 신청서(패널 C)를 엽니다. 모의 세션은 대화 스크립트가 엽니다.
-  const handleOpenForm = () => {
-    if (isServerSession(session.session_id)) {
-      setSession({ ...session, entry: { ...entry, panel: 'C' } });
-      return;
-    }
-    void chat.send(OPEN_FORM_MESSAGE, { inputKind: 'choice' });
-  };
 
   const handleSwitchAccount = () => {
     resetForms();
@@ -139,7 +129,7 @@ export const DashboardView = ({ session, personaName }: DashboardViewProps) => {
         <PanelFrame
           session={session}
           onEditRequest={(label) => chat.setInputText(`${label} 고칠게요`)}
-          onOpenForm={handleOpenForm}
+          onOpenForm={() => void chat.send(OPEN_FORM_MESSAGE, { inputKind: 'choice' })}
           reviewStep={reviewStep}
           onExitReview={() => setReview(null)}
           onFormConfirmed={(mode) =>
