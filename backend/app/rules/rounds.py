@@ -74,7 +74,7 @@ class _Refs:
 
 
 def _short(day: date) -> str:
-    return f"{day.month:02d}.{day.day:02d}"
+    return f"{day.month}월 {day.day}일"
 
 
 def is_not_allowed(rule: KindRule, rules: ActivityRules, group: str, round_no: int) -> bool:
