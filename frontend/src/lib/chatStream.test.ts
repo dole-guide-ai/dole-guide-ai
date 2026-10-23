@@ -34,6 +34,7 @@ describe('streamChat', () => {
       import_ids: [],
     });
     expect(events.map((e) => e.event)).toEqual(['token', 'done']);
+    expect(new Headers(init.headers).get('Idempotency-Key')).toMatch(/^[0-9a-f-]{36}$/);
   });
 
   it('턴 진행 중(409)이면 코드를 담은 ApiError를 던진다', async () => {

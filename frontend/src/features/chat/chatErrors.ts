@@ -18,6 +18,12 @@ export const describeChatError = (error: Pick<ErrorEvent, 'code'>) => {
         text: '앞의 답을 만드는 중이에요. 답이 끝난 뒤 다시 보내 주세요.',
         restoresInput: true,
       };
+    case ERROR_CODES.CONFLICT:
+      // 같은 전송이 두 번 갔을 때(Idempotency-Key). 처음 보낸 것은 이미 처리됐습니다.
+      return {
+        text: '이미 보낸 메시지예요. 새로고침하면 답을 볼 수 있어요.',
+        restoresInput: false,
+      };
     case ERROR_CODES.NETWORK_ERROR:
       return { text: '인터넷 연결을 확인하고 다시 보내 주세요.', restoresInput: true };
     default:

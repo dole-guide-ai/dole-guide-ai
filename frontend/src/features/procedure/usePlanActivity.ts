@@ -4,6 +4,7 @@ import { isServerSession } from '@/lib/accountSession';
 import { apiFetch, apiSend } from '@/lib/api';
 import { API_PATHS } from '@/lib/apiPaths';
 import { applyFormUpdates } from '@/lib/formStore';
+import { IDEMPOTENCY_HEADER } from '@/lib/idempotency';
 import { queryKeys } from '@/lib/queryKeys';
 import type { FormPatchRead } from '@/types/chat.types';
 import type { ProcedurePatchCreate } from '@/types/procedure.types';
@@ -23,7 +24,7 @@ export const usePlanActivity = (sessionId?: string, personaId?: string) => {
       if (isServer) {
         return apiFetch<FormPatchRead>(API_PATHS.activities(personaId), {
           method: 'POST',
-          headers: { 'Idempotency-Key': `plan-${recommendationId}` },
+          headers: { [IDEMPOTENCY_HEADER]: `plan-${recommendationId}` },
           body: JSON.stringify({ recommendation_id: recommendationId }),
         });
       }
