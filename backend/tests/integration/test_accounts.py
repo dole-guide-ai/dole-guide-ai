@@ -119,7 +119,7 @@ def test_skeleton_endpoint_is_501_after_auth(client: TestClient) -> None:
     headers = new_visitor(client)
     client.put("/accounts/park", headers=headers)
 
-    assert client.get("/accounts/park/resume").status_code == 401
-    res = client.get("/accounts/park/resume", headers=headers)
+    assert client.get("/accounts/park/facts").status_code == 401
+    res = client.get("/accounts/park/facts", headers=headers)
     assert res.status_code == 501
     assert res.json()["code"] == "NOT_IMPLEMENTED"

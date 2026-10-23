@@ -1,25 +1,54 @@
-"""대화 턴이 이력서 칸에 값을 쓰는 서비스입니다 (F-14).
+"""이력서 조회·칸 쓰기·저장 서비스입니다 (F-14·F-15).
 
 AI 도구가 뽑은 값을 칸마다 상태·출처와 함께 저장하고, 자동 값(재직여부·최종학력·경력 합계)을
 다시 계산한 뒤 바뀐 칸 목록과 다음 질문을 돌려줍니다. 계산은 모두 app/rules/resume.py가 합니다.
+REST의 조회·직접 고치기·저장(상세기획 2-1.6)도 여기서 합니다.
 """
 
 import uuid
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime
 from typing import Any
 
 from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
 from app.core import json_patch
-from app.core.errors import NotFoundError, UnprocessableError
+from app.core.errors import ConflictError, NotFoundError, UnprocessableError
+from app.core.etag import check_if_match
 from app.repositories import accounts as repo
 from app.rules import resume as rules
-from app.schemas.common import ErrorCode, FieldSource, FormName, FormUpdate
+from app.schemas.accounts import EntryMessage
+from app.schemas.common import (
+    ErrorCode,
+    FieldSource,
+    FieldStatus,
+    FormName,
+    FormUpdate,
+    JsonPatchOp,
+    UpdatesRead,
+)
 from app.schemas.forms import resume as resume_form
-from app.schemas.resume import FieldWrite
-from app.services.accounts import seed_resume
+from app.schemas.procedure import Stage
+from app.schemas.resume import Completeness, FieldWrite, ResumeRead, ResumeStatus
+from app.services import accounts as account_service
+from app.services.accounts import AccountContext, seed_resume
+from app.services.profile import read_profile_display
+
+# 저장 뒤 첫 안내 (상세기획 2-1.6). E7a(새로 씀)와 E7b(예전 이력서 최신화) 문장이 다릅니다.
+SAVED_TEXT = {
+    "E7a": "이력서를 저장해서 구직등록이 끝났어요. 다음은 수급자격 신청자 온라인 교육이에요. "
+    "약 1시간이고, 다 들으시면 아래 ‘교육 다 들었어요’를 눌러 알려 주세요.",
+    "E7b": "이력서를 최신화해 저장했어요. 구직등록이 끝났어요. 다음은 온라인 교육이에요. "
+    "다 들으시면 아래 ‘교육 다 들었어요’를 눌러 알려 주세요.",
+}
+# 고용24에 옮겨 적을 때 안내. 이 이력서에 해당하는 줄만 붙입니다.
+HINT_HEAD = "고용24에 옮겨 적으실 때 참고하세요."
+HINT_JOB_SKILLS = "· 직무능력은 고용24에서 '직무능력 자동 추천'으로 골라 주세요."
+HINT_SALARY = "· 희망임금은 금액 앞 선택 상자에서 월급 단위를 고르세요."
+HINT_NAME_ONLY = "· 희망 직종 '{name}'은 고용24 직종 검색에서 가장 가까운 것을 골라 주세요."
+HINT_PERIOD = "· 총 근무기간은 경력을 다 넣으면 고용24가 자동으로 계산해요."
+HINT_GPA = "· 학점은 만점 기준(4.5 등)을 먼저 고르고 넣어 주세요."
 
 
 @dataclass(frozen=True)
@@ -70,6 +99,8 @@ def save_resume_fields(
         )
 
     resume.data = data.model_dump(mode="json")
+    # 저장한 이력서를 고치면 다시 저장할 때까지 초안입니다 (5/5가 깨질 수 있음).
+    resume.status = ResumeStatus.DRAFT
     resume.lock_version += 1
     db.commit()
 
@@ -90,12 +121,134 @@ def save_resume_fields(
         for path, f in rules.form_fields(data)
         if old.get(path) != f
     ]
-    # 예전 이력서(seed) 값이 남아 있으면 최신화 중(E7b)입니다.
-    seeded = any(f.source == FieldSource.SEED for _, f in rules.form_fields(data))
     question = rules.next_resume_question(
-        data, entry_branch="E7b" if seeded else "E7a", separation_date=procedure.separation_date
+        data, entry_branch=_branch(data), separation_date=procedure.separation_date
     )
     return ResumeWriteResult(updates, question, issues)
+
+
+def read_resume(db: Session, account: AccountContext) -> ResumeRead:
+    """이력서가 아직 없으면(박진수) 빈 초안을 lock_version 0으로 돌려줍니다."""
+    procedure = _procedure_or_404(db, account.user_id)
+    resume = repo.get_resume(db, account.user_id)
+    data = _data(resume)
+    question = rules.next_resume_question(
+        data, entry_branch=_branch(data), separation_date=procedure.separation_date
+    )
+    return ResumeRead(
+        status=resume.status if resume else ResumeStatus.DRAFT,
+        lock_version=resume.lock_version if resume else 0,
+        data=data,
+        completeness=Completeness(filled=rules.resume_completeness(data).filled),
+        next_question=question.id,
+        can_save=rules.can_save_resume(data),
+        profile_display=read_profile_display(db, account.user_id),
+    )
+
+
+def patch_resume(
+    db: Session,
+    account: AccountContext,
+    patch: list[JsonPatchOp],
+    if_match: str | None,
+    now: datetime,
+) -> UpdatesRead:
+    """직접 고치기는 칸마다 confirmed·direct로 쓰고, `/status`는 저장(saved)·다시 고치기(draft)."""
+    # 같은 버전을 읽은 두 PATCH가 모두 통과하지 않게 계정 행을 잠근 뒤 버전을 봅니다.
+    repo.lock_user(db, account.user_id)
+    resume = repo.get_resume(db, account.user_id)
+    check_if_match(if_match, resume.lock_version if resume else 0)
+    status_ops = [op for op in patch if op.path == "/status"]
+    if status_ops:
+        if len(patch) != 1 or status_ops[0].op != "replace":
+            raise UnprocessableError(code=ErrorCode.STATUS_WITH_FIELDS)
+        if status_ops[0].value == ResumeStatus.SAVED:
+            return _save(db, account, now)
+        if status_ops[0].value == ResumeStatus.DRAFT and resume is not None:
+            resume.status = ResumeStatus.DRAFT
+            resume.lock_version += 1
+            db.commit()
+            return UpdatesRead(updates=[_status_update(ResumeStatus.DRAFT)])
+        raise UnprocessableError("저장은 /status를 saved로 보내 주세요.")
+
+    # shortcut: 항목 통째로 지우기(remove /careers/c1)는 칸 쓰기로 표현할 수 없어 아직 422입니다.
+    writes = [
+        FieldWrite(
+            path=op.path,
+            value=None if op.op == "remove" else op.value,
+            status=FieldStatus.MISSING if op.op == "remove" else FieldStatus.CONFIRMED,
+            source=FieldSource.DIRECT,
+        )
+        for op in patch
+    ]
+    result = save_resume_fields(db, account.user_id, writes, today=now.date())
+    return UpdatesRead(updates=result.updates)
+
+
+def _save(db: Session, account: AccountContext, now: datetime) -> UpdatesRead:
+    procedure = _procedure_or_404(db, account.user_id)
+    resume = repo.get_resume(db, account.user_id)
+    data = _data(resume)
+    if resume is None or not rules.can_save_resume(data):
+        raise ConflictError(code=ErrorCode.RESUME_NOT_READY)
+    branch = _branch(data)
+    resume.status = ResumeStatus.SAVED
+    resume.saved_at = now
+    resume.lock_version += 1
+    # 다시 저장(교육 단계 이후)은 단계를 그대로 둡니다.
+    if procedure.stage == Stage.JOB_REGISTRATION:
+        procedure.stage = Stage.EDUCATION
+        procedure.lock_version += 1
+    db.commit()
+
+    entry = account_service.read_account(db, account, now.date()).entry
+    entry.messages[:0] = [
+        EntryMessage(template_id=f"T-SAVE-{branch}", text=SAVED_TEXT[branch]),
+        EntryMessage(template_id="T-WORK24-HINT", text=work24_hint(data)),
+    ]
+    return UpdatesRead(
+        updates=[_status_update(ResumeStatus.SAVED)], entry=entry.model_dump(mode="json")
+    )
+
+
+def work24_hint(data: resume_form.ResumeData) -> str:
+    """고용24 입력 안내 중 이 이력서에 해당하는 줄만 모읍니다."""
+    prefs = data.job_preferences
+    lines = [HINT_HEAD, HINT_JOB_SKILLS]
+    if rules.is_filled(prefs.desired_salary):
+        lines.append(HINT_SALARY)
+    for o in prefs.desired_occupations:
+        occ = rules.occupation_value(o.occupation)
+        if occ.get("status") == resume_form.OccupationStatus.NAME_ONLY:
+            lines.append(HINT_NAME_ONLY.format(name=occ.get("name")))
+    if data.careers:
+        lines.append(HINT_PERIOD)
+    if any(rules.is_filled(e.gpa) for e in data.education):
+        lines.append(HINT_GPA)
+    return "\n".join(lines)
+
+
+def _procedure_or_404(db: Session, user_id: uuid.UUID):
+    procedure = repo.get_procedure(db, user_id)
+    if procedure is None:
+        raise NotFoundError(code=ErrorCode.ACCOUNT_NOT_FOUND)
+    return procedure
+
+
+def _data(resume: repo.Resume | None) -> resume_form.ResumeData:
+    if resume is None:
+        return resume_form.ResumeData()
+    return resume_form.ResumeData.model_validate(_upgrade_legacy(resume.data))
+
+
+def _branch(data: resume_form.ResumeData) -> str:
+    """예전 이력서(seed) 값이 남아 있으면 최신화 중(E7b)입니다."""
+    seeded = any(f.source == FieldSource.SEED for _, f in rules.form_fields(data))
+    return "E7b" if seeded else "E7a"
+
+
+def _status_update(status: ResumeStatus) -> FormUpdate:
+    return FormUpdate(form=FormName.RESUME, path="/status", op="replace", value=status)
 
 
 def _shape_ok(w: FieldWrite) -> bool:
