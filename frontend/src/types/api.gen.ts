@@ -45,6 +45,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/codes/regions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 지역 코드 전체
+         * @description 시·도와 시·군·구 전체(약 285개)를 한 번에 돌려줍니다. 화면은 parent로 2단계를 만듭니다.
+         */
+        get: operations["list_regions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/codes/occupations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 세부 직종 이름 검색
+         * @description 이름에 q가 들어간 세부 직종을 짧은 이름부터 limit개 돌려줍니다(자동완성).
+         */
+        get: operations["search_occupations"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/personas": {
         parameters: {
             query?: never;
@@ -668,6 +708,23 @@ export interface components {
              */
             file_ids: string[];
         };
+        /** AdditionalInfo */
+        AdditionalInfo: {
+            /**
+             * @default {
+             *       "status": "missing",
+             *       "transformed": false
+             *     }
+             */
+            can_drive: components["schemas"]["FormField"];
+            /**
+             * @default {
+             *       "status": "missing",
+             *       "transformed": false
+             *     }
+             */
+            owns_vehicle: components["schemas"]["FormField"];
+        };
         /** ApplicationRead */
         ApplicationRead: {
             /** Round */
@@ -749,6 +806,100 @@ export interface components {
             file: string;
             purpose: components["schemas"]["FilePurpose"];
         };
+        /** Career */
+        Career: {
+            /** Item Id */
+            item_id: string;
+            /**
+             * @default {
+             *       "status": "missing",
+             *       "transformed": false
+             *     }
+             */
+            company_name: components["schemas"]["FormField"];
+            /**
+             * @default {
+             *       "status": "missing",
+             *       "transformed": false
+             *     }
+             */
+            start_date: components["schemas"]["FormField"];
+            /**
+             * @default {
+             *       "status": "missing",
+             *       "transformed": false
+             *     }
+             */
+            end_date: components["schemas"]["FormField"];
+            /**
+             * @default {
+             *       "status": "missing",
+             *       "transformed": false
+             *     }
+             */
+            position: components["schemas"]["FormField"];
+            /**
+             * @default {
+             *       "status": "missing",
+             *       "transformed": false
+             *     }
+             */
+            employment_status: components["schemas"]["FormField"];
+            /**
+             * @default {
+             *       "status": "missing",
+             *       "transformed": false
+             *     }
+             */
+            occupation: components["schemas"]["FormField"];
+            /**
+             * @default {
+             *       "status": "missing",
+             *       "transformed": false
+             *     }
+             */
+            monthly_salary: components["schemas"]["FormField"];
+            /**
+             * @default {
+             *       "status": "missing",
+             *       "transformed": false
+             *     }
+             */
+            main_duties: components["schemas"]["FormField"];
+            /**
+             * @default {
+             *       "status": "missing",
+             *       "transformed": false
+             *     }
+             */
+            additional_details: components["schemas"]["FormField"];
+        };
+        /** Certification */
+        Certification: {
+            /** Item Id */
+            item_id: string;
+            /**
+             * @default {
+             *       "status": "missing",
+             *       "transformed": false
+             *     }
+             */
+            certificate_name: components["schemas"]["FormField"];
+            /**
+             * @default {
+             *       "status": "missing",
+             *       "transformed": false
+             *     }
+             */
+            issuing_organization: components["schemas"]["FormField"];
+            /**
+             * @default {
+             *       "status": "missing",
+             *       "transformed": false
+             *     }
+             */
+            acquired_date: components["schemas"]["FormField"];
+        };
         /** Checklist */
         Checklist: {
             /**
@@ -768,6 +919,79 @@ export interface components {
             key: string;
             /** Text */
             text: string;
+        };
+        /** CodeRead */
+        CodeRead: {
+            /** Code */
+            code: string;
+            /** Name */
+            name: string;
+            /** Parent */
+            parent?: string | null;
+            /** Depth */
+            depth: number;
+        };
+        /**
+         * Competencies
+         * @description 그 밖의 보유역량 8개. "있으면" 한 번만 묻고, 완성도에는 넣지 않습니다.
+         */
+        Competencies: {
+            /**
+             * @default {
+             *       "status": "missing",
+             *       "transformed": false
+             *     }
+             */
+            projects: components["schemas"]["FormField"];
+            /**
+             * @default {
+             *       "status": "missing",
+             *       "transformed": false
+             *     }
+             */
+            activities_awards: components["schemas"]["FormField"];
+            /**
+             * @default {
+             *       "status": "missing",
+             *       "transformed": false
+             *     }
+             */
+            vocational_training: components["schemas"]["FormField"];
+            /**
+             * @default {
+             *       "status": "missing",
+             *       "transformed": false
+             *     }
+             */
+            computer_skills: components["schemas"]["FormField"];
+            /**
+             * @default {
+             *       "status": "missing",
+             *       "transformed": false
+             *     }
+             */
+            languages: components["schemas"]["FormField"];
+            /**
+             * @default {
+             *       "status": "missing",
+             *       "transformed": false
+             *     }
+             */
+            overseas_experiences: components["schemas"]["FormField"];
+            /**
+             * @default {
+             *       "status": "missing",
+             *       "transformed": false
+             *     }
+             */
+            completed_courses: components["schemas"]["FormField"];
+            /**
+             * @default {
+             *       "status": "missing",
+             *       "transformed": false
+             *     }
+             */
+            job_skills: components["schemas"]["FormField"];
         };
         /** Completeness */
         Completeness: {
@@ -809,6 +1033,135 @@ export interface components {
              *     }
              */
             income_asset_consent: components["schemas"]["FormField"];
+        };
+        /** DesiredOccupation */
+        DesiredOccupation: {
+            /** Item Id */
+            item_id: string;
+            /**
+             * @default {
+             *       "status": "missing",
+             *       "transformed": false
+             *     }
+             */
+            occupation: components["schemas"]["FormField"];
+            /**
+             * @default {
+             *       "status": "missing",
+             *       "transformed": false
+             *     }
+             */
+            experience_type: components["schemas"]["FormField"];
+            /**
+             * @default {
+             *       "status": "missing",
+             *       "transformed": false
+             *     }
+             */
+            experience_years: components["schemas"]["FormField"];
+            /**
+             * @default {
+             *       "status": "missing",
+             *       "transformed": false
+             *     }
+             */
+            experience_months: components["schemas"]["FormField"];
+            /**
+             * @default {
+             *       "status": "missing",
+             *       "transformed": false
+             *     }
+             */
+            desired_job_description: components["schemas"]["FormField"];
+        };
+        /** Education */
+        Education: {
+            /** Item Id */
+            item_id: string;
+            /**
+             * @default {
+             *       "status": "missing",
+             *       "transformed": false
+             *     }
+             */
+            education_level: components["schemas"]["FormField"];
+            /**
+             * @default {
+             *       "status": "missing",
+             *       "transformed": false
+             *     }
+             */
+            graduation_status: components["schemas"]["FormField"];
+            /**
+             * @default {
+             *       "status": "missing",
+             *       "transformed": false
+             *     }
+             */
+            school_name: components["schemas"]["FormField"];
+            /**
+             * @default {
+             *       "status": "missing",
+             *       "transformed": false
+             *     }
+             */
+            start_date: components["schemas"]["FormField"];
+            /**
+             * @default {
+             *       "status": "missing",
+             *       "transformed": false
+             *     }
+             */
+            end_date: components["schemas"]["FormField"];
+            /**
+             * @default {
+             *       "status": "missing",
+             *       "transformed": false
+             *     }
+             */
+            gpa: components["schemas"]["FormField"];
+            /**
+             * @default {
+             *       "status": "missing",
+             *       "transformed": false
+             *     }
+             */
+            gpa_scale: components["schemas"]["FormField"];
+            /**
+             * @default {
+             *       "status": "missing",
+             *       "transformed": false
+             *     }
+             */
+            major: components["schemas"]["FormField"];
+            /**
+             * @default {
+             *       "status": "missing",
+             *       "transformed": false
+             *     }
+             */
+            double_major: components["schemas"]["FormField"];
+            /**
+             * @default {
+             *       "status": "missing",
+             *       "transformed": false
+             *     }
+             */
+            minor: components["schemas"]["FormField"];
+            /**
+             * @default {
+             *       "status": "missing",
+             *       "transformed": false
+             *     }
+             */
+            dual_major: components["schemas"]["FormField"];
+            /**
+             * @default {
+             *       "status": "missing",
+             *       "transformed": false
+             *     }
+             */
+            is_highest_education: components["schemas"]["FormField"];
         };
         /** EmploymentAnswers */
         EmploymentAnswers: {
@@ -1033,6 +1386,11 @@ export interface components {
             value?: unknown;
             status?: components["schemas"]["FieldStatus"] | null;
             source?: components["schemas"]["FieldSource"] | null;
+            /**
+             * Transformed
+             * @default false
+             */
+            transformed: boolean;
             /** Evidence */
             evidence?: {
                 [key: string]: unknown;
@@ -1089,6 +1447,70 @@ export interface components {
          * @enum {string}
          */
         InputKind: "text" | "voice" | "choice";
+        /** JobPreferences */
+        JobPreferences: {
+            /**
+             * Desired Occupations
+             * @default []
+             */
+            desired_occupations: components["schemas"]["DesiredOccupation"][];
+            /**
+             * @default {
+             *       "status": "missing",
+             *       "transformed": false
+             *     }
+             */
+            desired_regions: components["schemas"]["FormField"];
+            /**
+             * @default {
+             *       "status": "missing",
+             *       "transformed": false
+             *     }
+             */
+            desired_salary: components["schemas"]["FormField"];
+            /**
+             * @default {
+             *       "status": "missing",
+             *       "transformed": false
+             *     }
+             */
+            employment_contract_type: components["schemas"]["FormField"];
+            /**
+             * @default {
+             *       "status": "missing",
+             *       "transformed": false
+             *     }
+             */
+            work_arrangements: components["schemas"]["FormField"];
+            /**
+             * @default {
+             *       "status": "missing",
+             *       "transformed": false
+             *     }
+             */
+            desired_working_hours: components["schemas"]["FormField"];
+            /**
+             * @default {
+             *       "status": "missing",
+             *       "transformed": false
+             *     }
+             */
+            military_alternative: components["schemas"]["FormField"];
+            /**
+             * @default {
+             *       "status": "missing",
+             *       "transformed": false
+             *     }
+             */
+            other_preferences: components["schemas"]["FormField"];
+            /**
+             * @default {
+             *       "status": "missing",
+             *       "transformed": false
+             *     }
+             */
+            search_keywords: components["schemas"]["FormField"];
+        };
         /**
          * JobSearchRow
          * @description 구직활동 10칸 한 줄. 인정 활동에서 매번 만들고 저장하지 않습니다.
@@ -1231,6 +1653,13 @@ export interface components {
         Page_ActivityRead_: {
             /** Items */
             items: components["schemas"]["ActivityRead"][];
+            /** Total */
+            total: number;
+        };
+        /** Page[CodeRead] */
+        Page_CodeRead_: {
+            /** Items */
+            items: components["schemas"]["CodeRead"][];
             /** Total */
             total: number;
         };
@@ -1484,42 +1913,138 @@ export interface components {
              *       "transformed": false
              *     }
              */
-            title: components["schemas"]["FormField"];
+            resume_title: components["schemas"]["FormField"];
             /**
              * Education
              * @default []
              */
-            education: {
-                [key: string]: unknown;
-            }[];
+            education: components["schemas"]["Education"][];
             /**
-             * Job Preferences
-             * @default {}
+             * @default {
+             *       "desired_occupations": [],
+             *       "desired_regions": {
+             *         "status": "missing",
+             *         "transformed": false
+             *       },
+             *       "desired_salary": {
+             *         "status": "missing",
+             *         "transformed": false
+             *       },
+             *       "employment_contract_type": {
+             *         "status": "missing",
+             *         "transformed": false
+             *       },
+             *       "work_arrangements": {
+             *         "status": "missing",
+             *         "transformed": false
+             *       },
+             *       "desired_working_hours": {
+             *         "status": "missing",
+             *         "transformed": false
+             *       },
+             *       "military_alternative": {
+             *         "status": "missing",
+             *         "transformed": false
+             *       },
+             *       "other_preferences": {
+             *         "status": "missing",
+             *         "transformed": false
+             *       },
+             *       "search_keywords": {
+             *         "status": "missing",
+             *         "transformed": false
+             *       }
+             *     }
              */
-            job_preferences: {
-                [key: string]: unknown;
-            };
+            job_preferences: components["schemas"]["JobPreferences"];
             /**
              * Careers
              * @default []
              */
-            careers: {
-                [key: string]: unknown;
-            }[];
+            careers: components["schemas"]["Career"][];
+            /**
+             * @default {
+             *       "status": "missing",
+             *       "transformed": false
+             *     }
+             */
+            careers_status: components["schemas"]["FormField"];
             /**
              * Certifications
              * @default []
              */
-            certifications: {
-                [key: string]: unknown;
-            }[];
+            certifications: components["schemas"]["Certification"][];
             /**
-             * Competencies
-             * @default {}
+             * @default {
+             *       "status": "missing",
+             *       "transformed": false
+             *     }
              */
-            competencies: {
-                [key: string]: unknown;
-            };
+            certifications_status: components["schemas"]["FormField"];
+            /**
+             * @default {
+             *       "status": "missing",
+             *       "transformed": false
+             *     }
+             */
+            other_certifications: components["schemas"]["FormField"];
+            /**
+             * @default {
+             *       "projects": {
+             *         "status": "missing",
+             *         "transformed": false
+             *       },
+             *       "activities_awards": {
+             *         "status": "missing",
+             *         "transformed": false
+             *       },
+             *       "vocational_training": {
+             *         "status": "missing",
+             *         "transformed": false
+             *       },
+             *       "computer_skills": {
+             *         "status": "missing",
+             *         "transformed": false
+             *       },
+             *       "languages": {
+             *         "status": "missing",
+             *         "transformed": false
+             *       },
+             *       "overseas_experiences": {
+             *         "status": "missing",
+             *         "transformed": false
+             *       },
+             *       "completed_courses": {
+             *         "status": "missing",
+             *         "transformed": false
+             *       },
+             *       "job_skills": {
+             *         "status": "missing",
+             *         "transformed": false
+             *       }
+             *     }
+             */
+            competencies: components["schemas"]["Competencies"];
+            /**
+             * @default {
+             *       "status": "missing",
+             *       "transformed": false
+             *     }
+             */
+            competencies_status: components["schemas"]["FormField"];
+            /**
+             * @default {
+             *       "can_drive": {
+             *         "status": "missing",
+             *         "transformed": false
+             *       },
+             *       "owns_vehicle": {
+             *         "status": "missing",
+             *         "transformed": false
+             *       }
+             *     }
+             */
+            additional_info: components["schemas"]["AdditionalInfo"];
         };
         /** ResumeRead */
         ResumeRead: {
@@ -1777,6 +2302,95 @@ export interface operations {
             };
             /** @description Unauthorized */
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    list_regions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_CodeRead_"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    search_occupations: {
+        parameters: {
+            query: {
+                /** @description 직종 이름 일부. 띄어쓰기 무시 */
+                q: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_CodeRead_"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };
