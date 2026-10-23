@@ -157,6 +157,8 @@ LOCKED_MESSAGE = "이미 제출한 신청서예요. 고칠 게 있으면 고용�
 
 def _writable(db: Session, account: AccountContext, round_ref: str, now: datetime):
     """고칠 수 있는 신청서인지 확인하고 (회차, 신청서 행)을 돌려줍니다."""
+    # 수급이 끝난 계정은 신청서를 고칠 수 없습니다 (F-33 완료 기준).
+    account_service.ensure_not_ended(db, account.user_id)
     target, _ = find_round(db, account.user_id, round_ref, now.date())
     # 대화의 답 저장과 제출이 겹쳐도 나중 저장이 앞 답을 덮지 않게 행을 잠급니다.
     application = repo.get_application(db, target.round_id, for_update=True)
