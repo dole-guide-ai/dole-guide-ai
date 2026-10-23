@@ -15,5 +15,9 @@ export const queryKeys = {
   rounds: (personaId: string) => ['accounts', personaId, 'rounds'] as const,
   application: (personaId: string, round: number) =>
     ['accounts', personaId, 'rounds', round, 'application'] as const,
-  roundRecommendations: (sessionId: string) => ['procedure', 'recommendations', sessionId] as const,
+  /** 회차가 바뀌면(4차 → 5차) 그 회차 기준으로 다시 받습니다 (F-19). */
+  roundRecommendations: (sessionId: string, round?: number | null) =>
+    ['procedure', 'recommendations', sessionId, round ?? null] as const,
+  roundRecommendationsPrefix: (sessionId: string) =>
+    ['procedure', 'recommendations', sessionId] as const,
 };

@@ -37,7 +37,9 @@ export const usePlanActivity = (sessionId?: string, personaId?: string) => {
       if (isServer) {
         void queryClient.invalidateQueries({ queryKey: queryKeys.roundCheckPrefix(sessionId) });
         // 고른 추천이 다시 열었을 때도 선택 가능하게 남지 않도록 추천 목록도 새로 받습니다.
-        void queryClient.invalidateQueries({ queryKey: queryKeys.roundRecommendations(sessionId) });
+        void queryClient.invalidateQueries({
+          queryKey: queryKeys.roundRecommendationsPrefix(sessionId),
+        });
         return;
       }
       updates.forEach(applyFormUpdate);

@@ -20,13 +20,20 @@ interface RecommendationBoxProps {
   plannedIds: string[];
   /** 실제 서버 세션이면 계정 추천 API를 씁니다 (F-19). */
   personaId?: string;
+  /** 지금 회차. 바뀌면 그 회차 기준으로 다시 받습니다. */
+  round?: number | null;
 }
 
 const errorText = (error: unknown, fallback: string) =>
   error instanceof ApiError ? error.message : fallback;
 
-export const RecommendationBox = ({ sessionId, plannedIds, personaId }: RecommendationBoxProps) => {
-  const query = useRecommendations(sessionId, true, personaId);
+export const RecommendationBox = ({
+  sessionId,
+  plannedIds,
+  personaId,
+  round,
+}: RecommendationBoxProps) => {
+  const query = useRecommendations(sessionId, true, personaId, round);
   const plan = usePlanActivity(sessionId, personaId);
   // 서버가 만든 예정 활동 ID는 추천 ID와 달라서, 이번 화면에서 고른 추천을 따로 기억합니다.
   const [pickedIds, setPickedIds] = useState<string[]>([]);

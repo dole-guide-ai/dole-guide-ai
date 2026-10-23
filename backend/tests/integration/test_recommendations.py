@@ -10,6 +10,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.errors import ConflictError
+from app.models import ProcedureState
 from app.models.user import User
 from app.schemas.common import ErrorCode
 from app.services import recommendations as recommendation_service
@@ -138,3 +139,26 @@ def test_direct_record_is_not_implemented_yet(
 
     assert res.status_code == 501
     assert res.json()["code"] == "NOT_IMPLEMENTED"
+
+
+def test_ended_account_cannot_change_activities(
+    client: TestClient, db_session: Session, entered_headers: Callable[[str], dict[str, str]]
+) -> None:
+    """F-33 완료 기준: 수급이 끝난 뒤에는 활동을 넣거나 했어요로 바꿀 수 없습니다."""
+    headers = entered_headers("lee")
+    planned = _add(client, headers, "rec_4_interview").json()["updates"][0]["value"]
+    account = _lee(db_session)
+    db_session.get(ProcedureState, account.user_id).stage = "ended"
+    db_session.flush()
+
+    res = _add(client, headers, "rec_4_work24_apply")
+    assert res.status_code == 409
+    assert res.json()["code"] == "STAGE_ORDER"
+    with pytest.raises(ConflictError):
+        recommendation_service.mark_done(
+            db_session,
+            account,
+            uuid.UUID(planned["activity_id"]),
+            done_on=date(2026, 10, 20),
+            today=date(2026, 10, 21),
+        )
