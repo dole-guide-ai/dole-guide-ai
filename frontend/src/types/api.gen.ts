@@ -389,8 +389,14 @@ export interface paths {
         head?: never;
         /**
          * 구직활동 고치기
-         * @description JSON Patch로 활동 값을 고칩니다. 지난 회차 활동은 409 ROUND_CLOSED입니다. (아직 구현 전이라
-         *     501)
+         * @description 패널에서 활동 칸을 직접 고칩니다 (F-12). 예: `[{"op": "replace", "path": "/org_name",
+         *     "value": "OO물산"}]`
+         *
+         *     - 고칠 수 있는 칸: activity_date, kind, route, org_name, job_title, search_method,
+         *       apply_method, contact_dept, result, hours. 그 밖의 칸·틀린 형식은 422(날짜는 YYYY-MM-DD,
+         *       새 날짜도 이번 회차 대상기간 안). activity_date·kind는 지울 수 없습니다.
+         *     - 지난 회차 활동은 409 ROUND_CLOSED, 없는 활동은 404입니다.
+         *     - 고친 활동은 출처가 직접 입력(direct)이 됩니다. 응답 updates는 고친 활동 하나입니다.
          */
         patch: operations["patch_activity"];
         trace?: never;
@@ -3526,15 +3532,6 @@ export interface operations {
             };
             /** @description Internal Server Error */
             500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Not Implemented */
-            501: {
                 headers: {
                     [name: string]: unknown;
                 };

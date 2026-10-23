@@ -85,7 +85,7 @@ def list_recommendations(db: Session, account: AccountContext, today: date) -> R
     )
 
 
-def _activity_update(activity: Activity, op: str = "add") -> FormUpdate:
+def activity_update(activity: Activity, op: str = "add") -> FormUpdate:
     return FormUpdate(
         form=FormName.ACTIVITIES,
         path=f"/activities/{activity.activity_id}",
@@ -97,6 +97,12 @@ def _activity_update(activity: Activity, op: str = "add") -> FormUpdate:
             "kind": activity.kind,
             "route": activity.route,
             "org_name": activity.org_name,
+            "job_title": activity.job_title,
+            "search_method": activity.search_method,
+            "apply_method": activity.apply_method,
+            "contact_dept": activity.contact_dept,
+            "result": activity.result,
+            "hours": float(activity.hours) if activity.hours is not None else None,
             "planned": activity.planned,
             "source": activity.source,
         },
@@ -136,7 +142,7 @@ def add_recommended(
             planned=True,
         ),
     )
-    return UpdatesRead(updates=[_activity_update(activity)])
+    return UpdatesRead(updates=[activity_update(activity)])
 
 
 def create_activity(
@@ -187,4 +193,4 @@ def mark_done(
     if org_name:
         activity.org_name = org_name
     db.commit()
-    return UpdatesRead(updates=[_activity_update(activity, "replace")])
+    return UpdatesRead(updates=[activity_update(activity, "replace")])

@@ -5,6 +5,7 @@ AI 도구가 뽑은 값을 칸마다 상태·출처와 함께 저장하고, 자�
 REST의 조회·직접 고치기·저장(상세기획 2-1.6)도 여기서 합니다.
 """
 
+import re
 import uuid
 from dataclasses import dataclass
 from datetime import date, datetime
@@ -171,6 +172,11 @@ def patch_resume(
             return UpdatesRead(updates=[_status_update(ResumeStatus.DRAFT)])
         raise UnprocessableError("저장은 /status를 saved로 보내 주세요.")
 
+    for index, op in enumerate(patch):
+        if op.op != "remove" and not _date_ok(op.path, op.value):
+            raise UnprocessableError(
+                DATE_FORMAT_MESSAGE, details=[{"field": f"patch[{index}]", "reason": "date_format"}]
+            )
     # shortcut: 항목 통째로 지우기(remove /careers/c1)는 칸 쓰기로 표현할 수 없어 아직 422입니다.
     writes = [
         FieldWrite(
@@ -226,6 +232,19 @@ def work24_hint(data: resume_form.ResumeData) -> str:
     if any(rules.is_filled(e.gpa) for e in data.education):
         lines.append(HINT_GPA)
     return "\n".join(lines)
+
+
+# 직접 입력한 날짜는 고용24 칸 형식(연-월, 자격 취득일만 연-월-일도)이어야 저장합니다 (F-12).
+DATE_FORMAT_MESSAGE = "날짜는 2004-03처럼 연-월로 넣어 주세요."
+_YM = re.compile(r"\d{4}-(0[1-9]|1[0-2])")
+_YMD = re.compile(r"\d{4}-(0[1-9]|1[0-2])(-(0[1-9]|[12]\d|3[01]))?")
+
+
+def _date_ok(path: str, value: Any) -> bool:
+    if not path.endswith("_date") or value is None:
+        return True
+    pattern = _YMD if path.endswith("/acquired_date") else _YM
+    return isinstance(value, str) and pattern.fullmatch(value) is not None
 
 
 def _procedure_or_404(db: Session, user_id: uuid.UUID):
