@@ -24,12 +24,6 @@ if config.config_file_name is not None:
 # target_metadata = mymodel.Base.metadata
 target_metadata = Base.metadata
 
-
-def include_object(obj, name, type_, reflected, compare_to) -> bool:
-    # work24_api(공통코드) 스키마는 0003 마이그레이션에 손으로 씁니다. autogenerate는 보지 않습니다.
-    return getattr(obj, "schema", None) != "work24_api"
-
-
 # other values from the config, defined by the needs of env.py,
 # can be acquired:
 # my_important_option = config.get_main_option("my_important_option")
@@ -74,9 +68,7 @@ def run_migrations_online() -> None:
     )
 
     with connectable.connect() as connection:
-        context.configure(
-            connection=connection, target_metadata=target_metadata, include_object=include_object
-        )
+        context.configure(connection=connection, target_metadata=target_metadata)
 
         with context.begin_transaction():
             context.run_migrations()

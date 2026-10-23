@@ -45,6 +45,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/codes/regions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 지역 코드 전체
+         * @description 시·도와 시·군·구 전체(약 285개)를 한 번에 돌려줍니다. 화면은 parent로 2단계를 만듭니다.
+         */
+        get: operations["list_regions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/codes/occupations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 세부 직종 이름 검색
+         * @description 이름에 q가 들어간 세부 직종을 짧은 이름부터 limit개 돌려줍니다(자동완성).
+         */
+        get: operations["search_occupations"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/personas": {
         parameters: {
             query?: never;
@@ -879,6 +919,17 @@ export interface components {
             /** Text */
             text: string;
         };
+        /** CodeRead */
+        CodeRead: {
+            /** Code */
+            code: string;
+            /** Name */
+            name: string;
+            /** Parent */
+            parent?: string | null;
+            /** Depth */
+            depth: number;
+        };
         /**
          * Competencies
          * @description 그 밖의 보유역량 8개. "있으면" 한 번만 묻고, 완성도에는 넣지 않습니다.
@@ -1604,6 +1655,13 @@ export interface components {
             /** Total */
             total: number;
         };
+        /** Page[CodeRead] */
+        Page_CodeRead_: {
+            /** Items */
+            items: components["schemas"]["CodeRead"][];
+            /** Total */
+            total: number;
+        };
         /** Page[RoundSummary] */
         Page_RoundSummary_: {
             /** Items */
@@ -2248,6 +2306,95 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    list_regions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_CodeRead_"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    search_occupations: {
+        parameters: {
+            query: {
+                /** @description 직종 이름 일부. 띄어쓰기 무시 */
+                q: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_CodeRead_"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
             /** @description Internal Server Error */

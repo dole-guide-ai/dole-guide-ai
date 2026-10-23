@@ -21,6 +21,7 @@ from app.agent import gateway
 from app.api.routers import (
     accounts,
     activities,
+    codes,
     facts,
     files,
     health,
@@ -41,7 +42,6 @@ from app.core.request_id import RequestIdMiddleware
 from app.core.security import InternalSecretMiddleware
 from app.jobs import cleanup
 from app.services.seed import load_personas
-from app.services.work24_codes import load_codes_if_empty
 
 setup_logging()
 settings = get_settings()
@@ -55,7 +55,6 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     try:
         with SessionLocal() as db:
             load_personas(db)
-            load_codes_if_empty(db)
     except SQLAlchemyError as exc:
         logger.warning("seed load skipped type=%s", type(exc).__name__)
     task = asyncio.create_task(cleanup.run_forever())
@@ -99,6 +98,7 @@ app.add_middleware(RequestIdMiddleware)
 
 app.include_router(health.router)
 app.include_router(visitors.router)
+app.include_router(codes.router)
 
 for router in (
     accounts.router,

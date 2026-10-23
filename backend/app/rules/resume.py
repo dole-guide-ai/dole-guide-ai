@@ -11,7 +11,7 @@ from datetime import date
 from typing import Any
 
 from app.schemas.common import FieldSource, FieldStatus, FormField
-from app.schemas.forms.resume import Career, Education, ResumeData
+from app.schemas.forms.resume import Career, Education, OccupationStatus, ResumeData
 from app.schemas.resume import Completeness
 
 MAX_PICKS = 3  # 희망 직종·지역은 고용24에서 3개까지
@@ -250,7 +250,7 @@ def _section_done(data: ResumeData) -> dict[str, bool]:
     prefs = data.job_preferences
     occupations_done = bool(prefs.desired_occupations) and all(
         is_filled(d.occupation)
-        and (d.occupation.value or {}).get("status") != "needs_confirmation"
+        and (d.occupation.value or {}).get("status") != OccupationStatus.NEEDS_CONFIRMATION
         and is_filled(d.experience_type)
         for d in prefs.desired_occupations
     )

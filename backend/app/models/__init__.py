@@ -15,12 +15,9 @@ from app.models.round import Round
 from app.models.user import User
 from app.models.user_profile import UserProfile
 from app.models.visitor import Visitor
-from app.models.work24_code import CmcdJobs, CmcdRegion
 
 __all__ = [
     "Activity",
-    "CmcdJobs",
-    "CmcdRegion",
     "File",
     "IdempotencyKey",
     "Message",
