@@ -317,6 +317,21 @@ def _materialize(db: Session, user_id: uuid.UUID, seed: dict[str, Any], anchor: 
         )
 
 
+def create_rounds(db: Session, user_id: uuid.UUID, state: repo.ProcedureState) -> None:
+    """1차 인정일이 들어오면 종료 예정일까지 회차와 회차별 신청서(draft)를 만듭니다 (F-28)."""
+    assert state.eligibility_applied_on and state.first_recognition_date
+    _materialize_rounds(
+        db,
+        user_id,
+        {},
+        state.recipient_group,
+        state.eligibility_applied_on,
+        state.first_recognition_date,
+        state.benefit_days,
+        state.separation_date,
+    )
+
+
 def _materialize_rounds(
     db: Session,
     user_id: uuid.UUID,
