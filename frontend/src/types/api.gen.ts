@@ -506,6 +506,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/accounts/{persona_id}/imports/apply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 고른 불러오기 항목 넣기 (모의)
+         * @description 고른 항목을 넣습니다 (F-10). 입사지원은 구직활동(출처 import, 고용24 경로)으로, 경력·자격은
+         *     이력서 칸(출처 import)으로 들어가고, 목록에서는 이미 넣음(is_recorded)이 됩니다.
+         *
+         *     목록에 없는 항목은 404, 이미 넣은 항목은 409, 지난 회차 입사지원은 409 ROUND_CLOSED, 직업훈련
+         *     이력은 아직 대화로만 받아 422입니다. 응답 updates는 바뀐 활동·이력서 칸과 회차 점검입니다.
+         */
+        post: operations["apply_imports"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/accounts/{persona_id}/facts": {
         parameters: {
             query?: never;
@@ -1496,6 +1520,14 @@ export interface components {
             status: string;
             /** Db */
             db: string;
+        };
+        /**
+         * ImportApply
+         * @description 고른 항목 넣기. import_id는 목록 응답의 값입니다.
+         */
+        ImportApply: {
+            /** Import Ids */
+            import_ids: string[];
         };
         /** ImportItem */
         ImportItem: {
@@ -3897,6 +3929,78 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    apply_imports: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 시연 계정 ID */
+                persona_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ImportApply"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UpdatesRead"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
             /** @description Internal Server Error */

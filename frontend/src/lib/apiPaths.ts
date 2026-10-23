@@ -11,6 +11,7 @@ export const API_PATHS = {
   account,
   messages: (personaId: string) => `${account(personaId)}/messages`,
   activities: (personaId: string) => `${account(personaId)}/activities`,
+  imports: (personaId: string, path: string) => `${account(personaId)}/imports/${path}`,
   activity: (personaId: string, activityId: string) =>
     `${account(personaId)}/activities/${activityId}`,
   currentRound: (personaId: string) => `${account(personaId)}/rounds/current`,
@@ -27,5 +28,4 @@ export const API_PATHS = {
   LEGACY_RECOGNITION: '/forms/recognition',
   LEGACY_RECOGNITION_CONFIRM: '/forms/recognition/confirm',
   LEGACY_FILES: '/files',
-  legacyImports: (kind: string) => `/imports/${kind}`,
 } as const;

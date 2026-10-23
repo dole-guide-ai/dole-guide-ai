@@ -124,6 +124,7 @@ export const DashboardView = ({ session, personaName }: DashboardViewProps) => {
           choices={chat.choices}
           importKind={chat.importKind}
           sessionId={session.session_id}
+          personaId={session.persona_id}
           onImport={(importIds) =>
             void chat.send(`고용24에서 고른 ${importIds.length}건 넣어 주세요`, {
               inputKind: 'choice',

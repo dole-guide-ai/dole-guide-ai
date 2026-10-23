@@ -16,6 +16,8 @@ interface ChatPanelProps {
   /** 마지막 질문이 연 고용24 불러오기 목록 (2-0.4) */
   importKind?: ImportKind | null;
   sessionId?: string;
+  /** 불러오기 목록을 받을 계정 */
+  personaId?: string;
   onImport?: (importIds: string[]) => void;
   inputText: string;
   onInputChange: (text: string) => void;
@@ -34,6 +36,7 @@ export const ChatPanel = ({
   choices,
   importKind,
   sessionId,
+  personaId,
   onImport,
   inputText,
   onInputChange,
@@ -74,11 +77,12 @@ export const ChatPanel = ({
           </p>
         )}
         <ChoiceButtons choices={choices} onSelect={onChoice} isDisabled={isStreaming} />
-        {importKind && sessionId && onImport && (
+        {importKind && sessionId && personaId && onImport && (
           <ImportPicker
             key={`${importKind}-${messages.length}`}
             kind={importKind}
             sessionId={sessionId}
+            personaId={personaId}
             isDisabled={isStreaming}
             onApply={onImport}
           />

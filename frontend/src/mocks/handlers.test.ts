@@ -7,7 +7,6 @@ import { roundCheckFromServer } from '@/lib/roundCheck';
 import { setSession } from '@/lib/sessionStore';
 import type { components } from '@/types/api.gen';
 import type { SessionRead } from '@/types/demo.types';
-import type { ImportListRead } from '@/types/imports.types';
 import type { RecognitionFormRead } from '@/types/recognition.types';
 import { resetMockAuth, resolveMock } from '@/mocks/handlers';
 import { LEE_ROUND_CHECK } from '@/test/roundCheckFixture';
@@ -86,25 +85,6 @@ describe('모의 API', () => {
     expect(saved.session_id).toBe(session.session_id);
     expect(saved.state.stage).toBe('education');
     setSession(null);
-  });
-
-  it('다시 불러오기에서는 이미 넣은 항목을 `이미 넣음`으로 막는다 (시연 검증 13번)', async () => {
-    await resolveMock('/accounts/park', { method: 'PUT' });
-    applyFormUpdate({
-      form: 'resume',
-      path: 'competencies.vocational_training',
-      op: 'set',
-      value: [{ item_id: 'training_001', name: '용접 기초 과정' }],
-    });
-
-    const list = await resolveMock<ImportListRead>('/imports/career-certificate');
-
-    expect(list.items.map((item) => [item.title, item.is_recorded])).toEqual([
-      ['OO산업', false],
-      ['지게차운전기능사', false],
-      ['용접 기초 과정', true],
-    ]);
-    resetForms();
   });
 
   it('없는 계정으로는 입장할 수 없다', async () => {

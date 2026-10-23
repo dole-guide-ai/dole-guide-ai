@@ -6,12 +6,10 @@ import { getSession } from '@/lib/sessionStore';
 import type { components } from '@/types/api.gen';
 import type { FormPatchCreate, FormUpdateEvent } from '@/types/chat.types';
 import type { SessionRead } from '@/types/demo.types';
-import type { ImportKind } from '@/types/imports.types';
 import type { RecognitionConfirmCreate } from '@/types/recognition.types';
 
 import { resetMockChat } from './chatScripts';
 import { MOCK_AFTER_RESUME_ENTRIES, MOCK_ENTRIES } from './entries';
-import { MOCK_IMPORTS, mockImportList } from './imports';
 import { findMockPersona, MOCK_PERSONAS } from './personas';
 import { mockRecognitionForm } from './recognition';
 import { MOCK_RESUMES } from './resumes';
@@ -163,14 +161,6 @@ export const resolveMock = async <T>(path: string, init?: RequestInit): Promise<
     }
     const stamp = Date.now();
     return { file_id: `file-${stamp}`, job_id: `job-${stamp}` } as T;
-  }
-
-  const importMatch = /^\/imports\/(career-certificate|work24-activities)$/.exec(path);
-  if (method === 'GET' && importMatch) {
-    const list = personaId ? MOCK_IMPORTS[importMatch[1] as ImportKind][personaId] : undefined;
-    if (!list) return { items: [], source_note: '불러올 내역이 없어요.' } as T;
-    const drafts = getFormDrafts();
-    return mockImportList(list, drafts.resume.values, drafts.activities.values) as T;
   }
 
   if (method === 'GET' && path === API_PATHS.LEGACY_RECOGNITION) {
