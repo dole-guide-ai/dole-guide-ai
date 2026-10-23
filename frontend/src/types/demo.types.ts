@@ -1,3 +1,5 @@
+import type { ImportKind } from '@/types/imports.types';
+
 /**
  * 상세기획 1장(사용자 상태 모델·진입 분기)에 맞춘 임시 타입.
  * 백엔드 API가 올라오면 `pnpm gen:api`로 만든 `api.gen.ts` 타입으로 바꿉니다.
@@ -82,6 +84,15 @@ export interface EntryResult {
   choices: string[];
   /** 첫 안내가 서류·사진을 요청하면 true (2-0.4 `accepts_file`과 같은 뜻) */
   accepts_file?: boolean;
+  /**
+   * 새로고침 전 답을 기다리던 질문 (F-03, `AccountRead.pending_ask`). 있으면 그 선택지·불러오기 종류를 다시 띄우고,
+   * 없으면 저장된 대화를 되살릴 때 진입 선택지를 지웁니다.
+   */
+  pending_ask?: {
+    choices: string[];
+    import_kind: ImportKind | null;
+    accepts_file: boolean;
+  } | null;
   ui: { big_text: boolean };
   rule_refs: string[];
 }

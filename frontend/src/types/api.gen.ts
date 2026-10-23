@@ -501,7 +501,8 @@ export interface paths {
          * @description 화면에 보일 대화 말풍선을 순서대로 돌려줍니다. 새로고침했을 때 대화를 그대로 복원하는 데
          *     씁니다.
          *
-         *     cursor를 주면 그 다음부터 이어서 돌려줍니다. (아직 구현 전이라 501)
+         *     한 번에 100개까지 돌려주고, 더 있으면 next_cursor를 줍니다. cursor를 주면 그 다음부터 이어서
+         *     돌려줍니다. 답을 기다리던 질문은 계정 조회(`GET /accounts/{id}`)의 pending_ask로 옵니다.
          */
         get: operations["list_messages"];
         put?: never;
@@ -735,6 +736,11 @@ export interface components {
             choices: string[];
             /** Import Kind */
             import_kind?: string | null;
+            /**
+             * Accepts File
+             * @default false
+             */
+            accepts_file: boolean;
         };
         /** Body_upload_file */
         Body_upload_file: {
@@ -3427,15 +3433,6 @@ export interface operations {
             };
             /** @description Internal Server Error */
             500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Not Implemented */
-            501: {
                 headers: {
                     [name: string]: unknown;
                 };
