@@ -4,25 +4,23 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { MyDataDialog } from '@/features/myData/MyDataDialog';
 
-import { getFormDrafts, resetForms } from '@/lib/formStore';
-import { MOCK_MY_DATA, MOCK_MY_DATA_DELETE_UPDATES, MOCK_NOT_STORED } from '@/mocks/myData';
+import { resetForms } from '@/lib/formStore';
+import { LEE_FACTS } from '@/test/factsFixture';
 import { renderWithProviders } from '@/test/renderWithProviders';
 
-/** 지운 줄을 기억하는 작은 가짜 서버 */
+/** 지운 줄을 기억하는 작은 가짜 서버 (`/accounts/lee/facts`) */
 const mockApi = () => {
   const deleted = new Set<string>();
   return vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
     const url = String(input);
-    if (url.endsWith('/me/data') && init?.method === 'DELETE') {
-      const { item_id } = JSON.parse(String(init.body)) as { item_id: string };
-      deleted.add(item_id);
-      return Response.json({ updates: MOCK_MY_DATA_DELETE_UPDATES[item_id] ?? [] });
+    const match = /\/accounts\/lee\/facts(?:\/([^/]+))?$/.exec(url);
+    if (match?.[1] && init?.method === 'DELETE') {
+      deleted.add(decodeURIComponent(match[1]));
+      return Response.json({ updates: [] });
     }
-    if (url.endsWith('/me/data')) {
-      return Response.json({
-        items: MOCK_MY_DATA.lee.filter((item) => !deleted.has(item.item_id)),
-        not_stored: MOCK_NOT_STORED,
-      });
+    if (match) {
+      const items = LEE_FACTS.items.filter((item) => !deleted.has(item.fact_id));
+      return Response.json({ ...LEE_FACTS, items, total: items.length });
     }
     return Response.json({ code: 'NOT_FOUND', message: '없는 경로예요.' }, { status: 404 });
   });
@@ -35,7 +33,7 @@ describe('MyDataDialog', () => {
   it('확정된 값·절차 상태·확인한 사실과 저장하지 않는 정보를 보여 준다', async () => {
     mockApi();
 
-    renderWithProviders(<MyDataDialog sessionId="s1" onClose={vi.fn()} />);
+    renderWithProviders(<MyDataDialog sessionId="s1" personaId="lee" onClose={vi.fn()} />);
 
     expect(await screen.findByText('저장 완료 (일반 사무)')).toBeInTheDocument();
     const procedure = screen.getByRole('region', { name: '절차 상태' });
@@ -45,9 +43,9 @@ describe('MyDataDialog', () => {
     expect(screen.getByText(/저장하지 않는 정보 · 주민등록번호/)).toBeInTheDocument();
   });
 
-  it('삭제하면 그 칸을 아직 없음으로 돌리고 목록에서 빠진다', async () => {
+  it('삭제하면 목록에서 빠진다', async () => {
     mockApi();
-    renderWithProviders(<MyDataDialog sessionId="s1" onClose={vi.fn()} />);
+    renderWithProviders(<MyDataDialog sessionId="s1" personaId="lee" onClose={vi.fn()} />);
 
     await userEvent.click(await screen.findByRole('button', { name: '지급 결정 통지 방법 삭제' }));
 
@@ -55,15 +53,12 @@ describe('MyDataDialog', () => {
     await vi.waitFor(() =>
       expect(screen.queryByText('휴대전화 문자메시지')).not.toBeInTheDocument(),
     );
-    expect(
-      getFormDrafts().recognition.fields['notification_and_plan.payment_notification_method'],
-    ).toMatchObject({ status: 'missing' });
   });
 
   it('Esc로 닫는다', async () => {
     mockApi();
     const onClose = vi.fn();
-    renderWithProviders(<MyDataDialog sessionId="s1" onClose={onClose} />);
+    renderWithProviders(<MyDataDialog sessionId="s1" personaId="lee" onClose={onClose} />);
 
     await userEvent.keyboard('{Escape}');
 

@@ -16,7 +16,7 @@ import type { MyDataGroup } from '@/types/myData.types';
  */
 interface MyDataDialogProps {
   sessionId: string;
-  personaId?: string;
+  personaId: string;
   onClose: () => void;
 }
 
@@ -92,7 +92,7 @@ export const MyDataDialog = ({ sessionId, personaId, onClose }: MyDataDialogProp
                         {item.is_deletable && (
                           <Button
                             variant="secondary"
-                            onClick={() => remove.mutate({ item_id: item.item_id })}
+                            onClick={() => remove.mutate(item.item_id)}
                             disabled={remove.isPending}
                             aria-label={`${item.label} 삭제`}
                           >

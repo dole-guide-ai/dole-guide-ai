@@ -7,13 +7,11 @@ import type { components } from '@/types/api.gen';
 import type { FormPatchCreate, FormUpdateEvent } from '@/types/chat.types';
 import type { SessionRead } from '@/types/demo.types';
 import type { ImportKind } from '@/types/imports.types';
-import type { MyDataDelete, MyDataRead } from '@/types/myData.types';
 import type { RecognitionConfirmCreate } from '@/types/recognition.types';
 
 import { resetMockChat } from './chatScripts';
 import { MOCK_AFTER_RESUME_ENTRIES, MOCK_ENTRIES } from './entries';
 import { MOCK_IMPORTS, mockImportList } from './imports';
-import { MOCK_MY_DATA, MOCK_MY_DATA_DELETE_UPDATES, MOCK_NOT_STORED } from './myData';
 import { findMockPersona, MOCK_PERSONAS } from './personas';
 import { mockRecognitionForm } from './recognition';
 import { MOCK_RESUMES } from './resumes';
@@ -173,29 +171,6 @@ export const resolveMock = async <T>(path: string, init?: RequestInit): Promise<
     if (!list) return { items: [], source_note: '불러올 내역이 없어요.' } as T;
     const drafts = getFormDrafts();
     return mockImportList(list, drafts.resume.values, drafts.activities.values) as T;
-  }
-
-  if (method === 'GET' && path === API_PATHS.LEGACY_MY_DATA) {
-    const items = (personaId ? MOCK_MY_DATA[personaId] : undefined) ?? [];
-    const read: MyDataRead = {
-      items: items.filter((item) => !deletedMyData.has(item.item_id)),
-      not_stored: MOCK_NOT_STORED,
-    };
-    return read as T;
-  }
-
-  if (method === 'DELETE' && path === API_PATHS.LEGACY_MY_DATA) {
-    const body = parseBody<MyDataDelete>(init);
-    const item = personaId
-      ? MOCK_MY_DATA[personaId]?.find((row) => row.item_id === body?.item_id)
-      : undefined;
-    if (!item || deletedMyData.has(item.item_id)) {
-      throw new ApiError(ERROR_CODES.NOT_FOUND, '지울 정보를 찾지 못했어요.', 404);
-    }
-    if (!item.is_deletable)
-      throw new ApiError(ERROR_CODES.CONFLICT, '이 정보는 지울 수 없어요.', 409);
-    deletedMyData.add(item.item_id);
-    return { updates: MOCK_MY_DATA_DELETE_UPDATES[item.item_id] ?? [] } as T;
   }
 
   if (method === 'GET' && path === API_PATHS.LEGACY_RECOGNITION) {
