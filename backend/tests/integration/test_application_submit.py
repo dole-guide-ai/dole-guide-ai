@@ -9,8 +9,9 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.clock import KST, get_now
+from app.core.errors import ConflictError
 from app.main import app
-from app.models import Activity
+from app.models import Activity, ProcedureState
 from app.models.user import User
 from app.schemas.common import JsonPatchOp
 from app.services import application as application_service
@@ -189,3 +190,22 @@ def _account_of(client: TestClient, headers: dict[str, str], db: Session) -> Acc
     """API로 입장한 계정을 서비스 테스트용 AccountContext로 찾습니다."""
     user = db.scalars(select(User).where(User.persona_id == "lee")).one()
     return AccountContext(user.user_id, user.persona_id, user.anchor_date)
+
+
+def test_ended_account_cannot_change_application(
+    client: TestClient, db_session: Session, entered_headers: Callable[[str], dict[str, str]]
+) -> None:
+    """F-33 완료 기준: 수급이 끝난 뒤에는 신청서를 제출하거나 본인 답변을 고칠 수 없습니다."""
+    headers = entered_headers("lee")
+    account = _account_of(client, headers, db_session)
+    state = db_session.get(ProcedureState, account.user_id)
+    state.stage = "ended"
+    db_session.flush()
+
+    res = _submit(client, headers, "attend", items=ATTEND_ITEMS)
+    assert res.status_code == 409
+    assert res.json()["code"] == "STAGE_ORDER"
+    with pytest.raises(ConflictError):
+        application_service.record_user_answer(
+            db_session, account, "current", [_answer("/work/has_work", "no")], NOW
+        )
