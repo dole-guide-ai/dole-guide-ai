@@ -28,6 +28,20 @@ def list_between(db: Session, user_id: uuid.UUID, start: date, end: date) -> lis
     )
 
 
+def list_done_org_names(db: Session, user_id: uuid.UUID, route: str) -> set[str]:
+    """이미 한(예정이 아닌) 활동 중 그 경로로 지원한 회사 이름들. 불러오기 '이미 넣음'에 씁니다."""
+    return set(
+        db.scalars(
+            select(Activity.org_name).where(
+                Activity.user_id == user_id,
+                Activity.route == route,
+                Activity.org_name.is_not(None),
+                Activity.planned.is_(False),
+            )
+        )
+    )
+
+
 def get(db: Session, user_id: uuid.UUID, activity_id: uuid.UUID) -> Activity | None:
     return db.scalar(
         select(Activity).where(Activity.user_id == user_id, Activity.activity_id == activity_id)
