@@ -5,6 +5,7 @@ AI 도구가 뽑은 값을 칸마다 상태·출처와 함께 저장하고, 자�
 REST의 조회·직접 고치기·저장(상세기획 2-1.6)도 여기서 합니다.
 """
 
+import re
 import uuid
 from dataclasses import dataclass
 from datetime import date, datetime
@@ -26,6 +27,8 @@ from app.schemas.common import (
     FormName,
     FormUpdate,
     JsonPatchOp,
+    PatchErrorType,
+    PatchOpName,
     UpdatesRead,
 )
 from app.schemas.forms import resume as resume_form
@@ -80,7 +83,7 @@ def save_resume_fields(
         if not _shape_ok(w):
             raise UnprocessableError(
                 "값 모양이 맞지 않아요.",
-                details=[{"field": f"writes[{index}]", "reason": "bad_shape"}],
+                details=[{"field": f"writes[{index}]", "type": PatchErrorType.BAD_SHAPE}],
             )
         json_patch.set_field(raw, w.path, w.model_dump(mode="json", exclude={"path"}))
     try:
@@ -95,7 +98,7 @@ def save_resume_fields(
     if too_many:
         raise UnprocessableError(
             "고용24는 3개까지만 넣을 수 있어요.",
-            details=[{"field": p, "reason": "too_many"} for p in too_many],
+            details=[{"field": p, "type": PatchErrorType.TOO_MANY} for p in too_many],
         )
 
     resume.data = data.model_dump(mode="json")
@@ -171,6 +174,12 @@ def patch_resume(
             return UpdatesRead(updates=[_status_update(ResumeStatus.DRAFT)])
         raise UnprocessableError("저장은 /status를 saved로 보내 주세요.")
 
+    for index, op in enumerate(patch):
+        if op.op != PatchOpName.REMOVE and not _date_ok(op.path, op.value):
+            raise UnprocessableError(
+                DATE_FORMAT_MESSAGE,
+                details=[{"field": f"patch[{index}]", "type": PatchErrorType.DATE_FORMAT}],
+            )
     # shortcut: 항목 통째로 지우기(remove /careers/c1)는 칸 쓰기로 표현할 수 없어 아직 422입니다.
     writes = [
         FieldWrite(
@@ -226,6 +235,31 @@ def work24_hint(data: resume_form.ResumeData) -> str:
     if any(rules.is_filled(e.gpa) for e in data.education):
         lines.append(HINT_GPA)
     return "\n".join(lines)
+
+
+# 직접 입력한 날짜는 고용24 칸 형식(연-월, 자격 취득일만 연-월-일도)이어야 저장합니다 (F-12).
+DATE_FORMAT_MESSAGE = "날짜는 2004-03처럼 연-월로 넣어 주세요."
+_YM = re.compile(r"\d{4}-(0[1-9]|1[0-2])", re.ASCII)
+_YMD = re.compile(r"\d{4}-(0[1-9]|1[0-2])(-\d{2})?", re.ASCII)
+YM_LENGTH = len("YYYY-MM")
+DATE_FIELD_SUFFIX = "_date"
+# 연-월-일까지 받는 칸 (자격 취득일)
+FULL_DATE_FIELDS = ("acquired_date",)
+
+
+def _date_ok(path: str, value: Any) -> bool:
+    if not path.endswith(DATE_FIELD_SUFFIX) or value is None:
+        return True
+    pattern = _YMD if path.rsplit("/", 1)[-1] in FULL_DATE_FIELDS else _YM
+    if not isinstance(value, str) or pattern.fullmatch(value) is None:
+        return False
+    if len(value) == YM_LENGTH:
+        return True
+    try:  # 2011-02-31처럼 달력에 없는 날은 막습니다.
+        date.fromisoformat(value)
+    except ValueError:
+        return False
+    return True
 
 
 def _procedure_or_404(db: Session, user_id: uuid.UUID):

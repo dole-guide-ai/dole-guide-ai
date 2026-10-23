@@ -54,6 +54,9 @@ describe('resumeFromServer', () => {
     expect(draft.job_preferences.experience_summary).toBe('경력 22년 7개월');
     expect(draft.competencies.careers[0].company_name).toBe('OO산업');
     expect(draft.field_states['competencies.careers.c1.company_name'].status).toBe('conflict');
+    // 서버 출처 이름을 칩 이름으로: direct → 직접 입력(manual), doc → 문서
+    expect(draft.field_states.resume_title.source).toBe('manual');
+    expect(draft.field_states['competencies.careers.c1.company_name'].source).toBe('document');
     expect(draft.field_states['competencies.certifications'].status).toBe('not_applicable');
     expect(draft.completeness).toEqual({ done: 2, total: 5 });
     expect(draft.lock_version).toBe(3);

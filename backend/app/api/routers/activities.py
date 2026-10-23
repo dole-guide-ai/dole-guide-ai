@@ -2,7 +2,6 @@
 
 활동은 날짜만 저장하고, 어느 회차에 속하는지는 회차 대상기간으로 계산합니다. 지난 회차 활동은 고칠
 수 없습니다.
-활동 고치기(PATCH, F-12)는 아직 501 틀입니다.
 """
 
 from typing import Annotated
@@ -13,7 +12,6 @@ from app.api.deps import CurrentAccount, IdempotencyKey, get_current_account
 from app.api.responses import error_responses
 from app.core.clock import Today
 from app.core.db import DbSession
-from app.core.errors import NotImplementedYetError
 from app.schemas.activities import ActivityCreate, ActivityRead
 from app.schemas.common import JsonPatch, Page, UpdatesRead
 from app.services import activities as activity_service
@@ -73,12 +71,23 @@ def create_activity(
 @router.patch(
     "/activities/{activity_id}",
     summary="구직활동 고치기",
-    responses=error_responses(401, 404, 409, 422, 501),
+    responses=error_responses(401, 404, 409, 422),
 )
-def patch_activity(activity_id: str, patch: JsonPatch) -> UpdatesRead:
-    """JSON Patch로 활동 값을 고칩니다. 지난 회차 활동은 409 ROUND_CLOSED입니다. (아직 구현 전이라
-    501)"""
-    raise NotImplementedYetError()
+def patch_activity(
+    activity_id: str, patch: JsonPatch, db: DbSession, account: CurrentAccount, today: Today
+) -> UpdatesRead:
+    """패널에서 활동 칸을 직접 고칩니다 (F-12). 예: `[{"op": "replace", "path": "/org_name",
+    "value": "OO물산"}]`
+
+    - 고칠 수 있는 칸: activity_date, kind, route, org_name, job_title, search_method,
+      apply_method, contact_dept, result, hours. 그 밖의 칸·틀린 형식은 422(날짜는 YYYY-MM-DD,
+      새 날짜도 이번 회차 대상기간 안). activity_date·kind는 지울 수 없습니다.
+    - 지난 회차 활동은 409 ROUND_CLOSED, 없는 활동은 404입니다.
+    - kind를 바꾸면 구분(category)도 종류에 맞게 코드가 다시 정합니다.
+    - 고친 활동은 출처가 직접 입력(direct)이 됩니다. 응답 updates는 고친 활동과 다시 계산한 회차
+      점검(`/round_check`)입니다.
+    """
+    return activity_service.patch_activity(db, account, activity_id, patch, today)
 
 
 @router.delete(
