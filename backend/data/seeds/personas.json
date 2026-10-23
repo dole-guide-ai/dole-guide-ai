@@ -79,14 +79,15 @@
       "resume": {
         "status": "saved",
         "saved_offset": -2720,
+        "field_status": "extracted",
         "data": {
-          "title": { "value": "시설관리 경력 이력서", "status": "extracted", "source": "seed" },
+          "resume_title": "시설관리 경력 이력서",
           "education": [
-            { "item_id": "edu_001", "level": "고등학교", "graduation_status": "졸업", "school_name": "OO고등학교", "start_date": "1975-03", "end_date": "1978-02", "is_final": true }
+            { "item_id": "edu_001", "education_level": "고등학교", "graduation_status": "졸업", "school_name": "OO고등학교", "start_date": "1975-03", "end_date": "1978-02", "is_highest_education": true }
           ],
           "job_preferences": {
-            "desired_occupations": [{ "code": null, "name": "시설관리", "status": "needs_confirmation" }],
-            "desired_regions": ["서울 노원구"]
+            "desired_occupations": [{ "item_id": "occ_001", "occupation": { "code": null, "name": "시설관리", "status": "needs_confirmation" } }],
+            "desired_regions": [{ "code": null, "name": "서울 노원구" }]
           },
           "careers": [
             { "item_id": "career_001", "company_name": "OO아파트 관리사무소", "start_date": "2010-03", "end_date": "2019-04", "position": "시설기사", "main_duties": "전기·설비 점검, 보수 작업" }
@@ -143,14 +144,15 @@
       "resume": {
         "status": "saved",
         "saved_offset": -100,
+        "field_status": "confirmed",
         "data": {
-          "title": { "value": "일반 사무 · 행정지원 경력 이력서", "status": "confirmed", "source": "seed" },
+          "resume_title": "일반 사무 · 행정지원 경력 이력서",
           "education": [
-            { "item_id": "edu_001", "level": "고등학교", "graduation_status": "졸업", "school_name": "OO고등학교", "start_date": "1984-03", "end_date": "1987-02", "is_final": true }
+            { "item_id": "edu_001", "education_level": "고등학교", "graduation_status": "졸업", "school_name": "OO고등학교", "start_date": "1984-03", "end_date": "1987-02", "is_highest_education": true }
           ],
           "job_preferences": {
-            "desired_occupations": [{ "code": null, "name": "일반 사무", "status": "confirmed" }],
-            "desired_regions": ["서울 강서구"]
+            "desired_occupations": [{ "item_id": "occ_001", "occupation": { "code": null, "name": "일반 사무", "status": "confirmed" } }],
+            "desired_regions": [{ "code": null, "name": "서울 강서구" }]
           },
           "careers": [
             { "item_id": "career_001", "company_name": "OO유통", "start_date": "2001-04", "end_date": "2026-08", "position": "과장", "main_duties": "총무·행정 지원" }
