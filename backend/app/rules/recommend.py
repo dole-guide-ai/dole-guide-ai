@@ -10,13 +10,12 @@
 from dataclasses import dataclass
 from datetime import date, timedelta
 
-from app.rules.application import GENERAL_RULE_GROUPS, JOB_SEARCH, NON_JOB_SEARCH
+from app.rules.activity_table import load_rules
+from app.rules.application import JOB_SEARCH, NON_JOB_SEARCH
+from app.rules.rounds import is_not_allowed
+from app.schemas.rounds import LimitsUsed
 
 MAX_ITEMS = 3
-# 일반 규칙 그룹(반복수급자 포함)은 8차부터 구직활동만 인정합니다 (ACT-030).
-JOB_SEARCH_ONLY_FROM = 8
-# 단기·온라인 취업특강은 합쳐서 수급 기간 전체 2회까지 (ACT-043, ACT-117).
-LECTURE_LIMIT = 2
 _WEEKDAYS = "월화수목금토일"
 
 
@@ -27,9 +26,14 @@ class Candidate:
     kind: str
     route: str
     title: str
-    evidence: str | None
     rule_refs: tuple[str, ...]
     is_training: bool = False
+
+    @property
+    def evidence(self) -> str | None:
+        """경로별 필요 증빙 (규칙 표 2-2.4). 필요 없으면 None."""
+        route = load_rules().route(self.route)
+        return " + ".join(route.evidence) if route and route.evidence else None
 
 
 # 기본 순서는 상세기획 2-2.8 이정호 예시(고용24 입사지원 → 온라인 특강 → 면접)를 따릅니다.
@@ -40,7 +44,6 @@ CANDIDATES: tuple[Candidate, ...] = (
         "job_application",
         "work24",
         "입사지원 (고용24)",
-        None,
         ("ACT-001", "ACT-132"),
     ),
     Candidate(
@@ -49,7 +52,6 @@ CANDIDATES: tuple[Candidate, ...] = (
         "lecture",
         "step_online",
         "온라인 취업특강 (STEP) — 1과정 끝까지(진도율 100%)",
-        None,
         ("ACT-043", "ACT-117"),
     ),
     Candidate(
@@ -58,7 +60,6 @@ CANDIDATES: tuple[Candidate, ...] = (
         "interview",
         "interview",
         "면접 (잡힌 면접이 있으면)",
-        "면접확인서 + 명함",
         ("ACT-002", "ACT-137"),
     ),
     Candidate(
@@ -67,7 +68,6 @@ CANDIDATES: tuple[Candidate, ...] = (
         "job_application",
         "company_site",
         "입사지원 (기업 홈페이지)",
-        "채용공고 + 지원 완료 화면 캡처(날짜가 보이게)",
         ("ACT-001", "ACT-136"),
     ),
     Candidate(
@@ -76,7 +76,6 @@ CANDIDATES: tuple[Candidate, ...] = (
         "training",
         "training",
         "직업훈련 수강",
-        "수강증명서 + 대상 기간 출석부",
         ("ACT-051", "ACT-141"),
         is_training=True,
     ),
@@ -91,25 +90,22 @@ class Recommendation:
     reason: str
 
 
-WEEKLY_TEXT = (
-    " 8차부터는 매주 구직활동 1건이 필요해요. 주를 나누는 기준은 고용센터 안내를 따라 주세요."
-)
+WEEKLY_TEXT = " 8차부터는 대상기간 시작일부터 7일마다 구직활동 1건이 필요해요."
 
 
 def is_weekly_job_search(group: str, round_no: int) -> bool:
-    """일반 규칙 그룹 8차부터는 1주에 구직활동 1건이라 회차 합계만으로는 충족을 알 수 없습니다.
-
-    주 단위 계산은 회차 점검(F-18)이 정하므로(상세기획 2-2.6 `확인 필요`),
-    추천은 늘 구직활동을 권합니다.
-    """
-    return group in GENERAL_RULE_GROUPS and round_no >= JOB_SEARCH_ONLY_FROM
+    """일반 수급자 8차부터는 7일마다 구직활동 1건 (설계 6.2, 규칙 표 `weekly_job_search`)."""
+    row = load_rules().required_row(group, round_no)
+    return row is not None and row.weekly_job_search
 
 
-def _allowed(candidate: Candidate, group: str, round_no: int, lectures_used: int) -> bool:
-    job_search_only = group in GENERAL_RULE_GROUPS and round_no >= JOB_SEARCH_ONLY_FROM
-    if candidate.category == NON_JOB_SEARCH and job_search_only:
+def _allowed(candidate: Candidate, group: str, round_no: int, limits_used: LimitsUsed) -> bool:
+    rules = load_rules()
+    rule = rules.kind(candidate.kind)
+    if rule is None or is_not_allowed(rule, rules, group, round_no):
         return False
-    return not (candidate.kind == "lecture" and lectures_used >= LECTURE_LIMIT)
+    limit = rules.limit(rule.limit_group) if rule.limit_group else None
+    return limit is None or getattr(limits_used, limit.group) < limit.max
 
 
 def recommend_activities(
@@ -118,7 +114,7 @@ def recommend_activities(
     shortfall_job_search: int,
     group: str,
     round_no: int,
-    lectures_used: int,
+    limits_used: LimitsUsed,
     desired_occupation: str | None,
     planned: frozenset[tuple[str, str]] = frozenset(),
 ) -> list[Recommendation]:
@@ -126,13 +122,16 @@ def recommend_activities(
 
     `planned`는 이미 예정으로 넣은 (종류, 경로)라 다시 추천하지 않습니다.
     """
+    # 반복수급자처럼 필요 건수가 없는 유형은 지원하지 않아 추천하지 않습니다 (설계 6.1).
+    if load_rules().required_row(group, round_no) is None:
+        return []
     if shortfall <= 0 and shortfall_job_search <= 0:
         return []
     needs_job = shortfall_job_search > 0
     candidates = [
         c
         for c in CANDIDATES
-        if _allowed(c, group, round_no, lectures_used) and (c.kind, c.route) not in planned
+        if _allowed(c, group, round_no, limits_used) and (c.kind, c.route) not in planned
     ]
     ranked = sorted(
         candidates,
@@ -144,19 +143,21 @@ def recommend_activities(
             CANDIDATES.index(c),
         ),
     )
-    return [_describe(c, needs_job, lectures_used, desired_occupation) for c in ranked[:MAX_ITEMS]]
+    return [_describe(c, needs_job, limits_used, desired_occupation) for c in ranked[:MAX_ITEMS]]
 
 
 def _describe(
-    candidate: Candidate, needs_job: bool, lectures_used: int, occupation: str | None
+    candidate: Candidate, needs_job: bool, limits_used: LimitsUsed, occupation: str | None
 ) -> Recommendation:
     title = candidate.title
     if candidate.key == "work24_apply" and occupation:
         title = f"{title} — 희망 직종 ‘{occupation}’ 공고"
     parts = ["구직활동" if candidate.category == JOB_SEARCH else "구직 외 활동"]
     parts.append(f"증빙 {candidate.evidence}" if candidate.evidence else "증빙 불필요")
-    if candidate.kind == "lecture":
-        parts.append(f"한도 {LECTURE_LIMIT}회 중 {lectures_used}회 사용")
+    rules = load_rules()
+    rule = rules.kind(candidate.kind)
+    if rule and rule.limit_group and (limit := rules.limit(rule.limit_group)):
+        parts.append(f"한도 {limit.max}회 중 {getattr(limits_used, limit.group)}회 사용")
     if needs_job and candidate.category != JOB_SEARCH:
         parts.append("구직활동 1건은 따로 필요해요")
     return Recommendation(candidate=candidate, title=title, reason=" · ".join(parts))
