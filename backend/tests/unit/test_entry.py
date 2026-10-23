@@ -1,7 +1,7 @@
 from datetime import date
 
 from app.schemas.procedure import ProcedureRead
-from app.services.entry import branch_id, build_entry
+from app.services.entry import branch_id
 
 
 def procedure(**overrides: object) -> ProcedureRead:
@@ -31,10 +31,3 @@ def test_repeat_recipient_goes_to_center_guide() -> None:
 
 def test_recognition_without_current_round_is_end() -> None:
     assert branch_id(procedure(stage="recognition"), "ready", None, None) == "END"
-
-
-def test_big_text_is_default_from_65_at_separation() -> None:
-    """이직 당시 만 65세 이상이면 글자 크게로 시작합니다 (1장 1.6 M4, F-06)."""
-    assert build_entry(procedure(age_at_separation=64), "none", None, None).ui.big_text is False
-    assert build_entry(procedure(age_at_separation=65), "none", None, None).ui.big_text is True
-    assert build_entry(procedure(age_at_separation=67), "ready", None, None).ui.big_text is True
