@@ -123,6 +123,9 @@ def read_account(db: Session, account: AccountContext, today: date) -> AccountRe
     procedure = read_procedure(db, account.user_id, today)
     rounds = read_rounds(db, account.user_id, today)
     current = next((r for r in rounds if r.status == RoundStatus.CURRENT), None)
+    if current is None:
+        # 대기기간(신청일부터 7일) 중에는 1회차가 아직 시작 전이라 다가올 회차를 보여 줍니다.
+        current = next((r for r in rounds if r.status == RoundStatus.UPCOMING), None)
     d_day = (current.recognition_date - today).days if current else None
     entry = build_entry(procedure, _resume_status(db, account.user_id, procedure), current, d_day)
     return AccountRead(
@@ -227,6 +230,28 @@ def read_rounds(db: Session, user_id: uuid.UUID, today: date) -> list[RoundSumma
             )
         )
     return summaries
+
+
+def resume_is_saved(db: Session, user_id: uuid.UUID) -> bool:
+    """구직등록용 이력서를 이직 뒤에 저장했는지(resume_status = ready).
+
+    교육 이수를 표시하기 전에 봅니다 (F-16).
+    """
+    return _resume_status(db, user_id, read_procedure(db, user_id)) == "ready"
+
+
+def create_rounds(db: Session, user_id: uuid.UUID, state: Any) -> None:
+    """1차 인정일이 들어온 계정에 회차와 회차별 빈 신청서를 만듭니다 (F-16, 설계 3.4)."""
+    _materialize_rounds(
+        db,
+        user_id,
+        {},
+        state.recipient_group,
+        state.eligibility_applied_on,
+        state.first_recognition_date,
+        state.benefit_days,
+        state.separation_date,
+    )
 
 
 def _resume_status(db: Session, user_id: uuid.UUID, procedure: ProcedureRead) -> str | None:
