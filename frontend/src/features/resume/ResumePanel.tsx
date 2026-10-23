@@ -125,10 +125,10 @@ export const ResumePanel = ({
   saveLabel: saveLabelOverride,
   onSaved,
 }: ResumePanelProps) => {
-  const query = useResumeForm(session.session_id);
+  const query = useResumeForm(session.session_id, session.persona_id);
   const { values, fields, completeness } = useResumeDraft();
-  const confirm = useConfirmResume();
-  const patch = usePatchResumeField();
+  const confirm = useConfirmResume(session.session_id, session.persona_id);
+  const patch = usePatchResumeField(session.session_id, session.persona_id);
 
   if (query.isPending) return <p className="text-muted text-base">이력서를 불러오는 중…</p>;
   if (query.isError) {

@@ -15,6 +15,16 @@ describe('chatReducer', () => {
     expect(state.choices).toHaveLength(3);
   });
 
+  it('entry는 새 첫 안내를 이어 붙이고 선택지를 바꾼다', () => {
+    const entry = { ...buildMockSession('lee').entry };
+    entry.messages = [{ template_id: 'T-SAVE-E7a', text: '이력서를 저장했어요.' }];
+    entry.choices = ['교육 다 들었어요'];
+    const state = run([{ type: 'entry', entry }]);
+    expect(state.messages).toHaveLength(3);
+    expect(state.messages[2].text).toBe('이력서를 저장했어요.');
+    expect(state.choices).toEqual(['교육 다 들었어요']);
+  });
+
   it('token은 한 말풍선에 이어 붙고 done에서 근거 줄이 붙는다', () => {
     const state = run([
       { type: CHAT_ACTIONS.USER_SENT, text: '추천해 주세요', inputKind: 'choice' },

@@ -59,13 +59,13 @@ def form_fields(node: Any, path: str = "") -> list[tuple[str, FormField]]:
     return out
 
 
-def _occupation_value(f: FormField) -> dict[str, Any]:
+def occupation_value(f: FormField) -> dict[str, Any]:
     return f.value if isinstance(f.value, dict) else {}
 
 
 def occupation_name(f: FormField) -> str | None:
     """직종 칸 값 {code, name, status}에서 이름. 모양이 다르면 None."""
-    return _occupation_value(f).get("name")
+    return occupation_value(f).get("name")
 
 
 def _as_list(f: FormField) -> list[Any]:
@@ -271,7 +271,7 @@ def _section_done(data: ResumeData) -> dict[str, bool]:
     prefs = data.job_preferences
     occupations_done = bool(prefs.desired_occupations) and all(
         is_filled(d.occupation)
-        and _occupation_value(d.occupation).get("status") != OccupationStatus.NEEDS_CONFIRMATION
+        and occupation_value(d.occupation).get("status") != OccupationStatus.NEEDS_CONFIRMATION
         and is_filled(d.experience_type)
         for d in prefs.desired_occupations
     )

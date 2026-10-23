@@ -159,7 +159,8 @@ export interface paths {
          * 이력서 조회
          * @description 고용24 이력서 양식대로 채워진 값과 칸마다의 상태(출처·확인 여부), 꼭 묻는 5개 항목의 완성도,
          *     다음에 물을 질문, 저장 가능 여부, 맨 위 기본정보(고용24 회원정보에서 연동) 표시값을 돌려줍니다.
-         *     응답의 ETag는 고칠 때 If-Match 헤더로 보냅니다. (아직 구현 전이라 501)
+         *     아직 이력서가 없으면 빈 초안(lock_version 0)입니다.
+         *     응답의 ETag는 고칠 때 If-Match 헤더로 보냅니다.
          */
         get: operations["get_resume"];
         put?: never;
@@ -172,13 +173,14 @@ export interface paths {
          * @description JSON Patch로 칸을 고치거나, 이력서를 저장합니다.
          *
          *     - 칸 고치기: `[{"op": "replace", "path": "/careers/c1/company_name", "value": "OO물산"}]`. 여러
-         *       칸을 한 번에 보낼 수 있습니다.
+         *       칸을 한 번에 보낼 수 있고, 고친 칸은 확인됨·직접 입력이 됩니다. 응답 updates는
+         *       바뀐 칸들입니다.
          *     - 저장: `[{"op": "replace", "path": "/status", "value": "saved"}]`. 꼭 묻는 5개가 다 차고 확인
-         *       필요가 없어야 하며, 아니면 409 RESUME_NOT_READY.
+         *       필요가 없어야 하며, 아니면 409 RESUME_NOT_READY. 저장하면 단계가 온라인 교육으로 넘어가고,
+         *       응답 entry에 바뀐 첫 화면(저장 안내·고용24 입력 안내 포함)이 옵니다.
          *     - 다시 고치기: `/status`를 `draft`로. `/status`는 다른 칸과 함께 보낼 수 없습니다(422).
          *
-         *     If-Match가 GET의 ETag와 다르면(다른 탭에서 먼저 고침) 409 VERSION_CONFLICT입니다. (아직 구현
-         *     전이라 501)
+         *     If-Match가 GET의 ETag와 다르면(다른 탭에서 먼저 고침) 409 VERSION_CONFLICT입니다.
          */
         patch: operations["patch_resume"];
         trace?: never;
@@ -2688,15 +2690,6 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Not Implemented */
-            501: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
         };
     };
     patch_resume: {
@@ -2765,15 +2758,6 @@ export interface operations {
             };
             /** @description Internal Server Error */
             500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Not Implemented */
-            501: {
                 headers: {
                     [name: string]: unknown;
                 };

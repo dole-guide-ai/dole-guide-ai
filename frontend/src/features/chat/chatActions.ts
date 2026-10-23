@@ -7,4 +7,5 @@ export const CHAT_ACTIONS = {
   ASK_USER: 'ask_user',
   DONE: 'done',
   SYSTEM: 'system',
+  ENTRY: 'entry',
 } as const;

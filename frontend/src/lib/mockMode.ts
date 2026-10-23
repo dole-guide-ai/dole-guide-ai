@@ -25,6 +25,7 @@ const BACKEND_ROUTES: RegExp[] = [
   /^\/personas$/,
   /^\/accounts\/[^/]+$/,
   /^\/accounts\/[^/]+\/messages$/,
+  /^\/accounts\/[^/]+\/resume$/,
 ];
 
 /**

@@ -8,6 +8,7 @@ import { activeToolAfter, chatActionFor, isBubbleEvent } from '@/features/chat/c
 import { chatReducer, initChatState } from '@/features/chat/chatReducer';
 import { useChatHistory } from '@/features/chat/useChatHistory';
 
+import { isServerSession } from '@/lib/accountSession';
 import { ApiError } from '@/lib/api';
 import { streamChat } from '@/lib/chatStream';
 import { ERROR_CODES } from '@/lib/errorCodes';
@@ -40,6 +41,16 @@ export const useChatStream = (session: SessionRead) => {
   if (state.sessionId !== sessionId) {
     dispatch({ type: CHAT_ACTIONS.RESET, session });
   }
+
+  // 실제 서버 세션: 이력서 저장처럼 같은 대화 안에서 첫 안내가 새로 오면 말풍선으로 이어 붙입니다.
+  // 세션이 바뀐 경우는 위의 reset이 첫 안내를 새로 깔므로 붙이지 않습니다.
+  const entryRef = useRef({ sessionId, messages: session.entry.messages });
+  useEffect(() => {
+    const prev = entryRef.current;
+    entryRef.current = { sessionId, messages: session.entry.messages };
+    if (prev.sessionId !== sessionId || prev.messages === session.entry.messages) return;
+    if (isServerSession(sessionId)) dispatch({ type: CHAT_ACTIONS.ENTRY, entry: session.entry });
+  }, [session.entry, sessionId]);
 
   // F-03: 새로고침 뒤에는 서버에 저장된 대화로 말풍선을 되살립니다. 저장된 대화가 없으면 진입 안내를 둡니다.
   const history = useChatHistory(session);

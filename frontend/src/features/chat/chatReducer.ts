@@ -60,7 +60,9 @@ export type ChatAction =
       acceptsFile?: boolean;
     }
   | { type: typeof CHAT_ACTIONS.DONE; cite?: string }
-  | { type: typeof CHAT_ACTIONS.SYSTEM; text: string };
+  | { type: typeof CHAT_ACTIONS.SYSTEM; text: string }
+  /** 같은 대화 중 진입 결과가 바뀌면(예: 이력서 저장, F-15) 새 첫 안내를 이어 붙이고 선택지를 바꿉니다. */
+  | { type: typeof CHAT_ACTIONS.ENTRY; entry: EntryResult };
 
 export const initChatState = (session: SessionRead): ChatState => ({
   sessionId: session.session_id,
@@ -178,6 +180,15 @@ export const chatReducer = (state: ChatState, action: ChatAction): ChatState => 
           }
         : state;
       return closeStreaming(withCite);
+    }
+
+    case CHAT_ACTIONS.ENTRY: {
+      const next = action.entry.messages.reduce(
+        (acc, message) =>
+          push(acc, { role: CHAT_ROLE.ASSISTANT, text: message.text, cite: message.cite }),
+        closeStreaming(state),
+      );
+      return { ...next, choices: action.entry.choices };
     }
 
     case CHAT_ACTIONS.SYSTEM:
