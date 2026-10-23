@@ -13,7 +13,7 @@ from dataclasses import dataclass, field
 from datetime import date
 
 from app.agent.events import TurnEvent
-from app.schemas.messages import DoneEvent, TokenEvent
+from app.schemas.messages import DoneEvent, InputKind, TokenEvent
 
 
 @dataclass(frozen=True)
@@ -21,7 +21,7 @@ class TurnInput:
     user_id: uuid.UUID
     persona_id: str
     text: str
-    input_kind: str
+    input_kind: InputKind
     today: date
     file_ids: list[str] = field(default_factory=list)
     import_ids: list[str] = field(default_factory=list)

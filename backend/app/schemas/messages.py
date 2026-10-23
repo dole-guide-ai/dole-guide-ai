@@ -19,6 +19,21 @@ class InputKind(StrEnum):
     CHOICE = "choice"
 
 
+class MessageRole(StrEnum):
+    USER = "user"
+    ASSISTANT = "assistant"
+
+
+class MessageKind(StrEnum):
+    """말풍선 종류. 사용자 말풍선은 입력 방식(InputKind)과 같은 값을 씁니다."""
+
+    TEXT = "text"
+    VOICE = "voice"
+    CHOICE = "choice"
+    ASK_USER = "ask_user"
+    ERROR = "error"
+
+
 class MessageCreate(BaseModel):
     text: str = Field(min_length=1, max_length=MESSAGE_MAX_CHARS)
     input_kind: InputKind = InputKind.TEXT

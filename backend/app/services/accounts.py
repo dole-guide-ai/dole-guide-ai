@@ -29,6 +29,7 @@ from app.schemas.application import SubmitMode
 from app.schemas.common import ErrorCode
 from app.schemas.forms import recognition as recognition_form
 from app.schemas.forms import resume as resume_form
+from app.schemas.messages import MessageKind, MessageRole
 from app.schemas.procedure import ProcedureRead
 from app.schemas.resume import ResumeStatus
 from app.schemas.rounds import ApplicationStatus, RoundStatus, RoundSummary
@@ -139,7 +140,12 @@ def read_account(db: Session, account: AccountContext, today: date) -> AccountRe
 def _pending_ask(db: Session, user_id: uuid.UUID) -> AskUser | None:
     """마지막 말풍선이 답을 기다리는 질문이면 새로고침 때 다시 보여 줍니다."""
     last = message_repo.last(db, user_id)
-    if last is None or last.role != "assistant" or last.kind != "ask_user" or not last.payload:
+    if (
+        last is None
+        or last.role != MessageRole.ASSISTANT
+        or last.kind != MessageKind.ASK_USER
+        or not last.payload
+    ):
         return None
     return AskUser.model_validate(last.payload)
 

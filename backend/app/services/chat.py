@@ -14,9 +14,10 @@
 
 import logging
 import time
-from collections.abc import Iterator
-from dataclasses import dataclass, field
+from collections.abc import Iterable, Iterator
+from dataclasses import dataclass
 from datetime import date
+from http import HTTPStatus
 from typing import Any
 
 from sqlalchemy.orm import Session
@@ -28,7 +29,14 @@ from app.core.errors import DEFAULT_MESSAGES, ConflictError
 from app.repositories import idempotency as idempotency_repo
 from app.repositories import messages as repo
 from app.schemas.common import ErrorCode
-from app.schemas.messages import ErrorEvent, MessageCreate, MessageList, MessageRead
+from app.schemas.messages import (
+    ErrorEvent,
+    MessageCreate,
+    MessageKind,
+    MessageList,
+    MessageRead,
+    MessageRole,
+)
 from app.services.accounts import AccountContext
 from app.services.idempotency import request_hash
 
@@ -37,69 +45,86 @@ logger = logging.getLogger(__name__)
 PAGE_SIZE = 50
 
 
+@dataclass(frozen=True)
+class Bubble:
+    """저장할 AI 말풍선 하나."""
+
+    kind: MessageKind
+    text: str | None
+    payload: dict[str, Any] | None
+
+
+def assistant_bubbles(events: Iterable[TurnEvent]) -> list[Bubble]:
+    """턴에서 나간 이벤트를 화면용 AI 말풍선으로 바꿉니다(순수 함수).
+
+    글자(token)는 이어 붙여 말풍선 하나로, 근거(done)는 그 말풍선에 싣고, 질문(ask_user)과
+    오류(error)는 각각 말풍선 하나로 남깁니다. 저장 순서도 화면에 보인 순서와 같습니다.
+    """
+    texts: list[str] = []
+    done: dict[str, Any] | None = None
+    tail: list[Bubble] = []
+    for event in events:
+        payload = event.data.model_dump(mode="json", exclude_none=True)
+        if event.name == TOKEN:
+            texts.append(payload["text"])
+        elif event.name == DONE:
+            done = payload
+        elif event.name == ASK_USER:
+            tail.append(Bubble(MessageKind.ASK_USER, payload["text"], payload))
+        elif event.name == ERROR:
+            tail.append(Bubble(MessageKind.ERROR, payload["message"], payload))
+    text = "".join(texts).strip() or None
+    answer = [Bubble(MessageKind.TEXT, text, done)] if text or done else []
+    return answer + tail
+
+
+def _error_event(code: ErrorCode, message: str | None = None) -> TurnEvent:
+    return TurnEvent(ErrorEvent(code=code, message=message or DEFAULT_MESSAGES[code]))
+
+
 @dataclass
 class Turn:
     db: Session
     account: AccountContext
     turn_input: responder.TurnInput
-    started: float = field(default_factory=time.monotonic)
-    _texts: list[str] = field(default_factory=list)
-    _ask: dict[str, Any] | None = None
-    _done: dict[str, Any] | None = None
-    _error: dict[str, Any] | None = None
 
     def events(self) -> Iterator[TurnEvent]:
+        started = time.monotonic()
         timeout = get_settings().turn_timeout_seconds
         source = responder.get_responder()(self.turn_input)
+        sent: list[TurnEvent] = []
         try:
             for event in self._guarded(source):
-                self._collect(event)
+                sent.append(event)
                 yield event
                 if event.name == ERROR:
                     return
-                if time.monotonic() - self.started > timeout:
-                    timed_out = TurnEvent(
-                        ErrorEvent(
-                            code=ErrorCode.TIMEOUT, message=DEFAULT_MESSAGES[ErrorCode.TIMEOUT]
-                        )
-                    )
-                    self._collect(timed_out)
-                    yield timed_out
+                if time.monotonic() - started > timeout:
+                    sent.append(_error_event(ErrorCode.TIMEOUT))
+                    yield sent[-1]
                     return
         finally:
             # 끝까지 갔든, 실패했든, 연결이 끊겨 닫혔든 응답기를 멈추고 말풍선을 남깁니다.
             source.close()
-            self._save()
+            for bubble in assistant_bubbles(sent):
+                repo.add(
+                    self.db,
+                    self.account.user_id,
+                    MessageRole.ASSISTANT,
+                    bubble.kind,
+                    bubble.text,
+                    bubble.payload,
+                )
+            self.db.commit()
 
-    def _guarded(self, source: Iterator[TurnEvent]) -> Iterator[TurnEvent]:
+    @staticmethod
+    def _guarded(source: Iterator[TurnEvent]) -> Iterator[TurnEvent]:
         try:
             yield from source
         except Exception as exc:  # noqa: BLE001 - 턴 도중 실패는 error 이벤트로 알립니다
             error = gateway.to_app_error(exc)
             logger.warning("turn failed code=%s type=%s", error.code, type(exc).__name__)
-            yield TurnEvent(ErrorEvent(code=error.code, message=error.message))
-
-    def _collect(self, event: TurnEvent) -> None:
-        payload = event.data.model_dump(mode="json", exclude_none=True)
-        if event.name == TOKEN:
-            self._texts.append(payload["text"])
-        elif event.name == ASK_USER:
-            self._ask = payload
-        elif event.name == DONE:
-            self._done = payload
-        elif event.name == ERROR:
-            self._error = payload
-
-    def _save(self) -> None:
-        user_id = self.account.user_id
-        text = "".join(self._texts).strip() or None
-        if text or self._done:
-            repo.add(self.db, user_id, "assistant", "text", text, self._done)
-        if self._ask:
-            repo.add(self.db, user_id, "assistant", "ask_user", self._ask["text"], self._ask)
-        if self._error:
-            repo.add(self.db, user_id, "assistant", "error", self._error["message"], self._error)
-        self.db.commit()
+            yield _error_event(error.code, error.message)
 
 
 def start_turn(
@@ -114,18 +139,20 @@ def start_turn(
         db.rollback()
         raise ConflictError(code=ErrorCode.TURN_IN_PROGRESS)
     if idempotency_key is not None:
-        # 스트림은 처음 결과를 다시 보내 줄 수 없어, 같은 키는 다시 실행하지 않고 거절합니다.
+        # 스트림은 처음 결과를 다시 보내 줄 수 없어, 같은 키는 다시 실행하지 않고 거절합니다(409).
         # 화면은 GET /messages로 결과를 다시 읽습니다.
         if idempotency_repo.get(db, account.user_id, idempotency_key) is not None:
             db.rollback()
-            raise ConflictError("이미 보낸 메시지예요.")
-        idempotency_repo.add(db, account.user_id, idempotency_key, request_hash(body), 200, None)
-    repo.add(db, account.user_id, "user", body.input_kind.value, body.text)
+            raise ConflictError()
+        idempotency_repo.add(
+            db, account.user_id, idempotency_key, request_hash(body), HTTPStatus.OK, None
+        )
+    repo.add(db, account.user_id, MessageRole.USER, MessageKind(body.input_kind), body.text)
     turn_input = responder.TurnInput(
         user_id=account.user_id,
         persona_id=account.persona_id,
         text=body.text,
-        input_kind=body.input_kind.value,
+        input_kind=body.input_kind,
         today=today,
         file_ids=body.file_ids,
         import_ids=body.import_ids,
@@ -134,8 +161,8 @@ def start_turn(
 
 
 def list_messages(db: Session, account: AccountContext, cursor: int | None) -> MessageList:
-    rows, total = repo.list_after(db, account.user_id, cursor or 0, PAGE_SIZE)
-    items = [MessageRead.model_validate(row, from_attributes=True) for row in rows]
-    newest = repo.last(db, account.user_id)
-    has_more = bool(items) and newest is not None and items[-1].seq < newest.seq
-    return MessageList(items=items, total=total, next_cursor=items[-1].seq if has_more else None)
+    # 하나 더 읽어서 다음 페이지가 있는지 압니다(쿼리를 더 하지 않음).
+    rows, total = repo.list_after(db, account.user_id, cursor or 0, PAGE_SIZE + 1)
+    page = [MessageRead.model_validate(row, from_attributes=True) for row in rows[:PAGE_SIZE]]
+    has_more = len(rows) > PAGE_SIZE
+    return MessageList(items=page, total=total, next_cursor=page[-1].seq if has_more else None)

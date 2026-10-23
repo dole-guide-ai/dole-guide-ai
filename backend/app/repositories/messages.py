@@ -1,7 +1,4 @@
-"""화면용 대화 말풍선(messages)과 대화 턴 잠금 레포지토리입니다.
-
-모든 조회는 user_id로 거릅니다. commit은 서비스가 합니다.
-"""
+"""화면용 대화 말풍선(messages)과 대화 턴 잠금 레포지토리입니다."""
 
 import uuid
 from typing import Any
@@ -11,6 +8,7 @@ from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
 from app.models import Message, User
+from app.schemas.messages import MessageKind, MessageRole
 
 
 def try_lock_turn(db: Session, user_id: uuid.UUID) -> bool:
@@ -36,16 +34,16 @@ def next_seq(db: Session, user_id: uuid.UUID) -> int:
 def add(
     db: Session,
     user_id: uuid.UUID,
-    role: str,
-    kind: str,
+    role: MessageRole,
+    kind: MessageKind,
     text: str | None,
     payload: dict[str, Any] | None = None,
 ) -> Message:
     message = Message(
         user_id=user_id,
         seq=next_seq(db, user_id),
-        role=role,
-        kind=kind,
+        role=role.value,
+        kind=kind.value,
         text=text,
         payload=payload,
     )
@@ -57,7 +55,10 @@ def add(
 def list_after(
     db: Session, user_id: uuid.UUID, cursor: int, limit: int
 ) -> tuple[list[Message], int]:
-    """seq가 cursor보다 큰 말풍선을 오래된 순으로 limit개, 그리고 전체 개수."""
+    """seq가 cursor보다 큰 말풍선을 오래된 순으로 최대 limit개, 그리고 전체 개수.
+
+    다음 페이지가 있는지 알려면 limit을 하나 크게 넘깁니다.
+    """
     rows = db.scalars(
         select(Message)
         .where(Message.user_id == user_id, Message.seq > cursor)
