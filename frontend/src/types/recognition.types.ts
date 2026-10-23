@@ -76,7 +76,8 @@ export interface OtherActivity {
 }
 
 export interface ReemploymentActivity {
-  required: { activities: number; job_search: number };
+  /** 규칙으로 셀 수 없으면(대상기간 변경 등) null */
+  required: { activities: number | null; job_search: number | null };
   counted: { activities: number; job_search: number };
   has_job_search_activity: boolean;
   job_search_activities: JobSearchActivity[];
@@ -126,6 +127,8 @@ export interface RecognitionFormRead {
   schema_version: 'work24_recognition_v1';
   recognition_round: number;
   status: 'draft' | 'review' | 'finalized';
+  /** 서버 신청서 버전. 제출 PATCH의 If-Match로 보냅니다 (실제 서버 세션만). */
+  lock_version?: number;
   recognition_info: RecognitionInfo;
   unemployment_credit: UnemploymentCredit;
   work_and_employment: WorkAndEmployment;

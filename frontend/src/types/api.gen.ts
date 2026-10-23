@@ -254,8 +254,9 @@ export interface paths {
          *
          *     필요 건수와 인정 건수, 남은 건수, D-day, 활동별 인정 상태와 경고, 필요한 증빙, 구직 외 활동 누적
          *     사용 횟수가 들어 있습니다.
-         *     숫자는 모두 규칙 함수가 계산합니다. 아직 회차가 없으면 404 NO_ACTIVE_ROUND. (아직 구현 전이라
-         *     501)
+         *     숫자는 모두 규칙 함수(`check_round`, 상세기획 2-2.6)가 계산합니다. `status`는 회차 상태,
+         *     `check_status`는 충족(satisfied)·부족(short)·확인 필요(needs_check)입니다. 일반 수급자 8차부터는
+         *     `weeks`에 7일마다의 구직활동 수가 들어갑니다. 아직 회차가 없으면 404 NO_ACTIVE_ROUND.
          */
         get: operations["get_current_round"];
         put?: never;
@@ -346,7 +347,8 @@ export interface paths {
          * 구직활동 목록
          * @description 이 계정의 활동 기록을 돌려줍니다. round를 주면 그 회차 대상기간의 활동만 돌려줍니다.
          *
-         *     활동의 회차 번호는 저장된 값이 아니라 대상기간으로 계산한 값입니다. (아직 구현 전이라 501)
+         *     활동의 회차 번호는 저장된 값이 아니라 대상기간으로 계산한 값입니다.
+         *     지금 회차 활동에는 회차 점검의 계산 결과(status: counted·same_day 등)가 붙습니다.
          */
         get: operations["list_activities"];
         put?: never;
@@ -357,7 +359,12 @@ export interface paths {
          *     - 추천 넣기(F-19): recommendation_id만 보냅니다. 인정일 전날(오늘이 인정일이면 오늘) 예정으로
          *       들어가고 계산에는 넣지 않습니다. 지금 추천 목록에 없으면 409 CONFLICT, 같은 추천을 이미
          *       넣었으면 409 DUPLICATE_ACTIVITY, 오늘이 속한 회차가 없으면 404 NO_ACTIVE_ROUND입니다.
-         *     - 직접 기록: 날짜·종류·경로·회사 등 활동 값을 보냅니다. (활동 기록 기능에서 붙일 예정이라 501)
+         *     - 직접 기록(F-17): activity_date·kind·route·org_name 등을 보냅니다. 구분(category)은 종류로
+         *       코드가 정하고, 규칙 표에 없는 종류면 category를 같이 보내야 합니다(없으면 422). 오늘보다 뒤
+         *       날짜는 예정으로 들어갑니다. 날짜·종류·회사가 같은 활동이 있으면 409 DUPLICATE_ACTIVITY,
+         *       지난 회차 날짜면 409 ROUND_CLOSED, file_ids가 내 증빙 파일이 아니면 404입니다.
+         *
+         *     응답 updates는 넣은 활동과 다시 계산한 회차 점검(`/round_check`)입니다.
          *
          *     Idempotency-Key 헤더를 주면 같은 요청이 두 번 와도 한 번만 만듭니다.
          */
@@ -380,9 +387,9 @@ export interface paths {
         post?: never;
         /**
          * 구직활동 빼기
-         * @description 활동을 지우고 다시 계산한 회차 점검 결과를 바뀐 칸(updates)으로 돌려줍니다.
+         * @description 활동을 지우고 다시 계산한 회차 점검 결과를 바뀐 칸(updates)으로 돌려줍니다 (F-20).
          *
-         *     지난 회차 활동은 409 ROUND_CLOSED입니다. (아직 구현 전이라 501)
+         *     같은 날이라 빠졌던 활동이 인정으로 바뀔 수 있습니다. 지난 회차 활동은 409 ROUND_CLOSED입니다.
          */
         delete: operations["delete_activity"];
         options?: never;
@@ -396,7 +403,9 @@ export interface paths {
          *       apply_method, contact_dept, result, hours. 그 밖의 칸·틀린 형식은 422(날짜는 YYYY-MM-DD,
          *       새 날짜도 이번 회차 대상기간 안). activity_date·kind는 지울 수 없습니다.
          *     - 지난 회차 활동은 409 ROUND_CLOSED, 없는 활동은 404입니다.
-         *     - 고친 활동은 출처가 직접 입력(direct)이 됩니다. 응답 updates는 고친 활동 하나입니다.
+         *     - kind를 바꾸면 구분(category)도 종류에 맞게 코드가 다시 정합니다.
+         *     - 고친 활동은 출처가 직접 입력(direct)이 됩니다. 응답 updates는 고친 활동과 다시 계산한 회차
+         *       점검(`/round_check`)입니다.
          */
         patch: operations["patch_activity"];
         trace?: never;
@@ -650,13 +659,40 @@ export interface components {
         ActivityCheck: {
             /** Activity Id */
             activity_id: string;
-            /** State */
-            state: string;
             /**
-             * Warnings
+             * Activity Date
+             * Format: date
+             */
+            activity_date: string;
+            category: components["schemas"]["ActivityCategory"];
+            /** Kind */
+            kind: string;
+            /** Route */
+            route?: string | null;
+            /** Org Name */
+            org_name?: string | null;
+            /** Job Title */
+            job_title?: string | null;
+            /** Source */
+            source: string;
+            /** Planned */
+            planned: boolean;
+            status: components["schemas"]["ActivityStatus"];
+            /**
+             * Required Evidence
              * @default []
              */
-            warnings: string[];
+            required_evidence: string[] | null;
+            /**
+             * Has Evidence
+             * @default false
+             */
+            has_evidence: boolean;
+            /**
+             * Rule Refs
+             * @default []
+             */
+            rule_refs: string[];
         };
         /**
          * ActivityCreate
@@ -670,8 +706,7 @@ export interface components {
             category?: components["schemas"]["ActivityCategory"] | null;
             /** Kind */
             kind?: string | null;
-            /** Route */
-            route?: string | null;
+            route?: components["schemas"]["ActivityRoute"] | null;
             /** Org Name */
             org_name?: string | null;
             /** Job Title */
@@ -710,14 +745,26 @@ export interface components {
             planned: boolean;
             /** Source */
             source: string;
-            /** State */
-            state?: string | null;
+            /** Status */
+            status?: string | null;
             /**
              * File Ids
              * @default []
              */
             file_ids: string[];
         };
+        /**
+         * ActivityRoute
+         * @description 지원·참여 경로 (상세기획 2-2.2). 필요 증빙을 정하고(규칙 표 routes), 신청서 칸은 아닙니다.
+         * @enum {string}
+         */
+        ActivityRoute: "work24" | "portal" | "email" | "company_site" | "newspaper" | "mail" | "fax" | "visit" | "referral" | "interview" | "job_fair" | "training" | "center" | "step_online";
+        /**
+         * ActivityStatus
+         * @description 활동 하나의 회차 계산 결과 (상세기획 2-2.2·2-2.6).
+         * @enum {string}
+         */
+        ActivityStatus: "counted" | "same_day" | "out_of_period" | "not_allowed" | "limit_over" | "needs_check" | "planned";
         /** AdditionalInfo */
         AdditionalInfo: {
             /**
@@ -760,9 +807,9 @@ export interface components {
             /** Attendance Required */
             attendance_required: boolean;
             /** Required Activities */
-            required_activities: number;
+            required_activities: number | null;
             /** Required Job Search */
-            required_job_search: number;
+            required_job_search: number | null;
             data: components["schemas"]["RecognitionData"];
             /**
              * Job Search Rows
@@ -910,6 +957,12 @@ export interface components {
              */
             acquired_date: components["schemas"]["FormField"];
         };
+        /**
+         * CheckStatus
+         * @description 회차 전체 판정: 충족 / 부족 / 규칙으로 셀 수 없어 확인 필요.
+         * @enum {string}
+         */
+        CheckStatus: "satisfied" | "short" | "needs_check";
         /** Checklist */
         Checklist: {
             /**
@@ -2076,7 +2129,11 @@ export interface components {
         ResumeStatus: "draft" | "saved";
         /**
          * RoundCheck
-         * @description `check_round` 결과. 숫자는 모두 규칙 함수가 계산합니다.
+         * @description `check_round` 결과. 숫자는 모두 규칙 함수가 계산합니다 (상세기획 2-2.6·2-2.12).
+         *
+         *     `status`는 회차 상태(지난·지금·다음)이고, 활동 충족 여부는 `check_status`입니다.
+         *     `required`가 None이면 규칙으로 셀 수 없어(대상기간이 28일이 아님 등) `check_status`가
+         *     needs_check입니다.
          */
         RoundCheck: {
             /** Round */
@@ -2102,24 +2159,38 @@ export interface components {
             application_status: components["schemas"]["ApplicationStatus"];
             /** D Day */
             d_day: number;
+            /** Rule Group */
+            rule_group: string;
+            /** Period Days */
+            period_days: number;
             /** Required */
-            required: number;
+            required: number | null;
             /** Required Job Search */
-            required_job_search: number;
+            required_job_search: number | null;
             /** Counted */
             counted: number;
+            /** Counted Job Search */
+            counted_job_search: number;
             /** Remaining */
             remaining: number;
+            /** Remaining Job Search */
+            remaining_job_search: number;
+            check_status: components["schemas"]["CheckStatus"];
+            /**
+             * Weeks
+             * @default []
+             */
+            weeks: components["schemas"]["WeekCheck"][];
             /**
              * Activities
              * @default []
              */
             activities: components["schemas"]["ActivityCheck"][];
             /**
-             * Required Evidence
+             * Warnings
              * @default []
              */
-            required_evidence: string[];
+            warnings: components["schemas"]["RoundWarning"][];
             /**
              * @default {
              *       "lecture": 0,
@@ -2129,11 +2200,13 @@ export interface components {
              *     }
              */
             limits_used: components["schemas"]["LimitsUsed"];
+            /** @default not_verified */
+            rule_review: components["schemas"]["RuleReview"];
             /**
-             * Rule Review
-             * @default not_verified
+             * Rule Refs
+             * @default []
              */
-            rule_review: string;
+            rule_refs: string[];
         };
         /**
          * RoundStatus
@@ -2164,6 +2237,27 @@ export interface components {
             status: components["schemas"]["RoundStatus"];
             application_status: components["schemas"]["ApplicationStatus"];
         };
+        /** RoundWarning */
+        RoundWarning: {
+            id: components["schemas"]["WarningId"];
+            /** Message */
+            message: string;
+            /**
+             * Activity Ids
+             * @default []
+             */
+            activity_ids: string[];
+            /**
+             * Rule Refs
+             * @default []
+             */
+            rule_refs: string[];
+        };
+        /**
+         * RuleReview
+         * @enum {string}
+         */
+        RuleReview: "verified" | "not_verified";
         /**
          * Stage
          * @enum {string}
@@ -2236,6 +2330,30 @@ export interface components {
              * Format: date-time
              */
             expires_at: string;
+        };
+        /**
+         * WarningId
+         * @description 사전 경고 (상세기획 2-2.7). W7은 MVP 제외, W8은 대화에서만 냅니다.
+         * @enum {string}
+         */
+        WarningId: "W1" | "W2" | "W3" | "W4" | "W5" | "W6" | "W8";
+        /**
+         * WeekCheck
+         * @description 8차부터 일반 수급자의 주 단위 구직활동 (대상기간 시작일부터 7일씩, 설계 6.2).
+         */
+        WeekCheck: {
+            /**
+             * Start
+             * Format: date
+             */
+            start: string;
+            /**
+             * End
+             * Format: date
+             */
+            end: string;
+            /** Job Search */
+            job_search: number;
         };
         /** WorkAnswers */
         WorkAnswers: {
@@ -2704,7 +2822,7 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                /** @description 서류 GET 응답의 ETag. 다르면 409 VERSION_CONFLICT */
+                /** @description 서류 GET 응답의 ETag (필수). 없거나 다르면 409 VERSION_CONFLICT */
                 "If-Match"?: string | null;
             };
             path: {
@@ -3031,15 +3149,6 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Not Implemented */
-            501: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
         };
     };
     list_recommendations: {
@@ -3166,7 +3275,7 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                /** @description 서류 GET 응답의 ETag. 다르면 409 VERSION_CONFLICT */
+                /** @description 서류 GET 응답의 ETag (필수). 없거나 다르면 409 VERSION_CONFLICT */
                 "If-Match"?: string | null;
             };
             path: {
@@ -3298,15 +3407,6 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Not Implemented */
-            501: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
         };
     };
     create_activity: {
@@ -3382,15 +3482,6 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Not Implemented */
-            501: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
         };
     };
     delete_activity: {
@@ -3453,15 +3544,6 @@ export interface operations {
             };
             /** @description Internal Server Error */
             500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Not Implemented */
-            501: {
                 headers: {
                     [name: string]: unknown;
                 };

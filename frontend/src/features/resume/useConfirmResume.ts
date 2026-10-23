@@ -6,6 +6,7 @@ import { resumePath } from '@/features/resume/useResumeForm';
 import { isServerSession, sessionFromAccount } from '@/lib/accountSession';
 import { apiFetch } from '@/lib/api';
 import { API_PATHS } from '@/lib/apiPaths';
+import { IF_MATCH_HEADER } from '@/lib/etag';
 import { applyFormUpdate } from '@/lib/formStore';
 import { queryKeys } from '@/lib/queryKeys';
 import { getSession, setSession } from '@/lib/sessionStore';
@@ -22,7 +23,7 @@ type UpdatesRead = components['schemas']['UpdatesRead'];
 const saveToServer = async (personaId: string): Promise<SessionRead> => {
   const saved = await apiFetch<UpdatesRead>(resumePath(personaId), {
     method: 'PATCH',
-    headers: { 'If-Match': resumeIfMatch() },
+    headers: { [IF_MATCH_HEADER]: resumeIfMatch() },
     body: JSON.stringify([{ op: 'replace', path: '/status', value: 'saved' }]),
   });
   const account = await apiFetch<AccountRead>(`/accounts/${encodeURIComponent(personaId)}`);

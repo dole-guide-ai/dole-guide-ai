@@ -106,6 +106,16 @@ def build_rounds(
     return rounds
 
 
+def is_standard_period(previous_recognition: date, recognition: date) -> bool:
+    """직전 인정일 + 28일(휴일이면 다음 평일)이 이번 인정일인지. 아니면 인정일이 바뀐 회차입니다.
+
+    휴일로 옮겨져 28일이 아닌 것은 정상이고, 그 밖에 길이가 다르면 필요 건수를 확인 필요로 둡니다
+    (DUE-091).
+    """
+    expected = previous_recognition + timedelta(days=ROUND_INTERVAL_DAYS)
+    return recognition == next_business_day(expected)
+
+
 def end_reason_on(today: date, benefit_end: date | None, period_end: date) -> str | None:
     """종료 예정일이 지났으면 종료 사유, 아니면 None (설계 6.6, F-33).
 

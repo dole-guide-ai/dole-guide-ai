@@ -18,8 +18,7 @@ import { ApiError } from '@/lib/api';
 interface RecommendationBoxProps {
   sessionId: string;
   plannedIds: string[];
-  /** 실제 서버 세션이면 계정 추천 API를 씁니다 (F-19). */
-  personaId?: string;
+  personaId: string;
   /** 지금 회차. 바뀌면 그 회차 기준으로 다시 받습니다. */
   round?: number | null;
 }

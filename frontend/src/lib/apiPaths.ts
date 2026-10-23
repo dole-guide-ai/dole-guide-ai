@@ -11,6 +11,8 @@ export const API_PATHS = {
   account,
   messages: (personaId: string) => `${account(personaId)}/messages`,
   activities: (personaId: string) => `${account(personaId)}/activities`,
+  activity: (personaId: string, activityId: string) =>
+    `${account(personaId)}/activities/${activityId}`,
   currentRound: (personaId: string) => `${account(personaId)}/rounds/current`,
   recommendations: (personaId: string) => `${account(personaId)}/rounds/current/recommendations`,
   /** 회차 신청서. round가 없으면 지금 회차(`current`) */
@@ -21,9 +23,6 @@ export const API_PATHS = {
   LEGACY_RESUME_CONFIRM: '/forms/resume/confirm',
   LEGACY_RECOGNITION: '/forms/recognition',
   LEGACY_RECOGNITION_CONFIRM: '/forms/recognition/confirm',
-  LEGACY_PROCEDURE: '/procedure',
-  LEGACY_ROUND_CHECK: '/procedure/current-round/check',
-  LEGACY_ROUND_RECOMMENDATIONS: '/procedure/current-round/recommendations',
   LEGACY_MY_DATA: '/me/data',
   LEGACY_FILES: '/files',
   legacyImports: (kind: string) => `/imports/${kind}`,

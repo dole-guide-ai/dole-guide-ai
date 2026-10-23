@@ -6,11 +6,11 @@ import { DashboardScreen } from '@/features/dashboard/DashboardScreen';
 
 import { resetForms } from '@/lib/formStore';
 import { setSession } from '@/lib/sessionStore';
-import { MOCK_ROUND_CHECKS } from '@/mocks/activities';
 import { buildMockSession } from '@/mocks/handlers';
 import { MOCK_PERSONAS } from '@/mocks/personas';
 import { MOCK_RESUMES } from '@/mocks/resumes';
 import { renderWithProviders } from '@/test/renderWithProviders';
+import { LEE_ROUND_CHECK } from '@/test/roundCheckFixture';
 
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn(), replace: vi.fn() }) }));
 
@@ -23,9 +23,7 @@ describe('완료 단계 읽기 전용 다시 보기 (1.8)', () => {
       const url = String(input);
       if (url.endsWith('/personas')) return Response.json({ items: cards, total: cards.length });
       if (url.endsWith('/forms/resume')) return Response.json(MOCK_RESUMES.lee);
-      if (url.endsWith('/procedure/current-round/check')) {
-        return Response.json(MOCK_ROUND_CHECKS.lee);
-      }
+      if (url.endsWith('/rounds/current')) return Response.json(LEE_ROUND_CHECK);
       return new Response('{}', { status: 404 });
     });
     setSession(buildMockSession('lee'));

@@ -33,8 +33,10 @@ FILL = {
 
 
 def _patch(client: TestClient, headers: dict, ops: list[dict], if_match: str | None = None):
-    extra = {"If-Match": if_match} if if_match else {}
-    return client.patch("/accounts/park/resume", json=ops, headers=headers | extra)
+    """If-Match를 주지 않으면 지금 ETag를 받아 보냅니다(REST는 If-Match 필수, 설계 3.11)."""
+    if if_match is None:
+        if_match = client.get("/accounts/park/resume", headers=headers).headers["ETag"]
+    return client.patch("/accounts/park/resume", json=ops, headers=headers | {"If-Match": if_match})
 
 
 def test_empty_resume_then_fill_and_save(
@@ -82,3 +84,17 @@ def test_version_conflict_and_status_with_fields(
     mixed = one + [{"op": "replace", "path": "/status", "value": "saved"}]
     res = _patch(client, headers, mixed)
     assert res.status_code == 422 and res.json()["code"] == "STATUS_WITH_FIELDS"
+
+
+def test_patch_without_if_match_is_conflict(
+    client: TestClient, entered_headers: Callable[[str], dict[str, str]]
+) -> None:
+    """REST 서류 PATCH는 If-Match가 필수입니다 (설계 3.11). 없으면 409."""
+    res = client.patch(
+        "/accounts/park/resume",
+        headers=entered_headers("park"),
+        json=[{"op": "replace", "path": "/status", "value": "saved"}],
+    )
+
+    assert res.status_code == 409
+    assert res.json()["code"] == "VERSION_CONFLICT"

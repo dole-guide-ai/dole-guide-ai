@@ -126,21 +126,6 @@ def test_duplicate_and_unknown_recommendations_are_409(
         assert res.json()["code"] == "CONFLICT"
 
 
-def test_direct_record_is_not_implemented_yet(
-    client: TestClient, entered_headers: Callable[[str], dict[str, str]]
-) -> None:
-    headers = entered_headers("lee")
-
-    res = client.post(
-        "/accounts/lee/activities",
-        headers=headers,
-        json={"activity_date": "2026-10-20", "category": "job_search"},
-    )
-
-    assert res.status_code == 501
-    assert res.json()["code"] == "NOT_IMPLEMENTED"
-
-
 def test_ended_account_cannot_change_activities(
     client: TestClient, db_session: Session, entered_headers: Callable[[str], dict[str, str]]
 ) -> None:

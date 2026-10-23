@@ -197,6 +197,8 @@ export const recognitionFromApplication = (app: ApplicationRead): RecognitionFor
   }
 
   return {
+    // 제출 PATCH의 If-Match에 씁니다 (설계 3.11).
+    lock_version: app.lock_version,
     schema_version: 'work24_recognition_v1',
     recognition_round: app.round,
     status: app.status === 'submitted' ? 'finalized' : 'review',

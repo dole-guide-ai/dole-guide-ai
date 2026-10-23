@@ -1,4 +1,6 @@
 import { appendPath, removePath, setPath } from '@/lib/objectPath';
+import { ROUND_CHECK_PATH, roundCheckFromServer } from '@/lib/roundCheck';
+import type { components } from '@/types/api.gen';
 import type {
   Completeness,
   FieldEvidence,
@@ -7,6 +9,8 @@ import type {
   FormKind,
   FormUpdateEvent,
 } from '@/types/chat.types';
+
+type RoundCheck = components['schemas']['RoundCheck'];
 
 /**
  * 패널 양식 초안을 모아 두는 외부 저장소. `form_update` 이벤트(2-0.7)를 경로대로 적용하고,
@@ -113,6 +117,26 @@ export const applyFormUpdates = ({ updates }: { updates: FormUpdateEvent[] }) =>
   updates.forEach(applyFormUpdate);
 
 export const applyFormUpdate = (event: FormUpdateEvent) => {
+  if (event.form === 'activities' && event.path.startsWith('/')) {
+    applyRoundCheckUpdate(event);
+    return;
+  }
   drafts = { ...drafts, [event.form]: applyFormUpdateToDraft(drafts[event.form], event) };
+  emit();
+};
+
+/**
+ * 백엔드의 패널 B 갱신 (F-17·F-20): 활동을 넣거나 빼면 `/round_check`로 다시 계산한 점검 전체가 옵니다.
+ * 활동 한 건 경로(`/activities/{id}`)는 같은 응답의 점검 결과에 이미 들어 있어 따로 적용하지 않습니다.
+ */
+const applyRoundCheckUpdate = (event: FormUpdateEvent) => {
+  if (event.path !== ROUND_CHECK_PATH || !event.value) return;
+  const check = roundCheckFromServer(event.value as RoundCheck);
+  // 추천 상자를 펼친 상태(대화가 보낸 화면 값)는 점검 결과가 아니라 그대로 둡니다.
+  const { recommendations_open } = drafts.activities.values as { recommendations_open?: boolean };
+  drafts = {
+    ...drafts,
+    activities: { values: { ...check, recommendations_open }, fields: {} },
+  };
   emit();
 };

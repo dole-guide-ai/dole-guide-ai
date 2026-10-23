@@ -36,7 +36,7 @@ def get_resume(db: DbSession, account: CurrentAccount, response: Response) -> Re
     "/resume", summary="이력서 칸 고치기 · 저장", responses=error_responses(401, 404, 409, 422)
 )
 def patch_resume(
-    db: DbSession, account: CurrentAccount, patch: JsonPatch, now: Now, if_match: IfMatch = None
+    db: DbSession, account: CurrentAccount, patch: JsonPatch, now: Now, if_match: IfMatch
 ) -> UpdatesRead:
     """JSON Patch로 칸을 고치거나, 이력서를 저장합니다.
 

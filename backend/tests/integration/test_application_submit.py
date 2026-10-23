@@ -19,6 +19,14 @@ from app.services.accounts import AccountContext
 
 pytestmark = pytest.mark.integration
 
+URL_CURRENT = "/accounts/lee/rounds/current/application"
+
+
+def _etag(client: TestClient, headers: dict[str, str], url: str = URL_CURRENT) -> str:
+    """REST 서류 PATCH는 If-Match가 필수라(설계 3.11) 지금 ETag를 받아 보냅니다."""
+    return client.get(url, headers=headers).headers["ETag"]
+
+
 NOW = datetime(2026, 10, 21, 10, tzinfo=KST)
 ATTEND_ITEMS = ["id_card", "eligibility_card"]
 
@@ -57,9 +65,8 @@ def _submit(client: TestClient, headers: dict[str, str], mode: object, items=Non
     ]
     if items is not None:
         patch.append({"op": "replace", "path": "/attend_items", "value": items})
-    extra = {"If-Match": if_match} if if_match else {}
     return client.patch(
-        "/accounts/lee/rounds/current/application", headers={**headers, **extra}, json=patch
+        URL_CURRENT, headers={**headers, "If-Match": if_match or _etag(client, headers)}, json=patch
     )
 
 
@@ -122,7 +129,10 @@ def test_mode_different_from_server_is_409(
     # 5차는 인정일 전(preview)이라 send로 낼 수 없습니다.
     res = client.patch(
         "/accounts/lee/rounds/5/application",
-        headers=headers,
+        headers={
+            **headers,
+            "If-Match": _etag(client, headers, "/accounts/lee/rounds/5/application"),
+        },
         json=[
             {"op": "replace", "path": "/status", "value": "submitted"},
             {"op": "replace", "path": "/submit_mode", "value": "send"},
@@ -144,7 +154,10 @@ def test_malformed_submit_values_are_422(
     assert res.json()["code"] == "VALIDATION_ERROR"
     removed = client.patch(
         "/accounts/lee/rounds/current/application",
-        headers=headers,
+        headers={
+            **headers,
+            "If-Match": _etag(client, headers, "/accounts/lee/rounds/current/application"),
+        },
         json=[{"op": "remove", "path": "/status", "value": "submitted"}],
     )
     assert removed.status_code == 422
@@ -157,14 +170,16 @@ def test_field_edit_mix_version_and_closed_round(
     url = "/accounts/lee/rounds/current/application"
 
     res = client.patch(
-        url, headers=headers, json=[{"op": "replace", "path": "/work/has_work", "value": "no"}]
+        url,
+        headers={**headers, "If-Match": _etag(client, headers, url)},
+        json=[{"op": "replace", "path": "/work/has_work", "value": "no"}],
     )
     assert res.status_code == 422
     assert res.json()["code"] == "USER_ANSWER_ONLY"
 
     res = client.patch(
         url,
-        headers=headers,
+        headers={**headers, "If-Match": _etag(client, headers, url)},
         json=[
             {"op": "replace", "path": "/status", "value": "submitted"},
             {"op": "replace", "path": "/work/has_work", "value": "no"},
@@ -177,9 +192,10 @@ def test_field_edit_mix_version_and_closed_round(
     assert res.status_code == 409
     assert res.json()["code"] == "VERSION_CONFLICT"
 
+    past = "/accounts/lee/rounds/3/application"
     res = client.patch(
-        "/accounts/lee/rounds/3/application",
-        headers=headers,
+        past,
+        headers={**headers, "If-Match": _etag(client, headers, past)},
         json=[{"op": "replace", "path": "/status", "value": "submitted"}],
     )
     assert res.status_code == 409
