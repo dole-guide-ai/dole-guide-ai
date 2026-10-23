@@ -24,7 +24,12 @@ const IS_REAL_ONLY = MOCK_MODE === '0';
  * 백엔드에 구현된 경로. 기능 PR에서 백엔드를 구현하면 여기에 경로를 더하고 그 mock을 지웁니다.
  * 계정 입장 이후 mock은 저장된 세션의 persona_id로 이어서 응답합니다.
  */
-const BACKEND_ROUTES: RegExp[] = [/^\/health$/, /^\/personas$/, /^\/accounts\/[^/]+$/];
+const BACKEND_ROUTES: RegExp[] = [
+  /^\/health$/,
+  /^\/personas$/,
+  /^\/accounts\/[^/]+$/,
+  /^\/accounts\/[^/]+\/resume$/,
+];
 
 /** 이 경로를 mock으로 돌릴지. 혼합 모드에서는 `BACKEND_ROUTES`에 없는 경로만 mock입니다. */
 export const usesMock = (path: string): boolean => {

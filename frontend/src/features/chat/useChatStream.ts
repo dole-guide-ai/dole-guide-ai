@@ -50,6 +50,16 @@ export const useChatStream = (session: SessionRead) => {
     saveMockChat(state.sessionId, state);
   }, [state, isStreaming]);
 
+  // 실제 서버 세션: 이력서 저장처럼 같은 대화 안에서 첫 안내가 새로 오면 말풍선으로 이어 붙입니다.
+  // 세션이 바뀐 경우는 위의 reset이 첫 안내를 새로 깔므로 붙이지 않습니다.
+  const entryRef = useRef({ sessionId, messages: session.entry.messages });
+  useEffect(() => {
+    const prev = entryRef.current;
+    entryRef.current = { sessionId, messages: session.entry.messages };
+    if (prev.sessionId !== sessionId || prev.messages === session.entry.messages) return;
+    if (isServerSession(sessionId)) dispatch({ type: 'entry', entry: session.entry });
+  }, [session.entry, sessionId]);
+
   const history = useChatHistory(session);
   const pendingAsk = session.entry.pending_ask;
   useEffect(() => {
