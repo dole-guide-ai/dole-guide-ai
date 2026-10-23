@@ -35,7 +35,8 @@ def _desired_occupation(db: Session, user_id: uuid.UUID) -> str | None:
     occupations = ((resume.data if resume else {}).get("job_preferences") or {}).get(
         "desired_occupations"
     ) or []
-    return next((o.get("name") for o in occupations if o.get("name")), None)
+    names = (((o.get("occupation") or {}).get("value") or {}).get("name") for o in occupations)
+    return next((n for n in names if n), None)
 
 
 def _current(db: Session, account: AccountContext, today: date):
