@@ -6,9 +6,12 @@
 """
 
 from enum import StrEnum
+from typing import Any
 
 from pydantic import BaseModel
+from pydantic import Field as PydanticField
 
+from app.schemas.common import FieldSource, FieldStatus
 from app.schemas.forms.resume import ResumeData
 from app.schemas.profile import ProfileDisplay
 
@@ -21,6 +24,17 @@ class ResumeStatus(StrEnum):
 class Completeness(BaseModel):
     filled: int
     total: int = 5
+
+
+class FieldWrite(BaseModel):
+    """대화 턴이 이력서 칸 하나에 쓰는 값. 경로는 `/careers/c1/company_name` 형식입니다."""
+
+    path: str = PydanticField(pattern=r"^/")
+    value: Any = None
+    status: FieldStatus = FieldStatus.EXTRACTED
+    source: FieldSource = FieldSource.USER_ANSWER
+    transformed: bool = False
+    evidence: dict[str, Any] | None = None
 
 
 class ResumeRead(BaseModel):

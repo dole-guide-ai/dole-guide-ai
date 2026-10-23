@@ -67,6 +67,31 @@ def apply_patch(
     return result, updates
 
 
+def set_field(root: dict[str, Any], path: str, field: dict[str, Any]) -> None:
+    """칸 하나를 상태·출처까지 통째로 바꿉니다. 대화 턴의 칸 쓰기용이라 패치와 달리 상태를 받습니다.
+
+    목록에 없는 item_id를 가리키면 그 id로 항목을 새로 붙입니다. 잘못된 경로는 422.
+    """
+    try:
+        *parents, last = _segments(path)
+        node: Any = root
+        for seg in parents:
+            if isinstance(node, list) and not any(_has_id(i, seg) for i in node):
+                node.append({ITEM_ID: seg})
+            node = _resolve(node, [seg])
+        if not isinstance(node, dict) or _is_field(node) or last == ITEM_ID:
+            raise _BadPathError
+        if isinstance(node.get(last), list):
+            raise _BadPathError
+        node[last] = field
+    except _BadPathError:
+        raise UnprocessableError("고칠 칸을 찾지 못했어요.") from None
+
+
+def _has_id(item: Any, item_id: str) -> bool:
+    return isinstance(item, dict) and item.get(ITEM_ID) == item_id
+
+
 def _apply_one(root: dict[str, Any], op: JsonPatchOp, form: FormName, source: FieldSource):
     *parents, last = _segments(op.path)
     container = _resolve(root, parents)
