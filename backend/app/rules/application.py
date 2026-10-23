@@ -11,6 +11,7 @@ from dataclasses import dataclass, field
 from datetime import date, datetime
 from typing import Any
 
+from app.rules.answers import NOT_APPLICABLE, conflict_paths
 from app.schemas.activities import ActivityRoute, ApplyMethod, SearchMethod
 from app.schemas.common import FieldStatus
 from app.schemas.rounds import ActivityStatus
@@ -178,6 +179,19 @@ def carry_previous_answers(data: dict[str, Any], previous: dict[str, Any] | None
     return merged
 
 
+def apply_credit_rule(data: dict[str, Any], credit_applicable: bool) -> dict[str, Any]:
+    """만 60세 이상이면 실업크레딧을 `해당 없음`으로 채웁니다 (설계 6.7). 묻지 않는 칸입니다."""
+    if credit_applicable:
+        return data
+    credit = dict(data.get("credit") or {})
+    credit["application"] = {
+        "value": NOT_APPLICABLE,
+        "status": NOT_APPLICABLE,
+        "source": "auto",
+    }
+    return {**data, "credit": credit}
+
+
 def locked_reason(data: dict[str, Any]) -> str | None:
     """취업·개인 사업이나 산재 휴업급여가 있으면 신청서를 잠급니다 (설계 6.7)."""
     employment = (data.get("employment") or {}).get("status") or {}
@@ -261,9 +275,12 @@ def checklist(
         blocking.append({"key": "notification", "text": "지급 결정 통지 방법"})
     if not _answered(data.get("next_plan")):
         blocking.append({"key": "next_activity", "text": "다음 출석일까지 활동"})
+    # "잘 모르겠어요"를 두 번 해서 확인 필요로 남은 답은 제출을 막습니다 (설계 6.8).
+    if conflict_paths(data):
+        blocking.append({"key": "unsure_answers", "text": "확인 필요한 답"})
 
     credit = (data.get("credit") or {}).get("application")
-    if not _answered(credit):
+    if not _answered(credit) and (credit or {}).get("status") != NOT_APPLICABLE:
         warnings.append({"key": "unemployment_credit", "text": "실업크레딧 답"})
     if remaining or remaining_job_search:
         parts = [f"필요 활동 {remaining}건 부족"] if remaining else []
