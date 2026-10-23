@@ -213,7 +213,10 @@ export interface paths {
          *     보내며, 각각 한 번만 입력할 수 있습니다.
          *     1차 인정일이 들어오면 서버가 회차와 회차별 신청서를 한꺼번에 만듭니다. 회차 자체를 바꾸는 값은
          *     없습니다.
-         *     (아직 구현 전이라 501)
+         *     순서는 교육 이수(`true`) → 수급자격 신청일(이직일 뒤·오늘까지) → 1차 인정일(신청일 + 7일
+         *     이후)이고,
+         *     순서가 틀리거나 이미 넣은 값이면 409 STAGE_ORDER, 날짜가 틀리면 422입니다. 한 번에 한 칸만
+         *     보냅니다. 응답 entry는 바뀐 첫 화면입니다.
          */
         patch: operations["patch_procedure"];
         trace?: never;
@@ -3021,15 +3024,6 @@ export interface operations {
             };
             /** @description Internal Server Error */
             500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Not Implemented */
-            501: {
                 headers: {
                     [name: string]: unknown;
                 };
