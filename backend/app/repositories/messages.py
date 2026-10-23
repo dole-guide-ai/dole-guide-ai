@@ -6,6 +6,7 @@
 import uuid
 from typing import Any
 
+from psycopg.errors import LockNotAvailable
 from sqlalchemy import func, select
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
@@ -14,17 +15,23 @@ from app.models import Message, User
 
 
 def try_lock_turn(db: Session, user_id: uuid.UUID) -> bool:
-    """계정 행을 잠급니다(SELECT … FOR UPDATE NOWAIT). 다른 턴이 잡고 있으면 False.
+    """계정 행을 잠급니다(SELECT … FOR NO KEY UPDATE NOWAIT). 다른 턴이 잡고 있으면 False.
 
-    잠금은 이 세션의 트랜잭션이 끝날 때(commit·rollback) 풀립니다.
+    NO KEY라서 같은 계정의 파일·활동 INSERT(외래 키 검사 FOR KEY SHARE)는 막지 않고, 턴끼리만
+    겹치지 않습니다. 잠금은 이 세션의 트랜잭션이 끝날 때(commit·rollback) 풀립니다.
     """
     try:
         with db.begin_nested():
             db.execute(
-                select(User.user_id).where(User.user_id == user_id).with_for_update(nowait=True)
+                select(User.user_id)
+                .where(User.user_id == user_id)
+                .with_for_update(nowait=True, key_share=True)
             )
-    except OperationalError:
-        return False
+    except OperationalError as exc:
+        # 잠금 실패(55P03)만 "턴 진행 중"입니다. 연결 끊김 같은 DB 장애는 그대로 올립니다.
+        if isinstance(exc.orig, LockNotAvailable):
+            return False
+        raise
     return True
 
 

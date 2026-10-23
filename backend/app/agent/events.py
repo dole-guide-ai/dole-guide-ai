@@ -6,6 +6,7 @@
 응답기(그래프)는 `TurnEvent`를 차례로 내보내고, 서비스가 받아 SSE로 흘려보내며 말풍선을 모읍니다.
 """
 
+import json
 from dataclasses import dataclass
 
 from pydantic import BaseModel
@@ -45,4 +46,8 @@ class TurnEvent:
         return _EVENT_NAMES[type(self.data)]
 
     def to_sse(self) -> dict[str, str]:
-        return {"event": self.name, "data": self.data.model_dump_json(exclude_none=True)}
+        payload = self.data.model_dump(mode="json", exclude_none=True)
+        if isinstance(self.data, FormUpdate) and self.data.op != "remove":
+            # 칸을 비우는 replace(value=None)도 값 키가 있어야 화면이 null로 바꿉니다.
+            payload["value"] = self.data.model_dump(mode="json")["value"]
+        return {"event": self.name, "data": json.dumps(payload, ensure_ascii=False)}

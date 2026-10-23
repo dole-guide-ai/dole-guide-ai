@@ -15,7 +15,7 @@
 import logging
 import time
 from collections.abc import Iterable, Iterator
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date
 from http import HTTPStatus
 from typing import Any
@@ -80,31 +80,38 @@ class Turn:
     db: Session
     account: AccountContext
     turn_input: responder.TurnInput
+    _sent: list[TurnEvent] = field(default_factory=list)
+    _finished: bool = False
 
     def events(self) -> Iterator[TurnEvent]:
         started = time.monotonic()
         timeout = get_settings().turn_timeout_seconds
         source = responder.get_responder()(self.turn_input)
-        sent: list[TurnEvent] = []
         try:
             for event in self._guarded(source):
-                sent.append(event)
+                # 보내기 전에 시간을 봅니다. 늦게 나온 done이 TIMEOUT보다 먼저 가지 않게.
+                if event.name != ERROR and time.monotonic() - started > timeout:
+                    event = _error_event(ErrorCode.TIMEOUT)
+                self._sent.append(event)
                 yield event
                 if event.name == ERROR:
-                    return
-                if time.monotonic() - started > timeout:
-                    sent.append(_error_event(ErrorCode.TIMEOUT))
-                    yield sent[-1]
                     return
         finally:
             # 끝까지 갔든, 실패했든, 연결이 끊겨 닫혔든 응답기를 멈추고 말풍선을 남깁니다.
             source.close()
-            message_service.save_turn(
-                self.db,
-                self.account.user_id,
-                assistant_bubbles(sent),
-            )
-            self.db.commit()
+            self.finish()
+
+    def finish(self) -> None:
+        """보낸 말풍선을 저장하고 커밋해 턴 잠금을 풉니다. 여러 번 불러도 한 번만 합니다.
+
+        스트림이 첫 이벤트 전에 끊기면 events()가 시작되지 않아 finally가 돌지 않으므로,
+        라우터가 스트림을 닫은 뒤 한 번 더 부릅니다.
+        """
+        if self._finished:
+            return
+        self._finished = True
+        message_service.save_turn(self.db, self.account.user_id, assistant_bubbles(self._sent))
+        self.db.commit()
 
     @staticmethod
     def _guarded(source: Iterator[TurnEvent]) -> Iterator[TurnEvent]:

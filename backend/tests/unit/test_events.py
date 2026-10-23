@@ -38,3 +38,14 @@ def test_echo_responder_ends_with_done_and_does_not_repeat_input() -> None:
     assert all(isinstance(e.data, TokenEvent) for e in out[:-1])
     assert isinstance(out[-1].data, DoneEvent)
     assert "합성 입력 문장" not in "".join(e.data.text for e in out[:-1])
+
+
+def test_form_update_keeps_null_value_for_replace() -> None:
+    import json
+
+    from app.agent.events import TurnEvent
+    from app.schemas.common import FormUpdate
+
+    sse = TurnEvent(FormUpdate(form="resume", path="/hope_wage", op="replace")).to_sse()
+
+    assert json.loads(sse["data"])["value"] is None

@@ -86,5 +86,6 @@ async def _stream(request: Request, turn: chat_service.Turn) -> AsyncIterator[di
                 break
             yield event.to_sse()
     finally:
-        # 끊겼거나 끝났으면 제너레이터를 닫아 응답기를 멈추고 말풍선을 저장합니다.
+        # 끊겼거나 끝났으면 제너레이터를 닫아 응답기를 멈추고, 첫 이벤트 전에 끊겼어도 저장합니다.
         await run_in_threadpool(events.close)
+        await run_in_threadpool(turn.finish)

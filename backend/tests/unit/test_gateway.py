@@ -135,7 +135,7 @@ def test_upstage_embeddings_send_at_most_100_per_request(settings) -> None:
     assert gateway.get_embeddings().chunk_size == 100
 
 
-def test_tracing_env_is_pure_and_off_without_key() -> None:
+def test_tracing_env_is_pure_and_off_without_key(clean_langsmith_env) -> None:
     env = gateway.tracing_env(Settings(_env_file=None, langsmith_tracing=True))
 
     assert env == {"LANGSMITH_TRACING": "false"}

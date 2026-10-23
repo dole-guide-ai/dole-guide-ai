@@ -118,12 +118,13 @@ def test_responder_failure_becomes_error_event(client, entered_headers, monkeypa
 
 
 def test_turn_timeout_sends_timeout_error(client, entered_headers, monkeypatch):
-    monkeypatch.setattr(get_settings(), "turn_timeout_seconds", 0)
+    """제한 시간을 넘긴 뒤 나온 이벤트(늦은 done 포함)는 보내지 않고 TIMEOUT으로 끝냅니다."""
+    monkeypatch.setattr(get_settings(), "turn_timeout_seconds", 0.005)
 
     def slow(_):
         yield TurnEvent(TokenEvent(text="생각 중"))
         time.sleep(0.01)
-        yield TurnEvent(TokenEvent(text="안 보여야 함"))
+        yield TurnEvent(DoneEvent())
 
     use_responder(monkeypatch, slow)
 

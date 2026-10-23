@@ -4,6 +4,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.core.config import get_settings
+from app.schemas.common import ErrorCode
 from app.services import files as file_service
 
 pytestmark = pytest.mark.integration
@@ -97,6 +98,8 @@ def test_resume_doc_cannot_be_opened(client: TestClient, entered_headers):
     res = client.get(f"/accounts/park/files/{file_id}", headers=headers)
 
     assert res.status_code == 404
+    assert res.json()["code"] == ErrorCode.NOT_FOUND
+    assert {"code", "message", "details"} <= res.json().keys()
 
 
 def test_rejects_too_large(client: TestClient, entered_headers, monkeypatch: pytest.MonkeyPatch):
