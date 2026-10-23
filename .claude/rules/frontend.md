@@ -26,7 +26,7 @@ paths:
 - 요청·응답 타입은 `@/types/api.gen`의 `components['schemas'][...]`만. 직접 타입을 다시 정의하지 않음. `api.gen.ts`는 수정 금지(`pnpm gen:api`).
 - SSE 이벤트 이름은 `SSE_EVENTS`(`lib/sseEvents.ts`). 스트림 오류는 `error` 이벤트.
 - JSON 본문 쓰기 요청은 `apiSend(path, method, body)`, 응답 `{updates}`는 `applyFormUpdates`로 적용.
-- mock/실제 분기는 `lib/mockMode.ts`에서만(`usesMock`, `usesMockScreens`). 백엔드가 구현되면 `BACKEND_ROUTES`에 경로를 더함. 기능 코드에서 `process.env`를 읽지 않음(서버 전용 값은 `lib/serverConfig.ts`).
+- 앱 코드에 mock을 두지 않음. 화면은 늘 실제 백엔드(BFF)를 부름. 테스트는 `src/test/fixtures`(실제 응답을 떠 둔 JSON)와 `mockFetch`로 fetch만 바꿈. 기능 코드에서 `process.env`를 읽지 않음(서버 전용 값은 `lib/serverConfig.ts`).
 
 ## 상수·반복 코드 (가독성)
 

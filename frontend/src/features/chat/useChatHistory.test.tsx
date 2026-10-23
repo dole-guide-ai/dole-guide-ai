@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { useChatHistory } from '@/features/chat/useChatHistory';
 
-import { buildMockSession } from '@/mocks/handlers';
+import { sessionFor } from '@/test/fixtures';
 import { renderWithProviders } from '@/test/renderWithProviders';
 
 const message = (seq: number, role: string, text: string, payload: object | null = null) => ({
@@ -32,7 +32,7 @@ describe('useChatHistory (F-03)', () => {
             next_cursor: 1,
           }),
     );
-    const session = { ...buildMockSession('lee'), session_id: 'acct-lee-2026-10-21' };
+    const session = { ...sessionFor('lee'), session_id: 'acct-lee-2026-10-21' };
     let result: { current: ReturnType<typeof useChatHistory> } | undefined;
     const Probe = () => {
       result = { current: useChatHistory(session) };
@@ -46,16 +46,5 @@ describe('useChatHistory (F-03)', () => {
       { id: 'h-2', role: 'assistant', text: '기록할게요.', cite: 'ACT-002' },
     ]);
     expect(String(fetchSpy.mock.calls[0][0])).toContain('/accounts/lee/messages');
-  });
-
-  it('모의 세션은 대화 기록을 받지 않는다', () => {
-    const fetchSpy = vi.spyOn(globalThis, 'fetch');
-    const Probe = () => {
-      useChatHistory(buildMockSession('lee'));
-      return null;
-    };
-    renderWithProviders(<Probe />);
-
-    expect(fetchSpy).not.toHaveBeenCalled();
   });
 });

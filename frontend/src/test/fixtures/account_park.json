@@ -1,0 +1,49 @@
+{
+  "persona_id": "park",
+  "today": "2026-10-21",
+  "procedure": {
+    "stage": "job_registration",
+    "recipient_group": "age_60_64",
+    "age_at_separation": 61,
+    "has_disability": false,
+    "separation_date": "2026-09-30",
+    "education_done": false,
+    "eligibility_applied_on": null,
+    "first_recognition_date": null,
+    "benefit_days": 270,
+    "benefit_end_date": null,
+    "period_end_date": "2027-09-30",
+    "expected_end_date": "2027-09-30",
+    "end_reason": null,
+    "remaining_rounds": null,
+    "last_round": null
+  },
+  "current_round": null,
+  "entry": {
+    "branch_id": "E7a",
+    "panel": "A",
+    "progress": {
+      "current": 1,
+      "done": []
+    },
+    "title": "이력서부터 같이 만들어요",
+    "next_step_text": "다음 할 일 : 이력서 저장 후 온라인 교육(약 1시간)",
+    "messages": [
+      {
+        "template_id": "T-E7a",
+        "text": "박진수님, 반가워요. 아직 이력서가 없으시군요. 구직등록에 쓸 이력서부터 같이 만들어 볼까요? 경력증명서나 예전 서류가 있으면 사진으로 올려 주시고, 없으면 말로 하셔도 돼요.",
+        "cite": "실업급여(상용직) · 2026.08.25"
+      }
+    ],
+    "choices": ["이력서 만들기 시작할게요", "사진부터 올릴게요", "전체 순서가 궁금해요"],
+    "accepts_file": true,
+    "ui": {
+      "big_text": false
+    },
+    "flags": {
+      "m1": false
+    },
+    "rule_refs": ["PROC-009"]
+  },
+  "pending_ask": null
+}

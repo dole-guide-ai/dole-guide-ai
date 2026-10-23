@@ -7,9 +7,7 @@ import { DashboardScreen } from '@/features/dashboard/DashboardScreen';
 import { getFormDrafts, resetForms } from '@/lib/formStore';
 import { setSession } from '@/lib/sessionStore';
 import type { SseMessage } from '@/types/chat.types';
-import { buildMockSession } from '@/mocks/handlers';
-import { MOCK_PERSONAS } from '@/mocks/personas';
-import { MOCK_RESUMES } from '@/mocks/resumes';
+import { PERSONAS, RESUMES, sessionFor } from '@/test/fixtures';
 import { mockFetchRoutes, PENDING } from '@/test/mockFetch';
 import { sseResponse } from '@/test/mockSse';
 import { renderWithProviders } from '@/test/renderWithProviders';
@@ -19,15 +17,17 @@ const push = vi.fn();
 const replace = vi.fn();
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push, replace }) }));
 
-const cards = MOCK_PERSONAS.map(({ persona_id, display }) => ({ persona_id, display }));
+const cards = PERSONAS.items;
 
 /** 경로별로 응답을 나눕니다: 계정 카드는 JSON, 대화는 SSE 스트림. */
 const mockApi = (chatEvents: SseMessage[] = []) =>
-  vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+  vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
     const url = String(input);
     if (url.endsWith('/personas')) return Response.json({ items: cards, total: cards.length });
-    if (url.endsWith('/messages')) return sseResponse(chatEvents);
-    if (url.endsWith('/forms/resume')) return Response.json(MOCK_RESUMES.park);
+    // 대화 기록(GET)은 비어 있고, 보내기(POST)는 SSE 스트림입니다.
+    if (url.endsWith('/messages') && init?.method === 'POST') return sseResponse(chatEvents);
+    if (url.endsWith('/messages')) return Response.json({ items: [], total: 0, next_cursor: null });
+    if (url.endsWith('/accounts/park/resume')) return Response.json(RESUMES.park);
     if (url.endsWith('/rounds/current')) return Response.json(LEE_ROUND_CHECK);
     return new Response('{}', { status: 404 });
   });
@@ -53,14 +53,14 @@ describe('DashboardScreen', () => {
 
   it('이정호(E4b) 첫 화면: 진행바·제목·첫 안내·근거·선택지·D-day 카드', async () => {
     mockApi();
-    setSession(buildMockSession('lee'));
+    setSession(sessionFor('lee'));
 
     renderWithProviders(<DashboardScreen />);
 
     expect(await screen.findByText('이정호님')).toBeInTheDocument();
     expect(screen.getByRole('heading', { level: 1, name: '이번 회차 할 일' })).toBeInTheDocument();
     expect(
-      screen.getByText('다음 기한 : 4차 실업인정일 12.22(화) · 고용센터 출석'),
+      screen.getByText('다음 기한 : 4차 실업인정일 10.27(화) · 고용센터 출석'),
     ).toBeInTheDocument();
     expect(screen.getByLabelText('실업인정 현재 단계')).toBeInTheDocument();
     expect(screen.getByText(/3차 실업인정까지 받으셨네요/)).toBeInTheDocument();
@@ -69,14 +69,14 @@ describe('DashboardScreen', () => {
     );
     expect(screen.getByRole('button', { name: '부족한 활동 추천해 주세요' })).toBeInTheDocument();
     expect(await screen.findByText('D-6')).toBeInTheDocument();
-    expect(screen.getByText('11.25 ~ 12.22')).toBeInTheDocument();
+    expect(screen.getByText(/~ 10\.27/)).toBeInTheDocument();
     expect(screen.getByText('고용센터 출석')).toBeInTheDocument();
     expect(document.documentElement.dataset.bigText).toBe('false');
   });
 
   it('최영수(E7b+M1+M4) 첫 화면: 글자 크게 기본 켜짐, 신청 경로 안내 상자', async () => {
     mockApi();
-    setSession(buildMockSession('choi'));
+    setSession(sessionFor('choi'));
 
     renderWithProviders(<DashboardScreen />);
 
@@ -111,12 +111,12 @@ describe('DashboardScreen', () => {
         data: { question_id: 'q', text: '다음은요?', choices: ['신청서 볼게요'] },
       },
     ]);
-    setSession(buildMockSession('lee'));
+    setSession(sessionFor('lee'));
 
     renderWithProviders(<DashboardScreen />);
     // 패널 B 점검 결과가 저장소에 들어간 뒤 보내야 스트림의 append가 덮어써지지 않습니다.
     expect(await screen.findByText('OO상사')).toBeInTheDocument();
-    await userEvent.click(screen.getByRole('button', { name: '이미 한 활동 기록할게요' }));
+    await userEvent.click(screen.getByRole('button', { name: '새 활동 기록할게요' }));
 
     expect(await screen.findByText('12월 16일 OO물산 입사지원을 기록했어요.')).toBeInTheDocument();
     expect(await screen.findByRole('button', { name: '신청서 볼게요' })).toBeInTheDocument();
@@ -127,10 +127,12 @@ describe('DashboardScreen', () => {
     const activities = getFormDrafts().activities.values.activities as { item_id: string }[];
     expect(activities.map((activity) => activity.item_id)).toEqual(['a1', 'a2', 'a3']);
 
-    const chatCall = fetchSpy.mock.calls.find(([input]) => String(input).endsWith('/messages'));
+    const chatCall = fetchSpy.mock.calls.find(
+      ([input, init]) => String(input).endsWith('/messages') && init?.method === 'POST',
+    );
     expect(chatCall?.[1]?.body).toBe(
       JSON.stringify({
-        text: '이미 한 활동 기록할게요',
+        text: '새 활동 기록할게요',
         input_kind: 'choice',
         file_ids: [],
         import_ids: [],
@@ -140,19 +142,20 @@ describe('DashboardScreen', () => {
 
   it('error 이벤트는 오류 문구를 보여 주고 보낸 글을 입력창에 되돌린다', async () => {
     mockApi([{ event: 'error', data: { code: 'LLM_UNAVAILABLE' } }]);
-    setSession(buildMockSession('park'));
+    setSession(sessionFor('park'));
 
     renderWithProviders(<DashboardScreen />);
     await userEvent.type(await screen.findByLabelText('메시지 입력'), '프레스 반장이었어요');
     await userEvent.click(screen.getByRole('button', { name: '보내기' }));
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('지금 답을 만들기 어려워요');
+    const alerts = await screen.findAllByRole('alert');
+    expect(alerts.some((a) => a.textContent?.includes('지금 답을 만들기 어려워요'))).toBe(true);
     expect(screen.getByLabelText('메시지 입력')).toHaveValue('프레스 반장이었어요');
   });
 
   it('계정 바꾸기를 누르면 세션을 지우고 로그인 화면으로 간다', async () => {
     mockApi();
-    setSession(buildMockSession('park'));
+    setSession(sessionFor('park'));
 
     renderWithProviders(<DashboardScreen />);
     await userEvent.click(await screen.findByRole('button', { name: '계정 바꾸기' }));
@@ -186,7 +189,7 @@ describe('DashboardScreen', () => {
       // 신청서는 붙잡아 두고, 패널 C가 그 요청을 보내는지만 봅니다.
       [/\/accounts\/lee\/rounds\/4\/application$/, PENDING],
     ]);
-    setSession({ ...buildMockSession('lee'), session_id: 'acct-lee-2026-12-16' });
+    setSession({ ...sessionFor('lee'), session_id: 'acct-lee-2026-12-16' });
 
     renderWithProviders(<DashboardScreen />);
     await userEvent.click(

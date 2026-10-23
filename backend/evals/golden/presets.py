@@ -1,6 +1,6 @@
 """골든셋 '계정' 칸의 기본 상태값과 시작 데이터.
 
-시연 계정 값은 frontend/src/mocks/personas.ts와 같습니다.
+시연 계정 값은 backend/data/seeds/personas.json과 같습니다.
 
 general·repeat·senior·park2처럼 시연 계정에 없는 경우는 가상 프리셋입니다. 모두 합성 값입니다.
 """

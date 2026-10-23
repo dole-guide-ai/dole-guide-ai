@@ -3,8 +3,6 @@ import Image from 'next/image';
 import { PersonaList } from '@/features/auth/PersonaList';
 import { HealthStatus } from '@/features/health/HealthStatus';
 
-import { IS_MOCK_API, usesMockScreens } from '@/lib/mockMode';
-
 /** 시안 1-1 로그인 화면: 시연 고지(①) → 가상 계정 카드(②). */
 export const LoginScreen = () => (
   <main className="mx-auto flex min-h-screen w-full max-w-2xl flex-col gap-8 px-4 py-10">
@@ -35,14 +33,6 @@ export const LoginScreen = () => (
     <footer className="text-muted mt-auto flex flex-wrap items-center justify-between gap-2 text-sm">
       <span>개인정보를 입력하지 마세요(데모)</span>
       <span className="flex items-center gap-3">
-        {/* 모의 모드인지 실제 서버인지 바로 알 수 있게 표시합니다 (NEXT_PUBLIC_USE_MOCK). */}
-        <span>
-          {IS_MOCK_API
-            ? '모의 응답 모드'
-            : usesMockScreens()
-              ? '혼합 모드(계정만 서버)'
-              : '서버 모드'}
-        </span>
         <HealthStatus />
       </span>
     </footer>

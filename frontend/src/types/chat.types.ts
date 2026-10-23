@@ -89,12 +89,6 @@ export interface DoneEvent {
   rule_refs?: string[];
 }
 
-/** POST /files 응답 (2-0.11). 판독 진행은 백엔드가 대화 응답의 `tool_call`(parse_file)로 알립니다. */
-export interface FileUploadRead {
-  file_id: string;
-  job_id: string;
-}
-
 /** PATCH /forms/{kind} 본문 (2-0.6 패널에서 직접 고치기) */
 export interface FormPatchCreate {
   path: string;

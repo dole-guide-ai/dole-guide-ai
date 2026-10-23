@@ -2,7 +2,6 @@ import { useEffect } from 'react';
 
 import { useQuery } from '@tanstack/react-query';
 
-import { isServerSession } from '@/lib/accountSession';
 import { apiFetch } from '@/lib/api';
 import { API_PATHS } from '@/lib/apiPaths';
 import { recognitionFromApplication } from '@/lib/applicationForm';
@@ -28,16 +27,12 @@ const fetchApplication = async (personaId: string, round: number | null) => {
 
 /**
  * 회차 신청서를 한 번 받아 양식 저장소 `recognition`에 넣습니다.
- * 모의 세션은 `GET /forms/recognition`, 실제 서버에서 받은 세션(`acct-`)은 회차 신청서 API를 씁니다.
  * 본인 답변 같은 변화는 대화의 `form_update`가 맡고, 회차가 바뀌면 새로 받습니다.
  */
-export const useRecognitionForm = (sessionId: string, round: number | null, personaId?: string) => {
+export const useRecognitionForm = (sessionId: string, round: number | null, personaId: string) => {
   const query = useQuery({
     queryKey: queryKeys.recognitionForm(sessionId, round),
-    queryFn: () =>
-      !isServerSession(sessionId) || !personaId
-        ? apiFetch<RecognitionFormRead>(API_PATHS.LEGACY_RECOGNITION)
-        : fetchApplication(personaId, round),
+    queryFn: () => fetchApplication(personaId, round),
     staleTime: STALE_TIME.UNTIL_UPDATED,
     refetchOnWindowFocus: false,
   });

@@ -1,0 +1,216 @@
+{
+  "status": "draft",
+  "lock_version": 0,
+  "data": {
+    "resume_title": {
+      "value": null,
+      "status": "missing",
+      "source": null,
+      "transformed": false,
+      "evidence": null,
+      "answered_on": null
+    },
+    "education": [],
+    "job_preferences": {
+      "desired_occupations": [],
+      "desired_regions": {
+        "value": null,
+        "status": "missing",
+        "source": null,
+        "transformed": false,
+        "evidence": null,
+        "answered_on": null
+      },
+      "desired_salary": {
+        "value": null,
+        "status": "missing",
+        "source": null,
+        "transformed": false,
+        "evidence": null,
+        "answered_on": null
+      },
+      "employment_contract_type": {
+        "value": null,
+        "status": "missing",
+        "source": null,
+        "transformed": false,
+        "evidence": null,
+        "answered_on": null
+      },
+      "work_arrangements": {
+        "value": null,
+        "status": "missing",
+        "source": null,
+        "transformed": false,
+        "evidence": null,
+        "answered_on": null
+      },
+      "desired_working_hours": {
+        "value": null,
+        "status": "missing",
+        "source": null,
+        "transformed": false,
+        "evidence": null,
+        "answered_on": null
+      },
+      "military_alternative": {
+        "value": null,
+        "status": "missing",
+        "source": null,
+        "transformed": false,
+        "evidence": null,
+        "answered_on": null
+      },
+      "other_preferences": {
+        "value": null,
+        "status": "missing",
+        "source": null,
+        "transformed": false,
+        "evidence": null,
+        "answered_on": null
+      },
+      "search_keywords": {
+        "value": null,
+        "status": "missing",
+        "source": null,
+        "transformed": false,
+        "evidence": null,
+        "answered_on": null
+      }
+    },
+    "careers": [],
+    "careers_status": {
+      "value": null,
+      "status": "missing",
+      "source": null,
+      "transformed": false,
+      "evidence": null,
+      "answered_on": null
+    },
+    "certifications": [],
+    "certifications_status": {
+      "value": null,
+      "status": "missing",
+      "source": null,
+      "transformed": false,
+      "evidence": null,
+      "answered_on": null
+    },
+    "other_certifications": {
+      "value": null,
+      "status": "missing",
+      "source": null,
+      "transformed": false,
+      "evidence": null,
+      "answered_on": null
+    },
+    "competencies": {
+      "projects": {
+        "value": null,
+        "status": "missing",
+        "source": null,
+        "transformed": false,
+        "evidence": null,
+        "answered_on": null
+      },
+      "activities_awards": {
+        "value": null,
+        "status": "missing",
+        "source": null,
+        "transformed": false,
+        "evidence": null,
+        "answered_on": null
+      },
+      "vocational_training": {
+        "value": null,
+        "status": "missing",
+        "source": null,
+        "transformed": false,
+        "evidence": null,
+        "answered_on": null
+      },
+      "computer_skills": {
+        "value": null,
+        "status": "missing",
+        "source": null,
+        "transformed": false,
+        "evidence": null,
+        "answered_on": null
+      },
+      "languages": {
+        "value": null,
+        "status": "missing",
+        "source": null,
+        "transformed": false,
+        "evidence": null,
+        "answered_on": null
+      },
+      "overseas_experiences": {
+        "value": null,
+        "status": "missing",
+        "source": null,
+        "transformed": false,
+        "evidence": null,
+        "answered_on": null
+      },
+      "completed_courses": {
+        "value": null,
+        "status": "missing",
+        "source": null,
+        "transformed": false,
+        "evidence": null,
+        "answered_on": null
+      },
+      "job_skills": {
+        "value": null,
+        "status": "missing",
+        "source": null,
+        "transformed": false,
+        "evidence": null,
+        "answered_on": null
+      }
+    },
+    "competencies_status": {
+      "value": null,
+      "status": "missing",
+      "source": null,
+      "transformed": false,
+      "evidence": null,
+      "answered_on": null
+    },
+    "additional_info": {
+      "can_drive": {
+        "value": null,
+        "status": "missing",
+        "source": null,
+        "transformed": false,
+        "evidence": null,
+        "answered_on": null
+      },
+      "owns_vehicle": {
+        "value": null,
+        "status": "missing",
+        "source": null,
+        "transformed": false,
+        "evidence": null,
+        "answered_on": null
+      }
+    }
+  },
+  "completeness": {
+    "filled": 0,
+    "total": 5
+  },
+  "next_question": "resume.career_new",
+  "can_save": false,
+  "profile_display": {
+    "name": "박진수",
+    "birth_year": 1965,
+    "gender": "남",
+    "phone": "010-0000-0001",
+    "email": "park.demo@example.com",
+    "address": "서울특별시 OO구 OO로 1",
+    "bank_name": "OO은행",
+    "account_last4": "0001"
+  }
+}

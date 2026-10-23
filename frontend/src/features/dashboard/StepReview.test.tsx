@@ -6,15 +6,13 @@ import { DashboardScreen } from '@/features/dashboard/DashboardScreen';
 
 import { resetForms } from '@/lib/formStore';
 import { setSession } from '@/lib/sessionStore';
-import { buildMockSession } from '@/mocks/handlers';
-import { MOCK_PERSONAS } from '@/mocks/personas';
-import { MOCK_RESUMES } from '@/mocks/resumes';
+import { PERSONAS, RESUMES, sessionFor } from '@/test/fixtures';
 import { renderWithProviders } from '@/test/renderWithProviders';
 import { LEE_ROUND_CHECK } from '@/test/roundCheckFixture';
 
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn(), replace: vi.fn() }) }));
 
-const cards = MOCK_PERSONAS.map(({ persona_id, display }) => ({ persona_id, display }));
+const cards = PERSONAS.items;
 
 describe('완료 단계 읽기 전용 다시 보기 (1.8)', () => {
   beforeEach(() => {
@@ -22,11 +20,11 @@ describe('완료 단계 읽기 전용 다시 보기 (1.8)', () => {
     vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
       const url = String(input);
       if (url.endsWith('/personas')) return Response.json({ items: cards, total: cards.length });
-      if (url.endsWith('/forms/resume')) return Response.json(MOCK_RESUMES.lee);
+      if (url.endsWith('/accounts/lee/resume')) return Response.json(RESUMES.lee);
       if (url.endsWith('/rounds/current')) return Response.json(LEE_ROUND_CHECK);
       return new Response('{}', { status: 404 });
     });
-    setSession(buildMockSession('lee'));
+    setSession(sessionFor('lee'));
   });
 
   afterEach(() => {
