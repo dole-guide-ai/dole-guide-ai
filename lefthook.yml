@@ -57,4 +57,5 @@ pre-push:
       root: "backend/"
       glob: "*.py"
       files: git diff --name-only origin/develop...HEAD
-      run: uv run pytest -m "not integration and not eval" -q
+      # 단위 테스트만 경로로 고릅니다. -m "..." 처럼 따옴표가 든 인자는 Windows에서 쪼개집니다.
+      run: uv run pytest tests/unit -q

@@ -15,6 +15,7 @@ RUN mkdir -p /data/uploads && chown app:app /data/uploads
 USER app
 
 ENV PATH="/app/.venv/bin:$PATH"
+ENV TZ=Asia/Seoul
 # 실제 접속자 IP(X-Forwarded-For)를 믿을 프록시 주소. 기본은 자기 자신만, 운영은 compose에서 내부 네트워크로 지정합니다.
 ENV FORWARDED_ALLOW_IPS=127.0.0.1
 EXPOSE 8000

@@ -7,6 +7,7 @@ import { apiFetch, usesMock } from '@/lib/api';
 import { setSession } from '@/lib/sessionStore';
 import type { components } from '@/types/api.gen';
 import { buildMockSession, enterMockAccount } from '@/mocks/handlers';
+import { clearMockState } from '@/mocks/mockPersistence';
 
 type AccountRead = components['schemas']['AccountRead'];
 
@@ -31,6 +32,8 @@ export const useDemoLogin = () => {
       return sessionFromAccount(account);
     },
     onSuccess: (session) => {
+      // 새로 입장하면 이전 모의 대화·패널 값은 이어 쓰지 않습니다 (F-03).
+      clearMockState();
       setSession(session);
       router.push('/dashboard');
     },

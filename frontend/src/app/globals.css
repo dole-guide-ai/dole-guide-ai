@@ -29,13 +29,20 @@
   --color-danger-soft: #fee2e2;
 }
 
-/* 중장년층 대상이라 기본 글자를 조금 크게 두고, `글자 크게`(M4)는 루트 크기만 키웁니다. */
-html {
-  font-size: 17px;
+/*
+ * 중장년층 대상이라 기본 글자를 조금 크게 두고, `글자 크게`(M4)는 루트 글자 크기 변수만 키웁니다.
+ * 화면의 글자·여백은 rem이라 이 변수 하나로 함께 커집니다 (F-06).
+ */
+:root {
+  --font-size-root: 17px;
 }
 
 html[data-big-text='true'] {
-  font-size: 20px;
+  --font-size-root: 20px;
+}
+
+html {
+  font-size: var(--font-size-root);
 }
 
 body {
