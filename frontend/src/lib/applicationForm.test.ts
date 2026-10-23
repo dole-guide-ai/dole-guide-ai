@@ -78,11 +78,7 @@ describe('recognitionFromApplication (F-23)', () => {
       { item_id: 'a2', reason: 'same_day', activity_date: '2026-12-08', company_name: 'OO상사' },
     ]);
     expect(form.attend_items).toEqual(['id_card', 'eligibility_card']);
-    expect(form.checklist).toHaveLength(7);
-    expect(form.checklist[0]).toEqual({ key: 'self_answers', done: false, blocking: true });
-    expect(form.checklist.filter((item) => !item.done).map((item) => item.key)).toEqual([
-      'self_answers',
-    ]);
+    expect(form.checklist).toEqual([{ key: 'self_answers', done: false, blocking: true }]);
   });
 
   it('선택지 코드를 고용24 화면 글자로 바꾸고, 지난 회차 답에는 지난 답 칸 상태를 붙인다', () => {

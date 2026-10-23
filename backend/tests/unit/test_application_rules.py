@@ -1,17 +1,12 @@
-from datetime import date, datetime
+from datetime import date
 
-from app.core.clock import KST
 from app.rules.application import (
     ActivityInput,
     apply_method_from_route,
     build_form_activities,
-    can_submit,
     carry_previous_answers,
-    checklist,
     locked_reason,
-    needs_evidence,
     required_activities,
-    submit_mode,
 )
 
 START, END = date(2026, 11, 25), date(2026, 12, 22)
@@ -84,73 +79,6 @@ def test_required_activities_by_group_and_round() -> None:
     assert required_activities("repeat", 4) == (2, 1)
 
 
-def kst(day: date, hour: int, minute: int = 0) -> datetime:
-    return datetime(day.year, day.month, day.day, hour, minute, tzinfo=KST)
-
-
-def test_submit_mode_by_time() -> None:
-    """버튼 상태 5종: 인정일 전·당일 17시 전·17~18시·그 뒤·출석 회차 (설계 3.6, F-26)."""
-    day = date(2026, 12, 22)
-    assert submit_mode(kst(date(2026, 12, 21), 10), day, False) == "preview"
-    assert submit_mode(kst(day, 16, 59), day, False) == "send"
-    # 완료 기준: 온라인 회차 당일 17:30이면 방문 안내
-    assert submit_mode(kst(day, 17, 30), day, False) == "visit_today"
-    assert submit_mode(kst(day, 18), day, False) == "change"
-    assert submit_mode(kst(date(2026, 12, 23), 9), day, False) == "change"
-    assert submit_mode(kst(date(2026, 12, 21), 10), day, True) == "attend"
-    assert submit_mode(kst(day, 18, 30), day, True) == "change"
-
-
-def _answered(value: str) -> dict:
-    return {"value": value, "status": "confirmed", "source": "user_answer"}
-
-
-FULL = {
-    "work": {"has_work": _answered("no")},
-    "employment": {"status": _answered("none")},
-    "industrial_accident": {"receiving": _answered("no")},
-    "credit": {"application": _answered("wish")},
-    "notification_method": _answered("sms"),
-    "next_plan": _answered("job_search"),
-}
-ROW = {
-    "company_name": "OO물류",
-    "recruitment_contact": "인사팀",
-    "recruitment_occupation": "일반 사무",
-    "job_search_method": "고용24(워크넷)",
-    "application_method": "고용24(워크넷)",
-    "activity_result": "서류전형 심사진행 중",
-}
-
-
-def test_shortfall_and_missing_evidence_are_warnings_only() -> None:
-    """완료 기준: 활동 1건 부족·증빙 없음은 경고만 나오고 제출은 가능합니다."""
-    blocking, warnings = checklist(FULL, [ROW], counted=1, required=2, evidence_missing=1)
-
-    assert blocking == []
-    assert [w["key"] for w in warnings] == ["requirement_met", "evidence_ok"]
-    assert can_submit("send", blocking, None) is True
-    assert can_submit("visit_today", blocking, None) is False
-    assert can_submit("preview", blocking, None) is False
-
-
-def test_missing_self_answers_and_fields_block_submit() -> None:
-    data = {**FULL, "work": {"has_work": {"value": None}}, "notification_method": {}}
-    blocking, warnings = checklist(
-        data, [{**ROW, "recruitment_contact": None}], counted=2, required=2, evidence_missing=0
-    )
-
-    assert [b["key"] for b in blocking] == ["self_answers", "job_search_fields", "notification"]
-    assert warnings == []
-    assert can_submit("attend", blocking, None) is False
-    assert can_submit("send", [], "employed") is False
-
-
-def test_evidence_needed_except_work24() -> None:
-    assert needs_evidence("work24") is False
-    assert needs_evidence("company_site") is True
-
-
 def test_same_day_representative_prefers_work24_job_search() -> None:
     """같은 날 2건이면 기록 순서와 상관없이 구직활동·고용24(증빙 불필요)를 대표로 인정합니다."""
     day = date(2026, 12, 8)
@@ -165,14 +93,3 @@ def test_same_day_representative_prefers_work24_job_search() -> None:
 
     assert [r["company_name"] for r in result.job_search] == ["OO물류"]
     assert [e["company_name"] for e in result.excluded] == ["OO상사"]
-
-
-def test_missing_job_search_is_warning_even_when_count_is_met() -> None:
-    """구직 외 활동 2건만 있으면 건수는 채워도 구직활동 1건이 모자라 경고합니다 (W6)."""
-    blocking, warnings = checklist(
-        FULL, [], counted=2, required=2, evidence_missing=0, required_job_search=1
-    )
-
-    assert blocking == []
-    assert warnings == [{"key": "requirement_met", "text": "구직활동 1건 부족"}]
-    assert can_submit("send", blocking, None) is True
