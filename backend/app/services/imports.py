@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 from app.core.errors import NotFoundError
 from app.repositories import accounts as repo
 from app.repositories import activities as activity_repo
+from app.rules import imports as import_rules
 from app.schemas.common import ErrorCode
 from app.schemas.imports import ImportItem, ImportList
 from app.services.accounts import AccountContext
@@ -61,10 +62,7 @@ def _item(
     raw: dict[str, Any], anchor: date, recorded: set[str] | None, name: str | None = None
 ) -> ImportItem:
     """seed 항목 하나를 응답 항목으로. recorded가 None이면 seed의 is_recorded를 씁니다."""
-    if recorded is None:
-        is_recorded = bool(raw.get("is_recorded", False))
-    else:
-        is_recorded = (name or raw["title"]) in recorded
+    is_recorded = import_rules.is_recorded(raw, recorded, name)
     values: dict[str, Any] = {
         "category": raw["category"],
         "title": raw["title"],
