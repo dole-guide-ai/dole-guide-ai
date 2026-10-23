@@ -81,6 +81,10 @@ uv run alembic upgrade head
 - 브랜치: `feat|fix|hotfix/#이슈번호-내용`, develop에서 분기해 develop으로 PR (hotfix만 main).
 - 커밋·PR 제목: `type(scope): 무엇을 왜` — type `feat|fix|refactor|style|design|docs|test|chore|ci`, scope `fe|be|ai|infra|docs`. 호환성 깨짐은 `type(scope)!:`.
 - main·develop에 직접 push하지 않습니다. 한 PR은 한 영역, +1000줄 이내.
+- PR을 만들면 PR을 올린 사람(지금 인증된 GitHub 계정)을 담당자(assignee)로 지정합니다. 팀원 이름을 고정해 쓰지 않습니다.
+  - gh: `gh pr create --assignee @me`
+  - GitHub MCP·API: `GET /user`로 로그인 이름을 얻어 `POST /repos/{owner}/{repo}/issues/{PR번호}/assignees`로 지정합니다.
+  - 담당자가 빈 채로 만든 PR을 발견하면 같은 방법으로 채웁니다.
 
 ## 테스트
 

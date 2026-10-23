@@ -103,4 +103,4 @@ def test_error_details_hide_path_text() -> None:
             {"op": "replace", "path": "/비밀/경로", "value": 1},
         )
 
-    assert exc.value.details == [{"field": "patch[1]", "reason": "unknown_path"}]
+    assert exc.value.details == [{"field": "patch[1]", "type": "unknown_path"}]
