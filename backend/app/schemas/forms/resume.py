@@ -6,11 +6,21 @@
 "없어요"라고 답한 항목은 `*_status` 칸을 not_applicable로 두어 아직 안 물어본 것과 구분합니다.
 """
 
+from enum import StrEnum
+
 from pydantic import BaseModel, ConfigDict
 
 from app.schemas.common import FormField
 
 SCHEMA_VERSION = "work24_resume_v2"
+
+
+class OccupationStatus(StrEnum):
+    """직종 값의 공통코드 확정 상태 (상세기획 2-1.4)."""
+
+    CONFIRMED = "confirmed"
+    NEEDS_CONFIRMATION = "needs_confirmation"  # 후보를 아직 고르지 않음
+    NAME_ONLY = "name_only"  # 세 번 안 맞아 말한 이름만 저장
 
 
 class _Form(BaseModel):
@@ -36,9 +46,7 @@ class Education(_Form):
 
 class DesiredOccupation(_Form):
     item_id: str
-    occupation: FormField = (
-        FormField()
-    )  # {code, name, status: confirmed·needs_confirmation·name_only}
+    occupation: FormField = FormField()  # {code, name, status: OccupationStatus}
     experience_type: FormField = FormField()  # 신입 / 경력
     experience_years: FormField = FormField()
     experience_months: FormField = FormField()

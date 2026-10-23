@@ -21,6 +21,7 @@ from app.agent import gateway
 from app.api.routers import (
     accounts,
     activities,
+    codes,
     facts,
     files,
     health,
@@ -97,6 +98,7 @@ app.add_middleware(RequestIdMiddleware)
 
 app.include_router(health.router)
 app.include_router(visitors.router)
+app.include_router(codes.router)
 
 for router in (
     accounts.router,
