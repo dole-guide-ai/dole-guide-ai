@@ -10,6 +10,9 @@ import type { ActivitySource, RoundActivity, RoundCheckRead } from '@/types/proc
 type RoundCheck = components['schemas']['RoundCheck'];
 type ActivityCheck = RoundCheck['activities'][number];
 
+/** 활동을 넣거나 빼면 백엔드가 다시 계산한 회차 점검을 이 경로로 보냅니다 (`form: "activities"`). */
+export const ROUND_CHECK_PATH = '/round_check';
+
 const JOB_SEARCH = 'job_search';
 // 증빙 파일 이름은 응답에 없어 첨부 여부만 표시합니다.
 const ATTACHED_LABEL = '증빙 파일';

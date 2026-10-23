@@ -3,15 +3,14 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { sessionFromAccount } from '@/lib/accountSession';
 import { ApiError } from '@/lib/api';
 import { applyFormUpdate, resetForms } from '@/lib/formStore';
+import { roundCheckFromServer } from '@/lib/roundCheck';
 import { setSession } from '@/lib/sessionStore';
 import type { components } from '@/types/api.gen';
-import type { FormPatchRead } from '@/types/chat.types';
 import type { SessionRead } from '@/types/demo.types';
 import type { ImportListRead } from '@/types/imports.types';
-import type { RoundCheckRead } from '@/types/procedure.types';
 import type { RecognitionFormRead } from '@/types/recognition.types';
-import { MOCK_ROUND_CHECKS } from '@/mocks/activities';
 import { resetMockAuth, resolveMock } from '@/mocks/handlers';
+import { LEE_ROUND_CHECK } from '@/test/roundCheckFixture';
 
 type AccountRead = components['schemas']['AccountRead'];
 
@@ -28,6 +27,8 @@ describe('모의 API', () => {
     expect(cards.items[0]).not.toHaveProperty('state');
   });
 
+  const leeActivities = roundCheckFromServer(LEE_ROUND_CHECK).activities;
+
   it('신청서 초안은 패널 B에 기록된 활동으로 재취업 활동정보를 채운다 (시연 검증 1번)', async () => {
     await resolveMock('/accounts/lee', { method: 'PUT' });
     applyFormUpdate({
@@ -35,9 +36,9 @@ describe('모의 API', () => {
       path: 'activities',
       op: 'set',
       value: [
-        ...MOCK_ROUND_CHECKS.lee.activities,
+        ...leeActivities,
         {
-          ...MOCK_ROUND_CHECKS.lee.activities[0],
+          ...leeActivities[0],
           item_id: 'a5',
           date: '2026-12-11',
           route: 'interview',
@@ -45,7 +46,7 @@ describe('모의 API', () => {
           source: 'document',
         },
         {
-          ...MOCK_ROUND_CHECKS.lee.activities[0],
+          ...leeActivities[0],
           item_id: 'a6',
           date: '2026-12-14',
           kind: 'other',
@@ -126,32 +127,6 @@ describe('모의 API', () => {
 
     expect(session.entry.branch_id).toBe('E7b');
     expect(session.entry.ui.big_text).toBe(true);
-  });
-
-  it('이정호 회차 점검과 추천 선택(PATCH /procedure)은 예정 활동 form_update를 돌려준다', async () => {
-    await resolveMock('/accounts/lee', { method: 'PUT' });
-    const check = await resolveMock<RoundCheckRead>('/procedure/current-round/check');
-    const { updates } = await resolveMock<FormPatchRead>('/procedure', {
-      method: 'PATCH',
-      body: JSON.stringify({
-        path: 'activities',
-        op: 'append',
-        value: { recommendation_id: 'rec_step_online' },
-      }),
-    });
-
-    expect(check.shortfall).toBe(1);
-    expect(updates[0]).toMatchObject({
-      form: 'activities',
-      op: 'append',
-      value: { item_id: 'planned_rec_step_online', status: 'planned' },
-    });
-    await expect(
-      resolveMock('/procedure', {
-        method: 'PATCH',
-        body: JSON.stringify({ path: 'x', op: 'set' }),
-      }),
-    ).rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
   });
 
   it('이정호 4차 신청서는 출석 모드이고, 모드가 맞을 때만 모의 확정된다', async () => {
