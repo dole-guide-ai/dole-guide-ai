@@ -27,6 +27,7 @@ from app.schemas.common import (
     FormName,
     FormUpdate,
     JsonPatchOp,
+    PatchErrorType,
 )
 
 STATUS_PATH = "/status"
@@ -64,7 +65,7 @@ def apply_patch(
             # 경로 원문은 입력값이라 오류에 넣지 않고 몇 번째 연산인지만 알려 줍니다.
             raise UnprocessableError(
                 "고칠 칸을 찾지 못했어요.",
-                details=[{"field": f"patch[{index}]", "reason": "unknown_path"}],
+                details=[{"field": f"patch[{index}]", "type": PatchErrorType.UNKNOWN_PATH}],
             ) from None
     return result, updates
 

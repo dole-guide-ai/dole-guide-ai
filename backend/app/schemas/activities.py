@@ -15,6 +15,21 @@ class ActivityCategory(StrEnum):
     NON_JOB_SEARCH = "non_job_search"
 
 
+class ActivityField(StrEnum):
+    """패널에서 직접 고칠 수 있는 활동 칸 (F-12). 값은 activities 컬럼 이름과 같습니다."""
+
+    ACTIVITY_DATE = "activity_date"
+    KIND = "kind"
+    ROUTE = "route"
+    ORG_NAME = "org_name"
+    JOB_TITLE = "job_title"
+    SEARCH_METHOD = "search_method"
+    APPLY_METHOD = "apply_method"
+    CONTACT_DEPT = "contact_dept"
+    RESULT = "result"
+    HOURS = "hours"
+
+
 class ActivityCreate(BaseModel):
     """직접 기록하거나, `recommendation_id`로 추천을 예정 활동으로 넣습니다."""
 
