@@ -1,7 +1,7 @@
 """실업인정 회차와 회차별 신청서를 다루는 라우터입니다.
 
 회차는 서버가 날짜로 계산해 만들기 때문에 회차를 만들거나 바꾸는 API는 없습니다.
-회차 목록과 신청서 조회(F-23)가 동작하고, 회차 점검·추천·신청서 제출은 아직 501 틀입니다.
+지금은 회차 목록 조회만 동작하고, 회차 점검·추천·신청서 조회와 제출은 501 틀입니다.
 경로의 round 자리에는 회차 번호(1, 2, …)나 오늘이 속한 회차를 뜻하는 current를 넣습니다.
 """
 
@@ -18,7 +18,6 @@ from app.schemas.application import ApplicationRead
 from app.schemas.common import JsonPatch, Page, UpdatesRead
 from app.schemas.rounds import RecommendationList, RoundCheck, RoundSummary
 from app.services import accounts as account_service
-from app.services import application as application_service
 
 router = APIRouter(prefix="/accounts/{persona_id}", tags=["rounds"])
 _auth = [Depends(get_current_account)]
@@ -74,24 +73,19 @@ def list_recommendations() -> RecommendationList:
 @router.get(
     "/rounds/{round}/application",
     summary="회차 신청서 조회",
-    responses=error_responses(401, 404),
+    dependencies=_auth,
+    responses=error_responses(401, 404, 501),
 )
-def get_application(
-    db: DbSession, account: CurrentAccount, round: RoundRef, today: Today
-) -> ApplicationRead:
+def get_application(round: RoundRef) -> ApplicationRead:
     """회차의 실업인정 신청서를 고용24 화면 순서대로 돌려줍니다. 작성내용 확인 화면도 이 응답으로
     그립니다.
 
     본인 답변 칸, 인정 활동에서 만든 구직활동 줄, 제출을 막는 항목과 경고, 지금 시각 기준 제출
     방식(submit_mode),
     잠금 사유(취업·산재), 신청인·지급계좌 표시값이 들어 있습니다. round에는 회차 번호나 current를
-    넣습니다.
-
-    구직활동 줄은 그 회차 대상기간의 실제 활동에서 만들고(같은 날 2건째는 excluded_rows),
-    지난 회차에 답한 통지 방법·실업크레딧은 이번 회차가 비어 있으면 불러옵니다.
-    오늘이 속한 회차가 없으면(current) 404 NO_ACTIVE_ROUND, 없는 회차 번호면 404입니다.
+    넣습니다. (아직 구현 전이라 501)
     """
-    return application_service.read_application(db, account, round, today)
+    raise NotImplementedYetError()
 
 
 @router.patch(
