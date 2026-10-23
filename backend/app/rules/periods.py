@@ -64,17 +64,10 @@ def expected_end_date(benefit_end: date | None, period_end: date) -> date:
     return min(benefit_end, period_end) if benefit_end else period_end
 
 
-ATTENDANCE_ROUNDS = (1, 4, 8)
-
-
 def is_attendance_round(group: str, round_no: int) -> bool:
-    """1·4·8차는 고용센터 출석 회차입니다. 60세 이상·장애인도 4·8차에 출석합니다.
-
-    상세기획 결정 기록(60세 이상·장애인도 4·8차 출석), 2-3.6, 고용24 「재취업을 위한 약속」
-    ("1차, 4차 및 8차 실업인정일을 제외하고 … 온라인 신청 가능"). 반복수급자는 지원하지 않습니다.
-    """
-    del group  # 그룹과 상관없이 같습니다. 반복수급자 분기가 생기면 여기서 나눕니다.
-    return round_no in ATTENDANCE_ROUNDS
+    """일반은 1·4·8차, 60세 이상·장애인은 1·4차 (반복수급자는 지원하지 않음)."""
+    rounds = (1, 4, 8) if group == "general" else (1, 4)
+    return round_no in rounds
 
 
 @dataclass(frozen=True)

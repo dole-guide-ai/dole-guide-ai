@@ -1,6 +1,0 @@
-{
-  "id": "masking/resume-004",
-  "description": "주민등록번호가 있는 합성 경력증명서 → 판독·초안·로그에 주민등록번호 없음",
-  "source": "상세기획 2-1.9",
-  "pending": "이력서 규칙·대화(F-14·F-15)와 AI 연결(golden/adapter.run_agent) 전"
-}

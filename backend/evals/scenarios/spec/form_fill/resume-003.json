@@ -1,6 +1,0 @@
-{
-  "id": "form_fill/resume-003",
-  "description": "서류 '2004년 3월 입사', 사용자 '2004년 5월부터' → conflict, 두 값 모두 묻기",
-  "source": "상세기획 2-1.9",
-  "pending": "이력서 규칙·대화(F-14·F-15)와 AI 연결(golden/adapter.run_agent) 전"
-}
