@@ -6,6 +6,7 @@
 제출과 본인 답변 저장(F-27)도 여기서 합니다.
 """
 
+import copy
 import uuid
 from datetime import date, datetime
 
@@ -13,8 +14,9 @@ from sqlalchemy.orm import Session
 
 from app.core.errors import ConflictError, NotFoundError, UnprocessableError
 from app.core.etag import check_if_match
-from app.core.json_patch import apply_patch
+from app.core.json_patch import apply_patch, set_field
 from app.repositories import accounts as repo
+from app.rules import answers as answer_rules
 from app.rules import application as rules
 from app.schemas.application import (
     ApplicationRead,
@@ -28,9 +30,12 @@ from app.schemas.application import (
 from app.schemas.common import (
     ErrorCode,
     FieldSource,
+    FieldStatus,
     FormName,
     FormUpdate,
     JsonPatchOp,
+    PatchErrorType,
+    PatchOpName,
     UpdatesRead,
 )
 from app.schemas.forms.recognition import RecognitionData
@@ -127,6 +132,8 @@ ATTEND_ITEMS = {"id_card", "eligibility_card"}
 SUBMITTABLE_MODES = {SubmitMode.SEND, SubmitMode.ATTEND}
 ATTEND_ITEMS_MESSAGE = "신분증과 수급자격증을 챙겼는지 체크해 주세요."
 SUBMIT_VALUE_MESSAGE = "제출 방식은 글자로, 준비물은 글자 목록으로 보내 주세요."
+ANSWER_MESSAGE = "받을 수 없는 답이에요."
+LOCKED_ANSWER_MESSAGE = "취업·산재로 잠긴 신청서예요. 고용센터에 먼저 알려 주세요."
 LOCKED_MESSAGE = "이미 제출한 신청서예요. 고칠 게 있으면 고용센터에 문의해 주세요."
 
 
@@ -225,8 +232,20 @@ def record_user_answer(
     """본인 답변 칸을 바로 저장합니다(대화 턴의 `record_user_answer` 도구가 부름, F-24·F-27).
 
     답한 날(answered_on)을 남기고 lock_version을 올립니다. 제출 뒤·지난 회차는 409입니다.
+    값은 정해진 선택지만 받고(설계 6.8, 422), 취업·산재로 잠긴 신청서는 취업·산재 답만 고칠 수
+    있습니다(409 APPLICATION_LOCKED). 만 60세 이상은 실업크레딧을 `not_applicable`로만 받습니다.
     """
     _, application = writable_application(db, account, round_ref, now)
+    age = _age(db, account)
+    locked = rules.locked_reason(application.data)
+    for index, op in enumerate(patch):
+        if answer_rules.blocked_by_lock(op.path, locked):
+            raise ConflictError(code=ErrorCode.APPLICATION_LOCKED, message=LOCKED_ANSWER_MESSAGE)
+        value = None if op.op == PatchOpName.REMOVE else op.value
+        if error := answer_rules.answer_error(op.path, value, application.data, age):
+            raise UnprocessableError(
+                ANSWER_MESSAGE, details=[{"field": f"patch[{index}]", "type": error}]
+            )
     data, updates = apply_patch(
         application.data, patch, form=FormName.APPLICATION, source=FieldSource.USER_ANSWER
     )
@@ -236,6 +255,32 @@ def record_user_answer(
     application.lock_version += 1
     db.commit()
     return updates
+
+
+def record_unsure(
+    db: Session, account: AccountContext, round_ref: str, path: str, now: datetime
+) -> list[FormUpdate]:
+    """ "잘 모르겠어요"가 두 번이면 값을 비우고 확인 필요(conflict)로 둡니다 (설계 6.8).
+
+    확인 필요 칸이 남으면 제출이 막힙니다. 대화 턴 도구가 부릅니다.
+    """
+    _, application = writable_application(db, account, round_ref, now)
+    if path not in answer_rules.CHOICES and path not in answer_rules.LIST_PATHS:
+        raise UnprocessableError(
+            ANSWER_MESSAGE, details=[{"field": "path", "type": PatchErrorType.UNKNOWN_PATH}]
+        )
+    data = copy.deepcopy(application.data)
+    field = {"value": None, "status": FieldStatus.CONFLICT, "source": FieldSource.USER_ANSWER}
+    set_field(data, path, field)
+    application.data = data
+    application.lock_version += 1
+    db.commit()
+    return [FormUpdate(form=FormName.APPLICATION, path=path, op=PatchOpName.REPLACE, **field)]
+
+
+def _age(db: Session, account: AccountContext) -> int:
+    procedure = repo.get_procedure(db, account.user_id)
+    return procedure.age_at_separation if procedure else 0
 
 
 def _stamp_answered_on(data: dict, path: str, answered_on: date) -> None:

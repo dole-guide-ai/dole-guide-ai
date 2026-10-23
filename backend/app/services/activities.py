@@ -19,6 +19,7 @@ from app.repositories import accounts as repo
 from app.repositories import activities as activity_repo
 from app.repositories import files as file_repo
 from app.rules.activity_table import load_rules
+from app.rules.answers import department_only
 from app.schemas.activities import CHOICE_FIELDS, ActivityCreate, ActivityField, ActivityRead
 from app.schemas.common import (
     ErrorCode,
@@ -317,6 +318,12 @@ def _value(index: int, op: JsonPatchOp) -> Any:
             raise _bad(index, PatchErrorType.CHOICE)
         return op.value
     text = op.value.strip() if isinstance(op.value, str) else ""
+    if field == ActivityField.CONTACT_DEPT:
+        # 담당자는 부서명만 저장합니다. "김OO 과장님"처럼 사람만 적으면 받지 않습니다 (F-25, 2-0.5).
+        dept = department_only(text)
+        if dept is None:
+            raise _bad(index, PatchErrorType.TEXT)
+        text = dept
     if not 0 < len(text) <= TEXT_LIMITS[field]:
         raise _bad(index, PatchErrorType.TEXT)
     return text

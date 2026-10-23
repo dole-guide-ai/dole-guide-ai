@@ -188,3 +188,19 @@ def test_choice_fields_accept_only_work24_options(client: TestClient, entered_he
     assert bad.json()["details"] == [{"field": "patch[0]", "type": "choice"}]
     assert ok.status_code == 200
     assert _record(client, headers, route="job_site").status_code == 422
+
+
+def test_contact_saves_department_not_name(client: TestClient, entered_headers: Headers):
+    """F-25: '김OO 과장님'이라고 해도 이름은 저장되지 않고 부서명만 남습니다."""
+    headers = entered_headers("lee")
+    activity_id = client.get(ACTIVITIES, headers=headers).json()["items"][0]["activity_id"]
+    url = f"{ACTIVITIES}/{activity_id}"
+
+    def contact(value: str):
+        return client.patch(
+            url, headers=headers, json=[{"op": "replace", "path": "/contact_dept", "value": value}]
+        )
+
+    assert contact("김OO 과장님").status_code == 422
+    saved = contact("인사팀 김OO 과장님")
+    assert saved.json()["updates"][0]["value"]["contact_dept"] == "인사팀"

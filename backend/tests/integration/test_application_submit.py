@@ -9,11 +9,11 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.clock import KST, get_now
-from app.core.errors import ConflictError
+from app.core.errors import ConflictError, UnprocessableError
 from app.main import app
 from app.models import Activity, ProcedureState
 from app.models.user import User
-from app.schemas.common import JsonPatchOp
+from app.schemas.common import ErrorCode, JsonPatchOp
 from app.services import application as application_service
 from app.services.accounts import AccountContext
 
@@ -225,3 +225,29 @@ def test_ended_account_cannot_change_application(
         application_service.record_user_answer(
             db_session, account, "current", [_answer("/work/has_work", "no")], NOW
         )
+
+
+def test_answers_follow_choices_lock_and_unsure(
+    client: TestClient, db_session: Session, entered_headers: Callable[[str], dict[str, str]]
+) -> None:
+    """F-24: 선택지 밖 답은 422, 취업이면 잠겨 다른 답은 409, 모르겠어요 두 번이면 제출 막힘."""
+    headers = entered_headers("lee")
+    account = _account_of(client, headers, db_session)
+
+    with pytest.raises(UnprocessableError):
+        application_service.record_user_answer(
+            db_session, account, "current", [_answer("/work/has_work", "네")], NOW
+        )
+    application_service.record_unsure(db_session, account, "current", "/work/has_work", NOW)
+    read = client.get(URL_CURRENT, headers=headers).json()
+    assert read["data"]["work"]["has_work"]["status"] == "conflict"
+    assert "unsure_answers" in [b["key"] for b in read["checklist"]["blocking"]]
+
+    application_service.record_user_answer(
+        db_session, account, "current", [_answer("/employment/status", "employed")], NOW
+    )
+    with pytest.raises(ConflictError) as locked:
+        application_service.record_user_answer(
+            db_session, account, "current", [_answer("/credit/application", "wish")], NOW
+        )
+    assert locked.value.code == ErrorCode.APPLICATION_LOCKED
