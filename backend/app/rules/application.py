@@ -11,6 +11,7 @@ from dataclasses import dataclass, field
 from datetime import date, datetime
 from typing import Any
 
+from app.schemas.activities import ActivityRoute, ApplyMethod, SearchMethod
 from app.schemas.rounds import ActivityStatus
 
 JOB_SEARCH = "job_search"
@@ -19,18 +20,18 @@ NON_JOB_SEARCH = "non_job_search"
 # 2-2 경로(route) → 고용24 응모 방식 (상세기획 2-3.4, 2026-10-19 결정).
 # 회사 홈페이지·취업 사이트는 고용24 선택지에 없어 `기타`로 둡니다.
 _APPLY_METHOD = {
-    "work24": "고용24(워크넷)",
-    "email": "전자메일",
-    "mail": "우편",
-    "fax": "FAX",
-    "visit": "직접방문",
-    "interview": "직접방문",
-    "company_site": "기타",
-    "job_site": "기타",
+    ActivityRoute.WORK24: ApplyMethod.WORK24,
+    ActivityRoute.EMAIL: ApplyMethod.EMAIL,
+    ActivityRoute.MAIL: ApplyMethod.MAIL,
+    ActivityRoute.FAX: ApplyMethod.FAX,
+    ActivityRoute.VISIT: ApplyMethod.VISIT,
+    ActivityRoute.INTERVIEW: ApplyMethod.VISIT,
+    ActivityRoute.COMPANY_SITE: ApplyMethod.OTHER,
+    ActivityRoute.PORTAL: ApplyMethod.OTHER,
 }
 # 고용24로 지원했으면 공고도 고용24에서 찾은 것이라 구직 방법을 정할 수 있습니다.
 # 그 밖에는 대화로 물어서 채웁니다 (F-25).
-_SEARCH_METHOD = {"work24": "고용24(워크넷)"}
+_SEARCH_METHOD = {ActivityRoute.WORK24: SearchMethod.WORK24}
 
 # 지난 회차 답을 불러오는 칸 (2-3.3: 지난 답을 보여 주고 유지할지만 묻는 칸)
 _CARRIED_FIELDS = ("notification_method",)
@@ -38,11 +39,13 @@ _CARRIED_GROUPS = ("credit",)
 
 
 def apply_method_from_route(route: str | None) -> str | None:
-    return _APPLY_METHOD.get(route or "")
+    method = _APPLY_METHOD.get(route or "")  # StrEnum 키는 같은 글자로 찾을 수 있습니다
+    return method.value if method else None
 
 
 def search_method_from_route(route: str | None) -> str | None:
-    return _SEARCH_METHOD.get(route or "")
+    method = _SEARCH_METHOD.get(route or "")
+    return method.value if method else None
 
 
 @dataclass(frozen=True)

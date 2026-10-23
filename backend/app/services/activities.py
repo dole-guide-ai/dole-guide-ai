@@ -19,7 +19,7 @@ from app.repositories import accounts as repo
 from app.repositories import activities as activity_repo
 from app.repositories import files as file_repo
 from app.rules.activity_table import load_rules
-from app.schemas.activities import ActivityCreate, ActivityField, ActivityRead
+from app.schemas.activities import CHOICE_FIELDS, ActivityCreate, ActivityField, ActivityRead
 from app.schemas.common import (
     ErrorCode,
     FieldSource,
@@ -311,6 +311,11 @@ def _value(index: int, op: JsonPatchOp) -> Any:
         ):
             raise _bad(index, PatchErrorType.NUMBER)
         return hours
+    if choices := CHOICE_FIELDS.get(field):
+        # 정해진 선택지만 받습니다 (상세기획 2-2.2, 데이터 설계 7.1 Enum 검증).
+        if op.value not in {choice.value for choice in choices}:
+            raise _bad(index, PatchErrorType.CHOICE)
+        return op.value
     text = op.value.strip() if isinstance(op.value, str) else ""
     if not 0 < len(text) <= TEXT_LIMITS[field]:
         raise _bad(index, PatchErrorType.TEXT)

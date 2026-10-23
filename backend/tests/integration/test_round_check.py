@@ -169,3 +169,22 @@ def test_patching_activity_recounts_and_rederives_category(
     )
     assert lecture.json()["updates"][0]["value"]["category"] == "non_job_search"
     assert _round_check(lecture)["counted_job_search"] == 1
+
+
+def test_choice_fields_accept_only_work24_options(client: TestClient, entered_headers: Headers):
+    """경로·구직 방법·응모 방식·활동 결과는 정해진 선택지만 받습니다 (데이터 설계 7.1)."""
+    headers = entered_headers("lee")
+    activity_id = client.get(ACTIVITIES, headers=headers).json()["items"][0]["activity_id"]
+    url = f"{ACTIVITIES}/{activity_id}"
+
+    bad = client.patch(
+        url, headers=headers, json=[{"op": "replace", "path": "/result", "value": "합격"}]
+    )
+    ok = client.patch(
+        url, headers=headers, json=[{"op": "replace", "path": "/result", "value": "최종 불합격"}]
+    )
+
+    assert bad.status_code == 422
+    assert bad.json()["details"] == [{"field": "patch[0]", "type": "choice"}]
+    assert ok.status_code == 200
+    assert _record(client, headers, route="job_site").status_code == 422

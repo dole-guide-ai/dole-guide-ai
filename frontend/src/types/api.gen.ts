@@ -704,8 +704,7 @@ export interface components {
             category?: components["schemas"]["ActivityCategory"] | null;
             /** Kind */
             kind?: string | null;
-            /** Route */
-            route?: string | null;
+            route?: components["schemas"]["ActivityRoute"] | null;
             /** Org Name */
             org_name?: string | null;
             /** Job Title */
@@ -752,6 +751,12 @@ export interface components {
              */
             file_ids: string[];
         };
+        /**
+         * ActivityRoute
+         * @description 지원·참여 경로 (상세기획 2-2.2). 필요 증빙을 정하고(규칙 표 routes), 신청서 칸은 아닙니다.
+         * @enum {string}
+         */
+        ActivityRoute: "work24" | "portal" | "email" | "company_site" | "newspaper" | "mail" | "fax" | "visit" | "referral" | "interview" | "job_fair" | "training" | "center" | "step_online";
         /**
          * ActivityStatus
          * @description 활동 하나의 회차 계산 결과 (상세기획 2-2.2·2-2.6).
@@ -2815,7 +2820,7 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                /** @description 서류 GET 응답의 ETag. 다르면 409 VERSION_CONFLICT */
+                /** @description 서류 GET 응답의 ETag (필수). 없거나 다르면 409 VERSION_CONFLICT */
                 "If-Match"?: string | null;
             };
             path: {
@@ -3268,7 +3273,7 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                /** @description 서류 GET 응답의 ETag. 다르면 409 VERSION_CONFLICT */
+                /** @description 서류 GET 응답의 ETag (필수). 없거나 다르면 409 VERSION_CONFLICT */
                 "If-Match"?: string | null;
             };
             path: {

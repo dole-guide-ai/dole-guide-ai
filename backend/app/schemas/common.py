@@ -125,6 +125,7 @@ class PatchErrorType(StrEnum):
     DATE_FORMAT = "date_format"
     NUMBER = "number"
     TEXT = "text"
+    CHOICE = "choice"
     OUT_OF_ROUND = "out_of_round"
     BAD_SHAPE = "bad_shape"
     TOO_MANY = "too_many"
