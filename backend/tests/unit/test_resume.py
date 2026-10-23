@@ -2,6 +2,7 @@ from datetime import date
 
 from app.rules.resume import (
     can_save_resume,
+    career_months,
     check_resume,
     derive_resume_values,
     next_resume_question,
@@ -201,3 +202,27 @@ def test_old_resume_asks_careers_since_then() -> None:
     )
     assert question.id == "resume.career_since_old"
     assert question.vars["year"] == 2019
+
+
+# ── 리뷰 반영: 잘못된 월·값 모양 ──
+
+
+def test_month_out_of_range_is_asked_again() -> None:
+    assert normalize_date("2024년 13월", TODAY, PARK_SEPARATION) == normalize_date(
+        "모름", TODAY, PARK_SEPARATION
+    )
+    assert normalize_date("작년 13월", TODAY, PARK_SEPARATION).value is None
+    data = complete_resume()
+    data.careers[0].end_date = f("2026-13")  # 직접 쓴 잘못된 월은 기간 계산에서 뺍니다
+    assert career_months(data.careers) == 0
+
+
+def test_wrong_value_shapes_do_not_crash() -> None:
+    data = complete_resume()
+    data.job_preferences.desired_occupations[0].occupation = f("시설관리")
+    data.job_preferences.desired_occupations[0].experience_type = FormField()
+    data.job_preferences.desired_regions = f("서울 노원구")
+    derive_resume_values(data, PARK_SEPARATION)
+    assert "too_many" not in {i.code for i in check_resume(data, PARK_SEPARATION, TODAY)}
+    resume_completeness(data)
+    assert ask(data) == "resume.wish_experience"

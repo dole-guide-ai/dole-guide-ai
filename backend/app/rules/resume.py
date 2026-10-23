@@ -59,6 +59,19 @@ def form_fields(node: Any, path: str = "") -> list[tuple[str, FormField]]:
     return out
 
 
+def _occupation_value(f: FormField) -> dict[str, Any]:
+    return f.value if isinstance(f.value, dict) else {}
+
+
+def occupation_name(f: FormField) -> str | None:
+    """직종 칸 값 {code, name, status}에서 이름. 모양이 다르면 None."""
+    return _occupation_value(f).get("name")
+
+
+def _as_list(f: FormField) -> list[Any]:
+    return f.value if isinstance(f.value, list) else []
+
+
 def _confirmed(value: Any) -> FormField:
     return FormField(value=value, status=FieldStatus.CONFIRMED, source=FieldSource.AUTO)
 
@@ -78,7 +91,11 @@ def _suggested(value: Any, note: str) -> FormField:
 
 def _ym(value: Any) -> tuple[int, int] | None:
     m = re.fullmatch(r"(\d{4})-(\d{2})", str(value or ""))
-    return (int(m[1]), int(m[2])) if m else None
+    return (int(m[1]), int(m[2])) if m and _is_month(int(m[2])) else None
+
+
+def _is_month(month: int) -> bool:
+    return 1 <= month <= 12
 
 
 def _months(ym: tuple[int, int]) -> int:
@@ -110,6 +127,8 @@ def normalize_date(
     """사용자의 날짜 표현을 YYYY-MM으로 바꿉니다 (2-1.4 날짜 표현)."""
     text = expr.strip()
     if m := re.search(r"(\d{4})\s*(?:년|[-./])\s*(\d{1,2})", text):
+        if not _is_month(int(m[2])):
+            return DateResult(None, ask=True)
         return DateResult(_fmt(int(m[1]), int(m[2])))
     if re.search(r"지금까지|그만둘\s*때까지|퇴사할\s*때까지|그만둔\s*날까지", text):
         return DateResult(_fmt(separation_date.year, separation_date.month))
@@ -117,6 +136,8 @@ def normalize_date(
         if word in text:
             year = today.year + delta
             month = re.search(r"(\d{1,2})\s*월", text)
+            if month and not _is_month(int(month[1])):
+                return DateResult(None, ask=True, year_range=(year, year))
             if month and not _VAGUE.search(text.replace(month[0], "")):
                 note = f"'{word} {month[1]}월' → {_fmt(year, int(month[1]))} (기준일 {today})"
                 return DateResult(_fmt(year, int(month[1])), transformed=True, note=note)
@@ -160,10 +181,10 @@ def derive_resume_values(data: ResumeData, separation_date: date) -> ResumeData:
             top.is_highest_education = _suggested(True, "가장 높은 학력")
 
     for d in data.job_preferences.desired_occupations:
-        name = (d.occupation.value or {}).get("name")
+        name = occupation_name(d.occupation)
         if not name or is_filled(d.experience_type):
             continue
-        same = [c for c in data.careers if (c.occupation.value or {}).get("name") == name]
+        same = [c for c in data.careers if occupation_name(c.occupation) == name]
         if same:
             years, months = divmod(career_months(same), 12)
             note = f"같은 직종 경력 합계 {years}년 {months}개월"
@@ -218,7 +239,7 @@ def check_resume(data: ResumeData, separation_date: date, today: date) -> list[R
     prefs = data.job_preferences
     if len(prefs.desired_occupations) > MAX_PICKS:
         issues.append(ResumeIssue("too_many", "/job_preferences/desired_occupations"))
-    if len(prefs.desired_regions.value or []) > MAX_PICKS:
+    if len(_as_list(prefs.desired_regions)) > MAX_PICKS:
         issues.append(ResumeIssue("too_many", "/job_preferences/desired_regions"))
 
     issues += [
@@ -250,7 +271,7 @@ def _section_done(data: ResumeData) -> dict[str, bool]:
     prefs = data.job_preferences
     occupations_done = bool(prefs.desired_occupations) and all(
         is_filled(d.occupation)
-        and (d.occupation.value or {}).get("status") != "needs_confirmation"
+        and _occupation_value(d.occupation).get("status") != "needs_confirmation"
         and is_filled(d.experience_type)
         for d in prefs.desired_occupations
     )
@@ -391,7 +412,7 @@ def next_resume_question(
         if not is_filled(d.experience_type):
             return q(
                 "resume.wish_experience",
-                {"occupation": (d.occupation.value or {}).get("name")},
+                {"occupation": occupation_name(d.occupation)},
                 ("네, 맞아요", "아니요"),
             )
     if not is_filled(prefs.desired_regions):

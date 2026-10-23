@@ -293,7 +293,7 @@ def _materialize(db: Session, user_id: uuid.UUID, seed: dict[str, Any], anchor: 
                 user_id=user_id,
                 schema_version=resume_form.SCHEMA_VERSION,
                 status=resume["status"],
-                data=_seed_resume(resume["data"], resume["field_status"]).model_dump(mode="json"),
+                data=seed_resume(resume["data"], resume["field_status"]).model_dump(mode="json"),
                 saved_at=datetime.combine(saved_on, datetime.min.time(), KST) if saved_on else None,
             )
         )
@@ -374,7 +374,7 @@ def _materialize_rounds(
 _RESUME_GROUPS = {"job_preferences", "competencies", "additional_info"}
 
 
-def _seed_resume(data: dict[str, Any], status: str) -> resume_form.ResumeData:
+def seed_resume(data: dict[str, Any], status: str) -> resume_form.ResumeData:
     """seed의 값만 있는 이력서를 칸마다 {value, status, source=seed}로 감쌉니다."""
 
     def field(value: Any) -> dict[str, Any]:
