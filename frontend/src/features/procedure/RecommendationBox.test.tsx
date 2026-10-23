@@ -25,7 +25,13 @@ const serverList = {
       title: '온라인 취업특강 (STEP) — 1과정 끝까지(진도율 100%)',
       reason: '구직 외 활동 · 증빙 불필요 · 한도 2회 중 0회 사용',
       evidence_hint: null,
-      external: { rule_refs: ['ACT-043'] },
+      external: {
+        rule_refs: ['ACT-043'],
+        source: 'snapshot',
+        programs: [
+          { title: '이력서 특강', center: 'OO고용센터', schedule: '2026-11-12 오후 2:00' },
+        ],
+      },
     },
   ],
   total: 2,
@@ -125,5 +131,17 @@ describe('RecommendationBox (F-19 실제 서버 세션)', () => {
     );
 
     await vi.waitFor(() => expect(fetchSpy).toHaveBeenCalledTimes(2));
+  });
+
+  it('특강 추천에 고용센터 특강 일정을 붙여 보여 준다 (F-30)', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async () => Response.json(serverList));
+    renderWithProviders(
+      <RecommendationBox sessionId="s1" plannedIds={[]} personaId="lee" round={4} />,
+    );
+
+    expect(
+      await screen.findByText('이력서 특강 · OO고용센터 · 2026-11-12 오후 2:00'),
+    ).toBeInTheDocument();
+    expect(screen.getByText('(미리 받아 둔 일정이에요)')).toBeInTheDocument();
   });
 });
