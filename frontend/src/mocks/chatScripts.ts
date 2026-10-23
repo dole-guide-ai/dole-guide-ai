@@ -6,6 +6,7 @@ import { getSession } from '@/lib/sessionStore';
 import { citeOf } from '@/lib/sources';
 import { SSE_EVENTS } from '@/lib/sseEvents';
 import type { AskUserEvent, FormUpdateEvent, SseMessage } from '@/types/chat.types';
+import { TOOL_STATUS } from '@/types/chat.types';
 import type { DerivedState, UserState } from '@/types/demo.types';
 import type { ImportKind } from '@/types/imports.types';
 import type { RoundActivity } from '@/types/procedure.types';
@@ -71,8 +72,8 @@ const openImport = (kind: ImportKind, text: string): SseMessage[] => [
 const CAREER_IMPORT_TEXT = '통합경력증명에서 이력서에 넣을 항목을 골라 주세요. 고른 것만 넣어요.';
 
 const tool = (name: string): SseMessage[] => [
-  { event: SSE_EVENTS.TOOL_CALL, data: { name, status: 'started' } },
-  { event: SSE_EVENTS.TOOL_CALL, data: { name, status: 'finished' } },
+  { event: SSE_EVENTS.TOOL_CALL, data: { name, status: TOOL_STATUS.STARTED } },
+  { event: SSE_EVENTS.TOOL_CALL, data: { name, status: TOOL_STATUS.FINISHED } },
 ];
 
 type UpdateExtra = Omit<FormUpdateEvent, 'form' | 'path' | 'op'>;

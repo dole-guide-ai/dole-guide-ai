@@ -1,7 +1,7 @@
 import { API_PATHS } from '@/lib/apiPaths';
 import { usesMock } from '@/lib/mockMode';
 import { openSseStream, type RawSseEvent } from '@/lib/sse';
-import type { ChatCreate, SseMessage } from '@/types/chat.types';
+import type { MessageCreate, SseMessage } from '@/types/chat.types';
 import { mockChatStream } from '@/mocks/chatStream';
 
 const toMessage = ({ event, data }: RawSseEvent): SseMessage =>
@@ -17,21 +17,15 @@ async function* toMessages(events: AsyncIterable<RawSseEvent>): AsyncGenerator<S
  */
 export const streamChat = async (
   personaId: string,
-  sessionId: string,
-  body: ChatCreate,
+  body: MessageCreate,
   signal?: AbortSignal,
 ): Promise<AsyncIterable<SseMessage>> => {
   const path = API_PATHS.messages(personaId);
-  if (usesMock(path)) return mockChatStream(sessionId, body, signal);
+  if (usesMock(path)) return mockChatStream(personaId, body, signal);
 
   const events = await openSseStream(path, {
     method: 'POST',
-    body: JSON.stringify({
-      text: body.message,
-      input_kind: body.input_kind,
-      file_ids: body.file_ids ?? [],
-      import_ids: body.import_ids ?? [],
-    }),
+    body: JSON.stringify(body),
     signal,
   });
   return toMessages(events);

@@ -4,6 +4,7 @@ import { applyFormUpdateEvent } from '@/features/chat/applyFormUpdateEvent';
 import type { ChatAttachment } from '@/features/chat/chat.types';
 import { CHAT_ACTIONS } from '@/features/chat/chatActions';
 import { describeChatError } from '@/features/chat/chatErrors';
+import { activeToolAfter, chatActionFor, isBubbleEvent } from '@/features/chat/chatEvents';
 import { chatReducer, initChatState } from '@/features/chat/chatReducer';
 
 import { ApiError } from '@/lib/api';
@@ -59,55 +60,37 @@ export const useChatStream = (session: SessionRead) => {
       setInputText('');
       setIsStreaming(true);
 
+      /** 오류 문구를 말풍선으로 보이고, 필요하면 보낸 글을 입력창에 되돌립니다. */
+      const showError = (code: string, restore = false) => {
+        const described = describeChatError({ code });
+        dispatch({ type: CHAT_ACTIONS.SYSTEM, text: described.text });
+        if (described.restoresInput || restore) setInputText(message);
+      };
+
       try {
         const stream = await streamChat(
           personaId,
-          sessionId,
-          { message, input_kind: inputKind, file_ids: fileIds, import_ids: importIds },
+          {
+            text: message,
+            input_kind: inputKind,
+            file_ids: fileIds ?? [],
+            import_ids: importIds ?? [],
+          },
           controller.signal,
         );
         for await (const event of stream) {
           if (controller.signal.aborted) break;
-          switch (event.event) {
-            case SSE_EVENTS.TOKEN:
-              dispatch({ type: CHAT_ACTIONS.TOKEN, text: event.data.text });
-              break;
-            case SSE_EVENTS.TOOL_CALL:
-              setActiveTool(event.data.status === 'started' ? event.data.name : null);
-              break;
-            case SSE_EVENTS.ASK_USER:
-              dispatch({
-                type: CHAT_ACTIONS.ASK_USER,
-                text: event.data.text,
-                choices: event.data.choices,
-                importKind: event.data.import_kind,
-                acceptsFile: event.data.accepts_file,
-              });
-              break;
-            case SSE_EVENTS.FORM_UPDATE:
-              applyFormUpdateEvent(event.data);
-              break;
-            case SSE_EVENTS.DONE:
-              dispatch({ type: CHAT_ACTIONS.DONE, cite: event.data.cite });
-              break;
-            case SSE_EVENTS.ERROR: {
-              const described = describeChatError(event.data);
-              dispatch({ type: CHAT_ACTIONS.SYSTEM, text: described.text });
-              if (described.restoresInput) setInputText(message);
-              break;
-            }
-          }
+          if (isBubbleEvent(event)) dispatch(chatActionFor(event));
+          else if (event.event === SSE_EVENTS.TOOL_CALL) setActiveTool(activeToolAfter(event.data));
+          else if (event.event === SSE_EVENTS.FORM_UPDATE) applyFormUpdateEvent(event.data);
+          else if (event.event === SSE_EVENTS.ERROR) showError(event.data.code);
         }
       } catch (error) {
+        // 턴 시작 전 실패(409 턴 진행 중 등)는 코드별 문구로 알리고 보낸 글을 되돌립니다.
+        // 그 밖(연결 끊김 등)은 답을 못 만든 것으로 봅니다.
         if (!controller.signal.aborted) {
-          // 턴 시작 전 실패(409 턴 진행 중 등)는 코드별 문구로, 그 밖은 답을 못 만든 것으로 봅니다.
-          const notStarted = error instanceof ApiError;
-          const described = describeChatError({
-            code: notStarted ? error.code : ERROR_CODES.LLM_UNAVAILABLE,
-          });
-          dispatch({ type: CHAT_ACTIONS.SYSTEM, text: described.text });
-          // 턴이 시작되지 않았으면 보낸 글을 항상 되돌려 다시 보낼 수 있게 합니다.
-          if (described.restoresInput || notStarted) setInputText(message);
+          if (error instanceof ApiError) showError(error.code, true);
+          else showError(ERROR_CODES.LLM_UNAVAILABLE);
         }
       } finally {
         if (abortRef.current === controller) abortRef.current = null;
@@ -115,7 +98,7 @@ export const useChatStream = (session: SessionRead) => {
         setIsStreaming(false);
       }
     },
-    [personaId, sessionId],
+    [personaId],
   );
 
   return {

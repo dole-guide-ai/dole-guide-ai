@@ -16,9 +16,11 @@ describe('streamChat', () => {
     );
     vi.stubGlobal('fetch', fetchMock);
 
-    const stream = await streamChat('lee', 'acct-lee-2026-10-21', {
-      message: '합성 질문',
+    const stream = await streamChat('lee', {
+      text: '합성 질문',
       input_kind: 'text',
+      file_ids: [],
+      import_ids: [],
     });
     const events = [];
     for await (const event of stream) events.push(event);
@@ -48,10 +50,13 @@ describe('streamChat', () => {
     );
 
     await expect(
-      streamChat('lee', 's', { message: '합성', input_kind: 'text' }),
-    ).rejects.toMatchObject({ code: 'TURN_IN_PROGRESS', status: 409 });
+      streamChat('lee', { text: '합성', input_kind: 'text', file_ids: [], import_ids: [] }),
+    ).rejects.toMatchObject({
+      code: 'TURN_IN_PROGRESS',
+      status: 409,
+    });
     await expect(
-      streamChat('lee', 's', { message: '합성', input_kind: 'text' }),
+      streamChat('lee', { text: '합성', input_kind: 'text', file_ids: [], import_ids: [] }),
     ).rejects.toBeInstanceOf(ApiError);
   });
 });

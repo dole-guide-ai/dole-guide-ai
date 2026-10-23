@@ -5,20 +5,17 @@
 
 import type { ERROR_CODES } from '@/lib/errorCodes';
 import type { SSE_EVENTS } from '@/lib/sseEvents';
+import type { components } from '@/types/api.gen';
 import type { ImportKind } from '@/types/imports.types';
 
 export const INPUT_KIND = { TEXT: 'text', VOICE: 'voice', CHOICE: 'choice' } as const;
 
 export type ChatInputKind = (typeof INPUT_KIND)[keyof typeof INPUT_KIND];
 
-/** POST /sessions/{session_id}/chat 본문 */
-export interface ChatCreate {
-  message: string;
-  input_kind: ChatInputKind;
-  file_ids?: string[];
-  /** 고용24 불러오기 목록에서 고른 항목 (2-0.4). 고른 것만 보냅니다. */
-  import_ids?: string[];
-}
+/** `POST /accounts/{persona_id}/messages` 본문. 백엔드 스키마(api.gen)를 그대로 씁니다. */
+export type MessageCreate = components['schemas']['MessageCreate'];
+
+export const TOOL_STATUS = { STARTED: 'started', FINISHED: 'finished' } as const;
 
 export interface TokenEvent {
   text: string;
@@ -26,7 +23,7 @@ export interface TokenEvent {
 
 export interface ToolCallEvent {
   name: string;
-  status: 'started' | 'finished';
+  status: (typeof TOOL_STATUS)[keyof typeof TOOL_STATUS];
 }
 
 export interface AskUserEvent {
