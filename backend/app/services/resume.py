@@ -7,6 +7,7 @@ AI 도구가 뽑은 값을 칸마다 상태·출처와 함께 저장하고, 자�
 import uuid
 from dataclasses import dataclass
 from datetime import date
+from typing import Any
 
 from pydantic import ValidationError
 from sqlalchemy.orm import Session
@@ -18,6 +19,7 @@ from app.rules import resume as rules
 from app.schemas.common import ErrorCode, FieldSource, FormName, FormUpdate
 from app.schemas.forms import resume as resume_form
 from app.schemas.resume import FieldWrite
+from app.services.accounts import seed_resume
 
 
 @dataclass(frozen=True)
@@ -43,9 +45,14 @@ def save_resume_fields(
         )
         repo.add_all(db, [resume])
 
-    before = resume_form.ResumeData.model_validate(resume.data)
+    before = resume_form.ResumeData.model_validate(_upgrade_legacy(resume.data))
     raw = before.model_dump(mode="json")
-    for w in writes:
+    for index, w in enumerate(writes):
+        if not _shape_ok(w):
+            raise UnprocessableError(
+                "값 모양이 맞지 않아요.",
+                details=[{"field": f"writes[{index}]", "reason": "bad_shape"}],
+            )
         json_patch.set_field(raw, w.path, w.model_dump(mode="json", exclude={"path"}))
     try:
         written = resume_form.ResumeData.model_validate(raw)
@@ -89,3 +96,47 @@ def save_resume_fields(
         data, entry_branch="E7b" if seeded else "E7a", separation_date=procedure.separation_date
     )
     return ResumeWriteResult(updates, question, issues)
+
+
+def _shape_ok(w: FieldWrite) -> bool:
+    """직종은 {name, ...}, 희망 지역은 [{name, ...}]여야 규칙 함수가 읽을 수 있습니다."""
+    if w.value is None:
+        return True
+    if w.path.endswith("/occupation"):
+        return isinstance(w.value, dict) and isinstance(w.value.get("name"), str)
+    if w.path == "/job_preferences/desired_regions":
+        return isinstance(w.value, list) and all(
+            isinstance(r, dict) and isinstance(r.get("name"), str) for r in w.value
+        )
+    return True
+
+
+def _upgrade_legacy(data: dict[str, Any]) -> dict[str, Any]:
+    """#166 이전 구조(title, level·is_final, 값만 있는 항목)를 지금 구조로 바꿉니다.
+
+    예전에는 이력서를 쓰는 API가 없어 예전 행은 모두 seed에서 만든 것이라 seed 적재와 같은
+    방식으로 감쌉니다. 두 구조가 같은 schema_version이라 `title` 칸 유무로 구분합니다.
+    """
+    if "title" not in data:
+        return data
+    rename = {"level": "education_level", "is_final": "is_highest_education"}
+    prefs = data.get("job_preferences") or {}
+    plain = {
+        "resume_title": (data["title"] or {}).get("value"),
+        "education": [
+            {rename.get(k, k): v for k, v in e.items()} for e in data.get("education", [])
+        ],
+        "job_preferences": {
+            "desired_occupations": [
+                {"item_id": f"occ_{i:03d}", "occupation": o}
+                for i, o in enumerate(prefs.get("desired_occupations") or [], 1)
+            ],
+            "desired_regions": [
+                {"code": None, "name": r} for r in prefs.get("desired_regions") or []
+            ],
+        },
+        "careers": data.get("careers", []),
+        "certifications": data.get("certifications", []),
+    }
+    status = (data["title"] or {}).get("status") or "extracted"
+    return seed_resume(plain, status).model_dump(mode="json")

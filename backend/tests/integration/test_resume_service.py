@@ -64,3 +64,55 @@ def test_old_resume_from_seed_asks_since_then(
         today=TEST_TODAY,
     )
     assert result.next_question.id == "resume.career_since_old"
+
+
+def test_rejects_wrong_value_shape(
+    db_session: Session, entered_account: Callable[[str], AccountContext]
+) -> None:
+    park = entered_account("park")
+    for path, value in (
+        ("/job_preferences/desired_occupations/o1/occupation", "시설관리"),
+        ("/job_preferences/desired_regions", "서울 노원구"),
+    ):
+        with pytest.raises(UnprocessableError):
+            save_resume_fields(
+                db_session, park.user_id, [FieldWrite(path=path, value=value)], today=TEST_TODAY
+            )
+
+
+def test_upgrades_resume_saved_in_old_structure(
+    db_session: Session, entered_account: Callable[[str], AccountContext]
+) -> None:
+    # #166 이전 seed로 만든 행(title, level·is_final, 값만 있는 경력)
+    choi = entered_account("choi")
+    resume = repo.get_resume(db_session, choi.user_id)
+    resume.data = {
+        "title": {"value": "시설관리 경력 이력서", "status": "extracted", "source": "seed"},
+        "education": [{"item_id": "edu_001", "level": "고등학교", "is_final": True}],
+        "job_preferences": {
+            "desired_occupations": [
+                {"code": None, "name": "시설관리", "status": "needs_confirmation"}
+            ],
+            "desired_regions": ["서울 노원구"],
+        },
+        "careers": [{"item_id": "career_001", "company_name": "OO아파트 관리사무소"}],
+        "certifications": [],
+        "competencies": {},
+    }
+    db_session.flush()
+
+    save_resume_fields(
+        db_session,
+        choi.user_id,
+        [FieldWrite(path="/job_preferences/military_alternative", value="해당 없음")],
+        today=TEST_TODAY,
+    )
+    data = repo.get_resume(db_session, choi.user_id).data
+    assert data["resume_title"]["value"] == "시설관리 경력 이력서"
+    assert data["education"][0]["education_level"]["value"] == "고등학교"
+    assert data["careers"][0]["company_name"]["source"] == "seed"
+    occ = data["job_preferences"]["desired_occupations"][0]["occupation"]["value"]
+    assert occ["name"] == "시설관리"
+    assert data["job_preferences"]["desired_regions"]["value"] == [
+        {"code": None, "name": "서울 노원구"}
+    ]
