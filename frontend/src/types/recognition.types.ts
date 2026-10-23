@@ -127,6 +127,8 @@ export interface RecognitionFormRead {
   schema_version: 'work24_recognition_v1';
   recognition_round: number;
   status: 'draft' | 'review' | 'finalized';
+  /** 서버 신청서 버전. 제출 PATCH의 If-Match로 보냅니다 (실제 서버 세션만). */
+  lock_version?: number;
   recognition_info: RecognitionInfo;
   unemployment_credit: UnemploymentCredit;
   work_and_employment: WorkAndEmployment;

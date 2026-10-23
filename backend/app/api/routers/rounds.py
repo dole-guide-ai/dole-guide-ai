@@ -115,7 +115,7 @@ def patch_application(
     round: RoundRef,
     patch: JsonPatch,
     now: Now,
-    if_match: IfMatch = None,
+    if_match: IfMatch,
 ) -> UpdatesRead:
     """신청서를 제출(모의)합니다. 본인 답변은 대화로만 채우고 받을 때마다 바로 저장됩니다.
 

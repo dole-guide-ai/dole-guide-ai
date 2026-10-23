@@ -15,6 +15,11 @@ from conftest import TEST_TODAY
 pytestmark = pytest.mark.integration
 
 
+def _etag(client: TestClient, headers: dict[str, str], url: str) -> str:
+    """REST 서류 PATCH는 If-Match가 필수라(설계 3.11) 지금 ETag를 받아 보냅니다."""
+    return client.get(url, headers=headers).headers["ETag"]
+
+
 def _planned_activity(client: TestClient, headers: dict[str, str]) -> str:
     recs = client.get("/accounts/lee/rounds/current/recommendations", headers=headers).json()
     rec_id = recs["items"][0]["recommendation_id"]
@@ -86,20 +91,22 @@ def test_resume_date_must_be_year_month(
     url = "/accounts/park/resume"
     bad = client.patch(
         url,
-        headers=headers,
+        headers={**headers, "If-Match": _etag(client, headers, url)},
         json=[{"op": "replace", "path": "/careers/c1/start_date", "value": "2004년 3월"}],
     )
     assert bad.status_code == 422 and bad.json()["details"][0]["type"] == "date_format"
     assert client.get(url, headers=headers).json()["data"]["careers"] == []
     ok = client.patch(
         url,
-        headers=headers,
+        headers={**headers, "If-Match": _etag(client, headers, url)},
         json=[{"op": "replace", "path": "/certifications/l1/acquired_date", "value": "2011-05-20"}],
     )
     assert ok.status_code == 200, ok.text
     for value in ("２００４-03", "2011-02-31"):
         path = "/certifications/l1/acquired_date" if "-31" in value else "/careers/c1/start_date"
         res = client.patch(
-            url, headers=headers, json=[{"op": "replace", "path": path, "value": value}]
+            url,
+            headers={**headers, "If-Match": _etag(client, headers, url)},
+            json=[{"op": "replace", "path": path, "value": value}],
         )
         assert res.status_code == 422, value
