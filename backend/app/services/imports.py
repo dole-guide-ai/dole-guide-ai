@@ -94,7 +94,7 @@ def _apply_application(
         job_title=values.job_title,
     )
     result = activity_service.record_activity(
-        db, account, body, today, source=FieldSource.IMPORT, result=values.result
+        db, account, body, today, source=FieldSource.WORK24_IMPORT, result=values.result
     )
     return result.updates
 
@@ -122,7 +122,7 @@ def _resume_writes(row: Work24Import) -> list[FieldWrite]:
             path=f"{base}/{name}",
             value=value,
             status=FieldStatus.CONFIRMED,
-            source=FieldSource.IMPORT,
+            source=FieldSource.WORK24_IMPORT,
         )
         for name, value in fields.items()
         if value is not None
