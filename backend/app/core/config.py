@@ -79,7 +79,8 @@ class Settings(BaseSettings):
     rule_cards_mode: Literal["off", "always", "keyword", "llm"] = "keyword"
     # 대화 속 날짜("작년 3월")를 누가 바꿀지.
     # ai: 모델이 바꿈 · code: 말 그대로 받아 규칙 코드(app/rules/dates.py)가 바꿈
-    date_parsing: Literal["ai", "code"] = "ai"
+    # 기본 code: 실험에서 평균은 같고(70.9% vs 71%) 날짜 문항이 안정됨(17 → 20 / 28)
+    date_parsing: Literal["ai", "code"] = "code"
 
     # BFF(Next)가 붙이는 X-Internal-Secret 값. local에서 비우면 확인하지 않습니다.
     internal_api_secret: str = ""

@@ -7,6 +7,7 @@ from app.core.config import get_settings
 from app.services.agent_turn import run_conversation
 
 LEE = {
+    "separation_date": "2026-08-31",
     "age_at_separation": 58,
     "has_disability": False,
     "recipient_type": "general",
