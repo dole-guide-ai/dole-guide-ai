@@ -7,7 +7,8 @@ AI는 이 결과를 설명만 합니다(설계 초안 결정 ②). DB·LLM을 �
 from datetime import date, timedelta
 from typing import Any
 
-from app.rules import application, periods
+from app.rules import periods
+from app.rules.activity_table import load_rules
 
 OUT_OF_PERIOD = "out_of_period"
 COUNTED = "counted"
@@ -57,7 +58,9 @@ def derive(state: dict[str, Any]) -> dict[str, Any]:
     required = required_job_search = None
     period = None
     if current_round:
-        required, required_job_search = application.required_activities(group, current_round)
+        # 필요 건수는 활동 규칙 표(data/rules/activities.json). 표에 없는 유형(반복수급자)은 None
+        if row := load_rules().required_row(group, current_round):
+            required, required_job_search = row.total, row.job_search
         last = _day(state.get("last_recognition_date"))
         applied = _day(state.get("eligibility_applied_date"))
         # 1차 대상기간은 대기기간(신청일부터 7일) 다음 날부터입니다.
@@ -88,14 +91,15 @@ def check_round(derived: dict[str, Any], activities: list[dict[str, Any]]) -> di
     in_period = [a for a in activities if activity_status(a, period) == COUNTED]
     counted = len({a["date"] for a in in_period})
     job_search = len({a["date"] for a in in_period if a.get("kind") in JOB_SEARCH_KINDS})
-    required = derived["required"] or 0
+    required = derived["required"]
+    # 필요 건수를 모르는 유형(규칙 표에 없음)은 부족 건수도 None입니다.
     return {
         "round": derived["current_round"],
         "required": required,
-        "required_job_search": derived["required_job_search"] or 0,
+        "required_job_search": derived["required_job_search"],
         "counted": counted,
         "counted_job_search": job_search,
-        "shortfall": max(required - counted, 0),
+        "shortfall": None if required is None else max(required - counted, 0),
     }
 
 

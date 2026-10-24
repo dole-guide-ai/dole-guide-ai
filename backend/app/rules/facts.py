@@ -46,7 +46,12 @@ def build_facts(
     n = derived["current_round"]
     end = derived["period"]["end"]
     facts.append({"text": f"이번 {n}차 실업인정일은 {_md(end)}이에요.", "cite": CITE_ROUNDS})
-    if round_check:
+    if round_check and round_check["required"] is None:
+        text = (
+            "이번 회차에 필요한 활동 수는 여기서 계산할 수 없어요. 관할 고용센터에 확인해 주세요."
+        )
+        facts.append({"text": text, "cite": CITE_ROUNDS})
+    elif round_check:
         need = f"이번 회차에 필요한 활동은 {round_check['required']}건"
         if round_check["required_job_search"]:
             need += f"(그중 구직활동 {round_check['required_job_search']}건)"

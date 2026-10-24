@@ -44,6 +44,13 @@ def test_submit_window_after_five_pm_on_recognition_day() -> None:
     assert "17시가 지나" in texts
 
 
+def test_unsupported_group_asks_center_instead_of_saying_done() -> None:
+    texts = " ".join(f["text"] for f in _facts({**LEE, "recipient_type": "repeat"}, []))
+
+    assert "고용센터에 확인" in texts
+    assert "채웠어요" not in texts
+
+
 def test_presubmit_depends_on_age_at_separation() -> None:
     before = {**LEE, "stage": "eligibility_application", "next_recognition_date": None}
 
