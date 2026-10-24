@@ -11,6 +11,7 @@ G-Eval은 채점기준마다 '채점 단계'를 먼저 모델로 만든 뒤 점�
 import hashlib
 import json
 import os
+import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -76,7 +77,11 @@ def _steps_key(criteria: str) -> str:
 def _load_steps() -> dict[str, list[str]]:
     if not STEPS_CACHE.exists():
         return {}
-    return json.loads(STEPS_CACHE.read_text(encoding="utf-8"))
+    try:
+        return json.loads(STEPS_CACHE.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        # 실행이 끊겨 캐시가 깨졌으면 비운 것으로 보고 단계를 다시 만듭니다.
+        return {}
 
 
 def _cached_steps(criteria: str) -> list[str] | None:
@@ -87,7 +92,14 @@ def _save_steps(criteria: str, steps: list[str]) -> None:
     saved = _load_steps()
     saved[_steps_key(criteria)] = steps
     STEPS_CACHE.parent.mkdir(parents=True, exist_ok=True)
-    STEPS_CACHE.write_text(json.dumps(saved, ensure_ascii=False, indent=1), encoding="utf-8")
+    # 임시 파일에 다 쓴 뒤 바꿔 끼워, 도중에 끊기거나 동시에 돌아도 캐시가 깨지지 않게 합니다.
+    fd, tmp = tempfile.mkstemp(dir=STEPS_CACHE.parent, prefix=STEPS_CACHE.name, suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            json.dump(saved, f, ensure_ascii=False, indent=1)
+        os.replace(tmp, STEPS_CACHE)
+    finally:
+        Path(tmp).unlink(missing_ok=True)
 
 
 def _gateway_judge() -> Any:
