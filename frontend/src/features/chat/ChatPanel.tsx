@@ -64,7 +64,7 @@ export const ChatPanel = ({
     <section
       id="dashboard-chat"
       aria-label="대화"
-      className="border-line bg-surface shadow-card flex h-[70dvh] flex-col overflow-hidden rounded-2xl border lg:h-auto lg:min-h-0"
+      className="mx-auto flex h-[70dvh] w-full max-w-3xl flex-col overflow-hidden lg:h-auto lg:min-h-0"
     >
       <div
         ref={logRef}
