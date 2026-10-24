@@ -5,7 +5,11 @@ preprocess(입력), gateway(외부 호출 직전), LangSmith 마스킹, 출력 �
 - 등급 0(금지): 주민등록번호·외국인등록번호(생년월일 유효성), 카드번호(Luhn), 계좌번호.
   보낼 글에 남아 있으면 외부로 보내지 않습니다(`has_blocking`, gateway fail-closed).
 - 등급 1(직접 식별): 전화번호·이메일 → `[전화]`·`[이메일]` 토큰.
-- 실명은 정규식으로 찾을 수 없어 입력 안내와 칸을 만들지 않는 것으로 막습니다(5.5).
+- 실명은 정규식으로 찾을 수 없어 입력 안내와 칸을 만들지 않는 것으로 막습니다(5.5). 다만
+  "제 이름은 OOO이에요" 같은 자기소개 말투는 `[이름]`으로 가립니다(등급 1).
+- 대화에서 자주 나오는 변형도 잡습니다(#176 보안 검토): 점으로 나눈 주민번호, "뒷자리는 …"처럼
+  뒷자리만 말한 주민번호, 붙여 쓰거나 공백·밑줄·슬래시로 나눈 10자리 이상 계좌·카드 번호,
+  한글이 섞인 이메일 주소.
 
 찾은 값 자체는 결과에 담지 않고 종류·위치만 돌려줍니다(로그·트레이스에 원문이 남지 않게).
 """
@@ -23,6 +27,7 @@ class PiiKind(StrEnum):
     ACCOUNT = "account"
     PHONE = "phone"
     EMAIL = "email"
+    NAME = "name"  # 자기소개 말투의 이름만
 
 
 BLOCKING = frozenset({PiiKind.RRN, PiiKind.FOREIGNER_RRN, PiiKind.CARD, PiiKind.ACCOUNT})
@@ -33,16 +38,29 @@ TOKENS = {
     PiiKind.ACCOUNT: "[계좌번호]",
     PiiKind.PHONE: "[전화]",
     PiiKind.EMAIL: "[이메일]",
+    PiiKind.NAME: "[이름]",
 }
 
 # 숫자 사이 구분자: 하이픈·공백 (유니코드 하이픈 U+2010, 마이너스 U+2212, 전각 하이픈 U+FF0D 포함)
-_SEP = r"[-‐−－\s]?"
+_SEP = r"[-‐−－.\s]?"
 _RRN = re.compile(rf"(?<!\d)(\d{{6}}){_SEP}([1-8])(\d{{6}})(?!\d)")
 _CARD = re.compile(rf"(?<!\d)(?:\d{{4}}{_SEP}){{3}}\d{{4}}(?!\d)")
 # 은행 계좌: 숫자 2~6 묶음이 하이픈으로 3~4개 이어지고 숫자 10~14자리 (전화·날짜와 구분)
 _ACCOUNT = re.compile(r"(?<![\d-])\d{2,6}(?:-\d{2,6}){2,3}(?![\d-])")
 _PHONE = re.compile(r"(?<!\d)(?:01[016789]|0[2-6]\d?)[-.\s]?\d{3,4}[-.\s]?\d{4}(?!\d)")
 _EMAIL = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
+# 한글이 섞인 이메일("홍길동@회사.한국"). 영문 패턴이 못 잡은 것만 봅니다.
+_EMAIL_UNICODE = re.compile(r"[\w.%+-]+@[\w-]+(?:\.[\w-]+)+")
+# 뒷자리만 따로 말한 주민번호. 아무 7자리 숫자(금액 등)를 가리지 않도록 앞에 단서가 있을 때만.
+_RRN_BACK = re.compile(r"(?:뒷자리|뒷번호|뒤\s*7자리|주민(?:등록)?번호)\D{0,10}?([1-8]\d{6})(?!\d)")
+# 붙여 쓰거나 공백·점·밑줄·슬래시로 나눈 긴 번호(계좌·카드). 숫자 사이 구분자는 3글자까지.
+# 날짜로 시작하는 숫자("2026-12-08 10")는 빼고, 숫자 10~19자리만 봅니다.
+_LONG_NUMBER = re.compile(
+    r"(?<![\d-])(?!\d{4}[-./]\d{1,2}[-./]\d{1,2})\d(?:[\s.\-–—_/]{0,3}\d){9,}(?!\d)"
+)
+_LONG_DIGITS = range(10, 20)
+# 자기소개 말투의 이름("제 이름은 홍길동이에요")
+_NAME = re.compile(r"(?:이름은|이름이)\s*([가-힣]{2,4})(?=\s*(?:이에요|예요|입니다|이고|이요))")
 _ACCOUNT_DIGITS = range(10, 15)
 
 
@@ -114,9 +132,29 @@ def detect(text: str) -> list[Finding]:
         if not _overlaps(found, m.start(), m.end()):
             found.append(Finding(PiiKind.PHONE, m.start(), m.end()))
     _add_accounts(text, found)
-    for m in _EMAIL.finditer(text):
-        found.append(Finding(PiiKind.EMAIL, m.start(), m.end()))
+    _add_extra(text, found)
     return sorted(found, key=lambda f: f.start)
+
+
+def _add_extra(text: str, found: list[Finding]) -> None:
+    """위 기본 패턴이 놓치는 대화 속 변형. 이미 찾은 자리와 겹치면 넘깁니다."""
+    for m in _RRN_BACK.finditer(text):
+        if not _overlaps(found, m.start(1), m.end(1)):
+            found.append(Finding(PiiKind.RRN, m.start(1), m.end(1)))
+    for m in _LONG_NUMBER.finditer(text):
+        digits = re.sub(r"\D", "", m[0])
+        # 주민번호·카드 모양인데 검증(생년월일·Luhn)에서 떨어진 숫자는 개인정보로 보지 않습니다.
+        looks_checked = _RRN.fullmatch(m[0]) or _CARD.fullmatch(m[0])
+        is_new = not _overlaps(found, m.start(), m.end())
+        if len(digits) in _LONG_DIGITS and not looks_checked and is_new:
+            found.append(Finding(PiiKind.ACCOUNT, m.start(), m.end()))
+    for pattern in (_EMAIL, _EMAIL_UNICODE):
+        for m in pattern.finditer(text):
+            if not _overlaps(found, m.start(), m.end()):
+                found.append(Finding(PiiKind.EMAIL, m.start(), m.end()))
+    for m in _NAME.finditer(text):
+        if not _overlaps(found, m.start(1), m.end(1)):
+            found.append(Finding(PiiKind.NAME, m.start(1), m.end(1)))
 
 
 def mask(text: str) -> tuple[str, list[Finding]]:

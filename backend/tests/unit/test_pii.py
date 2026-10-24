@@ -53,6 +53,37 @@ def test_ordinary_sentences_are_not_flagged(text: str) -> None:
     assert [f.kind for f in detect(text) if f.blocking] == []
 
 
+@pytest.mark.parametrize(
+    ("text", "hidden", "kind"),
+    [
+        ("주민번호 6501011234567이요", "1234567", PiiKind.RRN),  # 붙여 씀
+        ("주민번호 650101.1234567", "1234567", PiiKind.RRN),  # 점 구분
+        ("앞자리는 650101, 뒷자리는 1234567이에요", "1234567", PiiKind.RRN),  # 뒷자리만
+        ("계좌110-234-567890이에요", "567890", PiiKind.ACCOUNT),  # 한글에 붙음
+        ("계좌번호 11023456789012", "56789", PiiKind.ACCOUNT),  # 구분자 없음
+        ("계좌 110 - 234 - 567890이요", "567890", PiiKind.ACCOUNT),  # 띄운 하이픈
+        ("카드 1234  5678  1234  5678", "5678", PiiKind.ACCOUNT),  # Luhn 아님·여러 칸
+        ("계좌 110_234/567890", "567890", PiiKind.ACCOUNT),  # 밑줄·슬래시
+        ("010.1234.5678로 주세요", "5678", PiiKind.PHONE),  # 점 구분 전화
+        ("메일은 홍길동@회사.한국이에요", "홍길동@회사", PiiKind.EMAIL),  # 한글 이메일
+        ("제 이름은 홍길동이에요", "홍길동", PiiKind.NAME),  # 자기소개 이름
+    ],
+)
+def test_conversation_variants_are_masked(text: str, hidden: str, kind: PiiKind) -> None:
+    """대화에서 나오는 변형 (#176 보안 검토 지적)."""
+    masked, findings = mask(text)
+
+    assert hidden not in masked
+    assert kind in {f.kind for f in findings}
+
+
+@pytest.mark.parametrize(
+    "text", ["월급 2500000원이요", "2026-12-08 10시에 면접", "20261208 면접", "이름은 몰라요"]
+)
+def test_variants_do_not_overmask(text: str) -> None:
+    assert mask(text) == (text, [])
+
+
 def test_fullwidth_hyphen_rrn_is_blocked() -> None:
     text = "번호는 800101－1234567이에요"
     assert has_blocking(text)
