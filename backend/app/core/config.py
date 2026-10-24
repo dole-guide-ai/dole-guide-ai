@@ -75,7 +75,8 @@ class Settings(BaseSettings):
     retrieval_top_k: int = 4
     # 활동 규칙 표(data/rules/activities.json)를 내 상황에 맞춘 규칙 카드로 AI에게 줄지.
     # off: 안 줌 · always: 매 턴 · keyword: 규정 질문 단어가 있을 때 · llm: AI 분류가 규정 질문일 때
-    rule_cards_mode: Literal["off", "always", "keyword", "llm"] = "off"
+    # 기본 keyword: 실험 ④-2에서 골든셋 평균 71%(기준 69.5%), 추가 호출 없음
+    rule_cards_mode: Literal["off", "always", "keyword", "llm"] = "keyword"
 
     # BFF(Next)가 붙이는 X-Internal-Secret 값. local에서 비우면 확인하지 않습니다.
     internal_api_secret: str = ""
