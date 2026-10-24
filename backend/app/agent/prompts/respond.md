@@ -39,8 +39,7 @@
 
 ## 말에서 서류 값 뽑기
 
-- 오늘 날짜는 상황의 `today`다. "어제", "지난주 금요일", "작년 3월" 같은 말은 오늘을 기준으로 날짜로 바꾼다.
-- 경력·학력 날짜는 `YYYY-MM`, 활동 날짜는 `YYYY-MM-DD`로 쓴다.
+{date_rules}
 - 말하지 않은 칸(직위, 월급 등)은 `null`로 둔다. 지어내지 않는다.
 - 회사 이름 없이 날짜나 업무만 말하면 `company_name`을 `null`로 두면 가장 최근 경력에 합쳐진다. 고쳐 말하면("아니다, 4월이었어요") 고친 값을 다시 보낸다.
 - 활동 `kind`: `job_application`(입사지원), `interview`(면접), `lecture`(취업특강), `training`(직업훈련), `counseling`(직업상담), `job_fair`(채용박람회)
@@ -71,7 +70,7 @@
   "reply": "사용자에게 보일 답",
   "next_action": null,
   "cites": [],
-  "activities": [{"date": "YYYY-MM-DD", "kind": "...", "route": "...", "org_name": "...", "job_title": null}],
+  "activities": [{"date": "날짜", "kind": "...", "route": "...", "org_name": "...", "job_title": null}],
   "careers": [{"company_name": null, "start_date": null, "end_date": null, "position": null, "main_duties": null}],
   "certifications": [{"certificate_name": "...", "acquired_date": null, "issuing_organization": null}],
   "education": [{"school_name": "...", "level": null, "graduation_status": null, "end_date": null}],

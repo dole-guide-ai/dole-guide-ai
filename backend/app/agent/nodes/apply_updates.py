@@ -1,16 +1,22 @@
 from copy import deepcopy
+from datetime import date
 from typing import Any
 
 from app.agent.schemas import AgentOutput, AgentState
+from app.core.config import get_settings
 from app.rules import situation
+from app.rules.dates import normalize_day, normalize_month
 
 
 def apply_updates(state: AgentState) -> AgentState:
     """모델이 뽑은 값을 서류에 합치고, 활동이 바뀌었으면 회차 점검을 다시 계산합니다.
 
     상태값(회차·절차 날짜)은 바꾸지 않습니다. 쓰는 곳은 이력서와 활동 목록뿐입니다.
+    DATE_PARSING이 code면 모델이 옮긴 날짜 표현을 규칙 코드로 바꾸고, 못 바꾸면 비워 둡니다.
     """
     output = state["output"]
+    if get_settings().date_parsing == "code":
+        output = _normalize_dates(output, state["state"])
     data = deepcopy(state["data"])
     for activity in output.activities:
         data["activities"].append(situation.complete_activity(activity.model_dump()))
@@ -27,10 +33,48 @@ def apply_updates(state: AgentState) -> AgentState:
     return {"data": data, "situation": context}
 
 
+def _normalize_dates(output: AgentOutput, procedure: dict[str, Any]) -> AgentOutput:
+    """날짜 표현("작년 3월", "지난주 금요일")을 칸 값으로. 날짜를 못 정한 활동은 넣지 않습니다."""
+    today = date.fromisoformat(procedure["demo_today"])
+    separation = date.fromisoformat(procedure["separation_date"])
+    age = procedure.get("age_at_separation")
+
+    def month(expr: str | None, *, year_only: bool = False) -> str | None:
+        return normalize_month(expr, today, separation, age, allow_year_only=year_only)
+
+    activities = []
+    for activity in output.activities:
+        if day := normalize_day(activity.date, today):
+            activities.append(activity.model_copy(update={"date": day}))
+    careers = [
+        c.model_copy(update={"start_date": month(c.start_date), "end_date": month(c.end_date)})
+        for c in output.careers
+    ]
+    certifications = [
+        c.model_copy(update={"acquired_date": month(c.acquired_date, year_only=True)})
+        for c in output.certifications
+    ]
+    education = [
+        e.model_copy(update={"end_date": month(e.end_date, year_only=True)})
+        for e in output.education
+    ]
+    return output.model_copy(
+        update={
+            "activities": activities,
+            "careers": careers,
+            "certifications": certifications,
+            "education": education,
+        }
+    )
+
+
 def _merge_resume(resume: dict[str, Any], output: AgentOutput) -> None:
     careers = resume["competencies"]["careers"]
     for draft in output.careers:
         values = {k: v for k, v in draft.model_dump().items() if v is not None}
+        if not values:
+            # 날짜를 못 정해 비운 경력처럼 알게 된 값이 없으면 빈 줄을 만들지 않습니다.
+            continue
         target = _find_career(careers, draft.company_name)
         if target is None:
             careers.append({**_empty_career(), **values})

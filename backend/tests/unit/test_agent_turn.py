@@ -3,6 +3,7 @@ import json
 import pytest
 
 from app.agent.nodes.respond import FALLBACK_REPLY, parse_output
+from app.core.config import get_settings
 from app.services.agent_turn import run_conversation
 
 LEE = {
@@ -57,6 +58,27 @@ def test_career_without_company_merges_into_latest(fake_llm) -> None:
     assert len(careers) == 1
     assert careers[0]["start_date"] == "2004-03"
     assert result.replies == ["알겠어요.", "알겠어요."]
+
+
+def test_code_date_parsing_turns_words_into_values(
+    fake_llm, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("DATE_PARSING", "code")
+    get_settings.cache_clear()
+    state = {**PARK, "separation_date": "2026-09-30", "demo_today": "2026-10-12"}
+    fake_llm([
+        _reply(careers=[{"company_name": "OO산업", "start_date": "작년 3월",
+                         "end_date": "올 구월"}]),
+        _reply(careers=[{"company_name": None, "start_date": "재작년 겨울"}]),
+    ])  # fmt: skip
+    try:
+        result = run_conversation(state, _data(), ["작년 3월부터 올 구월까지", "재작년 겨울부터"])
+    finally:
+        get_settings.cache_clear()
+
+    careers = result.data["resume"]["competencies"]["careers"]
+    assert len(careers) == 1
+    assert (careers[0]["start_date"], careers[0]["end_date"]) == ("2025-03", "2026-09")
 
 
 def test_model_never_sees_resident_number(fake_llm, monkeypatch: pytest.MonkeyPatch) -> None:

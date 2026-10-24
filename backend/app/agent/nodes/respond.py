@@ -7,6 +7,7 @@ from pydantic import ValidationError
 from app.agent import gateway
 from app.agent.prompts import load_prompt
 from app.agent.schemas import AgentOutput, AgentState
+from app.core.config import get_settings
 
 # 모델에 보내는 상태값. 화면 시연용 시각(demo_time)처럼 답에 필요 없는 값은 뺍니다.
 STATE_KEYS = (
@@ -38,8 +39,11 @@ def _messages(state: AgentState) -> list[BaseMessage]:
         "state": {key: state["state"].get(key) for key in STATE_KEYS},
         "resume": state["data"]["resume"],
     }
+    # 날짜 안내는 DATE_PARSING에 따라 고릅니다.
+    # ai: 모델이 바꿈 · code: 말 그대로 옮기고 규칙 코드(apply_updates)가 바꿈
+    date_rules = load_prompt(f"dates_{get_settings().date_parsing}").strip()
     messages: list[BaseMessage] = [
-        SystemMessage(load_prompt("respond")),
+        SystemMessage(load_prompt("respond").replace("{date_rules}", date_rules)),
         SystemMessage("## 상황\n" + json.dumps(context, ensure_ascii=False)),
     ]
     for turn in state.get("history", []):
