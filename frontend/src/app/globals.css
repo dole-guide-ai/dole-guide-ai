@@ -6,7 +6,7 @@
     'Pretendard Variable', Pretendard, 'Apple SD Gothic Neo', 'Malgun Gothic', 'Noto Sans KR',
     system-ui, sans-serif;
 
-  /* 메인 파랑. 글자·주 버튼은 흰 바탕 대비 4.5:1을 넘는 brand, 글자가 아닌 강조(포커스·진행·아이콘)는 accent(#379fff). */
+  /* 메인 파랑. 글자·주 버튼은 흰 바탕 대비 4.5:1을 넘는 brand, 글자가 아닌 장식 강조(진행·그라데이션)는 accent(#379fff). */
   --color-brand: #1673d6;
   --color-brand-strong: #125fb3;
   --color-brand-soft: #e3f0ff;

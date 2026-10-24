@@ -62,7 +62,7 @@ export const LargeInputDialog = ({ value, onChange, onSend, onClose }: LargeInpu
           autoFocus
           placeholder="여기에 말씀하듯 적어 주세요"
           aria-label="크게 쓰기 입력"
-          className="border-line focus-visible:border-accent focus-visible:ring-accent/50 min-h-0 w-full flex-1 resize-none rounded-2xl border px-6 py-5 text-3xl leading-relaxed focus-visible:ring-3 focus-visible:outline-hidden"
+          className="border-line focus-visible:border-accent focus-visible:ring-brand min-h-0 w-full flex-1 resize-none rounded-2xl border px-6 py-5 text-3xl leading-relaxed focus-visible:ring-3 focus-visible:outline-hidden"
         />
         <p className="text-muted text-sm">개인정보를 입력하지 마세요(데모).</p>
         <Button size="lg" onClick={handleSend} disabled={!canSend} className="self-end">

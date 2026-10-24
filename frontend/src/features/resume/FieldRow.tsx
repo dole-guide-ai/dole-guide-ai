@@ -51,10 +51,10 @@ const evidenceText = (meta?: FieldMeta) => {
 };
 
 const INPUT_CLASS =
-  'border-line focus-visible:border-accent focus-visible:ring-accent/50 min-w-40 flex-1 rounded-lg border px-3 py-1.5 text-base focus-visible:ring-3 focus-visible:outline-hidden';
+  'border-line focus-visible:border-accent focus-visible:ring-brand min-w-40 flex-1 rounded-lg border px-3 py-1.5 text-base focus-visible:ring-3 focus-visible:outline-hidden';
 
 const LINK_CLASS =
-  'inline-flex h-9 items-center gap-1 rounded-lg px-2.5 text-sm font-semibold text-brand hover:bg-brand-soft focus-visible:ring-3 focus-visible:ring-accent/50 focus-visible:outline-hidden disabled:text-muted disabled:hover:bg-transparent';
+  'inline-flex h-9 items-center gap-1 rounded-lg px-2.5 text-sm font-semibold text-brand hover:bg-brand-soft focus-visible:ring-3 focus-visible:ring-brand focus-visible:outline-hidden disabled:text-muted disabled:hover:bg-transparent';
 
 export const FieldRow = ({
   label,
