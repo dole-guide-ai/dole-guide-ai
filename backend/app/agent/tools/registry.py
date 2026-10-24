@@ -48,7 +48,9 @@ class ToolContext:
     allowed_paths: tuple[str, ...] | None = None
 
     def ensure_allowed(self, path: str) -> None:
-        if self.allowed_paths is not None and not path.startswith(self.allowed_paths):
+        if self.allowed_paths is not None and not any(
+            path == p or path.startswith(p.rstrip("/") + "/") for p in self.allowed_paths
+        ):
             raise ToolError("지금 질문과 관계없는 칸이라 쓰지 않았어요.")
 
 
@@ -129,11 +131,7 @@ def _recommend(ctx: ToolContext, _: NoInput) -> dict[str, Any]:
 
 def _record_activity(ctx: ToolContext, args: RecordActivityInput) -> dict[str, Any]:
     body = ActivityCreate(**args.model_dump())
-    result = activity_service.record_activity(
-        ctx.db, ctx.account, body, ctx.today, source=FieldSource.USER_ANSWER
-    )
-    ctx.db.commit()
-    return _dump(result)
+    return _dump(activity_service.record_answered_activity(ctx.db, ctx.account, body, ctx.today))
 
 
 def _mark_done(ctx: ToolContext, args: MarkDoneInput) -> dict[str, Any]:

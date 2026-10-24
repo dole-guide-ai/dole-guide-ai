@@ -51,3 +51,9 @@ def test_has_blocking_for_grade_zero() -> None:
 )
 def test_ordinary_sentences_are_not_flagged(text: str) -> None:
     assert [f.kind for f in detect(text) if f.blocking] == []
+
+
+def test_fullwidth_hyphen_rrn_is_blocked() -> None:
+    text = "번호는 800101－1234567이에요"
+    assert has_blocking(text)
+    assert "[주민번호]" in mask(text)[0]

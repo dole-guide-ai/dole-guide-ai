@@ -165,6 +165,15 @@ def record_activity(
     )
 
 
+def record_answered_activity(
+    db: Session, account: AccountContext, body: ActivityCreate, today: date
+) -> UpdatesRead:
+    """대화에서 말한 활동을 기록하고 커밋합니다(에이전트 도구 `record_activity`의 진입점)."""
+    result = record_activity(db, account, body, today, source=FieldSource.USER_ANSWER)
+    db.commit()
+    return result
+
+
 def create_activity(
     db: Session,
     account: AccountContext,

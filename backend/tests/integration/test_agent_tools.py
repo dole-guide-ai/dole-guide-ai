@@ -67,3 +67,11 @@ def test_bad_tool_or_input(ctx) -> None:
 
 def test_overview_needs_no_llm(ctx) -> None:
     assert "네 단계" in run_tool(ctx(), "answer_overview", {})["text"]
+
+
+def test_allowed_path_stops_at_field_boundary(ctx) -> None:
+    c = ctx("park", allowed=("/careers/c1",))
+
+    c.ensure_allowed("/careers/c1/company_name")
+    with pytest.raises(ToolError):
+        c.ensure_allowed("/careers/c10/company_name")
