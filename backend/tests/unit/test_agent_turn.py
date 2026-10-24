@@ -45,6 +45,9 @@ def test_activity_from_message_updates_round(fake_llm) -> None:
     assert result.data["activities"][-1]["evidence"]["required"] == []
     assert result.data["round"]["counted"] == 2
     assert result.data["derived"]["current_round"] == 4
+    # 답 끝에 기록 뒤 건수를 규칙 코드 문장으로 덧붙입니다(코드래빗 지적).
+    assert "인정된 활동은 2건" in result.replies[-1]
+    assert "채웠어요" in result.replies[-1]
 
 
 def test_career_without_company_merges_into_latest(fake_llm) -> None:
@@ -107,3 +110,15 @@ def test_broken_json_falls_back_without_changes() -> None:
 
 def test_fenced_json_is_read() -> None:
     assert parse_output("```json\n" + _reply() + "\n```").reply == "알겠어요."
+
+
+def test_repeated_preferences_are_kept_once(fake_llm) -> None:
+    """코드래빗 지적: 여러 턴에 같은 학력·희망 직종·지역을 말하면 중복으로 쌓이던 문제."""
+    again = _reply(desired_occupations=["경비원"], desired_regions=["서울"])
+    fake_llm([again, again])
+
+    result = run_conversation(PARK, _data(), ["경비 일 하고 싶어요", "서울에서 경비요"])
+
+    preferences = result.data["resume"]["job_preferences"]
+    assert preferences["desired_occupations"] == [{"name": "경비원"}]
+    assert preferences["desired_regions"] == ["서울"]

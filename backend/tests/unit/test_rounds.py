@@ -262,3 +262,27 @@ def test_repeat_recipient_counts_job_search_only_from_round_3():
 
     assert round_2.activities[0].status == ActivityStatus.COUNTED
     assert round_3.activities[0].status == ActivityStatus.NOT_ALLOWED
+
+
+def test_repeat_recipient_round_3_counts_job_search_slices():
+    """코드래빗 지적: 구직활동만 인정되는 회차에 구직활동 건수가 0으로 나오던 문제."""
+    result = check(
+        [act("a1", date(2026, 12, 1)), act("a2", date(2026, 12, 15))], round_no=3, group="repeat"
+    )
+
+    assert (result.required_job_search, result.counted_job_search) == (2, 2)
+    assert result.check_status == CheckStatus.SATISFIED
+
+
+def test_repeat_recipient_counts_accepted_training_in_its_slice():
+    """코드래빗 지적: 인정된 직업훈련이 14일 조각 계산에서 빠지던 문제."""
+    result = check(
+        [
+            act("a1", date(2026, 12, 1)),
+            act("t1", date(2026, 12, 15), kind="training", route="training", org="A", hours=20),
+        ],
+        round_no=2,
+        group="repeat",
+    )
+
+    assert (result.required, result.counted) == (2, 2)

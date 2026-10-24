@@ -51,3 +51,11 @@ def test_off_ignores_images(image_mode, photo) -> None:
     image_mode("off")
 
     assert node.read_images({"message": "사진이에요", "images": [photo]}) == {"images": []}
+
+
+def test_non_image_files_are_not_sent(image_mode, tmp_path: Path) -> None:
+    image_mode("vision")
+    note = tmp_path / "note.png"
+    note.write_bytes(b"not an image")
+
+    assert node.read_images({"message": "사진이에요", "images": [str(note)]}) == {"images": []}

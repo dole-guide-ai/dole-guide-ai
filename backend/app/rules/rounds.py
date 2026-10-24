@@ -77,11 +77,16 @@ def _short(day: date) -> str:
     return f"{day.month}월 {day.day}일"
 
 
-def is_not_allowed(rule: KindRule, rules: ActivityRules, group: str, round_no: int) -> bool:
-    """종류·회차·수급자 유형에서 인정되지 않는 활동인지 (2-2.3 표, ACT-030 등)."""
-    job_only = any(
+def _job_search_only(rules: ActivityRules, group: str, round_no: int) -> bool:
+    """구직활동만 인정되는 회차인지 (일반 8차부터 ACT-030, 반복수급자 3차부터)."""
+    return any(
         group in only.groups and round_no >= only.round for only in rules.job_search_only_from_round
     )
+
+
+def is_not_allowed(rule: KindRule, rules: ActivityRules, group: str, round_no: int) -> bool:
+    """종류·회차·수급자 유형에서 인정되지 않는 활동인지 (2-2.3 표, ACT-030 등)."""
+    job_only = _job_search_only(rules, group, round_no)
     return (
         not rule.allowed
         or (rule.only_round is not None and rule.only_round != round_no)
@@ -249,9 +254,15 @@ def check_round(
     elif row.every_days:
         # N일마다 활동 1건: 조각마다 인정 활동이 있으면 1건으로 셉니다(종류는 인정 여부에서 걸러짐).
         slices = period_slices(period_start, period_end, row.every_days)
-        required, required_job = len(slices), 0
-        total = sum(1 for s, e in slices if any(s <= a.activity_date <= e for a in counted))
-        total_job = 0
+        # 인정된 직업훈련(시간 기준 1건)은 마지막 훈련 날짜가 든 조각에 넣습니다.
+        days = [a.activity_date for a in counted]
+        if training_job:
+            days.append(max(a.activity_date for a in training if a.hours is not None))
+        required = len(slices)
+        total = sum(1 for s, e in slices if any(s <= day <= e for day in days))
+        # 구직활동만 인정되는 회차(반복수급자 3차부터)는 채운 조각이 모두 구직활동입니다.
+        job_only = _job_search_only(rules, group, round_no)
+        required_job, total_job = (required, total) if job_only else (0, 0)
     elif row.first_education:
         required, required_job = row.total, row.job_search
         total = min(sum(1 for a in counted if a.kind == "first_education"), row.total)

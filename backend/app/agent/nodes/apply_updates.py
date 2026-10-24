@@ -6,6 +6,7 @@ from app.agent.schemas import AgentOutput, AgentState
 from app.core.config import get_settings
 from app.rules import situation
 from app.rules.dates import normalize_day, normalize_month
+from app.rules.facts import recorded_count_text
 
 
 def apply_updates(state: AgentState) -> AgentState:
@@ -30,7 +31,10 @@ def apply_updates(state: AgentState) -> AgentState:
         new = len(output.activities)
         for activity, status in zip(data["activities"][-new:], statuses[-new:], strict=True):
             activity["status"] = status
-    return {"data": data, "situation": context}
+        # 답은 기록 전 사실 문장으로 썼으므로, 기록 뒤 건수는 규칙 코드 문장으로 덧붙입니다.
+        if text := recorded_count_text(context["round"]):
+            output = output.model_copy(update={"reply": f"{output.reply} {text}"})
+    return {"data": data, "situation": context, "output": output}
 
 
 def _normalize_dates(output: AgentOutput, procedure: dict[str, Any]) -> AgentOutput:
@@ -85,12 +89,19 @@ def _merge_resume(resume: dict[str, Any], output: AgentOutput) -> None:
         names = [c.get("certificate_name") for c in certifications]
         if cert.certificate_name not in names:
             certifications.append(cert.model_dump())
+    # 여러 턴에 걸쳐 같은 값을 다시 말해도 한 번만 넣습니다.
     for school in output.education:
-        resume["education"].append(school.model_dump())
+        _append_new(resume["education"], school.model_dump())
     preferences = resume["job_preferences"]
     for name in output.desired_occupations:
-        preferences["desired_occupations"].append({"name": name})
-    preferences["desired_regions"].extend(output.desired_regions)
+        _append_new(preferences["desired_occupations"], {"name": name})
+    for region in output.desired_regions:
+        _append_new(preferences["desired_regions"], region)
+
+
+def _append_new(items: list[Any], item: Any) -> None:
+    if item not in items:
+        items.append(item)
 
 
 def _find_career(careers: list[dict[str, Any]], company: str | None) -> dict[str, Any] | None:

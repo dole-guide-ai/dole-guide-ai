@@ -86,6 +86,7 @@ def _to_input(index: int, activity: dict[str, Any]) -> ActivityInput:
         route=activity.get("route"),
         org_name=activity.get("org_name"),
         job_title=activity.get("job_title"),
+        hours=activity.get("hours"),
     )
 
 

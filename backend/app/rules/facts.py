@@ -60,9 +60,8 @@ def build_facts(
             facts.append({"text": rule, "cite": CITE_ROUNDS})
         elif round_check["required_job_search"]:
             need += f"(그중 구직활동 {round_check['required_job_search']}건)"
-        counted, short = round_check["counted"], round_check["shortfall"]
-        need += f"이고, 지금 인정된 활동은 {counted}건이에요."
-        need += f" {short}건 더 해야 해요." if short else " 필요한 건수는 채웠어요."
+        need += f"이고, 지금 인정된 활동은 {round_check['counted']}건이에요."
+        need += f" {_remaining(round_check['shortfall'])}"
         facts.append({"text": need, "cite": CITE_ROUNDS})
     # 같은 날 1건 판정은 회차 점검(rounds.check_round)의 경고 문구를 그대로 씁니다.
     for message in (round_check or {}).get("same_day_messages", []):
@@ -74,6 +73,23 @@ def build_facts(
     else:
         facts.append({"text": _submit_text(state, end), "cite": CITE_ONLINE})
     return facts
+
+
+def _remaining(short: int) -> str:
+    return f"{short}건 더 해야 해요." if short else "필요한 건수는 채웠어요."
+
+
+def recorded_count_text(round_check: dict[str, Any] | None) -> str | None:
+    """이번 말로 기록한 활동까지 반영한 건수 문장. 계산할 수 없는 회차면 None.
+
+    답을 쓸 때 본 사실 문장은 기록 전 건수라서, 기록 뒤 건수는 이 문장으로 덧붙입니다.
+    """
+    if not round_check or round_check["required"] is None:
+        return None
+    return (
+        f"방금 기록한 활동까지 넣으면 이번 회차에 인정된 활동은 {round_check['counted']}건이에요. "
+        + _remaining(round_check["shortfall"])
+    )
 
 
 def _submit_text(state: dict[str, Any], recognition: str) -> str:
