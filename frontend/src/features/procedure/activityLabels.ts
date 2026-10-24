@@ -19,8 +19,8 @@ export const STATUS_CHIP: Record<ActivityStatus, ChipSpec> = {
 
 export const SOURCE_CHIP: Record<ActivitySource, ChipSpec> = {
   work24_import: { label: '고용24 불러오기 (모의)', tone: 'info' },
-  document: { label: '문서에서 확인', tone: 'info' },
-  conversation: { label: '대화로 추가', tone: 'ok' },
+  doc: { label: '문서에서 확인', tone: 'info' },
+  user_answer: { label: '대화로 추가', tone: 'ok' },
 };
 
 export const ROUTE_LABEL: Record<ActivityRoute, string> = {

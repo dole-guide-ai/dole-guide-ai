@@ -167,7 +167,7 @@
         "notification_method": "sms"
       },
       "activities": [
-        { "date_offset": -8, "category": "job_search", "kind": "job_application", "route": "work24", "org_name": "OO물류", "source": "import" },
+        { "date_offset": -8, "category": "job_search", "kind": "job_application", "route": "work24", "org_name": "OO물류", "source": "work24_import" },
         { "date_offset": -8, "category": "job_search", "kind": "job_application", "route": "company_site", "org_name": "OO상사", "source": "doc" }
       ],
       "imports": {

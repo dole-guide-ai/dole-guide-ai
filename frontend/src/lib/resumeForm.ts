@@ -6,7 +6,7 @@
  */
 
 import type { components } from '@/types/api.gen';
-import type { FieldSource, FieldStatus } from '@/types/chat.types';
+import type { FieldStatus } from '@/types/chat.types';
 import type { OccupationRef, ResumeDraftRead, ResumeFieldState } from '@/types/resume.types';
 
 type ResumeRead = components['schemas']['ResumeRead'];
@@ -23,20 +23,9 @@ const EDUCATION_BACK: Record<string, string> = { level: 'education_level' };
 const isField = (node: unknown): node is FormField =>
   typeof node === 'object' && node !== null && 'status' in node && 'value' in node;
 
-/** 서버 출처 이름 → 칩(`fieldChip`)이 아는 예전 이름. 직접 고친 칸(direct)이 `직접 입력` 칩이 됩니다 (F-12). */
-const SOURCE_FROM_SERVER = {
-  direct: 'manual',
-  seed: 'old_resume',
-  doc: 'document',
-  auto: 'computed',
-  import: 'work24_import',
-  account: 'account',
-  user_answer: 'conversation',
-} as const satisfies Record<components['schemas']['FieldSource'], FieldSource>;
-
 const metaOf = (f: FormField): ResumeFieldState => ({
   status: f.status as FieldStatus,
-  source: f.source ? SOURCE_FROM_SERVER[f.source] : undefined,
+  source: f.source ?? undefined,
   transformed: f.transformed,
   evidence: (f.evidence ?? undefined) as ResumeFieldState['evidence'],
 });

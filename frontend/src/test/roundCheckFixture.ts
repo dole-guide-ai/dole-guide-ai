@@ -11,7 +11,7 @@ export const activityCheck = (overrides: Partial<ActivityCheck> = {}): ActivityC
   kind: 'job_application',
   route: 'work24',
   org_name: 'OO물류',
-  source: 'import',
+  source: 'work24_import',
   planned: false,
   status: 'counted',
   required_evidence: [],

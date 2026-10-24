@@ -71,7 +71,7 @@ const answerState = (
   const carried = field.answered_on != null && field.answered_on < periodStart;
   return {
     status: 'confirmed',
-    source: 'self_answer',
+    source: 'user_answer',
     ...(carried
       ? {
           evidence: {
@@ -159,9 +159,7 @@ export const recognitionFromApplication = (app: ApplicationRead): RecognitionFor
     application_method: row.application_method ?? null,
     activity_result: row.activity_result ?? null,
     attachment_ids: row.file_ids ?? [],
-    source: (row.application_method === WORK24_METHOD
-      ? 'work24_import'
-      : 'document') as FieldSource,
+    source: (row.application_method === WORK24_METHOD ? 'work24_import' : 'doc') as FieldSource,
   }));
 
   const fieldStates: Record<string, FieldMetaRead> = {};
@@ -244,7 +242,7 @@ export const recognitionFromApplication = (app: ApplicationRead): RecognitionFor
         course: OTHER_COURSE[row.kind] ?? null,
         details: row.details ?? null,
         attachment_ids: [],
-        source: 'conversation' as FieldSource,
+        source: 'user_answer' as FieldSource,
       })),
     },
     notification_and_plan: {

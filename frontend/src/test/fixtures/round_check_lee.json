@@ -41,7 +41,7 @@
       "route": "work24",
       "org_name": "OO물류",
       "job_title": null,
-      "source": "import",
+      "source": "work24_import",
       "planned": false,
       "status": "counted",
       "required_evidence": [],

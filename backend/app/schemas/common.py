@@ -93,7 +93,7 @@ class FieldStatus(StrEnum):
 class FieldSource(StrEnum):
     USER_ANSWER = "user_answer"
     DOC = "doc"
-    IMPORT = "import"
+    WORK24_IMPORT = "work24_import"
     AUTO = "auto"
     DIRECT = "direct"
     SEED = "seed"
@@ -105,7 +105,7 @@ class EvidenceKind(StrEnum):
 
     UTTERANCE = "utterance"  # 대화에서 한 말
     DOCUMENT = "document"  # 판독한 서류
-    IMPORT = "import"  # 고용24 불러오기
+    WORK24_IMPORT = "work24_import"  # 고용24 불러오기
     COMPUTED = "computed"  # 규칙이 계산·변환
 
 

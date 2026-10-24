@@ -1372,7 +1372,7 @@ export interface components {
          * @description 칸 값의 근거 종류 (상세기획 2-0.6 근거 보기).
          * @enum {string}
          */
-        EvidenceKind: "utterance" | "document" | "import" | "computed";
+        EvidenceKind: "utterance" | "document" | "work24_import" | "computed";
         /**
          * ExcludedRow
          * @description 계산에서 뺀 활동 (같은 날 2건째 등). 신청서에는 넣지 않고 참고로만 보여 줍니다.
@@ -1441,7 +1441,7 @@ export interface components {
          * FieldSource
          * @enum {string}
          */
-        FieldSource: "user_answer" | "doc" | "import" | "auto" | "direct" | "seed" | "account";
+        FieldSource: "user_answer" | "doc" | "work24_import" | "auto" | "direct" | "seed" | "account";
         /**
          * FieldStatus
          * @description 칸 상태 6종 (설계 8절 CHECK).

@@ -19,7 +19,7 @@ describe('formStore', () => {
       value: '프레스 라인 운영',
       status: 'extracted',
       transformed: true,
-      source: 'conversation',
+      source: 'user_answer',
       evidence: { kind: 'utterance', date: '2026-10-12', quote: '작년 3월부터는' },
       completeness: { done: 1, total: 5 },
     });
@@ -31,7 +31,7 @@ describe('formStore', () => {
     expect(fields['competencies.careers.career_001.main_duties']).toMatchObject({
       status: 'extracted',
       transformed: true,
-      source: 'conversation',
+      source: 'user_answer',
     });
     expect(completeness).toEqual({ done: 1, total: 5 });
   });

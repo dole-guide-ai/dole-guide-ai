@@ -66,7 +66,7 @@ describe('roundCheckFromServer (F-18)', () => {
       item_id: 'a2',
       category: 'job_application',
       kind: 'job_search',
-      source: 'document',
+      source: 'doc',
       status: 'same_day',
       evidence: { required: ['채용공고'], attached: [] },
     });
