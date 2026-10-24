@@ -13,15 +13,12 @@ import { NoticeToast } from '@/features/dashboard/NoticeToast';
 import { PanelFrame } from '@/features/dashboard/PanelFrame';
 import { sessionNotices } from '@/features/dashboard/sessionNotices';
 import { MyDataDialog } from '@/features/myData/MyDataDialog';
-import { OPEN_FORM_MESSAGE } from '@/features/procedure/activityLabels';
 import { CONFIRMED_MESSAGE } from '@/features/recognition/recognitionLabels';
 
-import { isServerSession } from '@/lib/accountSession';
 import { ApiError } from '@/lib/api';
-import { resetForms, subscribeForms } from '@/lib/formStore';
+import { resetForms } from '@/lib/formStore';
 import { setSession } from '@/lib/sessionStore';
 import type { ProgressStep, SessionRead } from '@/types/demo.types';
-import { clearMockState, restoreMockDrafts, saveMockDrafts } from '@/mocks/mockPersistence';
 
 interface DashboardViewProps {
   session: SessionRead;
@@ -40,17 +37,12 @@ const TOOL_LABEL: Record<string, string> = {
 export const DashboardView = ({ session, personaName }: DashboardViewProps) => {
   const router = useRouter();
   const { setIsBig } = useBigText();
-  // F-03: 모의 화면은 새로고침 전 패널 값을 패널이 그려지기 전에 먼저 되살립니다(실제 서버는 API로 복원).
-  useState(() => {
-    if (!isServerSession(session.session_id)) restoreMockDrafts(session.session_id);
-    return null;
-  });
   const chat = useChatStream(session);
   // 진행바에서 고른 완료 단계 (1.8 읽기 전용 다시 보기). 세션이 바뀌면 지금 단계로 돌아옵니다.
   const [review, setReview] = useState<{ sessionId: string; step: ProgressStep } | null>(null);
   const reviewStep = review?.sessionId === session.session_id ? review.step : null;
   const [isMyDataOpen, setIsMyDataOpen] = useState(false);
-  const upload = useFileUpload();
+  const upload = useFileUpload(session.persona_id, session.state.stage);
   const { entry } = session;
   const bigTextDefault = entry.ui.big_text;
 
@@ -59,23 +51,10 @@ export const DashboardView = ({ session, personaName }: DashboardViewProps) => {
     setIsBig(bigTextDefault);
   }, [session.session_id, bigTextDefault, setIsBig]);
 
-  // 모의 화면: 패널 값이 바뀔 때마다 탭에 남겨 둡니다.
-  useEffect(() => {
-    if (isServerSession(session.session_id)) return undefined;
-    return subscribeForms(() => saveMockDrafts(session.session_id));
-  }, [session.session_id]);
-
-  // F-22: 실제 서버 세션은 대화 응답을 기다리지 않고 바로 신청서(패널 C)를 엽니다. 모의 세션은 대화 스크립트가 엽니다.
-  const handleOpenForm = () => {
-    if (isServerSession(session.session_id)) {
-      setSession({ ...session, entry: { ...entry, panel: 'C' } });
-      return;
-    }
-    void chat.send(OPEN_FORM_MESSAGE, { inputKind: 'choice' });
-  };
+  // F-22: 대화 응답을 기다리지 않고 바로 신청서(패널 C)를 엽니다.
+  const handleOpenForm = () => setSession({ ...session, entry: { ...entry, panel: 'C' } });
 
   const handleSwitchAccount = () => {
-    clearMockState();
     resetForms();
     setSession(null);
     router.push('/');
@@ -124,7 +103,7 @@ export const DashboardView = ({ session, personaName }: DashboardViewProps) => {
       />
       <NoticeToast key={session.session_id} notices={sessionNotices(session)} />
       {isMyDataOpen && (
-        <MyDataDialog sessionId={session.session_id} onClose={() => setIsMyDataOpen(false)} />
+        <MyDataDialog personaId={session.persona_id} onClose={() => setIsMyDataOpen(false)} />
       )}
 
       <main className="grid flex-1 gap-4 p-4 sm:p-6 lg:min-h-0 lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
@@ -133,6 +112,7 @@ export const DashboardView = ({ session, personaName }: DashboardViewProps) => {
           choices={chat.choices}
           importKind={chat.importKind}
           sessionId={session.session_id}
+          personaId={session.persona_id}
           onImport={(importIds) =>
             void chat.send(`고용24에서 고른 ${importIds.length}건 넣어 주세요`, {
               inputKind: 'choice',

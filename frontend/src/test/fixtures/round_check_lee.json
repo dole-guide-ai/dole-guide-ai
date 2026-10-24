@@ -1,0 +1,89 @@
+{
+  "round": 4,
+  "period_start": "2026-09-30",
+  "period_end": "2026-10-27",
+  "recognition_date": "2026-10-27",
+  "attendance_required": true,
+  "status": "current",
+  "application_status": "draft",
+  "d_day": 6,
+  "rule_group": "general",
+  "period_days": 28,
+  "required": 2,
+  "required_job_search": 1,
+  "counted": 1,
+  "counted_job_search": 1,
+  "remaining": 1,
+  "remaining_job_search": 0,
+  "check_status": "short",
+  "weeks": [],
+  "activities": [
+    {
+      "activity_id": "0409d427-72cb-4ab6-947f-861f75f2b481",
+      "activity_date": "2026-10-13",
+      "category": "job_search",
+      "kind": "job_application",
+      "route": "company_site",
+      "org_name": "OO상사",
+      "job_title": null,
+      "source": "doc",
+      "planned": false,
+      "status": "same_day",
+      "required_evidence": ["채용공고", "지원 완료 화면 캡처(날짜가 보이게)"],
+      "has_evidence": false,
+      "rule_refs": ["ACT-001", "ACT-056", "ACT-058", "ACT-136"]
+    },
+    {
+      "activity_id": "e3685613-432c-4d39-aeeb-b861eab17817",
+      "activity_date": "2026-10-13",
+      "category": "job_search",
+      "kind": "job_application",
+      "route": "work24",
+      "org_name": "OO물류",
+      "job_title": null,
+      "source": "work24_import",
+      "planned": false,
+      "status": "counted",
+      "required_evidence": [],
+      "has_evidence": false,
+      "rule_refs": ["ACT-001", "ACT-056", "ACT-058", "ACT-132"]
+    }
+  ],
+  "warnings": [
+    {
+      "id": "W1",
+      "message": "10월 13일 활동은 2건이지만 하루 1건만 인정돼요.",
+      "activity_ids": [
+        "e3685613-432c-4d39-aeeb-b861eab17817",
+        "0409d427-72cb-4ab6-947f-861f75f2b481"
+      ],
+      "rule_refs": ["ACT-055", "ACT-110"]
+    },
+    {
+      "id": "W5",
+      "message": "OO상사 지원은 채용공고 + 지원 완료 화면 캡처(날짜가 보이게)이 필요해요. 사진으로 올려 주세요.",
+      "activity_ids": ["0409d427-72cb-4ab6-947f-861f75f2b481"],
+      "rule_refs": ["ACT-136"]
+    }
+  ],
+  "limits_used": {
+    "lecture": 0,
+    "aptitude_test": 0,
+    "counseling": 0,
+    "volunteer": 0
+  },
+  "rule_review": "not_verified",
+  "rule_refs": [
+    "ACT-055",
+    "ACT-110",
+    "ACT-020",
+    "ACT-023",
+    "ACT-026",
+    "ACT-028",
+    "ACT-030",
+    "ACT-136",
+    "ACT-001",
+    "ACT-056",
+    "ACT-058"
+  ]
+}

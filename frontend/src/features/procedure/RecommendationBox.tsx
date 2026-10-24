@@ -18,8 +18,7 @@ import { ApiError } from '@/lib/api';
 interface RecommendationBoxProps {
   sessionId: string;
   plannedIds: string[];
-  /** 실제 서버 세션이면 계정 추천 API를 씁니다 (F-19). */
-  personaId?: string;
+  personaId: string;
   /** 지금 회차. 바뀌면 그 회차 기준으로 다시 받습니다. */
   round?: number | null;
 }
@@ -78,6 +77,14 @@ export const RecommendationBox = ({
                   />
                   {item.limit_text && <Chip label={item.limit_text} tone="neutral" />}
                 </div>
+                {item.schedules && item.schedules.length > 0 && (
+                  <ul className="text-muted flex flex-col gap-0.5 text-sm" aria-label="실제 일정">
+                    {item.schedules.map((line) => (
+                      <li key={line}>{line}</li>
+                    ))}
+                    {item.schedules_from_snapshot && <li>(미리 받아 둔 일정이에요)</li>}
+                  </ul>
+                )}
               </div>
               <Button
                 variant="secondary"

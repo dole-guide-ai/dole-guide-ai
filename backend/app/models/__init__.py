@@ -15,6 +15,7 @@ from app.models.round import Round
 from app.models.user import User
 from app.models.user_profile import UserProfile
 from app.models.visitor import Visitor
+from app.models.work24_import import Work24Import
 
 __all__ = [
     "Activity",
@@ -29,5 +30,6 @@ __all__ = [
     "User",
     "UserProfile",
     "Visitor",
+    "Work24Import",
     "activity_files",
 ]

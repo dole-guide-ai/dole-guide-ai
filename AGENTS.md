@@ -58,7 +58,8 @@ uv run alembic upgrade head
 
 ## 코드 스타일 요약
 
-- 프론트: 컴포넌트 파일 PascalCase, 훅·유틸 camelCase, 라우트 폴더 kebab-case. 라우트 파일 외 컴포넌트는 `export const` 화살표 함수, 한 파일 한 컴포넌트, Props는 `{Component}Props` interface. `@/` 절대 경로. 쿼리 키는 `lib/queryKeys.ts`, SSE 이름은 `shared/sse-events.json`.
+- 프론트: 컴포넌트 파일 PascalCase, 훅·유틸 camelCase, 라우트 폴더 kebab-case. 라우트 파일 외 컴포넌트는 `export const` 화살표 함수, 한 파일 한 컴포넌트, Props는 `{Component}Props` interface. `@/` 절대 경로. 쿼리 키는 `lib/queryKeys.ts`, SSE 이름은 `shared/sse-events.json`(`lib/sseEvents.ts`).
+- 공통(프론트·백엔드): 숫자·식별 문자열은 이름 붙인 상수나 enum으로 한 곳에 두고, 두 곳 이상 반복되는 로직은 순수 함수·공용 훅으로 뺍니다. 위치는 `.claude/rules/frontend.md`·`backend.md`의 "상수·반복 코드" 절.
 - Tailwind CSS v4(현재 4.3) 문법으로만 작성합니다.
   - `tailwind.config.js`를 만들지 않습니다. 테마는 `src/app/globals.css`의 `@theme`에 CSS 변수로 정의합니다.
   - v3 지시어(`@tailwind base` 등) 금지, `@apply`는 최소화합니다.
@@ -80,6 +81,10 @@ uv run alembic upgrade head
 - 브랜치: `feat|fix|hotfix/#이슈번호-내용`, develop에서 분기해 develop으로 PR (hotfix만 main).
 - 커밋·PR 제목: `type(scope): 무엇을 왜` — type `feat|fix|refactor|style|design|docs|test|chore|ci`, scope `fe|be|ai|infra|docs`. 호환성 깨짐은 `type(scope)!:`.
 - main·develop에 직접 push하지 않습니다. 한 PR은 한 영역, +1000줄 이내.
+- PR을 만들면 PR을 올린 사람(지금 인증된 GitHub 계정)을 담당자(assignee)로 지정합니다. 팀원 이름을 고정해 쓰지 않습니다.
+  - gh: `gh pr create --assignee @me`
+  - GitHub MCP·API: `GET /user`로 로그인 이름을 얻어 `POST /repos/{owner}/{repo}/issues/{PR번호}/assignees`로 지정합니다.
+  - 담당자가 빈 채로 만든 PR을 발견하면 같은 방법으로 채웁니다.
 
 ## 테스트
 

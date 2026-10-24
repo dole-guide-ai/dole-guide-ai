@@ -97,7 +97,7 @@ describe('recognitionFromApplication (F-23)', () => {
     });
     expect(form.notification_and_plan.payment_notification_method).toBe('휴대전화 문자메시지');
     expect(form.field_states['notification_and_plan.payment_notification_method']).toMatchObject({
-      source: 'self_answer',
+      source: 'user_answer',
       evidence: { kind: 'previous_round', date: '2026-11-24' },
     });
     expect(form.work_and_employment.has_work_or_service).toBeNull();
@@ -127,7 +127,7 @@ describe('recognitionFromApplication 답변 변환', () => {
 
     expect(form.field_states['notification_and_plan.payment_notification_method']).toEqual({
       status: 'confirmed',
-      source: 'self_answer',
+      source: 'user_answer',
     });
   });
 
@@ -188,7 +188,7 @@ describe('recognitionFromApplication 답변 변환', () => {
 
     expect(form.field_states['work_and_employment.has_work_or_service']).toEqual({
       status: 'confirmed',
-      source: 'self_answer',
+      source: 'user_answer',
     });
     expect(form.field_states['work_and_employment.has_employment']).toBeUndefined();
   });

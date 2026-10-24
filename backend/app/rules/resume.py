@@ -10,7 +10,13 @@ from dataclasses import dataclass, field
 from datetime import date
 from typing import Any
 
-from app.schemas.common import FieldSource, FieldStatus, FormField
+from app.schemas.common import (
+    EvidenceKind,
+    FieldEvidence,
+    FieldSource,
+    FieldStatus,
+    FormField,
+)
 from app.schemas.forms.resume import Career, Education, OccupationStatus, ResumeData
 from app.schemas.resume import Completeness
 
@@ -59,13 +65,13 @@ def form_fields(node: Any, path: str = "") -> list[tuple[str, FormField]]:
     return out
 
 
-def _occupation_value(f: FormField) -> dict[str, Any]:
+def occupation_value(f: FormField) -> dict[str, Any]:
     return f.value if isinstance(f.value, dict) else {}
 
 
 def occupation_name(f: FormField) -> str | None:
     """직종 칸 값 {code, name, status}에서 이름. 모양이 다르면 None."""
-    return _occupation_value(f).get("name")
+    return occupation_value(f).get("name")
 
 
 def _as_list(f: FormField) -> list[Any]:
@@ -82,7 +88,7 @@ def _suggested(value: Any, note: str) -> FormField:
         status=FieldStatus.EXTRACTED,
         source=FieldSource.AUTO,
         transformed=True,
-        evidence={"kind": "computed", "note": note},
+        evidence=FieldEvidence(kind=EvidenceKind.COMPUTED, note=note),
     )
 
 
@@ -150,6 +156,21 @@ def normalize_date(
 
 
 # ── 자동 값 ─────────────────────────────────────────────
+
+
+def date_field(expr: str, result: DateResult, today: date) -> FormField:
+    """대화에서 받은 날짜 표현을 칸으로. 바꾼 값이면 확인 필요(extracted + transformed)이고,
+    근거 보기에 원래 문장과 기준일이 남습니다 (F-11 완료 기준: '작년 3월' → 2025-03).
+    """
+    return FormField(
+        value=result.value,
+        status=FieldStatus.EXTRACTED if result.value else FieldStatus.MISSING,
+        source=FieldSource.USER_ANSWER,
+        transformed=result.transformed,
+        evidence=FieldEvidence(
+            kind=EvidenceKind.UTTERANCE, date=today, quote=expr.strip(), note=result.note
+        ),
+    )
 
 
 def career_months(careers: list[Career]) -> int:
@@ -267,11 +288,29 @@ def _education_done(e: Education) -> bool:
     return all(is_filled(f) for f in required)
 
 
-def _section_done(data: ResumeData) -> dict[str, bool]:
+def saved_before_separation(saved_on: date | None, separation_date: date) -> bool:
+    """이직일 전에 저장한 이력서인지 (1장 1.2 `outdated`)."""
+    return saved_on is not None and saved_on <= separation_date
+
+
+def _old_careers_pending(data: ResumeData) -> bool:
+    """예전 이력서의 경력만 있고 그 뒤 경력을 아직 묻지 않았는지 (1장 1.9 ④, 질문 4).
+
+    새로 더한 경력은 시작일부터 새로 받으므로 시작일 출처로 봅니다. 예전 경력의 회사명만
+    고쳐서는 확인이 끝나지 않습니다.
+    """
+    return (
+        data.careers_status.status == FieldStatus.MISSING
+        and bool(data.careers)
+        and all(c.start_date.source == FieldSource.SEED for c in data.careers)
+    )
+
+
+def _section_done(data: ResumeData, *, outdated: bool = False) -> dict[str, bool]:
     prefs = data.job_preferences
     occupations_done = bool(prefs.desired_occupations) and all(
         is_filled(d.occupation)
-        and _occupation_value(d.occupation).get("status") != OccupationStatus.NEEDS_CONFIRMATION
+        and occupation_value(d.occupation).get("status") != OccupationStatus.NEEDS_CONFIRMATION
         and is_filled(d.experience_type)
         for d in prefs.desired_occupations
     )
@@ -305,7 +344,8 @@ def _section_done(data: ResumeData) -> dict[str, bool]:
                 )
             )
         )
-        and _no_check(data.careers),
+        and _no_check(data.careers)
+        and not (outdated and _old_careers_pending(data)),
         "certifications": (
             data.certifications_status.status == na
             or (
@@ -317,14 +357,17 @@ def _section_done(data: ResumeData) -> dict[str, bool]:
     }
 
 
-def resume_completeness(data: ResumeData) -> Completeness:
-    """꼭 묻는 5개 중 끝난 항목 수 (2-1.2). 확인 필요가 남은 항목은 세지 않습니다."""
-    return Completeness(filled=sum(_section_done(data).values()))
+def resume_completeness(data: ResumeData, *, outdated: bool = False) -> Completeness:
+    """꼭 묻는 5개 중 끝난 항목 수 (2-1.2). 확인 필요가 남은 항목은 세지 않습니다.
+
+    `outdated`(이직일 전에 저장한 예전 이력서)면 그 뒤 경력을 묻기 전까지 경력을 세지 않습니다.
+    """
+    return Completeness(filled=sum(_section_done(data, outdated=outdated).values()))
 
 
-def can_save_resume(data: ResumeData) -> bool:
+def can_save_resume(data: ResumeData, *, outdated: bool = False) -> bool:
     """5/5이고 확인 필요가 하나도 없을 때만 저장할 수 있습니다 (2-1.6)."""
-    return resume_completeness(data).filled == 5 and _no_check(data)
+    return resume_completeness(data, outdated=outdated).filled == 5 and _no_check(data)
 
 
 # ── 다음 질문 ───────────────────────────────────────────
@@ -362,11 +405,7 @@ def next_resume_question(
         return q(
             "resume.career_new", choices=("사진 올릴게요", "고용24에서 불러올게요", "말로 할게요")
         )
-    if (
-        entry_branch == "E7b"
-        and careers_open
-        and all(c.company_name.source == FieldSource.SEED for c in careers)
-    ):
+    if entry_branch == "E7b" and _old_careers_pending(data):
         end = _ym(careers[0].end_date.value) if careers else None
         return q(
             "resume.career_since_old", {"year": end[0] if end else None}, ("네, 있어요", "없어요")

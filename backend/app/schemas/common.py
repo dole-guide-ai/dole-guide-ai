@@ -93,11 +93,33 @@ class FieldStatus(StrEnum):
 class FieldSource(StrEnum):
     USER_ANSWER = "user_answer"
     DOC = "doc"
-    IMPORT = "import"
+    WORK24_IMPORT = "work24_import"
     AUTO = "auto"
     DIRECT = "direct"
     SEED = "seed"
     ACCOUNT = "account"
+
+
+class EvidenceKind(StrEnum):
+    """칸 값의 근거 종류 (상세기획 2-0.6 근거 보기)."""
+
+    UTTERANCE = "utterance"  # 대화에서 한 말
+    DOCUMENT = "document"  # 판독한 서류
+    WORK24_IMPORT = "work24_import"  # 고용24 불러오기
+    COMPUTED = "computed"  # 규칙이 계산·변환
+
+
+# 필드 이름 `date`가 타입 이름을 가리지 않게 별칭을 둡니다.
+_Date = date
+
+
+class FieldEvidence(BaseModel):
+    """근거 보기 (F-11): 원래 문장(quote)과 기준일(date), 바꾼 이유(note)."""
+
+    kind: EvidenceKind
+    date: _Date | None = None
+    quote: str | None = None
+    note: str | None = None
 
 
 class FormField(BaseModel):
@@ -107,8 +129,28 @@ class FormField(BaseModel):
     status: FieldStatus = FieldStatus.MISSING
     source: FieldSource | None = None
     transformed: bool = False
-    evidence: dict[str, Any] | None = None
+    evidence: FieldEvidence | None = None
     answered_on: date | None = None
+
+
+class PatchOpName(StrEnum):
+    ADD = "add"
+    REPLACE = "replace"
+    REMOVE = "remove"
+
+
+class PatchErrorType(StrEnum):
+    """칸 고치기 422의 details.type (CONVENTIONS 7절 `[{field, type}]`, 입력값 대신 이유만)."""
+
+    UNKNOWN_PATH = "unknown_path"
+    REQUIRED = "required"
+    DATE_FORMAT = "date_format"
+    NUMBER = "number"
+    TEXT = "text"
+    CHOICE = "choice"
+    OUT_OF_ROUND = "out_of_round"
+    BAD_SHAPE = "bad_shape"
+    TOO_MANY = "too_many"
 
 
 class JsonPatchOp(BaseModel):
@@ -139,7 +181,7 @@ class FormUpdate(BaseModel):
     status: FieldStatus | None = None
     source: FieldSource | None = None
     transformed: bool = False
-    evidence: dict[str, Any] | None = None
+    evidence: FieldEvidence | None = None
     completeness: dict[str, int] | None = None
 
 

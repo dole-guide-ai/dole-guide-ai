@@ -19,9 +19,6 @@ const RULE_SET_FROM = '2026-03-01';
 
 const SERVER_SESSION_PREFIX = 'acct-';
 
-/** 실제 백엔드 계정에서 만든 세션인지 (모의 세션 ID는 `mock-`로 시작합니다). */
-export const isServerSession = (sessionId: string) => sessionId.startsWith(SERVER_SESSION_PREFIX);
-
 export const sessionFromAccount = (account: AccountRead): SessionRead => {
   const { procedure, current_round: round, entry, today } = account;
   const group = procedure.recipient_group;
@@ -76,9 +73,8 @@ export const sessionFromAccount = (account: AccountRead): SessionRead => {
       choices: account.pending_ask?.choices ?? entry.choices,
       pending_ask: account.pending_ask
         ? {
-            choices: account.pending_ask.choices,
-            import_kind: (account.pending_ask.import_kind as ImportKind | null) ?? null,
-            accepts_file: account.pending_ask.accepts_file ?? false,
+            ...account.pending_ask,
+            import_kind: account.pending_ask.import_kind as ImportKind | null,
           }
         : null,
       messages: entry.messages.map(({ template_id, text, cite }) => ({

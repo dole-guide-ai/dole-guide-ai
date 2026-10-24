@@ -27,10 +27,13 @@ from app.schemas.common import (
     FormName,
     FormUpdate,
     JsonPatchOp,
+    PatchErrorType,
 )
 
 STATUS_PATH = "/status"
 ITEM_ID = "item_id"
+# 새 반복 항목에 붙이는 짧은 ID 길이
+ITEM_ID_LENGTH = 8
 
 
 def split_status(patch: list[JsonPatchOp]) -> JsonPatchOp | None:
@@ -62,7 +65,7 @@ def apply_patch(
             # 경로 원문은 입력값이라 오류에 넣지 않고 몇 번째 연산인지만 알려 줍니다.
             raise UnprocessableError(
                 "고칠 칸을 찾지 못했어요.",
-                details=[{"field": f"patch[{index}]", "reason": "unknown_path"}],
+                details=[{"field": f"patch[{index}]", "type": PatchErrorType.UNKNOWN_PATH}],
             ) from None
     return result, updates
 
@@ -156,7 +159,7 @@ def _apply_to_list(
 
 
 def _new_item(value: dict[str, Any], source: FieldSource) -> dict[str, Any]:
-    item: dict[str, Any] = {ITEM_ID: str(value.get(ITEM_ID) or uuid.uuid4().hex[:8])}
+    item: dict[str, Any] = {ITEM_ID: str(value.get(ITEM_ID) or uuid.uuid4().hex[:ITEM_ID_LENGTH])}
     for key, raw in value.items():
         if key != ITEM_ID:
             item[key] = _confirmed(None, raw, source)

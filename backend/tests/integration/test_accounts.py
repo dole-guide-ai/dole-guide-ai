@@ -60,6 +60,7 @@ def test_lee_is_in_round_four_with_relative_dates(client: TestClient) -> None:
     body = client.put("/accounts/lee", headers=headers).json()
 
     assert body["entry"]["branch_id"] == "E4b"
+    assert body["entry"]["title"] == "4차 실업인정 할 일"
     assert body["current_round"]["round"] == 4
     assert body["current_round"]["attendance_required"] is True
     assert body["procedure"]["benefit_days"] == 270
@@ -115,11 +116,10 @@ def test_progress_summary_after_enter(client: TestClient) -> None:
     assert {c["persona_id"]: c["progress_summary"] for c in cards}["lee"] == "실업인정 중"
 
 
-def test_skeleton_endpoint_is_501_after_auth(client: TestClient) -> None:
+def test_account_endpoint_needs_token_first(client: TestClient) -> None:
+    """계정 경로는 토큰부터 확인합니다. 501 틀은 모두 구현돼 남은 것이 없습니다."""
     headers = new_visitor(client)
     client.put("/accounts/park", headers=headers)
 
-    assert client.get("/accounts/park/resume").status_code == 401
-    res = client.get("/accounts/park/resume", headers=headers)
-    assert res.status_code == 501
-    assert res.json()["code"] == "NOT_IMPLEMENTED"
+    assert client.get("/accounts/park/trainings").status_code == 401
+    assert client.get("/accounts/park/trainings", headers=headers).status_code == 200

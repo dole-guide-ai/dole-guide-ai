@@ -1,0 +1,473 @@
+{
+  "status": "saved",
+  "lock_version": 1,
+  "data": {
+    "resume_title": {
+      "value": "시설관리 경력 이력서",
+      "status": "extracted",
+      "source": "seed",
+      "transformed": false,
+      "evidence": null,
+      "answered_on": null
+    },
+    "education": [
+      {
+        "item_id": "edu_001",
+        "education_level": {
+          "value": "고등학교",
+          "status": "extracted",
+          "source": "seed",
+          "transformed": false,
+          "evidence": null,
+          "answered_on": null
+        },
+        "graduation_status": {
+          "value": "졸업",
+          "status": "extracted",
+          "source": "seed",
+          "transformed": false,
+          "evidence": null,
+          "answered_on": null
+        },
+        "school_name": {
+          "value": "OO고등학교",
+          "status": "extracted",
+          "source": "seed",
+          "transformed": false,
+          "evidence": null,
+          "answered_on": null
+        },
+        "start_date": {
+          "value": "1975-03",
+          "status": "extracted",
+          "source": "seed",
+          "transformed": false,
+          "evidence": null,
+          "answered_on": null
+        },
+        "end_date": {
+          "value": "1978-02",
+          "status": "extracted",
+          "source": "seed",
+          "transformed": false,
+          "evidence": null,
+          "answered_on": null
+        },
+        "gpa": {
+          "value": null,
+          "status": "missing",
+          "source": null,
+          "transformed": false,
+          "evidence": null,
+          "answered_on": null
+        },
+        "gpa_scale": {
+          "value": null,
+          "status": "missing",
+          "source": null,
+          "transformed": false,
+          "evidence": null,
+          "answered_on": null
+        },
+        "major": {
+          "value": null,
+          "status": "missing",
+          "source": null,
+          "transformed": false,
+          "evidence": null,
+          "answered_on": null
+        },
+        "double_major": {
+          "value": null,
+          "status": "missing",
+          "source": null,
+          "transformed": false,
+          "evidence": null,
+          "answered_on": null
+        },
+        "minor": {
+          "value": null,
+          "status": "missing",
+          "source": null,
+          "transformed": false,
+          "evidence": null,
+          "answered_on": null
+        },
+        "dual_major": {
+          "value": null,
+          "status": "missing",
+          "source": null,
+          "transformed": false,
+          "evidence": null,
+          "answered_on": null
+        },
+        "is_highest_education": {
+          "value": true,
+          "status": "extracted",
+          "source": "seed",
+          "transformed": false,
+          "evidence": null,
+          "answered_on": null
+        }
+      }
+    ],
+    "job_preferences": {
+      "desired_occupations": [
+        {
+          "item_id": "occ_001",
+          "occupation": {
+            "value": {
+              "code": null,
+              "name": "시설관리",
+              "status": "needs_confirmation"
+            },
+            "status": "extracted",
+            "source": "seed",
+            "transformed": false,
+            "evidence": null,
+            "answered_on": null
+          },
+          "experience_type": {
+            "value": null,
+            "status": "missing",
+            "source": null,
+            "transformed": false,
+            "evidence": null,
+            "answered_on": null
+          },
+          "experience_years": {
+            "value": null,
+            "status": "missing",
+            "source": null,
+            "transformed": false,
+            "evidence": null,
+            "answered_on": null
+          },
+          "experience_months": {
+            "value": null,
+            "status": "missing",
+            "source": null,
+            "transformed": false,
+            "evidence": null,
+            "answered_on": null
+          },
+          "desired_job_description": {
+            "value": null,
+            "status": "missing",
+            "source": null,
+            "transformed": false,
+            "evidence": null,
+            "answered_on": null
+          }
+        }
+      ],
+      "desired_regions": {
+        "value": [
+          {
+            "code": null,
+            "name": "서울 노원구"
+          }
+        ],
+        "status": "extracted",
+        "source": "seed",
+        "transformed": false,
+        "evidence": null,
+        "answered_on": null
+      },
+      "desired_salary": {
+        "value": null,
+        "status": "missing",
+        "source": null,
+        "transformed": false,
+        "evidence": null,
+        "answered_on": null
+      },
+      "employment_contract_type": {
+        "value": null,
+        "status": "missing",
+        "source": null,
+        "transformed": false,
+        "evidence": null,
+        "answered_on": null
+      },
+      "work_arrangements": {
+        "value": null,
+        "status": "missing",
+        "source": null,
+        "transformed": false,
+        "evidence": null,
+        "answered_on": null
+      },
+      "desired_working_hours": {
+        "value": null,
+        "status": "missing",
+        "source": null,
+        "transformed": false,
+        "evidence": null,
+        "answered_on": null
+      },
+      "military_alternative": {
+        "value": null,
+        "status": "missing",
+        "source": null,
+        "transformed": false,
+        "evidence": null,
+        "answered_on": null
+      },
+      "other_preferences": {
+        "value": null,
+        "status": "missing",
+        "source": null,
+        "transformed": false,
+        "evidence": null,
+        "answered_on": null
+      },
+      "search_keywords": {
+        "value": null,
+        "status": "missing",
+        "source": null,
+        "transformed": false,
+        "evidence": null,
+        "answered_on": null
+      }
+    },
+    "careers": [
+      {
+        "item_id": "career_001",
+        "company_name": {
+          "value": "OO아파트 관리사무소",
+          "status": "extracted",
+          "source": "seed",
+          "transformed": false,
+          "evidence": null,
+          "answered_on": null
+        },
+        "start_date": {
+          "value": "2010-03",
+          "status": "extracted",
+          "source": "seed",
+          "transformed": false,
+          "evidence": null,
+          "answered_on": null
+        },
+        "end_date": {
+          "value": "2019-04",
+          "status": "extracted",
+          "source": "seed",
+          "transformed": false,
+          "evidence": null,
+          "answered_on": null
+        },
+        "position": {
+          "value": "시설기사",
+          "status": "extracted",
+          "source": "seed",
+          "transformed": false,
+          "evidence": null,
+          "answered_on": null
+        },
+        "employment_status": {
+          "value": null,
+          "status": "missing",
+          "source": null,
+          "transformed": false,
+          "evidence": null,
+          "answered_on": null
+        },
+        "occupation": {
+          "value": null,
+          "status": "missing",
+          "source": null,
+          "transformed": false,
+          "evidence": null,
+          "answered_on": null
+        },
+        "monthly_salary": {
+          "value": null,
+          "status": "missing",
+          "source": null,
+          "transformed": false,
+          "evidence": null,
+          "answered_on": null
+        },
+        "main_duties": {
+          "value": "전기·설비 점검, 보수 작업",
+          "status": "extracted",
+          "source": "seed",
+          "transformed": false,
+          "evidence": null,
+          "answered_on": null
+        },
+        "additional_details": {
+          "value": null,
+          "status": "missing",
+          "source": null,
+          "transformed": false,
+          "evidence": null,
+          "answered_on": null
+        }
+      }
+    ],
+    "careers_status": {
+      "value": null,
+      "status": "missing",
+      "source": null,
+      "transformed": false,
+      "evidence": null,
+      "answered_on": null
+    },
+    "certifications": [
+      {
+        "item_id": "cert_001",
+        "certificate_name": {
+          "value": "전기기능사",
+          "status": "extracted",
+          "source": "seed",
+          "transformed": false,
+          "evidence": null,
+          "answered_on": null
+        },
+        "issuing_organization": {
+          "value": "한국산업인력공단",
+          "status": "extracted",
+          "source": "seed",
+          "transformed": false,
+          "evidence": null,
+          "answered_on": null
+        },
+        "acquired_date": {
+          "value": "2009-11-20",
+          "status": "extracted",
+          "source": "seed",
+          "transformed": false,
+          "evidence": null,
+          "answered_on": null
+        }
+      }
+    ],
+    "certifications_status": {
+      "value": null,
+      "status": "missing",
+      "source": null,
+      "transformed": false,
+      "evidence": null,
+      "answered_on": null
+    },
+    "other_certifications": {
+      "value": null,
+      "status": "missing",
+      "source": null,
+      "transformed": false,
+      "evidence": null,
+      "answered_on": null
+    },
+    "competencies": {
+      "projects": {
+        "value": null,
+        "status": "missing",
+        "source": null,
+        "transformed": false,
+        "evidence": null,
+        "answered_on": null
+      },
+      "activities_awards": {
+        "value": null,
+        "status": "missing",
+        "source": null,
+        "transformed": false,
+        "evidence": null,
+        "answered_on": null
+      },
+      "vocational_training": {
+        "value": null,
+        "status": "missing",
+        "source": null,
+        "transformed": false,
+        "evidence": null,
+        "answered_on": null
+      },
+      "computer_skills": {
+        "value": null,
+        "status": "missing",
+        "source": null,
+        "transformed": false,
+        "evidence": null,
+        "answered_on": null
+      },
+      "languages": {
+        "value": null,
+        "status": "missing",
+        "source": null,
+        "transformed": false,
+        "evidence": null,
+        "answered_on": null
+      },
+      "overseas_experiences": {
+        "value": null,
+        "status": "missing",
+        "source": null,
+        "transformed": false,
+        "evidence": null,
+        "answered_on": null
+      },
+      "completed_courses": {
+        "value": null,
+        "status": "missing",
+        "source": null,
+        "transformed": false,
+        "evidence": null,
+        "answered_on": null
+      },
+      "job_skills": {
+        "value": null,
+        "status": "missing",
+        "source": null,
+        "transformed": false,
+        "evidence": null,
+        "answered_on": null
+      }
+    },
+    "competencies_status": {
+      "value": null,
+      "status": "missing",
+      "source": null,
+      "transformed": false,
+      "evidence": null,
+      "answered_on": null
+    },
+    "additional_info": {
+      "can_drive": {
+        "value": null,
+        "status": "missing",
+        "source": null,
+        "transformed": false,
+        "evidence": null,
+        "answered_on": null
+      },
+      "owns_vehicle": {
+        "value": null,
+        "status": "missing",
+        "source": null,
+        "transformed": false,
+        "evidence": null,
+        "answered_on": null
+      }
+    }
+  },
+  "completeness": {
+    "filled": 3,
+    "total": 5
+  },
+  "next_question": "resume.career_since_old",
+  "can_save": false,
+  "profile_display": {
+    "name": "최영수",
+    "birth_year": 1959,
+    "gender": "남",
+    "phone": "010-0000-0002",
+    "email": "choi.demo@example.com",
+    "address": "서울특별시 노원구 OO로 2",
+    "bank_name": "OO은행",
+    "account_last4": "0002"
+  }
+}

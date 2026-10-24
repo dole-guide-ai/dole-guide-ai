@@ -1,4 +1,4 @@
-import { applyFormUpdate } from '@/lib/formStore';
+import { applyFormUpdate, toStoreUpdate } from '@/lib/formStore';
 import { patchSession } from '@/lib/sessionStore';
 import type { FormUpdateEvent } from '@/types/chat.types';
 
@@ -8,8 +8,8 @@ import type { FormUpdateEvent } from '@/types/chat.types';
  */
 export const applyFormUpdateEvent = (event: FormUpdateEvent) => {
   if (event.form === 'procedure') {
-    if (event.op === 'remove') patchSession(event.path, null);
-    else patchSession(event.path, event.value);
+    const { path, op } = toStoreUpdate(event.path, event.op);
+    patchSession(path, op === 'remove' ? null : event.value);
     return;
   }
   applyFormUpdate(event);

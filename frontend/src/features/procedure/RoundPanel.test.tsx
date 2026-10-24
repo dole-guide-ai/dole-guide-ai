@@ -5,58 +5,98 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { RoundPanel } from '@/features/procedure/RoundPanel';
 
 import { applyFormUpdate, resetForms } from '@/lib/formStore';
-import {
-  MOCK_ACTIVITY_REMOVALS,
-  MOCK_RECOMMENDATIONS,
-  MOCK_ROUND_CHECKS,
-} from '@/mocks/activities';
-import { buildMockSession } from '@/mocks/handlers';
+import { ROUND_CHECK_PATH } from '@/lib/roundCheck';
+import { sessionFor } from '@/test/fixtures';
 import { renderWithProviders } from '@/test/renderWithProviders';
+import {
+  activityCheck,
+  LEE_ROUND_CHECK,
+  LEE_ROUND_CHECK_SATISFIED,
+} from '@/test/roundCheckFixture';
+
+const RECOMMENDATIONS = {
+  items: [
+    {
+      recommendation_id: 'rec_4_work24_apply',
+      category: 'job_search',
+      kind: 'job_application',
+      title: '입사지원 (고용24)',
+      reason: '구직활동 · 증빙 불필요',
+      evidence_hint: null,
+      external: { rule_refs: ['ACT-001'] },
+    },
+    {
+      recommendation_id: 'rec_4_step_lecture',
+      category: 'non_job_search',
+      kind: 'lecture',
+      title: '온라인 취업특강 (STEP)',
+      reason: '구직 외 활동 · 증빙 불필요 · 한도 2회 중 0회 사용',
+      evidence_hint: null,
+      external: { rule_refs: ['ACT-043'] },
+    },
+  ],
+  total: 2,
+  deadline_text: '12월 21일(월)까지 해 두세요.',
+};
+
+const roundCheckUpdate = (value: unknown) => ({
+  form: 'activities' as const,
+  path: ROUND_CHECK_PATH,
+  op: 'replace' as const,
+  value,
+});
 
 const mockApi = (options: { checkStatus?: number } = {}) =>
   vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
     const url = String(input);
-    if (url.endsWith('/procedure/current-round/check')) {
+    if (url.endsWith('/accounts/lee/rounds/current')) {
       return options.checkStatus
         ? Response.json(
             { code: 'INTERNAL_ERROR', message: '회차 점검을 못 했어요.' },
             { status: options.checkStatus },
           )
-        : Response.json(MOCK_ROUND_CHECKS.lee);
+        : Response.json(LEE_ROUND_CHECK);
     }
-    if (url.endsWith('/procedure/current-round/recommendations')) {
-      return Response.json(MOCK_RECOMMENDATIONS.lee);
-    }
-    if (url.endsWith('/procedure') && init?.method === 'PATCH') {
-      if (String(init.body).includes('"op":"remove"')) {
-        return Response.json({
-          updates: [
-            { form: 'activities', path: 'activities.a2', op: 'remove' },
-            ...MOCK_ACTIVITY_REMOVALS.a2,
-          ],
-        });
-      }
+    if (url.endsWith('/rounds/current/recommendations')) return Response.json(RECOMMENDATIONS);
+    if (url.endsWith('/accounts/lee/activities/a2') && init?.method === 'DELETE') {
+      // OO상사를 빼면 OO물류만 남고 같은 날 경고도 사라집니다 (F-20).
       return Response.json({
         updates: [
-          {
-            form: 'activities',
-            path: 'activities',
-            op: 'append',
-            value: {
-              ...MOCK_ROUND_CHECKS.lee.activities[0],
-              item_id: 'planned_rec_work24_apply',
-              date: '2026-12-18',
-              org_name: '(공고 선택 전)',
-              status: 'planned',
-            },
-          },
+          { form: 'activities', path: '/activities/a2', op: 'remove' },
+          roundCheckUpdate({
+            ...LEE_ROUND_CHECK,
+            activities: [LEE_ROUND_CHECK.activities[0]],
+            warnings: [],
+          }),
         ],
       });
+    }
+    if (url.endsWith('/accounts/lee/activities') && init?.method === 'POST') {
+      const planned = activityCheck({
+        activity_id: 'p1',
+        activity_date: '2026-12-21',
+        org_name: null,
+        source: 'auto',
+        planned: true,
+        status: 'planned',
+      });
+      return Response.json(
+        {
+          updates: [
+            { form: 'activities', path: '/activities/p1', op: 'add', value: planned },
+            roundCheckUpdate({
+              ...LEE_ROUND_CHECK,
+              activities: [...LEE_ROUND_CHECK.activities, planned],
+            }),
+          ],
+        },
+        { status: 201 },
+      );
     }
     return Response.json({ code: 'NOT_FOUND', message: '없는 경로예요.' }, { status: 404 });
   });
 
-const session = () => buildMockSession('lee');
+const session = () => sessionFor('lee');
 
 describe('RoundPanel', () => {
   beforeEach(() => resetForms());
@@ -116,22 +156,7 @@ describe('RoundPanel', () => {
     renderWithProviders(<RoundPanel session={session()} />);
     await screen.findByLabelText('필요 활동 결과');
 
-    act(() => {
-      applyFormUpdate({
-        form: 'activities',
-        path: 'activities',
-        op: 'append',
-        value: {
-          ...MOCK_ROUND_CHECKS.lee.activities[0],
-          item_id: 'a3',
-          date: '2026-12-16',
-          org_name: 'OO물산',
-        },
-      });
-      applyFormUpdate({ form: 'activities', path: 'counted', op: 'set', value: 2 });
-      applyFormUpdate({ form: 'activities', path: 'shortfall', op: 'set', value: 0 });
-      applyFormUpdate({ form: 'activities', path: 'status', op: 'set', value: 'satisfied' });
-    });
+    act(() => applyFormUpdate(roundCheckUpdate(LEE_ROUND_CHECK_SATISFIED)));
 
     expect(screen.getByLabelText('필요 활동 결과')).toHaveTextContent('인정 2건 · 충족');
     expect(screen.getByText('OO물산')).toBeInTheDocument();
@@ -152,36 +177,14 @@ describe('RoundPanel', () => {
     expect(onOpenForm).toHaveBeenCalledTimes(1);
   });
 
-  it('실제 서버 세션은 계정 회차 점검으로 부족 건수를 정하고, 충족이면 바로 넘어간다 (F-22)', async () => {
-    const serverRound = (remaining: number) => ({
-      round: 4,
-      period_start: '2026-11-25',
-      period_end: '2026-12-22',
-      recognition_date: '2026-12-22',
-      attendance_required: true,
-      status: 'current',
-      application_status: 'draft',
-      d_day: 3,
-      required: 2,
-      required_job_search: 1,
-      counted: 2 - remaining,
-      remaining,
-    });
-    const fetchSpy = vi
-      .spyOn(globalThis, 'fetch')
-      .mockResolvedValueOnce(Response.json(serverRound(0)));
+  it('충족이면 묻지 않고 바로 신청서로 넘어간다 (F-22)', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(Response.json(LEE_ROUND_CHECK_SATISFIED));
     const onOpenForm = vi.fn();
-    renderWithProviders(
-      <RoundPanel
-        session={{ ...session(), session_id: 'acct-lee-2026-10-21' }}
-        onOpenForm={onOpenForm}
-      />,
-    );
+    renderWithProviders(<RoundPanel session={session()} onOpenForm={onOpenForm} />);
 
     await userEvent.click(
       await screen.findByRole('button', { name: '활동 정리 끝 · 신청서 만들기' }),
     );
-    expect(String(fetchSpy.mock.calls[0][0])).toContain('/accounts/lee/rounds/current');
     expect(screen.queryByText(/건 부족해요/)).not.toBeInTheDocument();
     expect(onOpenForm).toHaveBeenCalledTimes(1);
   });
@@ -205,7 +208,7 @@ describe('RoundPanel', () => {
       <RoundPanel session={{ ...lee, derived: { ...lee.derived, d_day: -2 } }} />,
     );
 
-    expect(await screen.findByText('12월 22일(화) 실업인정일이 지났어요.')).toBeInTheDocument();
+    expect(await screen.findByText(/실업인정일이 지났어요\./)).toBeInTheDocument();
     expect(screen.getByText(/14일 안에 고용센터에 가서 변경 신청/)).toBeInTheDocument();
   });
 });

@@ -29,13 +29,14 @@ interface RoundPanelProps {
 }
 
 export const RoundPanel = ({ session, onOpenForm }: RoundPanelProps) => {
-  const query = useRoundCheck(session.session_id, session.derived.current_round, {
-    personaId: session.persona_id,
-    ruleGroup: session.derived.rule_group,
-  });
+  const query = useRoundCheck(
+    session.session_id,
+    session.derived.current_round,
+    session.persona_id,
+  );
   const draft = useRoundDraft();
   const [isAskingShort, setIsAskingShort] = useState(false);
-  const remove = useRemoveActivity();
+  const remove = useRemoveActivity(session.persona_id);
 
   if (query.isPending) return <p className="text-muted text-base">이번 회차 활동을 불러오는 중…</p>;
   if (query.isError) {

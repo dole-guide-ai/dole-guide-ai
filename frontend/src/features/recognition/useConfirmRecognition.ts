@@ -2,10 +2,11 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { toRecognitionDraft } from '@/features/recognition/useRecognitionForm';
 
-import { isServerSession } from '@/lib/accountSession';
 import { apiFetch } from '@/lib/api';
+import { API_PATHS } from '@/lib/apiPaths';
 import { recognitionFromApplication } from '@/lib/applicationForm';
-import { replaceFormDraft } from '@/lib/formStore';
+import { IF_MATCH_HEADER, ifMatch } from '@/lib/etag';
+import { getFormDrafts, replaceFormDraft } from '@/lib/formStore';
 import { queryKeys } from '@/lib/queryKeys';
 import type { components } from '@/types/api.gen';
 import type {
@@ -26,7 +27,7 @@ interface ConfirmBody extends RecognitionConfirmCreate {
  * PATCH가 성공하면 제출은 된 것이라, 다시 받기가 실패해도 성공으로 보고 null을 돌려줍니다.
  */
 const submitToServer = async (personaId: string, round: number | null, body: ConfirmBody) => {
-  const path = `/accounts/${encodeURIComponent(personaId)}/rounds/${round ?? 'current'}/application`;
+  const path = API_PATHS.application(personaId, round);
   const patch = [
     { op: 'replace', path: '/status', value: 'submitted' },
     { op: 'replace', path: '/submit_mode', value: body.submit_mode },
@@ -34,7 +35,13 @@ const submitToServer = async (personaId: string, round: number | null, body: Con
       ? [{ op: 'replace', path: '/attend_items', value: body.attend_items }]
       : []),
   ];
-  await apiFetch(path, { method: 'PATCH', body: JSON.stringify(patch) });
+  // 화면에 띄운 신청서 버전으로 제출합니다. 그 사이 다른 탭에서 먼저 냈으면 409 VERSION_CONFLICT.
+  const lockVersion = getFormDrafts().recognition.values.lock_version as number | undefined;
+  await apiFetch(path, {
+    method: 'PATCH',
+    headers: { [IF_MATCH_HEADER]: ifMatch(lockVersion) },
+    body: JSON.stringify(patch),
+  });
   try {
     return recognitionFromApplication(await apiFetch<ApplicationRead>(path));
   } catch {
@@ -44,23 +51,17 @@ const submitToServer = async (personaId: string, round: number | null, body: Con
 
 /**
  * 모의 제출·출석 준비 확인 (2-3.7). 실제 고용24 제출은 하지 않습니다.
- * - 모의 세션: `POST /forms/recognition/confirm { submit_mode }`
- * - 실제 서버 세션: 회차 신청서 PATCH로 제출하고, 다시 받은 신청서로 저장소를 바꿉니다.
+ * 회차 신청서 PATCH로 제출하고, 다시 받은 신청서로 저장소를 바꿉니다 (F-27).
  */
 export const useConfirmRecognition = (
-  sessionId?: string,
-  personaId?: string,
+  sessionId: string,
+  personaId: string,
   round: number | null = null,
 ) => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (body: ConfirmBody): Promise<RecognitionFormRead | null> =>
-      sessionId && personaId && isServerSession(sessionId)
-        ? submitToServer(personaId, round, body)
-        : apiFetch<RecognitionFormRead>('/forms/recognition/confirm', {
-            method: 'POST',
-            body: JSON.stringify({ submit_mode: body.submit_mode }),
-          }),
+      submitToServer(personaId, round, body),
     onSuccess: (form, body) => {
       // 신청서 쿼리는 다시 받지 않으므로(staleTime: Infinity) 제출 뒤 값으로 캐시도 바꿉니다.
       const key = sessionId ? queryKeys.recognitionForm(sessionId, round) : null;

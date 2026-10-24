@@ -24,7 +24,23 @@ paths:
 - 계정 데이터 경로는 `/accounts/{personaId}/...`. 쿼리 키도 `personaId` 기준.
 - 서버 데이터는 TanStack Query 훅(`features/<기능>/useXxx.ts`)으로. 쿼리 키는 `lib/queryKeys.ts`.
 - 요청·응답 타입은 `@/types/api.gen`의 `components['schemas'][...]`만. 직접 타입을 다시 정의하지 않음. `api.gen.ts`는 수정 금지(`pnpm gen:api`).
-- SSE 이벤트 이름은 `SSE_EVENTS`(`lib/sse.ts`). 스트림 오류는 `error` 이벤트.
+- SSE 이벤트 이름은 `SSE_EVENTS`(`lib/sseEvents.ts`). 스트림 오류는 `error` 이벤트.
+- JSON 본문 쓰기 요청은 `apiSend(path, method, body)`, 응답 `{updates}`는 `applyFormUpdates`로 적용.
+- 앱 코드에 mock을 두지 않음. 화면은 늘 실제 백엔드(BFF)를 부름. 테스트는 `src/test/fixtures`(실제 응답을 떠 둔 JSON)와 `mockFetch`로 fetch만 바꿈. 기능 코드에서 `process.env`를 읽지 않음(서버 전용 값은 `lib/serverConfig.ts`).
+
+## 상수·반복 코드 (가독성)
+
+- 숫자·식별 문자열을 코드에 직접 쓰지 않고 이름 붙인 상수로 한 곳에 둠.
+
+| 무엇 | 위치 |
+| --- | --- |
+| API 경로 | `lib/apiPaths.ts` (`API_PATHS`, 기능 훅과 mock이 같이 씀) |
+| 쿼리 키 · 캐시 시간 | `lib/queryKeys.ts` · `lib/queryConfig.ts` (`STALE_TIME`) |
+| 오류 코드 | `lib/errorCodes.ts` (`ERROR_CODES`) |
+| SSE 이벤트 · 대화 액션 · 역할 · 입력 방식 | `lib/sseEvents.ts` · `features/chat/chatActions.ts` · `CHAT_ROLE` · `INPUT_KIND` |
+
+- 같은 로직이 두 곳 이상이면 순수 함수(`lib/`)나 공용 훅으로 뺌. 예: `apiSend`, `applyFormUpdates`, `useProcedurePatch`.
+- 상수 객체는 `as const`, 타입은 `(typeof X)[keyof typeof X]`로 만들어 값과 타입을 한 번만 씀.
 
 ## 오류 처리
 

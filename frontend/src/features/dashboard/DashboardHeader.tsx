@@ -29,7 +29,7 @@ export const DashboardHeader = ({
   onOpenMyData,
 }: DashboardHeaderProps) => (
   <header className="border-line bg-surface flex flex-wrap items-center gap-x-6 gap-y-2 border-b px-4 py-2 sm:px-6">
-    <div className="flex shrink-0 items-center gap-3">
+    <div className="border-line flex shrink-0 items-center gap-3 sm:border-r sm:pr-6">
       <Image
         src="/brand/logo.svg"
         alt="실업급여 길잡이"
@@ -38,9 +38,11 @@ export const DashboardHeader = ({
         priority
         unoptimized
       />
-      <span className="text-muted text-base">{personaName}님</span>
+      <span className="bg-neutral-soft text-ink rounded-full px-3 py-1 text-sm font-semibold">
+        {personaName}님
+      </span>
     </div>
-    <div className="min-w-60 flex-1">
+    <div className="flex min-w-60 flex-1 flex-col gap-0.5">
       <h1 className="text-xl leading-tight font-bold">{title}</h1>
       <p className="text-muted line-clamp-2 text-sm">{nextStepText}</p>
     </div>

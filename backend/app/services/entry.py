@@ -2,13 +2,25 @@
 
 절차 단계, 이력서 상태, 지금 회차와 D-day를 보고 어떤 패널을 열지, 진행바를 어디까지 채울지,
 제목을 무엇으로 할지 정합니다.
-지금은 분기와 패널, 마지막 회차·수급 종료 안내(F-33)만 정하고,
-첫 안내 문구 템플릿과 덧붙임 규칙은 이후에 채웁니다.
+첫 안내 문구·선택지는 템플릿(`rules/entry_text.py`, 상세기획 1.7)으로 만들고 LLM은 쓰지 않습니다.
+마지막 회차·수급 종료 안내(F-33)도 여기서 붙입니다.
 """
 
+from enum import StrEnum
+
+from app.rules import entry_text
 from app.schemas.accounts import Entry, EntryFlags, EntryMessage, EntryUi, Progress
 from app.schemas.procedure import ProcedureRead, Stage
 from app.schemas.rounds import RoundSummary
+
+
+class ResumeState(StrEnum):
+    """진입 분기에서 보는 이력서 상태 (이력서가 없으면 None)."""
+
+    DRAFT = "draft"  # 고치는 중
+    OUTDATED = "outdated"  # 저장했지만 퇴사일 이전 이력서
+    READY = "ready"  # 퇴사 뒤에 저장함
+
 
 _STAGE_STEP = {
     Stage.JOB_REGISTRATION: 1,
@@ -38,8 +50,11 @@ _TITLE = {
     1: "이력서부터 같이 만들어요",
     2: "온라인 교육을 들어요",
     3: "수급자격 신청을 준비해요",
-    4: "이번 회차 할 일",
+    4: "실업인정 할 일",
 }
+# 실업인정 단계는 몇 차인지 제목에 보입니다 (예: 4차 실업인정 할 일).
+ROUND_TITLE = "{round}차 실업인정 할 일"
+RECOGNITION_STEP = 4
 END_TITLE = "실업급여 수급이 끝났어요"
 
 # 마지막 회차·종료 안내 (F-33, 설계 6.6). 종료 사유별 문장은 종료 화면 첫 안내에 씁니다.
@@ -58,7 +73,7 @@ NO_ROUND_TEXT = (
 
 def branch_id(
     procedure: ProcedureRead,
-    resume_status: str | None,
+    resume_status: ResumeState | None,
     round_: RoundSummary | None,
     d_day: int | None,
 ) -> str:
@@ -78,30 +93,51 @@ def branch_id(
         return "E5b"
     if stage == Stage.ELIGIBILITY_APPLICATION:
         return "E5a"
-    if stage == Stage.EDUCATION or resume_status == "ready":
+    if stage == Stage.EDUCATION or resume_status == ResumeState.READY:
         return "E6"
-    if resume_status == "draft":
+    if resume_status == ResumeState.DRAFT:
         return "E7c"
-    return "E7b" if resume_status == "outdated" else "E7a"
+    return "E7b" if resume_status == ResumeState.OUTDATED else "E7a"
 
 
 def build_entry(
     procedure: ProcedureRead,
-    resume_status: str | None,
+    resume_status: ResumeState | None,
     round_: RoundSummary | None,
     d_day: int | None,
+    *,
+    name: str = "",
+    old_resume_year: int | None = None,
+    round_facts: entry_text.RoundFacts | None = None,
 ) -> Entry:
     branch = branch_id(procedure, resume_status, round_, d_day)
     step = _STAGE_STEP[procedure.stage]
     if branch == "E6":
         step = 2
-    next_text = (
-        f"다음 기한 : {round_.round}차 실업인정일 {round_.recognition_date:%m.%d}"
-        if round_ and step == 4
-        else ""
+    facts = entry_text.EntryFacts(
+        name=name,
+        stage=procedure.stage,
+        rule_group=procedure.recipient_group,
+        age_at_separation=procedure.age_at_separation,
+        round_no=round_.round if round_ else None,
+        recognition_date=round_.recognition_date if round_ else None,
+        d_day=d_day,
+        attendance=bool(round_ and round_.attendance_required),
+        old_resume_year=old_resume_year,
+        round_facts=round_facts,
     )
-    title = _TITLE[step]
-    messages: list[EntryMessage] = []
+    composed = entry_text.compose(branch, facts)
+    next_text = entry_text.next_step_text(facts)
+    title = entry_text.stage_title(procedure.stage) or _TITLE[step]
+    if step == RECOGNITION_STEP and facts.round_no:
+        title = ROUND_TITLE.format(round=facts.round_no)
+    messages = [
+        EntryMessage(template_id=tid, text=text, cite=cite) for tid, text, cite in composed.messages
+    ]
+    panel = _PANEL[branch]
+    if branch == "E3" and not facts.attendance:
+        # 오늘이 인정일인데 출석 회차가 아니면 바로 신청서(패널 C)를 엽니다 (1.6 분기 표).
+        panel = "C"
     end = procedure.expected_end_date
     if branch == "END" and procedure.stage == Stage.ENDED:
         title = END_TITLE
@@ -116,11 +152,14 @@ def build_entry(
         messages.append(EntryMessage(template_id="T-LAST", text=LAST_ROUND_TEXT))
     return Entry(
         branch_id=branch,
-        panel=_PANEL[branch],
+        panel=panel,
         progress=Progress(current=step, done=list(range(1, step))),
         title=title,
         next_step_text=next_text,
         messages=messages,
+        choices=composed.choices,
+        accepts_file=composed.accepts_file,
+        rule_refs=composed.rule_refs,
         ui=EntryUi(big_text=procedure.age_at_separation >= BIG_TEXT_AGE),
         flags=EntryFlags(m1=procedure.age_at_separation >= 65 and step <= 3),
     )

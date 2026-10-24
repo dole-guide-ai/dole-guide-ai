@@ -3,6 +3,8 @@
  * 백엔드 API가 올라오면 `pnpm gen:api`로 만든 `api.gen.ts` 타입으로 바꿉니다.
  */
 
+import type { FieldSource } from '@/types/chat.types';
+
 export type ActivityKind = 'job_search' | 'other';
 
 export type ActivityRoute =
@@ -21,7 +23,8 @@ export type ActivityRoute =
   | 'center'
   | 'step_online';
 
-export type ActivitySource = 'conversation' | 'document' | 'work24_import';
+/** 활동의 출처. 칸 출처(`FieldSource`) 중 활동에 쓰는 셋입니다. */
+export type ActivitySource = Extract<FieldSource, 'user_answer' | 'doc' | 'work24_import'>;
 
 /** 2-2.6 계산 결과 */
 export type ActivityStatus =
@@ -108,6 +111,10 @@ export interface RecommendationItem {
   /** 누적 한도가 있는 종류면 사용 현황 (예: `한도 2회 중 0회 사용`) */
   limit_text?: string | null;
   rule_refs: string[];
+  /** 붙인 실제 일정 (F-30: 훈련과정·고용센터 특강). 한 줄씩 보여 줍니다. */
+  schedules?: string[];
+  /** 일정이 스냅샷(모의)에서 왔으면 true */
+  schedules_from_snapshot?: boolean;
 }
 
 /**
@@ -115,12 +122,6 @@ export interface RecommendationItem {
  * `{ path: "activities", op: "append", value: { recommendation_id } }`로 예정 활동을 더합니다.
  * 응답은 `FormPatchRead`(적용할 `form_update`들)입니다.
  */
-export interface ProcedurePatchCreate {
-  path: string;
-  op: 'set' | 'append' | 'remove';
-  value?: unknown;
-}
-
 /** GET /procedure/current-round/recommendations */
 export interface RecommendationsRead {
   items: RecommendationItem[];

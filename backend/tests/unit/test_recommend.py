@@ -10,6 +10,7 @@ from app.rules.recommend import (
     recommend_activities,
     recommendation_id,
 )
+from app.schemas.rounds import LimitsUsed
 
 
 def _keys(**kwargs) -> list[str]:
@@ -18,7 +19,7 @@ def _keys(**kwargs) -> list[str]:
         "shortfall_job_search": 0,
         "group": "general",
         "round_no": 4,
-        "lectures_used": 0,
+        "limits_used": LimitsUsed(),
         "desired_occupation": "일반 사무",
     }
     return [r.candidate.key for r in recommend_activities(**{**base, **kwargs})]
@@ -31,7 +32,7 @@ def test_lee_example_order_is_easy_evidence_first() -> None:
         shortfall_job_search=0,
         group="general",
         round_no=4,
-        lectures_used=0,
+        limits_used=LimitsUsed(lecture=0),
         desired_occupation="일반 사무",
     )
 
@@ -48,7 +49,7 @@ def test_no_shortfall_means_no_recommendation() -> None:
 
 def test_job_search_shortfall_puts_job_search_first() -> None:
     """특강만 2건이라 구직활동이 모자라면(round-003) 구직활동 후보가 위로 갑니다."""
-    assert _keys(shortfall=0, shortfall_job_search=1, lectures_used=1) == [
+    assert _keys(shortfall=0, shortfall_job_search=1, limits_used=LimitsUsed(lecture=1)) == [
         "work24_apply",
         "interview",
         "company_site_apply",
@@ -61,7 +62,7 @@ def test_non_job_search_gets_note_when_job_search_is_short() -> None:
         shortfall_job_search=1,
         group="age_60_64",
         round_no=4,
-        lectures_used=0,
+        limits_used=LimitsUsed(lecture=0),
         desired_occupation=None,
     )
 
@@ -74,7 +75,7 @@ def test_non_job_search_gets_note_when_job_search_is_short() -> None:
             shortfall_job_search=1,
             group="age_60_64",
             round_no=4,
-            lectures_used=0,
+            limits_used=LimitsUsed(lecture=0),
             desired_occupation=None,
         )
         if p.candidate.key == "work24_apply"
@@ -83,12 +84,12 @@ def test_non_job_search_gets_note_when_job_search_is_short() -> None:
 
 
 def test_lecture_limit_and_round_8_rules() -> None:
-    assert "step_lecture" not in _keys(lectures_used=2)
+    assert "step_lecture" not in _keys(limits_used=LimitsUsed(lecture=2))
     # general 8차부터는 구직활동만 인정 (ACT-030)
     assert _keys(round_no=8) == ["work24_apply", "interview", "company_site_apply"]
     assert "step_lecture" in _keys(round_no=8, group="age65_or_disabled")
-    # 반복수급자는 일반 규칙을 따릅니다
-    assert _keys(round_no=8, group="repeat") == ["work24_apply", "interview", "company_site_apply"]
+    # 반복수급자는 지원하지 않아 추천하지 않습니다 (설계 6.1)
+    assert _keys(round_no=8, group="repeat") == []
 
 
 def test_recommendation_id_round_trip() -> None:
@@ -116,13 +117,13 @@ def test_deadline_is_day_before_recognition_and_avoids_busy_days() -> None:
 
 
 def test_weekly_rounds_always_recommend_job_search() -> None:
-    """일반 8차부터는 주마다 구직활동 1건이라 합계를 채워도 구직활동을 권합니다."""
+    """일반 8차부터는 7일마다 구직활동 1건 (설계 6.2)."""
     assert is_weekly_job_search("general", 8) is True
-    assert is_weekly_job_search("repeat", 9) is True
+    assert is_weekly_job_search("repeat", 9) is False
     assert is_weekly_job_search("general", 7) is False
     assert is_weekly_job_search("age65_or_disabled", 8) is False
     assert deadline_text(date(2027, 6, 1), [], weekly=True).endswith(
-        "8차부터는 매주 구직활동 1건이 필요해요. 주를 나누는 기준은 고용센터 안내를 따라 주세요."
+        "8차부터는 대상기간 시작일부터 7일마다 구직활동 1건이 필요해요."
     )
 
 
@@ -154,7 +155,7 @@ def test_non_job_search_note_when_job_search_is_still_needed() -> None:
         shortfall_job_search=1,
         group="general",
         round_no=4,
-        lectures_used=0,
+        limits_used=LimitsUsed(lecture=0),
         desired_occupation=None,
         planned=planned,
     )

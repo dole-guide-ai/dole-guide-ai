@@ -8,8 +8,8 @@ GET 응답에 `ETag: "3"`처럼 내보내고, PATCH는 받은 값을 If-Match로
     response.headers["ETag"] = etag(row.lock_version)      # GET
     check_if_match(if_match, row.lock_version)             # PATCH (서비스에서)
 
-If-Match가 없으면(None) 확인하지 않습니다. 대화 턴의 AI 도구는 헤더 없이 서비스를 부르기 때문입니다.
-REST에서는 프론트가 항상 보냅니다.
+REST는 If-Match가 필수입니다(`api/deps.require_if_match`, 설계 3.11). 서비스에 None이 오면 확인하지
+않는데, 대화 턴의 AI 도구가 헤더 없이 서비스를 바로 부르는 경우입니다.
 """
 
 from app.core.errors import ConflictError

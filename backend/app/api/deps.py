@@ -15,6 +15,8 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from app.core.clock import Now
 from app.core.db import DbSession
+from app.core.errors import ConflictError
+from app.schemas.common import ErrorCode
 from app.services import accounts as account_service
 from app.services import visitors as visitor_service
 
@@ -43,11 +45,36 @@ def get_current_account(
 
 CurrentAccount = Annotated[account_service.AccountContext, Depends(get_current_account)]
 
-IfMatch = Annotated[
-    str | None,
-    Header(alias="If-Match", description="서류 GET 응답의 ETag. 다르면 409 VERSION_CONFLICT"),
-]
+IDEMPOTENCY_KEY_MAX_LENGTH = 100
+
+IF_MATCH_MISSING_MESSAGE = "서류를 다시 불러온 뒤 고쳐 주세요."
+
+
+def require_if_match(
+    if_match: Annotated[
+        str | None,
+        Header(
+            alias="If-Match",
+            description="서류 GET 응답의 ETag (필수). 없거나 다르면 409 VERSION_CONFLICT",
+        ),
+    ] = None,
+) -> str:
+    """서류 PATCH는 If-Match가 꼭 있어야 합니다 (설계 3.11 낙관적 잠금).
+
+    헤더가 없으면 어느 버전을 고치는지 몰라 다른 탭의 변경을 덮어쓸 수 있어 409로 막습니다.
+    대화 턴의 AI 도구는 라우터를 거치지 않고 서비스를 바로 부르므로 이 검사를 받지 않습니다.
+    """
+    if if_match is None:
+        raise ConflictError(code=ErrorCode.VERSION_CONFLICT, message=IF_MATCH_MISSING_MESSAGE)
+    return if_match
+
+
+IfMatch = Annotated[str, Depends(require_if_match)]
 IdempotencyKey = Annotated[
     str | None,
-    Header(alias="Idempotency-Key", max_length=100, description="POST 재시도 중복 방지 키"),
+    Header(
+        alias="Idempotency-Key",
+        max_length=IDEMPOTENCY_KEY_MAX_LENGTH,
+        description="POST 재시도 중복 방지 키",
+    ),
 ]

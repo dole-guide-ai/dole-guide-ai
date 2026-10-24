@@ -125,10 +125,10 @@ export const ResumePanel = ({
   saveLabel: saveLabelOverride,
   onSaved,
 }: ResumePanelProps) => {
-  const query = useResumeForm(session.session_id);
+  const query = useResumeForm(session.session_id, session.persona_id);
   const { values, fields, completeness } = useResumeDraft();
-  const confirm = useConfirmResume();
-  const patch = usePatchResumeField();
+  const confirm = useConfirmResume(session.persona_id);
+  const patch = usePatchResumeField(session.session_id, session.persona_id);
 
   if (query.isPending) return <p className="text-muted text-base">이력서를 불러오는 중…</p>;
   if (query.isError) {
@@ -147,14 +147,16 @@ export const ResumePanel = ({
     isReadOnly
       ? undefined
       : (text: string) => patch.mutateAsync({ path, op: 'set', value: toValue(text) });
-  /** 기간은 한 칸에 '시작 ~ 끝'으로 적고 시작·끝을 따로 고칩니다. */
+  /** 기간은 한 칸에 '시작 ~ 끝'으로 적고, 시작·끝을 한 PATCH로 고칩니다(버전이 한 번만 바뀜). */
   const directPeriod = (base: string) =>
     isReadOnly
       ? undefined
       : async (text: string) => {
           const { start, end } = splitPeriod(text);
-          await patch.mutateAsync({ path: `${base}.start_date`, op: 'set', value: start });
-          await patch.mutateAsync({ path: `${base}.end_date`, op: 'set', value: end });
+          await patch.mutateAsync([
+            { path: `${base}.start_date`, op: 'set', value: start },
+            { path: `${base}.end_date`, op: 'set', value: end },
+          ]);
         };
   const profile = values.profile_display;
   const education = values.education ?? [];
@@ -355,9 +357,8 @@ export const ResumePanel = ({
           rawValue={careerYears}
           meta={fields['job_preferences.experience_summary']}
           isRequired
+          // 경력 합계는 코드가 계산해 확인받는 값이라(2-1.4) 대화로만 고칩니다.
           onEdit={edit('희망 직종 경력')}
-          onDirectSave={direct('job_preferences.experience_summary')}
-          placeholder="경력 9년 6개월 또는 신입"
         />
         <FieldRow
           label="희망직무내용"
@@ -365,7 +366,7 @@ export const ResumePanel = ({
           rawValue={prefs?.desired_duties}
           meta={fields['job_preferences.desired_duties']}
           chip={prefs?.desired_duties ? undefined : OPTIONAL_CHIP}
-          onDirectSave={direct('job_preferences.desired_duties')}
+          onEdit={edit('희망직무내용')}
         />
         <FieldRow
           label="희망근무지역"

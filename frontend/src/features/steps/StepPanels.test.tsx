@@ -7,17 +7,17 @@ import { BigTextProvider } from '@/features/bigText/BigTextProvider';
 import { PanelFrame } from '@/features/dashboard/PanelFrame';
 
 import type { SessionRead } from '@/types/demo.types';
-import { buildMockSession } from '@/mocks/handlers';
+import { type PersonaId, sessionFor } from '@/test/fixtures';
 import { mockFetchPending } from '@/test/mockFetch';
 import { renderWithProviders } from '@/test/renderWithProviders';
 
 const withPanel = (
-  personaId: string,
+  personaId: PersonaId,
   panel: SessionRead['entry']['panel'],
   state: Partial<SessionRead['state']> = {},
   derived: Partial<SessionRead['derived']> = {},
 ): SessionRead => {
-  const session = buildMockSession(personaId);
+  const session = sessionFor(personaId);
   return {
     ...session,
     state: { ...session.state, ...state },
@@ -86,7 +86,7 @@ describe('패널 E · Q · E5b (정적)', () => {
     );
 
     expect(screen.getByText('1차 실업인정일을 알려 주세요')).toBeInTheDocument();
-    expect(screen.getByText('9.15(화)')).toBeInTheDocument();
+    expect(screen.getByText('7.21(화)')).toBeInTheDocument();
     expect(screen.getByText(/7일은 대기기간이라/)).toBeInTheDocument();
     expect(screen.queryByLabelText('필요 활동 결과')).not.toBeInTheDocument();
   });

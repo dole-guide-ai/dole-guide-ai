@@ -9,10 +9,9 @@ from app.rules.application import (
     carry_previous_answers,
     checklist,
     locked_reason,
-    needs_evidence,
-    required_activities,
     submit_mode,
 )
+from app.schemas.rounds import ActivityStatus
 
 START, END = date(2026, 11, 25), date(2026, 12, 22)
 
@@ -30,8 +29,9 @@ def test_apply_method_mapping() -> None:
     assert apply_method_from_route(None) is None
 
 
-def test_only_recorded_activities_in_period_go_into_form() -> None:
-    """완료 기준: 기록한 활동만 신청서에 들어가고, 같은 날 2건째는 참고로 뺍니다."""
+def test_form_follows_round_check_statuses() -> None:
+    """완료 기준: 인정 계산 활동만 신청서에 들어가고, 같은 날·한도 초과는 이유와 함께 뺍니다."""
+    counted, same_day = ActivityStatus.COUNTED, ActivityStatus.SAME_DAY
     result = build_form_activities(
         [
             activity(1, date(2026, 12, 8), route="work24"),
@@ -40,9 +40,17 @@ def test_only_recorded_activities_in_period_go_into_form() -> None:
             activity(4, date(2026, 12, 17), planned=True),
             activity(5, date(2026, 11, 20)),
             activity(6, date(2026, 12, 14), category="other", kind="lecture", org_name="특강"),
+            activity(7, date(2026, 12, 16), category="other", kind="lecture", org_name="특강"),
         ],
-        START,
-        END,
+        {
+            "a1": counted,
+            "a2": same_day,
+            "a3": counted,
+            "a4": ActivityStatus.PLANNED,
+            "a5": ActivityStatus.OUT_OF_PERIOD,
+            "a6": counted,
+            "a7": ActivityStatus.LIMIT_OVER,
+        },
     )
 
     assert [r["company_name"] for r in result.job_search] == ["OO1", "OO기획"]
@@ -50,7 +58,10 @@ def test_only_recorded_activities_in_period_go_into_form() -> None:
     assert result.job_search[0]["job_search_method"] == "고용24(워크넷)"
     assert result.job_search[1]["application_method"] == "기타"
     assert result.job_search[1]["job_search_method"] is None
-    assert [(e["activity_id"], e["reason"]) for e in result.excluded] == [("a2", "same_day")]
+    assert [(e["activity_id"], e["reason"]) for e in result.excluded] == [
+        ("a2", "same_day"),
+        ("a7", "limit_over"),
+    ]
     assert [o["kind"] for o in result.other] == ["lecture"]
 
 
@@ -75,13 +86,6 @@ def test_locked_reason() -> None:
         locked_reason({"industrial_accident": {"receiving": {"value": "yes"}}})
         == "industrial_accident"
     )
-
-
-def test_required_activities_by_group_and_round() -> None:
-    assert required_activities("general", 1) == (1, 0)
-    assert required_activities("general", 4) == (2, 1)
-    assert required_activities("age65_or_disabled", 4) == (1, 0)
-    assert required_activities("repeat", 4) == (2, 1)
 
 
 def kst(day: date, hour: int, minute: int = 0) -> datetime:
@@ -125,7 +129,9 @@ ROW = {
 
 def test_shortfall_and_missing_evidence_are_warnings_only() -> None:
     """완료 기준: 활동 1건 부족·증빙 없음은 경고만 나오고 제출은 가능합니다."""
-    blocking, warnings = checklist(FULL, [ROW], counted=1, required=2, evidence_missing=1)
+    blocking, warnings = checklist(
+        FULL, [ROW], remaining=1, remaining_job_search=0, evidence_missing=1
+    )
 
     assert blocking == []
     assert [w["key"] for w in warnings] == ["requirement_met", "evidence_ok"]
@@ -137,7 +143,11 @@ def test_shortfall_and_missing_evidence_are_warnings_only() -> None:
 def test_missing_self_answers_and_fields_block_submit() -> None:
     data = {**FULL, "work": {"has_work": {"value": None}}, "notification_method": {}}
     blocking, warnings = checklist(
-        data, [{**ROW, "recruitment_contact": None}], counted=2, required=2, evidence_missing=0
+        data,
+        [{**ROW, "recruitment_contact": None}],
+        remaining=0,
+        remaining_job_search=0,
+        evidence_missing=0,
     )
 
     assert [b["key"] for b in blocking] == ["self_answers", "job_search_fields", "notification"]
@@ -146,31 +156,10 @@ def test_missing_self_answers_and_fields_block_submit() -> None:
     assert can_submit("send", [], "employed") is False
 
 
-def test_evidence_needed_except_work24() -> None:
-    assert needs_evidence("work24") is False
-    assert needs_evidence("company_site") is True
-
-
-def test_same_day_representative_prefers_work24_job_search() -> None:
-    """같은 날 2건이면 기록 순서와 상관없이 구직활동·고용24(증빙 불필요)를 대표로 인정합니다."""
-    day = date(2026, 12, 8)
-    result = build_form_activities(
-        [
-            activity(2, day, route="company_site", org_name="OO상사"),
-            activity(1, day, route="work24", org_name="OO물류"),
-        ],
-        START,
-        END,
-    )
-
-    assert [r["company_name"] for r in result.job_search] == ["OO물류"]
-    assert [e["company_name"] for e in result.excluded] == ["OO상사"]
-
-
 def test_missing_job_search_is_warning_even_when_count_is_met() -> None:
     """구직 외 활동 2건만 있으면 건수는 채워도 구직활동 1건이 모자라 경고합니다 (W6)."""
     blocking, warnings = checklist(
-        FULL, [], counted=2, required=2, evidence_missing=0, required_job_search=1
+        FULL, [], remaining=0, remaining_job_search=1, evidence_missing=0
     )
 
     assert blocking == []

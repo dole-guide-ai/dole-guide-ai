@@ -1,10 +1,5 @@
 import { API_BASE_URL, ApiError, networkError, toApiError } from '@/lib/api';
-
-import sseEvents from '../../../shared/sse-events.json';
-
-export const SSE_EVENTS = sseEvents;
-
-export type SseEventName = (typeof SSE_EVENTS)[keyof typeof SSE_EVENTS];
+import { ERROR_CODES } from '@/lib/errorCodes';
 
 export interface RawSseEvent {
   event: string;
@@ -33,7 +28,7 @@ export const openSseStream = async (
     throw networkError();
   }
   if (!res.ok) throw await toApiError(res);
-  if (!res.body) throw new ApiError('INTERNAL_ERROR', '응답 본문이 없어요.', res.status);
+  if (!res.body) throw new ApiError(ERROR_CODES.INTERNAL_ERROR, '응답 본문이 없어요.', res.status);
   return parseSseStream(res.body);
 };
 

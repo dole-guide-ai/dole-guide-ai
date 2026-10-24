@@ -41,6 +41,14 @@ paths:
 - 예외 `message`·`details`에 입력값을 넣지 않음.
 - 음성 원본과 이력서 서류(`purpose=resume_doc`)는 판독 후 지움. 구직활동 증빙(`purpose=evidence`)만 `UPLOAD_DIR/{user_id}/`에 보관.
 
+## 상수·반복 코드 (가독성)
+
+- 상태·종류 문자열(`"draft"` 등)을 직접 쓰지 않고 `app/schemas/`의 `StrEnum`을 씀. 모델 CHECK도 `enum_values(Enum)`으로 같은 enum에서 만듦.
+- 운영에서 바꿀 수 있는 숫자(타임아웃·보관 시간·한도)는 `app/core/config.py` 설정으로, 나머지 숫자는 모듈 맨 위 이름 붙인 상수로(`MESSAGE_MAX_CHARS`, `ITEM_ID_LENGTH` 등). 설정을 추가하면 `.env.example`·`deploy/.env.example`·`docker-compose.prod.yml`에도 추가.
+- 오류 문구는 `app/core/errors.py`의 `DEFAULT_MESSAGES`에서 가져옴. 같은 문구를 다른 곳에 다시 쓰지 않음.
+- 같은 로직이 두 곳 이상이면 함수로 뺌. 예: 동시 생성 충돌 처리 `create_or_existing`(`core/db.py`), 방문자 만료 `_expiry`.
+- SSE 이벤트 이름은 `app/agent/events.py`(테스트가 `shared/sse-events.json`과 같은지 확인).
+
 ## 테스트
 
 - 서비스·순수 로직 → `tests/unit/` (DB 없이, `fake_llm`).

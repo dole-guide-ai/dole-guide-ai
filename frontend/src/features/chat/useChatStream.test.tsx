@@ -6,7 +6,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { useChatStream } from '@/features/chat/useChatStream';
 
-import { buildMockSession } from '@/mocks/handlers';
+import { sessionFor } from '@/test/fixtures';
 import { createTestQueryClient } from '@/test/renderWithProviders';
 
 const wrapper = ({ children }: { children: ReactNode }) => (
@@ -23,7 +23,7 @@ describe('useChatStream 새로고침 복원 (F-03)', () => {
         { status: 500 },
       ),
     );
-    const session = { ...buildMockSession('lee'), session_id: 'acct-lee-2026-10-21' };
+    const session = { ...sessionFor('lee'), session_id: 'acct-lee-2026-10-21' };
 
     const { result } = renderHook(() => useChatStream(session), { wrapper });
 

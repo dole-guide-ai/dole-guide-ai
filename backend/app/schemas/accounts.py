@@ -9,6 +9,7 @@ from datetime import date, datetime
 
 from pydantic import BaseModel
 
+from app.schemas.messages import AskUserEvent
 from app.schemas.procedure import ProcedureRead
 from app.schemas.rounds import RoundSummary
 
@@ -66,18 +67,11 @@ class Entry(BaseModel):
     next_step_text: str
     messages: list[EntryMessage] = []
     choices: list[str] = []
+    # 첫 안내가 서류·사진을 요청하면 파일 올리기를 켭니다 (2-0.4 accepts_file)
+    accepts_file: bool = False
     ui: EntryUi = EntryUi()
     flags: EntryFlags = EntryFlags()
     rule_refs: list[str] = []
-
-
-class AskUser(BaseModel):
-    question_id: str
-    text: str
-    choices: list[str] = []
-    import_kind: str | None = None
-    # 서류·사진을 요청한 질문이면 true (새로고침 뒤에도 파일 올리기를 켭니다, F-03)
-    accepts_file: bool = False
 
 
 class AccountRead(BaseModel):
@@ -86,4 +80,5 @@ class AccountRead(BaseModel):
     procedure: ProcedureRead
     current_round: RoundSummary | None = None
     entry: Entry
-    pending_ask: AskUser | None = None
+    # 답을 기다리던 질문. 대화 턴의 ask_user 이벤트와 같은 모양입니다 (F-03).
+    pending_ask: AskUserEvent | None = None

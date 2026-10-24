@@ -159,7 +159,8 @@ export interface paths {
          * 이력서 조회
          * @description 고용24 이력서 양식대로 채워진 값과 칸마다의 상태(출처·확인 여부), 꼭 묻는 5개 항목의 완성도,
          *     다음에 물을 질문, 저장 가능 여부, 맨 위 기본정보(고용24 회원정보에서 연동) 표시값을 돌려줍니다.
-         *     응답의 ETag는 고칠 때 If-Match 헤더로 보냅니다. (아직 구현 전이라 501)
+         *     아직 이력서가 없으면 빈 초안(lock_version 0)입니다.
+         *     응답의 ETag는 고칠 때 If-Match 헤더로 보냅니다.
          */
         get: operations["get_resume"];
         put?: never;
@@ -172,13 +173,14 @@ export interface paths {
          * @description JSON Patch로 칸을 고치거나, 이력서를 저장합니다.
          *
          *     - 칸 고치기: `[{"op": "replace", "path": "/careers/c1/company_name", "value": "OO물산"}]`. 여러
-         *       칸을 한 번에 보낼 수 있습니다.
+         *       칸을 한 번에 보낼 수 있고, 고친 칸은 확인됨·직접 입력이 됩니다. 응답 updates는
+         *       바뀐 칸들입니다.
          *     - 저장: `[{"op": "replace", "path": "/status", "value": "saved"}]`. 꼭 묻는 5개가 다 차고 확인
-         *       필요가 없어야 하며, 아니면 409 RESUME_NOT_READY.
+         *       필요가 없어야 하며, 아니면 409 RESUME_NOT_READY. 저장하면 단계가 온라인 교육으로 넘어가고,
+         *       응답 entry에 바뀐 첫 화면(저장 안내·고용24 입력 안내 포함)이 옵니다.
          *     - 다시 고치기: `/status`를 `draft`로. `/status`는 다른 칸과 함께 보낼 수 없습니다(422).
          *
-         *     If-Match가 GET의 ETag와 다르면(다른 탭에서 먼저 고침) 409 VERSION_CONFLICT입니다. (아직 구현
-         *     전이라 501)
+         *     If-Match가 GET의 ETag와 다르면(다른 탭에서 먼저 고침) 409 VERSION_CONFLICT입니다.
          */
         patch: operations["patch_resume"];
         trace?: never;
@@ -211,7 +213,10 @@ export interface paths {
          *     보내며, 각각 한 번만 입력할 수 있습니다.
          *     1차 인정일이 들어오면 서버가 회차와 회차별 신청서를 한꺼번에 만듭니다. 회차 자체를 바꾸는 값은
          *     없습니다.
-         *     (아직 구현 전이라 501)
+         *     순서는 교육 이수(`true`) → 수급자격 신청일(이직일 뒤·오늘까지) → 1차 인정일(신청일 + 7일
+         *     이후)이고,
+         *     순서가 틀리거나 이미 넣은 값이면 409 STAGE_ORDER, 날짜가 틀리면 422입니다. 한 번에 한 칸만
+         *     보냅니다. 응답 entry는 바뀐 첫 화면입니다.
          */
         patch: operations["patch_procedure"];
         trace?: never;
@@ -252,8 +257,9 @@ export interface paths {
          *
          *     필요 건수와 인정 건수, 남은 건수, D-day, 활동별 인정 상태와 경고, 필요한 증빙, 구직 외 활동 누적
          *     사용 횟수가 들어 있습니다.
-         *     숫자는 모두 규칙 함수가 계산합니다. 아직 회차가 없으면 404 NO_ACTIVE_ROUND. (아직 구현 전이라
-         *     501)
+         *     숫자는 모두 규칙 함수(`check_round`, 상세기획 2-2.6)가 계산합니다. `status`는 회차 상태,
+         *     `check_status`는 충족(satisfied)·부족(short)·확인 필요(needs_check)입니다. 일반 수급자 8차부터는
+         *     `weeks`에 7일마다의 구직활동 수가 들어갑니다. 아직 회차가 없으면 404 NO_ACTIVE_ROUND.
          */
         get: operations["get_current_round"];
         put?: never;
@@ -344,7 +350,8 @@ export interface paths {
          * 구직활동 목록
          * @description 이 계정의 활동 기록을 돌려줍니다. round를 주면 그 회차 대상기간의 활동만 돌려줍니다.
          *
-         *     활동의 회차 번호는 저장된 값이 아니라 대상기간으로 계산한 값입니다. (아직 구현 전이라 501)
+         *     활동의 회차 번호는 저장된 값이 아니라 대상기간으로 계산한 값입니다.
+         *     지금 회차 활동에는 회차 점검의 계산 결과(status: counted·same_day 등)가 붙습니다.
          */
         get: operations["list_activities"];
         put?: never;
@@ -355,7 +362,12 @@ export interface paths {
          *     - 추천 넣기(F-19): recommendation_id만 보냅니다. 인정일 전날(오늘이 인정일이면 오늘) 예정으로
          *       들어가고 계산에는 넣지 않습니다. 지금 추천 목록에 없으면 409 CONFLICT, 같은 추천을 이미
          *       넣었으면 409 DUPLICATE_ACTIVITY, 오늘이 속한 회차가 없으면 404 NO_ACTIVE_ROUND입니다.
-         *     - 직접 기록: 날짜·종류·경로·회사 등 활동 값을 보냅니다. (활동 기록 기능에서 붙일 예정이라 501)
+         *     - 직접 기록(F-17): activity_date·kind·route·org_name 등을 보냅니다. 구분(category)은 종류로
+         *       코드가 정하고, 규칙 표에 없는 종류면 category를 같이 보내야 합니다(없으면 422). 오늘보다 뒤
+         *       날짜는 예정으로 들어갑니다. 날짜·종류·회사가 같은 활동이 있으면 409 DUPLICATE_ACTIVITY,
+         *       지난 회차 날짜면 409 ROUND_CLOSED, file_ids가 내 증빙 파일이 아니면 404입니다.
+         *
+         *     응답 updates는 넣은 활동과 다시 계산한 회차 점검(`/round_check`)입니다.
          *
          *     Idempotency-Key 헤더를 주면 같은 요청이 두 번 와도 한 번만 만듭니다.
          */
@@ -378,17 +390,25 @@ export interface paths {
         post?: never;
         /**
          * 구직활동 빼기
-         * @description 활동을 지우고 다시 계산한 회차 점검 결과를 바뀐 칸(updates)으로 돌려줍니다.
+         * @description 활동을 지우고 다시 계산한 회차 점검 결과를 바뀐 칸(updates)으로 돌려줍니다 (F-20).
          *
-         *     지난 회차 활동은 409 ROUND_CLOSED입니다. (아직 구현 전이라 501)
+         *     같은 날이라 빠졌던 활동이 인정으로 바뀔 수 있습니다. 지난 회차 활동은 409 ROUND_CLOSED입니다.
          */
         delete: operations["delete_activity"];
         options?: never;
         head?: never;
         /**
          * 구직활동 고치기
-         * @description JSON Patch로 활동 값을 고칩니다. 지난 회차 활동은 409 ROUND_CLOSED입니다. (아직 구현 전이라
-         *     501)
+         * @description 패널에서 활동 칸을 직접 고칩니다 (F-12). 예: `[{"op": "replace", "path": "/org_name",
+         *     "value": "OO물산"}]`
+         *
+         *     - 고칠 수 있는 칸: activity_date, kind, route, org_name, job_title, search_method,
+         *       apply_method, contact_dept, result, hours. 그 밖의 칸·틀린 형식은 422(날짜는 YYYY-MM-DD,
+         *       새 날짜도 이번 회차 대상기간 안). activity_date·kind는 지울 수 없습니다.
+         *     - 지난 회차 활동은 409 ROUND_CLOSED, 없는 활동은 404입니다.
+         *     - kind를 바꾸면 구분(category)도 종류에 맞게 코드가 다시 정합니다.
+         *     - 고친 활동은 출처가 직접 입력(direct)이 됩니다. 응답 updates는 고친 활동과 다시 계산한 회차
+         *       점검(`/round_check`)입니다.
          */
         patch: operations["patch_activity"];
         trace?: never;
@@ -451,7 +471,8 @@ export interface paths {
          * @description 고용24 이력보기를 흉내 낸 모의 경력·자격·훈련 목록을 돌려줍니다. 이미 이력서에 넣은 항목은
          *     is_recorded로 표시합니다.
          *
-         *     고른 항목을 실제로 넣는 일은 대화 메시지(import_ids)로 합니다. (아직 구현 전이라 501)
+         *     항목 값(values)은 category·title·detail입니다.
+         *     고른 항목을 실제로 넣는 일은 대화 메시지(import_ids)로 합니다.
          */
         get: operations["list_career_certificates"];
         put?: never;
@@ -473,11 +494,36 @@ export interface paths {
          * 고용24 입사지원 내역 불러오기 (모의)
          * @description 고용24 구직활동 불러오기를 흉내 낸 모의 입사지원 목록을 돌려줍니다. 이미 기록한 활동은
          *     is_recorded로 표시합니다.
-         *     (아직 구현 전이라 501)
+         *
+         *     항목 값(values)은 category·title·detail·date(지원일)입니다.
          */
         get: operations["list_job_applications"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/accounts/{persona_id}/imports/apply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 고른 불러오기 항목 넣기 (모의)
+         * @description 고른 항목을 넣습니다 (F-10). 입사지원은 구직활동(출처 import, 고용24 경로)으로, 경력·자격은
+         *     이력서 칸(출처 import)으로 들어가고, 목록에서는 이미 넣음(is_recorded)이 됩니다.
+         *
+         *     목록에 없는 항목은 404, 이미 넣은 항목은 409, 지난 회차 입사지원은 409 ROUND_CLOSED, 직업훈련
+         *     이력은 아직 대화로만 받아 422입니다. 응답 updates는 바뀐 활동·이력서 칸과 회차 점검입니다.
+         */
+        post: operations["apply_imports"];
         delete?: never;
         options?: never;
         head?: never;
@@ -493,9 +539,9 @@ export interface paths {
         };
         /**
          * 내 정보 (내가 답한 내용)
-         * @description 이력서와 지금 회차 신청서에서 사용자가 직접 답한 칸을 한 줄씩 모아 보여 주고, 서비스가
-         *     저장하지 않는 정보 목록을 함께 돌려줍니다.
-         *     (아직 구현 전이라 501)
+         * @description 작성한 서류(이력서 상태), 절차 상태(단계·다음 실업인정일), 내가 답한 내용(지금 회차 신청서의
+         *     실업크레딧·통지 방법, 이력서에서 대화로 답한 칸)을 한 줄씩 모아 보여 주고, 서비스가 저장하지
+         *     않는 정보 목록을 함께 돌려줍니다. 지울 수 있는 줄은 내가 답한 내용(group=facts)뿐입니다.
          */
         get: operations["list_facts"];
         put?: never;
@@ -518,10 +564,11 @@ export interface paths {
         post?: never;
         /**
          * 내가 답한 내용 한 줄 지우기
-         * @description 그 칸을 답변 필요 상태로 되돌리고, 바뀐 칸을 돌려줍니다.
+         * @description 그 칸을 답변 필요 상태로 되돌리고, 바뀐 칸을 돌려줍니다. 신청서 답은 지난 회차 답을 다시
+         *     불러오지 않습니다.
          *
-         *     지난 회차 신청서의 답처럼 지울 수 없는 줄이면 409 FACT_NOT_DELETABLE입니다. (아직 구현 전이라
-         *     501)
+         *     서류·절차 줄은 409 FACT_NOT_DELETABLE, 이미 제출한 신청서면 409 APPLICATION_LOCKED,
+         *     없는 줄은 404입니다.
          */
         delete: operations["delete_fact"];
         options?: never;
@@ -553,9 +600,10 @@ export interface paths {
          *
          *     이벤트 순서: tool_call → form_update(여러 번) → token(여러 번) → done → ask_user. 이름은
          *     shared/sse-events.json을 따릅니다.
-         *     같은 계정의 턴이 이미 진행 중이면 409 TURN_IN_PROGRESS, 턴 도중 실패는 error 이벤트로 보냅니다.
-         *     턴은 3분을 넘기지 않습니다.
-         *     (아직 구현 전이라 501)
+         *     같은 계정의 턴이 이미 진행 중이면 409 TURN_IN_PROGRESS입니다. 같은 Idempotency-Key로 다시 보내면
+         *     턴을 다시 돌리지 않고 409입니다(결과는 GET /messages로 다시 읽음).
+         *     턴 도중 실패는 error 이벤트로 보내고, 3분을 넘으면 error{TIMEOUT}으로 끝납니다.
+         *     연결이 끊기면(멈추기·탭 닫기) 턴을 멈추고 그때까지의 말풍선을 저장합니다.
          */
         post: operations["send_message"];
         delete?: never;
@@ -578,7 +626,8 @@ export interface paths {
          *
          *     결과는 저장하지 않으며, 외부 API가 실패하면 미리 받아 둔 스냅샷으로 대체하고 source=snapshot을
          *     붙입니다.
-         *     스냅샷도 없으면 503 EXTERNAL_UNAVAILABLE입니다. (아직 구현 전이라 501)
+         *     스냅샷도 없으면 503 EXTERNAL_UNAVAILABLE입니다. 희망 직종은 과정명 키워드로 찾습니다(직종코드를
+         *     NCS로 바꾸지 않음). 지역은 주소에 그 이름이 들어간 과정만 남깁니다.
          */
         get: operations["list_trainings"];
         put?: never;
@@ -601,7 +650,9 @@ export interface paths {
          * @description 고용24 OpenAPI로 고용센터의 집단상담·취업특강 일정을 조회합니다. 조건을 비우면 관할 센터로
          *     조회합니다.
          *
-         *     결과는 저장하지 않고, 실패하면 스냅샷으로 대체합니다. (아직 구현 전이라 501)
+         *     결과는 저장하지 않고, 실패하면 스냅샷으로 대체합니다. 고용센터 코드 표가 아직 없어 center는
+         *     받기만 하고 쓰지 않습니다.
+         *     from이 있으면 그날부터, to가 있으면 그날까지 시작하는 과정을 찾습니다.
          */
         get: operations["list_programs"];
         put?: never;
@@ -628,7 +679,7 @@ export interface components {
             procedure: components["schemas"]["ProcedureRead"];
             current_round?: components["schemas"]["RoundSummary"] | null;
             entry: components["schemas"]["Entry"];
-            pending_ask?: components["schemas"]["AskUser"] | null;
+            pending_ask?: components["schemas"]["AskUserEvent"] | null;
         };
         /**
          * ActivityCategory
@@ -639,13 +690,40 @@ export interface components {
         ActivityCheck: {
             /** Activity Id */
             activity_id: string;
-            /** State */
-            state: string;
             /**
-             * Warnings
+             * Activity Date
+             * Format: date
+             */
+            activity_date: string;
+            category: components["schemas"]["ActivityCategory"];
+            /** Kind */
+            kind: string;
+            /** Route */
+            route?: string | null;
+            /** Org Name */
+            org_name?: string | null;
+            /** Job Title */
+            job_title?: string | null;
+            /** Source */
+            source: string;
+            /** Planned */
+            planned: boolean;
+            status: components["schemas"]["ActivityStatus"];
+            /**
+             * Required Evidence
              * @default []
              */
-            warnings: string[];
+            required_evidence: string[] | null;
+            /**
+             * Has Evidence
+             * @default false
+             */
+            has_evidence: boolean;
+            /**
+             * Rule Refs
+             * @default []
+             */
+            rule_refs: string[];
         };
         /**
          * ActivityCreate
@@ -659,8 +737,7 @@ export interface components {
             category?: components["schemas"]["ActivityCategory"] | null;
             /** Kind */
             kind?: string | null;
-            /** Route */
-            route?: string | null;
+            route?: components["schemas"]["ActivityRoute"] | null;
             /** Org Name */
             org_name?: string | null;
             /** Job Title */
@@ -699,14 +776,26 @@ export interface components {
             planned: boolean;
             /** Source */
             source: string;
-            /** State */
-            state?: string | null;
+            /** Status */
+            status?: string | null;
             /**
              * File Ids
              * @default []
              */
             file_ids: string[];
         };
+        /**
+         * ActivityRoute
+         * @description 지원·참여 경로 (상세기획 2-2.2). 필요 증빙을 정하고(규칙 표 routes), 신청서 칸은 아닙니다.
+         * @enum {string}
+         */
+        ActivityRoute: "work24" | "portal" | "email" | "company_site" | "newspaper" | "mail" | "fax" | "visit" | "referral" | "interview" | "job_fair" | "training" | "center" | "step_online";
+        /**
+         * ActivityStatus
+         * @description 활동 하나의 회차 계산 결과 (상세기획 2-2.2·2-2.6).
+         * @enum {string}
+         */
+        ActivityStatus: "counted" | "same_day" | "out_of_period" | "not_allowed" | "limit_over" | "needs_check" | "planned";
         /** AdditionalInfo */
         AdditionalInfo: {
             /**
@@ -749,9 +838,9 @@ export interface components {
             /** Attendance Required */
             attendance_required: boolean;
             /** Required Activities */
-            required_activities: number;
+            required_activities: number | null;
             /** Required Job Search */
-            required_job_search: number;
+            required_job_search: number | null;
             data: components["schemas"]["RecognitionData"];
             /**
              * Job Search Rows
@@ -780,8 +869,8 @@ export interface components {
          * @enum {string}
          */
         ApplicationStatus: "draft" | "submitted";
-        /** AskUser */
-        AskUser: {
+        /** AskUserEvent */
+        AskUserEvent: {
             /** Question Id */
             question_id: string;
             /** Text */
@@ -899,6 +988,12 @@ export interface components {
              */
             acquired_date: components["schemas"]["FormField"];
         };
+        /**
+         * CheckStatus
+         * @description 회차 전체 판정: 충족 / 부족 / 규칙으로 셀 수 없어 확인 필요.
+         * @enum {string}
+         */
+        CheckStatus: "satisfied" | "short" | "needs_check";
         /** Checklist */
         Checklist: {
             /**
@@ -1209,6 +1304,11 @@ export interface components {
              */
             choices: string[];
             /**
+             * Accepts File
+             * @default false
+             */
+            accepts_file: boolean;
+            /**
              * @default {
              *       "big_text": false
              *     }
@@ -1269,6 +1369,12 @@ export interface components {
             details?: unknown;
         };
         /**
+         * EvidenceKind
+         * @description 칸 값의 근거 종류 (상세기획 2-0.6 근거 보기).
+         * @enum {string}
+         */
+        EvidenceKind: "utterance" | "document" | "work24_import" | "computed";
+        /**
          * ExcludedRow
          * @description 계산에서 뺀 활동 (같은 날 2건째 등). 신청서에는 넣지 않고 참고로만 보여 줍니다.
          */
@@ -1290,6 +1396,12 @@ export interface components {
          * @enum {string}
          */
         ExternalSource: "live" | "snapshot";
+        /**
+         * FactGroup
+         * @description 내 정보 창의 묶음: 작성한 서류 · 절차 상태 · 내가 답한 내용(이것만 지울 수 있음).
+         * @enum {string}
+         */
+        FactGroup: "resume" | "procedure" | "facts";
         /** FactList */
         FactList: {
             /** Items */
@@ -1303,8 +1415,7 @@ export interface components {
         FactRead: {
             /** Fact Id */
             fact_id: string;
-            /** Group */
-            group: string;
+            group: components["schemas"]["FactGroup"];
             /** Label */
             label: string;
             /** Value */
@@ -1315,10 +1426,23 @@ export interface components {
             is_deletable: boolean;
         };
         /**
+         * FieldEvidence
+         * @description 근거 보기 (F-11): 원래 문장(quote)과 기준일(date), 바꾼 이유(note).
+         */
+        FieldEvidence: {
+            kind: components["schemas"]["EvidenceKind"];
+            /** Date */
+            date?: string | null;
+            /** Quote */
+            quote?: string | null;
+            /** Note */
+            note?: string | null;
+        };
+        /**
          * FieldSource
          * @enum {string}
          */
-        FieldSource: "user_answer" | "doc" | "import" | "auto" | "direct" | "seed" | "account";
+        FieldSource: "user_answer" | "doc" | "work24_import" | "auto" | "direct" | "seed" | "account";
         /**
          * FieldStatus
          * @description 칸 상태 6종 (설계 8절 CHECK).
@@ -1356,10 +1480,7 @@ export interface components {
              * @default false
              */
             transformed: boolean;
-            /** Evidence */
-            evidence?: {
-                [key: string]: unknown;
-            } | null;
+            evidence?: components["schemas"]["FieldEvidence"] | null;
             /** Answered On */
             answered_on?: string | null;
         };
@@ -1390,10 +1511,7 @@ export interface components {
              * @default false
              */
             transformed: boolean;
-            /** Evidence */
-            evidence?: {
-                [key: string]: unknown;
-            } | null;
+            evidence?: components["schemas"]["FieldEvidence"] | null;
             /** Completeness */
             completeness?: {
                 [key: string]: number;
@@ -1410,6 +1528,14 @@ export interface components {
             status: string;
             /** Db */
             db: string;
+        };
+        /**
+         * ImportApply
+         * @description 고른 항목 넣기. import_id는 목록 응답의 값입니다.
+         */
+        ImportApply: {
+            /** Import Ids */
+            import_ids: string[];
         };
         /** ImportItem */
         ImportItem: {
@@ -1755,7 +1881,7 @@ export interface components {
         /** Program */
         Program: {
             /** Id */
-            id: string;
+            id?: string | null;
             /** Title */
             title: string;
             /** Type */
@@ -2065,7 +2191,11 @@ export interface components {
         ResumeStatus: "draft" | "saved";
         /**
          * RoundCheck
-         * @description `check_round` 결과. 숫자는 모두 규칙 함수가 계산합니다.
+         * @description `check_round` 결과. 숫자는 모두 규칙 함수가 계산합니다 (상세기획 2-2.6·2-2.12).
+         *
+         *     `status`는 회차 상태(지난·지금·다음)이고, 활동 충족 여부는 `check_status`입니다.
+         *     `required`가 None이면 규칙으로 셀 수 없어(대상기간이 28일이 아님 등) `check_status`가
+         *     needs_check입니다.
          */
         RoundCheck: {
             /** Round */
@@ -2091,24 +2221,38 @@ export interface components {
             application_status: components["schemas"]["ApplicationStatus"];
             /** D Day */
             d_day: number;
+            /** Rule Group */
+            rule_group: string;
+            /** Period Days */
+            period_days: number;
             /** Required */
-            required: number;
+            required: number | null;
             /** Required Job Search */
-            required_job_search: number;
+            required_job_search: number | null;
             /** Counted */
             counted: number;
+            /** Counted Job Search */
+            counted_job_search: number;
             /** Remaining */
             remaining: number;
+            /** Remaining Job Search */
+            remaining_job_search: number;
+            check_status: components["schemas"]["CheckStatus"];
+            /**
+             * Weeks
+             * @default []
+             */
+            weeks: components["schemas"]["WeekCheck"][];
             /**
              * Activities
              * @default []
              */
             activities: components["schemas"]["ActivityCheck"][];
             /**
-             * Required Evidence
+             * Warnings
              * @default []
              */
-            required_evidence: string[];
+            warnings: components["schemas"]["RoundWarning"][];
             /**
              * @default {
              *       "lecture": 0,
@@ -2118,11 +2262,13 @@ export interface components {
              *     }
              */
             limits_used: components["schemas"]["LimitsUsed"];
+            /** @default not_verified */
+            rule_review: components["schemas"]["RuleReview"];
             /**
-             * Rule Review
-             * @default not_verified
+             * Rule Refs
+             * @default []
              */
-            rule_review: string;
+            rule_refs: string[];
         };
         /**
          * RoundStatus
@@ -2153,6 +2299,27 @@ export interface components {
             status: components["schemas"]["RoundStatus"];
             application_status: components["schemas"]["ApplicationStatus"];
         };
+        /** RoundWarning */
+        RoundWarning: {
+            id: components["schemas"]["WarningId"];
+            /** Message */
+            message: string;
+            /**
+             * Activity Ids
+             * @default []
+             */
+            activity_ids: string[];
+            /**
+             * Rule Refs
+             * @default []
+             */
+            rule_refs: string[];
+        };
+        /**
+         * RuleReview
+         * @enum {string}
+         */
+        RuleReview: "verified" | "not_verified";
         /**
          * Stage
          * @enum {string}
@@ -2225,6 +2392,30 @@ export interface components {
              * Format: date-time
              */
             expires_at: string;
+        };
+        /**
+         * WarningId
+         * @description 사전 경고 (상세기획 2-2.7). W7은 MVP 제외, W8은 대화에서만 냅니다.
+         * @enum {string}
+         */
+        WarningId: "W1" | "W2" | "W3" | "W4" | "W5" | "W6" | "W8";
+        /**
+         * WeekCheck
+         * @description 8차부터 일반 수급자의 주 단위 구직활동 (대상기간 시작일부터 7일씩, 설계 6.2).
+         */
+        WeekCheck: {
+            /**
+             * Start
+             * Format: date
+             */
+            start: string;
+            /**
+             * End
+             * Format: date
+             */
+            end: string;
+            /** Job Search */
+            job_search: number;
         };
         /** WorkAnswers */
         WorkAnswers: {
@@ -2687,22 +2878,13 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Not Implemented */
-            501: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
         };
     };
     patch_resume: {
         parameters: {
             query?: never;
             header?: {
-                /** @description 서류 GET 응답의 ETag. 다르면 409 VERSION_CONFLICT */
+                /** @description 서류 GET 응답의 ETag (필수). 없거나 다르면 409 VERSION_CONFLICT */
                 "If-Match"?: string | null;
             };
             path: {
@@ -2764,15 +2946,6 @@ export interface operations {
             };
             /** @description Internal Server Error */
             500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Not Implemented */
-            501: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -2911,15 +3084,6 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Not Implemented */
-            501: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
         };
     };
     list_rounds: {
@@ -3031,15 +3195,6 @@ export interface operations {
             };
             /** @description Internal Server Error */
             500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Not Implemented */
-            501: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -3173,7 +3328,7 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                /** @description 서류 GET 응답의 ETag. 다르면 409 VERSION_CONFLICT */
+                /** @description 서류 GET 응답의 ETag (필수). 없거나 다르면 409 VERSION_CONFLICT */
                 "If-Match"?: string | null;
             };
             path: {
@@ -3305,15 +3460,6 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Not Implemented */
-            501: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
         };
     };
     create_activity: {
@@ -3382,15 +3528,6 @@ export interface operations {
             };
             /** @description Internal Server Error */
             500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Not Implemented */
-            501: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -3467,15 +3604,6 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Not Implemented */
-            501: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
         };
     };
     patch_activity: {
@@ -3542,15 +3670,6 @@ export interface operations {
             };
             /** @description Internal Server Error */
             500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Not Implemented */
-            501: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -3770,15 +3889,6 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Not Implemented */
-            501: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
         };
     };
     list_job_applications: {
@@ -3838,8 +3948,71 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Not Implemented */
-            501: {
+        };
+    };
+    apply_imports: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 시연 계정 ID */
+                persona_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ImportApply"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UpdatesRead"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -3899,15 +4072,6 @@ export interface operations {
             };
             /** @description Internal Server Error */
             500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Not Implemented */
-            501: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -3977,15 +4141,6 @@ export interface operations {
             };
             /** @description Internal Server Error */
             500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Not Implemented */
-            501: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -4081,7 +4236,6 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
                     "text/event-stream": unknown;
                 };
             };
@@ -4123,24 +4277,6 @@ export interface operations {
             };
             /** @description Internal Server Error */
             500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Not Implemented */
-            501: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Service Unavailable */
-            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -4213,15 +4349,6 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Not Implemented */
-            501: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
             /** @description Service Unavailable */
             503: {
                 headers: {
@@ -4239,6 +4366,7 @@ export interface operations {
                 center?: string | null;
                 from?: string | null;
                 to?: string | null;
+                page?: number;
             };
             header?: never;
             path: {
@@ -4287,15 +4415,6 @@ export interface operations {
             };
             /** @description Internal Server Error */
             500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Not Implemented */
-            501: {
                 headers: {
                     [name: string]: unknown;
                 };

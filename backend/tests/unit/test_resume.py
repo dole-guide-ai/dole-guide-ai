@@ -9,7 +9,7 @@ from app.rules.resume import (
     normalize_date,
     resume_completeness,
 )
-from app.schemas.common import FormField
+from app.schemas.common import FieldSource, FieldStatus, FormField
 from app.schemas.forms.resume import (
     Career,
     Certification,
@@ -226,3 +226,37 @@ def test_wrong_value_shapes_do_not_crash() -> None:
     assert "too_many" not in {i.code for i in check_resume(data, PARK_SEPARATION, TODAY)}
     resume_completeness(data)
     assert ask(data) == "resume.wish_experience"
+
+
+def test_date_field_keeps_original_sentence_and_base_date() -> None:
+    """F-11: 작년 3월 → 2025-03은 확인 필요이고, 근거에 원래 문장과 기준일이 남습니다."""
+    from datetime import date
+
+    from app.rules.resume import date_field, needs_check, normalize_date
+
+    today = date(2026, 10, 12)
+    expr = "작년 3월부터"
+    f = date_field(expr, normalize_date(expr, today, date(2026, 9, 30)), today)
+
+    assert f.value == "2025-03"
+    assert needs_check(f)
+    assert f.evidence is not None
+    assert (f.evidence.kind, f.evidence.quote, f.evidence.date) == ("utterance", expr, today)
+
+
+def test_outdated_resume_does_not_count_old_careers_until_asked() -> None:
+    """최영수(E7b): 예전 이력서 경력만 있으면 그 뒤 경력을 묻기 전까지 세지 않음 (1장 1.9)."""
+
+    data = complete_resume()
+    for c in data.careers:
+        c.company_name.source = FieldSource.SEED
+        c.start_date.source = FieldSource.SEED
+    data.careers_status = FormField()
+    assert resume_completeness(data).filled == 5
+    assert resume_completeness(data, outdated=True).filled == 4
+    assert not can_save_resume(data, outdated=True)
+    data.careers[0].company_name.source = FieldSource.DIRECT  # 회사명만 고쳐도 그대로
+    assert resume_completeness(data, outdated=True).filled == 4
+
+    data.careers_status = FormField(status=FieldStatus.CONFIRMED)  # "없어요"로 답함
+    assert resume_completeness(data, outdated=True).filled == 5

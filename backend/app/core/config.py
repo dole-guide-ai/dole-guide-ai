@@ -1,4 +1,5 @@
 import logging
+from dataclasses import dataclass
 from functools import lru_cache
 from typing import Literal
 
@@ -10,7 +11,26 @@ logger = logging.getLogger(__name__)
 # LLM·임베딩 공급자. 둘 다 OpenAI 호환 API라 gateway가 주소만 바꿔 부릅니다.
 Provider = Literal["openai", "upstage"]
 ModelRole = Literal["agent", "extract", "judge"]
-PROVIDER_KEYS: dict[str, str] = {"openai": "openai_api_key", "upstage": "upstage_api_key"}
+
+
+@dataclass(frozen=True)
+class ProviderSpec:
+    """AI 공급자 하나의 고정값."""
+
+    key_setting: str  # Settings에서 API 키를 담는 필드 이름
+    base_url: str | None  # None이면 OpenAI 기본 주소
+    embedding_batch_size: int  # 임베딩 요청 하나에 담는 문서 수
+    # 임베딩 전 토큰 길이 검사. OpenAI 토크나이저(tiktoken) 기준이라 다른 공급자는 끕니다.
+    checks_token_length: bool
+
+
+PROVIDERS: dict[str, ProviderSpec] = {
+    "openai": ProviderSpec("openai_api_key", None, 1000, checks_token_length=True),
+    # Upstage는 임베딩 요청 하나에 100개까지 받습니다(공식 API 문서).
+    "upstage": ProviderSpec(
+        "upstage_api_key", "https://api.upstage.ai/v1", 100, checks_token_length=False
+    ),
+}
 
 # local이 아닌 환경에서 비어 있으면 서버가 시작되지 않는 키.
 # 공급자 키는 agent·extract가 고른 공급자의 것만 필요합니다(missing_required_keys).
@@ -57,6 +77,9 @@ class Settings(BaseSettings):
     account_encryption_key: str = ""
     # 고용24 OpenAPI 인증키. 비우면 스냅샷만 씁니다.
     work24_api_key: str = ""
+    # 고용24 OpenAPI 호출 하나의 대기 시간과 실패 시 다시 부르는 횟수 (설계 3.11: 5초·재시도 1회)
+    external_api_timeout_seconds: float = 5
+    external_api_retries: int = 1
     # LangSmith 관측. 키가 없으면 꺼집니다.
     langsmith_api_key: str = ""
     langsmith_project: str = "dole-guide-ai"
@@ -72,6 +95,10 @@ class Settings(BaseSettings):
     upload_dir: str = "./uploads"
     max_upload_mb: int = 4
     turn_timeout_seconds: int = 180
+    # 모델 호출 하나의 대기 시간. 턴 타임아웃보다 짧아야 턴 안에서 실패를 알릴 수 있습니다.
+    llm_timeout_seconds: int = 60
+    # POST 재시도 방지 키(Idempotency-Key)를 보관하는 시간
+    idempotency_ttl_hours: int = 24
 
     @field_validator("judge_provider", "cors_origin_regex", mode="before")
     @classmethod
@@ -100,7 +127,7 @@ class Settings(BaseSettings):
         return self.agent_provider, self.agent_model
 
     def api_key_for(self, provider: Provider) -> str:
-        return getattr(self, PROVIDER_KEYS[provider])
+        return getattr(self, PROVIDERS[provider].key_setting)
 
     def has_llm_key(self, role: ModelRole = "agent") -> bool:
         return bool(self.api_key_for(self.chat_target(role)[0]))
@@ -110,7 +137,7 @@ class Settings(BaseSettings):
         if self.embedding_model:
             # 임베딩 모델을 정했으면 그 공급자 키도 시작할 때 확인합니다(첫 검색에서 실패하지 않게).
             providers.append(self.embedding_provider)
-        used = dict.fromkeys(PROVIDER_KEYS[p] for p in providers)
+        used = dict.fromkeys(PROVIDERS[p].key_setting for p in providers)
         names = [*used, *REQUIRED_OUTSIDE_LOCAL]
         return [name for name in names if not getattr(self, name)]
 

@@ -1,28 +1,29 @@
 """부족한 활동 추천과 추천을 예정 활동으로 넣기 (F-19, 상세기획 2-2.8).
 
-부족 건수는 이번 회차 신청서와 같은 계산(같은 날 1건, 예정 활동 제외)으로 셉니다. 회차 점검(F-18)의
-`check_round`가 붙으면 그 결과를 쓰도록 바꿉니다.
+부족 건수와 누적 한도 사용 횟수는 회차 점검(F-18) `check_round` 결과를 그대로 씁니다.
 """
 
 import uuid
-from datetime import date
+from datetime import date, datetime
+from typing import Any
 
 from sqlalchemy.orm import Session
 
-from app.core.errors import ConflictError, NotFoundError, NotImplementedYetError
+from app.core.clock import KST
+from app.core.errors import ConflictError, ExternalUnavailableError, NotFoundError
 from app.models import Activity
 from app.repositories import accounts as repo
 from app.repositories import activities as activity_repo
-from app.rules import application as form_rules
 from app.rules import recommend as rules
-from app.schemas.activities import ActivityCreate
-from app.schemas.common import ErrorCode, FieldSource, FormName, FormUpdate, UpdatesRead
+from app.schemas.common import ErrorCode, FieldSource, UpdatesRead
 from app.schemas.rounds import Recommendation, RecommendationList
 from app.services import accounts as account_service
-from app.services import idempotency
+from app.services import rounds as round_service
+from app.services import trainings as training_service
 from app.services.accounts import AccountContext
-from app.services.application import CURRENT, activity_inputs, find_round
+from app.services.application import CURRENT, find_round
 
+LECTURE_KIND = "lecture"
 NOT_RECOMMENDED_MESSAGE = "지금 추천 목록에 없는 활동이에요. 추천을 다시 불러와 주세요."
 DUPLICATE_MESSAGE = "이미 예정으로 넣은 활동이에요."
 PLANNED_NOT_FOUND_MESSAGE = "예정 활동을 찾지 못했어요."
@@ -30,42 +31,53 @@ NOT_PLANNED_MESSAGE = "이미 한 활동으로 기록돼 있어요."
 DONE_DATE_MESSAGE = "한 날은 이번 회차 대상기간 안이고 오늘까지여야 해요."
 
 
-def _desired_occupation(db: Session, user_id: uuid.UUID) -> str | None:
-    resume = repo.get_resume(db, user_id)
-    occupations = ((resume.data if resume else {}).get("job_preferences") or {}).get(
-        "desired_occupations"
-    ) or []
-    names = (((o.get("occupation") or {}).get("value") or {}).get("name") for o in occupations)
-    return next((n for n in names if n), None)
-
-
 def _current(db: Session, account: AccountContext, today: date):
-    target, _ = find_round(db, account.user_id, CURRENT, today)
-    procedure = repo.get_procedure(db, account.user_id)
-    group = procedure.recipient_group if procedure else "general"
-    inputs = activity_inputs(db, account.user_id, target.period_start, target.period_end)
-    form = form_rules.build_form_activities(inputs, target.period_start, target.period_end)
-    required, required_job = form_rules.required_activities(group, target.round_no)
-    counted, counted_job = len(form.job_search) + len(form.other), len(form.job_search)
-    short_job = max(required_job - counted_job, 0)
-    if rules.is_weekly_job_search(group, target.round_no):
-        # 주마다 1건이라 합계로는 충족을 알 수 없어 늘 구직활동을 권합니다(주 계산은 F-18).
-        short_job = max(short_job, 1)
+    context = round_service.evaluate(db, account.user_id, today)
+    target, result, inputs = context.target, context.result, context.inputs
+    weekly = rules.is_weekly_job_search(context.group, target.round_no)
     picks = rules.recommend_activities(
-        shortfall=max(required - counted, 0),
-        shortfall_job_search=short_job,
-        group=group,
+        shortfall=result.remaining,
+        shortfall_job_search=result.remaining_job_search,
+        group=context.group,
         round_no=target.round_no,
-        lectures_used=activity_repo.count_done_kind(db, account.user_id, "lecture"),
-        desired_occupation=_desired_occupation(db, account.user_id),
+        limits_used=result.limits_used,
+        desired_occupation=training_service.desired_occupation(db, account.user_id),
         planned=frozenset((a.kind, a.route or "") for a in inputs if a.planned),
     )
     busy = [a.activity_date for a in inputs if not a.planned]
-    return target, picks, inputs, busy, rules.is_weekly_job_search(group, target.round_no)
+    return target, picks, inputs, busy, weekly
+
+
+# 추천 카드에 붙이는 실제 일정 수 (설계 3.9: 카드 안에 붙임)
+EXTERNAL_ITEMS = 2
+
+
+def _external(
+    candidate: rules.Candidate, occupation: str | None, today: date, now: datetime
+) -> dict[str, Any]:
+    """직업훈련은 훈련과정, 특강은 고용센터 특강·집단상담 일정을 붙입니다 (F-30).
+
+    외부 조회가 안 되면 일정 없이 추천만 보여 줍니다(추천은 막지 않음).
+    """
+    external: dict[str, Any] = {"rule_refs": list(candidate.rule_refs)}
+    try:
+        if candidate.is_training:
+            found = training_service.search_trainings(occupation, None, today, now)
+            external["trainings"] = [t.model_dump() for t in found.items[:EXTERNAL_ITEMS]]
+            external["source"] = found.source
+        elif candidate.kind == LECTURE_KIND:
+            programs = training_service.search_programs(None, now)
+            external["programs"] = [p.model_dump() for p in programs.items[:EXTERNAL_ITEMS]]
+            external["source"] = programs.source
+    except ExternalUnavailableError:
+        pass
+    return external
 
 
 def list_recommendations(db: Session, account: AccountContext, today: date) -> RecommendationList:
     target, picks, _, busy, weekly = _current(db, account, today)
+    occupation = training_service.desired_occupation(db, account.user_id)
+    now = datetime.combine(today, datetime.now(KST).time(), KST)
     items = [
         Recommendation(
             recommendation_id=rules.recommendation_id(target.round_no, pick.candidate.key),
@@ -74,7 +86,7 @@ def list_recommendations(db: Session, account: AccountContext, today: date) -> R
             title=pick.title,
             reason=pick.reason,
             evidence_hint=pick.candidate.evidence,
-            external={"rule_refs": list(pick.candidate.rule_refs)},
+            external=_external(pick.candidate, occupation, today, now),
         )
         for pick in picks
     ]
@@ -82,24 +94,6 @@ def list_recommendations(db: Session, account: AccountContext, today: date) -> R
         items=items,
         total=len(items),
         deadline_text=rules.deadline_text(target.recognition_date, busy, weekly),
-    )
-
-
-def _activity_update(activity: Activity, op: str = "add") -> FormUpdate:
-    return FormUpdate(
-        form=FormName.ACTIVITIES,
-        path=f"/activities/{activity.activity_id}",
-        op=op,
-        value={
-            "activity_id": str(activity.activity_id),
-            "activity_date": activity.activity_date.isoformat(),
-            "category": activity.category,
-            "kind": activity.kind,
-            "route": activity.route,
-            "org_name": activity.org_name,
-            "planned": activity.planned,
-            "source": activity.source,
-        },
     )
 
 
@@ -136,30 +130,11 @@ def add_recommended(
             planned=True,
         ),
     )
-    return UpdatesRead(updates=[_activity_update(activity)])
-
-
-def create_activity(
-    db: Session,
-    account: AccountContext,
-    body: ActivityCreate,
-    idempotency_key: str | None,
-    today: date,
-) -> UpdatesRead:
-    """활동 추가. 추천 넣기(`recommendation_id`)만 여기서 합니다.
-
-    직접 기록은 활동 기록(F-17)이 붙입니다.
-    """
-    if body.recommendation_id is None:
-        raise NotImplementedYetError()
-    recommendation = body.recommendation_id
-    return idempotency.run_once(
-        db,
-        account.user_id,
-        idempotency_key,
-        body.model_dump(mode="json"),
-        UpdatesRead,
-        lambda: add_recommended(db, account, recommendation, today),
+    return UpdatesRead(
+        updates=[
+            round_service.activity_update(activity),
+            round_service.round_check_update(db, account.user_id, today),
+        ]
     )
 
 
@@ -187,4 +162,9 @@ def mark_done(
     if org_name:
         activity.org_name = org_name
     db.commit()
-    return UpdatesRead(updates=[_activity_update(activity, "replace")])
+    return UpdatesRead(
+        updates=[
+            round_service.activity_update(activity, "replace"),
+            round_service.round_check_update(db, account.user_id, today),
+        ]
+    )

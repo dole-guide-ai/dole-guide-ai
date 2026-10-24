@@ -1,0 +1,175 @@
+{
+  "round": 4,
+  "status": "draft",
+  "lock_version": 1,
+  "period_start": "2026-09-30",
+  "period_end": "2026-10-27",
+  "recognition_date": "2026-10-27",
+  "attendance_required": true,
+  "required_activities": 2,
+  "required_job_search": 1,
+  "data": {
+    "work": {
+      "has_work": {
+        "value": null,
+        "status": "missing",
+        "source": null,
+        "transformed": false,
+        "evidence": null,
+        "answered_on": null
+      },
+      "entries": {
+        "value": null,
+        "status": "missing",
+        "source": null,
+        "transformed": false,
+        "evidence": null,
+        "answered_on": null
+      }
+    },
+    "employment": {
+      "status": {
+        "value": null,
+        "status": "missing",
+        "source": null,
+        "transformed": false,
+        "evidence": null,
+        "answered_on": null
+      },
+      "started_on": {
+        "value": null,
+        "status": "missing",
+        "source": null,
+        "transformed": false,
+        "evidence": null,
+        "answered_on": null
+      }
+    },
+    "industrial_accident": {
+      "receiving": {
+        "value": null,
+        "status": "missing",
+        "source": null,
+        "transformed": false,
+        "evidence": null,
+        "answered_on": null
+      }
+    },
+    "credit": {
+      "application": {
+        "value": "wish",
+        "status": "confirmed",
+        "source": "user_answer",
+        "transformed": false,
+        "evidence": null,
+        "answered_on": "2026-09-29"
+      },
+      "notice_method": {
+        "value": "electronic",
+        "status": "confirmed",
+        "source": "user_answer",
+        "transformed": false,
+        "evidence": null,
+        "answered_on": "2026-09-29"
+      },
+      "auto_payment": {
+        "value": "not_wish",
+        "status": "confirmed",
+        "source": "user_answer",
+        "transformed": false,
+        "evidence": null,
+        "answered_on": "2026-09-29"
+      },
+      "income_asset_consent": {
+        "value": "agree",
+        "status": "confirmed",
+        "source": "user_answer",
+        "transformed": false,
+        "evidence": null,
+        "answered_on": "2026-09-29"
+      }
+    },
+    "notification_method": {
+      "value": "sms",
+      "status": "confirmed",
+      "source": "user_answer",
+      "transformed": false,
+      "evidence": null,
+      "answered_on": "2026-09-29"
+    },
+    "next_plan": {
+      "value": null,
+      "status": "missing",
+      "source": null,
+      "transformed": false,
+      "evidence": null,
+      "answered_on": null
+    },
+    "privacy_consent": {
+      "value": null,
+      "status": "missing",
+      "source": null,
+      "transformed": false,
+      "evidence": null,
+      "answered_on": null
+    }
+  },
+  "job_search_rows": [
+    {
+      "activity_id": "e3685613-432c-4d39-aeeb-b861eab17817",
+      "activity_date": "2026-10-13",
+      "company_name": "OO물류",
+      "recruitment_contact": null,
+      "recruitment_occupation": null,
+      "salary_level": null,
+      "job_search_method": "고용24(워크넷)",
+      "application_method": "고용24(워크넷)",
+      "activity_result": null,
+      "file_ids": []
+    }
+  ],
+  "other_rows": [],
+  "excluded_rows": [
+    {
+      "activity_id": "0409d427-72cb-4ab6-947f-861f75f2b481",
+      "reason": "same_day",
+      "activity_date": "2026-10-13",
+      "company_name": "OO상사"
+    }
+  ],
+  "checklist": {
+    "blocking": [
+      {
+        "key": "self_answers",
+        "text": "근로·취업·산재 본인 답변"
+      },
+      {
+        "key": "job_search_fields",
+        "text": "구직활동 필수 칸"
+      },
+      {
+        "key": "next_activity",
+        "text": "다음 출석일까지 활동"
+      }
+    ],
+    "warnings": [
+      {
+        "key": "requirement_met",
+        "text": "필요 활동 1건 부족"
+      }
+    ]
+  },
+  "submit_mode": "attend",
+  "can_submit": false,
+  "locked_reason": null,
+  "profile_display": {
+    "name": "이정호",
+    "birth_year": 1968,
+    "gender": "남",
+    "phone": "010-0000-0003",
+    "email": "lee.demo@example.com",
+    "address": "서울특별시 강서구 OO로 3",
+    "bank_name": "OO은행",
+    "account_last4": "0003"
+  }
+}
