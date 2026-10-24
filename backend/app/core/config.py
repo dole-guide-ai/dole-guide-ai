@@ -70,6 +70,11 @@ class Settings(BaseSettings):
     embedding_provider: Provider = "openai"
     embedding_model: str = ""
     embedding_query_model: str = ""
+    # 근거 검색(RAG) 방식. none이면 검색하지 않습니다. vector·hybrid는 EMBEDDING_MODEL이 필요합니다.
+    retrieval_mode: Literal["none", "keyword", "vector", "hybrid"] = "none"
+    retrieval_top_k: int = 4
+    # 활동 규칙 표(data/rules/activities.json)를 내 상황에 맞춘 규칙 카드로 AI에게 줍니다.
+    rule_cards: bool = False
 
     # BFF(Next)가 붙이는 X-Internal-Secret 값. local에서 비우면 확인하지 않습니다.
     internal_api_secret: str = ""
