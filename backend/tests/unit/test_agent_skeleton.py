@@ -82,3 +82,18 @@ def test_load_prompt_rejects_missing_and_outside_paths() -> None:
 
 def test_conninfo_drops_sqlalchemy_driver() -> None:
     assert conninfo("postgresql+psycopg://u:p@h:5432/d") == "postgresql://u:p@h:5432/d"
+
+
+def test_done_is_sent_only_after_checkpoint_saved() -> None:
+    """체크포인트 저장이 실패하면 done 없이 실패로 끝납니다 (done 뒤 error가 오지 않게)."""
+
+    class FailingSaver(InMemorySaver):
+        def put(self, *args, **kwargs):  # noqa: ANN002, ANN003, ANN201
+            raise RuntimeError("synthetic checkpoint failure")
+
+    sent = []
+    with pytest.raises(RuntimeError):
+        for event in graph_responder(_turn(uuid.uuid4()), FailingSaver()):
+            sent.append(event)
+
+    assert not any(isinstance(e.data, DoneEvent) for e in sent)

@@ -24,7 +24,7 @@ from app.agent.events import TurnEvent
 from app.agent.graph import TOOL_CONTEXT_KEY, TURN_KEY, build_graph
 from app.agent.tools.registry import ToolContext
 from app.core.clock import KST
-from app.schemas.messages import DoneEvent, InputKind, TokenEvent
+from app.schemas.messages import DoneEvent, InputKind
 from app.services.accounts import AccountContext
 
 
@@ -43,15 +43,6 @@ class TurnInput:
 
 
 Responder = Callable[[TurnInput], Iterator[TurnEvent]]
-
-_ECHO_REPLY = "말씀하신 내용을 받았어요. AI 답변은 곧 연결돼요."
-
-
-def echo_responder(turn: TurnInput) -> Iterator[TurnEvent]:
-    """에이전트를 붙이기 전 임시 응답기. 사용자 말은 되풀이하지 않습니다(로그·화면 노출 최소화)."""
-    for word in _ECHO_REPLY.split(" "):
-        yield TurnEvent(TokenEvent(text=word + " "))
-    yield TurnEvent(DoneEvent())
 
 
 def tool_context(turn: TurnInput) -> ToolContext | None:
@@ -80,12 +71,24 @@ def run_config(turn: TurnInput) -> RunnableConfig:
 def graph_responder(
     turn: TurnInput, checkpointer: BaseCheckpointSaver | None = None
 ) -> Iterator[TurnEvent]:
+    """노드가 낸 이벤트를 흘려보냅니다.
+
+    `done`은 그래프가 체크포인트 저장까지 끝낸 뒤 보냅니다. 노드가 낸 `done`(근거 줄)은
+    잡아 두었다가 그때 보내고, 노드가 내지 않았으면 빈 `done`을 보냅니다.
+    도중에 실패하면 `done` 없이 오류로 끝납니다.
+    """
     graph = build_graph(checkpointer or checkpointer_module.get_checkpointer())
+    done = TurnEvent(DoneEvent())
     for event in graph.stream(
         {"messages": [HumanMessage(turn.text)]}, run_config(turn), stream_mode="custom"
     ):
-        if isinstance(event, TurnEvent):
+        if not isinstance(event, TurnEvent):
+            continue
+        if isinstance(event.data, DoneEvent):
+            done = event
+        else:
             yield event
+    yield done
 
 
 def get_responder() -> Responder:
