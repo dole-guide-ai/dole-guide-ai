@@ -5,6 +5,8 @@ JSON으로 바꿀 수 있는
 dict를 돌려줍니다. 서비스가 던진 `AppError`는 그대로 올라가 그래프가 사용자 안내로 바꿉니다.
 """
 
+import dataclasses
+import json
 import uuid
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -110,7 +112,10 @@ class SearchProgramsInput(BaseModel):
 # ── 실행 함수 ─────────────────────────────────────────────
 
 
-def _dump(model: BaseModel) -> dict[str, Any]:
+def _dump(model: Any) -> dict[str, Any]:
+    """Pydantic 모델이나 규칙 dataclass를 JSON으로 바꿀 수 있는 dict로."""
+    if dataclasses.is_dataclass(model):
+        return json.loads(json.dumps(dataclasses.asdict(model), default=str))
     return model.model_dump(mode="json")
 
 
