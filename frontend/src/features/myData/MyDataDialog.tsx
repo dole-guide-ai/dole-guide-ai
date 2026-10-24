@@ -15,7 +15,6 @@ import type { MyDataGroup } from '@/types/myData.types';
  * 지우면 그 값을 쓰던 패널 칸이 `아직 없음`으로 돌아갑니다. 저장하지 않는 정보도 함께 알려 줍니다.
  */
 interface MyDataDialogProps {
-  sessionId: string;
   personaId: string;
   onClose: () => void;
 }
@@ -31,9 +30,9 @@ const GROUPS: MyDataGroup[] = ['resume', 'procedure', 'facts'];
 const errorText = (error: unknown, fallback: string) =>
   error instanceof ApiError ? error.message : fallback;
 
-export const MyDataDialog = ({ sessionId, personaId, onClose }: MyDataDialogProps) => {
-  const query = useMyData(sessionId, true, personaId);
-  const remove = useDeleteMyData(sessionId, personaId);
+export const MyDataDialog = ({ personaId, onClose }: MyDataDialogProps) => {
+  const query = useMyData(personaId, true);
+  const remove = useDeleteMyData(personaId);
 
   useEffect(() => {
     const handleKey = (event: KeyboardEvent) => {

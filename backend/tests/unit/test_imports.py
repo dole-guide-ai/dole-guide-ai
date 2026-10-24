@@ -19,3 +19,8 @@ def test_application_reads_company_job_and_result() -> None:
     v = application_values("OO물산 · 사무보조", "고용24 입사지원 · 서류전형 심사진행 중")
 
     assert (v.org_name, v.job_title, v.result) == ("OO물산", "사무보조", "서류전형 심사진행 중")
+
+
+def test_career_with_day_keeps_month() -> None:
+    v = career_values("OO산업", "고용보험 상용 이력 · 2004.03.15 ~ 2026.09.30")
+    assert (v.start_date, v.end_date) == ("2004-03", "2026-09")
