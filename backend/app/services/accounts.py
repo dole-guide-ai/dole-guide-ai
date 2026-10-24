@@ -113,8 +113,14 @@ def enter(
         )
     elif not import_repo.has_any(db, user.user_id):
         # 불러오기 테이블(0003)보다 먼저 만든 계정은 입장할 때 seed 목록을 채웁니다.
-        repo.add_all(db, _import_rows(user.user_id, persona.seed, user.anchor_date))
-        db.commit()
+        # 동시 입장으로 같은 행이 먼저 들어갔으면 그대로 둡니다(생성 여부는 버림: 기존 계정).
+        existing = user
+
+        def backfill() -> repo.User:
+            repo.add_all(db, _import_rows(existing.user_id, persona.seed, existing.anchor_date))
+            return existing
+
+        user, _ = create_or_existing(db, backfill, lambda: existing)
     account = AccountContext(user.user_id, user.persona_id, user.anchor_date)
     return read_account(db, account, today), created
 
