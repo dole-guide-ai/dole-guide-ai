@@ -51,7 +51,12 @@ def build_facts(
         facts.append({"text": text, "cite": CITE_ROUNDS})
     elif round_check:
         need = f"이번 회차에 필요한 활동은 {round_check['required']}건"
-        if round_check["required_job_search"]:
+        if days := derived.get("interval_days"):
+            # 일반 8차부터 7일(1주)마다 구직활동, 반복수급자 14일(2주)마다 활동 1건
+            kind = "구직활동" if round_check["required_job_search"] else "활동"
+            span = f"{days // 7}주" if days % 7 == 0 else f"{days}일"
+            need = f"{span}({days}일)마다 {kind} 1건씩이라 {need}"
+        elif round_check["required_job_search"]:
             need += f"(그중 구직활동 {round_check['required_job_search']}건)"
         counted, short = round_check["counted"], round_check["shortfall"]
         need += f"이고, 지금 인정된 활동은 {counted}건이에요."

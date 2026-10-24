@@ -57,10 +57,16 @@ def test_activity_outside_period_is_not_counted() -> None:
     assert check["counted"] == 1
 
 
-def test_unknown_group_has_no_shortfall() -> None:
-    repeat = {**LEE, "recipient_type": "repeat"}
+def test_interval_rules_count_slices_of_the_period() -> None:
+    """반복수급자 14일마다 1건, 일반 8차부터 7일마다 구직활동 1건 (대상기간 28일)."""
+    repeat = situation.derive({**LEE, "recipient_type": "repeat"})
+    eighth = situation.derive({**LEE, "completed_rounds": 7})
 
-    check, _ = situation.check_round(repeat, situation.derive(repeat), SAME_DAY)
-
-    assert check["required"] is None
-    assert check["shortfall"] is None
+    assert (repeat["required"], repeat["required_job_search"], repeat["interval_days"]) == (
+        2,
+        0,
+        14,
+    )
+    assert (eighth["required"], eighth["required_job_search"], eighth["interval_days"]) == (4, 4, 7)
+    check, _ = situation.check_round(LEE, repeat, SAME_DAY)
+    assert (check["counted"], check["shortfall"]) == (1, 1)

@@ -22,7 +22,10 @@
     { "group": "volunteer", "label": "자원봉사", "max": 1, "rule_refs": ["ACT-046", "ACT-125"] }
   ],
   "training_hours": { "min_counted": 15, "full_round": 30, "rule_refs": ["ACT-051", "ACT-052", "ACT-053"] },
-  "job_search_only_from_round": { "round": 8, "groups": ["general"], "rule_refs": ["ACT-030"] },
+  "job_search_only_from_round": [
+    { "round": 8, "groups": ["general"], "rule_refs": ["ACT-030"] },
+    { "round": 3, "groups": ["repeat"], "rule_refs": ["1350 의무 횟수(2026-10-15 답변)"] }
+  ],
   "routes": [
     { "route": "work24", "label": "고용24", "evidence": [], "rule_refs": ["ACT-132"] },
     { "route": "step_online", "label": "온라인 취업특강(STEP)", "evidence": [], "rule_refs": [] },
@@ -38,13 +41,14 @@
     { "route": "training", "label": "직업훈련", "evidence": ["수강증명서", "대상 기간 출석부"], "rule_refs": ["ACT-141", "ACT-050"] }
   ],
   "required": {
-    "rule_refs": ["ACT-020", "ACT-023", "ACT-026", "ACT-028", "ACT-030"],
+    "rule_refs": ["ACT-020", "ACT-023", "ACT-026", "ACT-028", "ACT-030", "1350 의무 횟수(2026-10-15 답변)"],
     "rows": [
-      { "rounds": [1, 1], "groups": ["general", "age_60_64", "age65_or_disabled"], "total": 1, "job_search": 0, "first_education": true },
+      { "rounds": [1, 1], "groups": ["general", "age_60_64", "age65_or_disabled", "repeat"], "total": 1, "job_search": 0, "first_education": true },
       { "rounds": [2, 3], "groups": ["general", "age_60_64", "age65_or_disabled"], "total": 1, "job_search": 0 },
       { "rounds": [4, 7], "groups": ["general"], "total": 2, "job_search": 1 },
       { "rounds": [4, null], "groups": ["age_60_64", "age65_or_disabled"], "total": 1, "job_search": 0 },
-      { "rounds": [8, null], "groups": ["general"], "weekly_job_search": true }
+      { "rounds": [8, null], "groups": ["general"], "weekly_job_search": true },
+      { "rounds": [2, null], "groups": ["repeat"], "every_days": 14 }
     ]
   },
   "same_day_rule_refs": ["ACT-055", "ACT-110"],

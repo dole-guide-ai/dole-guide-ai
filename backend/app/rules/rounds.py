@@ -79,16 +79,14 @@ def _short(day: date) -> str:
 
 def is_not_allowed(rule: KindRule, rules: ActivityRules, group: str, round_no: int) -> bool:
     """종류·회차·수급자 유형에서 인정되지 않는 활동인지 (2-2.3 표, ACT-030 등)."""
-    only_job = rules.job_search_only_from_round
+    job_only = any(
+        group in only.groups and round_no >= only.round for only in rules.job_search_only_from_round
+    )
     return (
         not rule.allowed
         or (rule.only_round is not None and rule.only_round != round_no)
         or (bool(rule.groups) and group not in rule.groups)
-        or (
-            rule.category == ActivityCategory.NON_JOB_SEARCH
-            and group in only_job.groups
-            and round_no >= only_job.round
-        )
+        or (rule.category == ActivityCategory.NON_JOB_SEARCH and job_only)
     )
 
 
@@ -97,13 +95,14 @@ def _evidence_ok(activity: ActivityInput, rules: ActivityRules) -> bool:
     return activity.has_evidence or (route is not None and not route.evidence)
 
 
-def _week_slices(start: date, end: date) -> list[tuple[date, date]]:
-    weeks = []
+def period_slices(start: date, end: date, days: int = DAYS_PER_WEEK) -> list[tuple[date, date]]:
+    """대상기간을 days일씩 나눕니다(마지막 조각은 짧을 수 있음). 8차부터 7일, 반복수급자 14일."""
+    slices = []
     while start <= end:
-        week_end = min(start + timedelta(days=DAYS_PER_WEEK - 1), end)
-        weeks.append((start, week_end))
-        start = week_end + timedelta(days=1)
-    return weeks
+        slice_end = min(start + timedelta(days=days - 1), end)
+        slices.append((start, slice_end))
+        start = slice_end + timedelta(days=1)
+    return slices
 
 
 def check_round(
@@ -242,11 +241,17 @@ def check_round(
                 end=end,
                 job_search=sum(1 for a in jobs if start <= a.activity_date <= end),
             )
-            for start, end in _week_slices(period_start, period_end)
+            for start, end in period_slices(period_start, period_end)
         ]
         required = required_job = len(weeks)
         total_job = sum(1 for week in weeks if week.job_search > 0)
         total = total_job
+    elif row.every_days:
+        # N일마다 활동 1건: 조각마다 인정 활동이 있으면 1건으로 셉니다(종류는 인정 여부에서 걸러짐).
+        slices = period_slices(period_start, period_end, row.every_days)
+        required, required_job = len(slices), 0
+        total = sum(1 for s, e in slices if any(s <= a.activity_date <= e for a in counted))
+        total_job = 0
     elif row.first_education:
         required, required_job = row.total, row.job_search
         total = min(sum(1 for a in counted if a.kind == "first_education"), row.total)

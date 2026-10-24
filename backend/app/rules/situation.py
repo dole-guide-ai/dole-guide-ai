@@ -43,17 +43,23 @@ def derive(state: dict[str, Any]) -> dict[str, Any]:
         if state.get("stage") == "recognition" and recognition
         else None
     )
-    required = required_job_search = None
+    required = required_job_search = interval_days = None
     period = None
     if current_round:
-        # 필요 건수는 활동 규칙 표(data/rules/activities.json). 표에 없는 유형(반복수급자)은 None
-        if row := load_rules().required_row(group, current_round):
-            required, required_job_search = row.total, row.job_search
         last = _day(state.get("last_recognition_date"))
         applied = _day(state.get("eligibility_applied_date"))
         # 1차 대상기간은 대기기간(신청일부터 7일) 다음 날부터입니다.
         start = last + timedelta(days=1) if last else (applied or today) + timedelta(days=7)
         period = {"start": start.isoformat(), "end": recognition.isoformat()}
+        # 필요 건수는 활동 규칙 표(data/rules/activities.json). 표에 없는 유형은 None.
+        # "N일마다 1건" 규칙(일반 8차부터 7일마다 구직활동, 반복수급자 14일마다)은
+        # 기간을 나눠 셉니다.
+        if row := load_rules().required_row(group, current_round):
+            required, required_job_search = row.total, row.job_search
+            if row.weekly_job_search or row.every_days:
+                interval_days = row.every_days or rounds.DAYS_PER_WEEK
+                required = len(rounds.period_slices(start, recognition, interval_days))
+                required_job_search = required if row.weekly_job_search else 0
     return {
         "rule_group": rule_group,
         "group": group,
@@ -64,6 +70,7 @@ def derive(state: dict[str, Any]) -> dict[str, Any]:
         and periods.is_attendance_round(rule_group, current_round),
         "required": required,
         "required_job_search": required_job_search,
+        "interval_days": interval_days,  # N일마다 1건 규칙일 때만 (7 또는 14)
         "can_presubmit_online": state["age_at_separation"] < 65,
     }
 
