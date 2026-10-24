@@ -1,3 +1,6 @@
+import { Check } from 'lucide-react';
+
+import { ICON_SIZE, ICON_STROKE_BOLD } from '@/lib/iconSize';
 import type { ProgressStep } from '@/types/demo.types';
 
 /** 1.8 진행바. 4단계 고정, 완료 단계는 눌러서 읽기 전용으로 다시 볼 수 있습니다. */
@@ -32,7 +35,7 @@ export const ProgressBar = ({
       const circleClass = isDone
         ? 'bg-ok text-white'
         : isCurrent
-          ? 'bg-brand text-white'
+          ? 'bg-brand-fill text-white'
           : 'bg-neutral-soft text-muted';
       const labelClass = isCurrent ? 'font-bold text-ink' : isDone ? 'text-ok' : 'text-muted';
       const content = (
@@ -41,7 +44,7 @@ export const ProgressBar = ({
             className={`flex shrink-0 items-center justify-center rounded-full font-bold ${isCompact ? 'size-6 text-xs' : 'size-8 text-sm'} ${circleClass}`}
             aria-hidden
           >
-            {isDone ? '✓' : step}
+            {isDone ? <Check size={ICON_SIZE.sm} strokeWidth={ICON_STROKE_BOLD} /> : step}
           </span>
           <span className={`${isCompact ? 'text-sm' : 'text-base'} ${labelClass}`}>{label}</span>
         </>
@@ -56,7 +59,7 @@ export const ProgressBar = ({
             <button
               type="button"
               onClick={() => onStepClick(step)}
-              className="hover:bg-ok-soft focus-visible:ring-brand/40 flex items-center gap-2 rounded-lg px-1 py-0.5 focus-visible:ring-3 focus-visible:outline-hidden"
+              className="hover:bg-ok-soft focus-visible:ring-brand flex items-center gap-2 rounded-lg px-1 py-0.5 focus-visible:ring-3 focus-visible:outline-hidden"
               aria-label={`${label} 단계 다시 보기 (완료)`}
             >
               {content}

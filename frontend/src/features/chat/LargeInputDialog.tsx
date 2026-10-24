@@ -40,15 +40,15 @@ export const LargeInputDialog = ({ value, onChange, onSend, onClose }: LargeInpu
   };
 
   return (
-    <div className="bg-ink/40 fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
       <div
         role="dialog"
         aria-modal="true"
         aria-labelledby="large-input-title"
-        className="bg-surface flex w-full max-w-2xl flex-col gap-4 rounded-2xl p-6 shadow-lg"
+        className="bg-surface flex h-[min(85dvh,52rem)] w-full max-w-5xl flex-col gap-4 rounded-3xl p-8 shadow-lg"
       >
         <div className="flex items-center justify-between gap-3">
-          <h2 id="large-input-title" className="text-xl font-bold">
+          <h2 id="large-input-title" className="text-2xl font-bold">
             크게 쓰기
           </h2>
           <Button variant="ghost" onClick={onClose}>
@@ -59,11 +59,10 @@ export const LargeInputDialog = ({ value, onChange, onSend, onClose }: LargeInpu
           value={value}
           onChange={(event) => onChange(event.target.value)}
           onKeyDown={handleKeyDown}
-          rows={5}
           autoFocus
           placeholder="여기에 말씀하듯 적어 주세요"
           aria-label="크게 쓰기 입력"
-          className="border-line focus-visible:border-brand focus-visible:ring-brand/40 w-full resize-none rounded-xl border px-5 py-4 text-2xl leading-relaxed focus-visible:ring-3 focus-visible:outline-hidden"
+          className="border-line focus-visible:border-accent focus-visible:ring-brand min-h-0 w-full flex-1 resize-none rounded-2xl border px-6 py-5 text-3xl leading-relaxed focus-visible:ring-3 focus-visible:outline-hidden"
         />
         <p className="text-muted text-sm">개인정보를 입력하지 마세요(데모).</p>
         <Button size="lg" onClick={handleSend} disabled={!canSend} className="self-end">

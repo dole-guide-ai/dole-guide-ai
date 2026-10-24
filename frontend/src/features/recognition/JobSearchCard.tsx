@@ -1,4 +1,5 @@
 import { Chip } from '@/components/Chip';
+import { RequiredMark } from '@/components/RequiredMark';
 import { activityEvidenceChip } from '@/features/recognition/recognitionLabels';
 
 import { formatShortDate } from '@/lib/dateFormat';
@@ -30,22 +31,22 @@ export const JobSearchCard = ({ activity, meta }: JobSearchCardProps) => {
 
   return (
     <article
-      className="border-line flex flex-col gap-2 rounded-xl border px-4 py-3"
+      className="bg-neutral-soft flex flex-col gap-3 rounded-xl px-5 py-4"
       aria-label={`구직활동 ${activity.company_name}`}
     >
       <div className="flex flex-wrap items-center gap-2">
-        <h4 className="text-base font-bold">
+        <h4 className="text-lg font-bold">
           {formatShortDate(activity.activity_date)} {activity.company_name}
         </h4>
         <Chip {...chip} />
         <Chip {...activityEvidenceChip(activity)} />
       </div>
-      <dl className="grid grid-cols-1 gap-x-4 gap-y-1 text-sm sm:grid-cols-2">
+      <dl className="grid grid-cols-1 gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
         {rows.map(([label, value, isRequired]) => (
           <div key={label} className="flex gap-2">
             <dt className="text-muted w-32 shrink-0">
               {label}
-              {isRequired && <span className="text-warn ml-0.5">★</span>}
+              {isRequired && <RequiredMark />}
             </dt>
             <dd className={value ? 'text-ink' : 'text-warn font-semibold'}>
               {value ?? (isRequired ? '답변 필요' : '없음')}

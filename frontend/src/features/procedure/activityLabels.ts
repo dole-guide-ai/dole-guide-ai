@@ -42,6 +42,20 @@ export const ROUTE_LABEL: Record<ActivityRoute, string> = {
 
 export const KIND_LABEL = { job_search: '구직활동', other: '구직 외' } as const;
 
+/** 서버가 활동 종류를 코드(예: job_application)로 줄 때 화면 이름. 모르는 코드는 화면에 영어로 내보내지 않습니다. */
+const CATEGORY_LABEL = {
+  job_application: '입사지원',
+  interview: '면접',
+  lecture: '취업특강',
+  training: '직업훈련',
+  counseling: '직업상담',
+  job_fair: '채용행사',
+} as const satisfies Record<string, string>;
+
+export const categoryLabel = (category: string) =>
+  (CATEGORY_LABEL as Record<string, string>)[category] ??
+  (/^[a-z0-9_-]+$/.test(category) ? null : category);
+
 /** 증빙 칩: 필요 증빙이 없으면 `증빙 불필요`, 첨부가 있으면 `증빙 있음`, 아니면 `증빙 필요`(주황). */
 export const evidenceChip = (evidence: ActivityEvidence): ChipSpec => {
   if (evidence.required.length === 0) return { label: '증빙 불필요', tone: 'neutral' };

@@ -15,9 +15,19 @@ export const LoginScreen = () => (
         height={120}
         priority
         unoptimized
+        className="in-data-[theme=dark]:hidden"
+      />
+      <Image
+        src="/brand/logo-stacked-dark.svg"
+        alt="실업급여 길잡이"
+        width={154}
+        height={120}
+        priority
+        unoptimized
+        className="hidden in-data-[theme=dark]:block"
       />
       <h1 className="text-3xl font-bold">누구로 시작할까요?</h1>
-      <p className="border-warn/30 bg-warn-soft text-ink rounded-xl border px-4 py-3 text-base">
+      <p className="border-warn bg-warn-soft text-ink rounded-xl border px-4 py-3 text-base">
         이 서비스는 시연용 모의 서비스예요. 실제 개인정보를 쓰지 않고, 고용24와 연결되어 있지
         않아요. 아래 계정은 모두 가상 인물이에요.
       </p>

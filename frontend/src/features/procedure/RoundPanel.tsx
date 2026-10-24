@@ -2,6 +2,8 @@
 
 import { useState } from 'react';
 
+import { FileText } from 'lucide-react';
+
 import { Button } from '@/components/Button';
 import { EvidenceLine } from '@/components/EvidenceLine';
 import { ActivityList } from '@/features/procedure/ActivityList';
@@ -16,10 +18,13 @@ import { useRoundDraft } from '@/features/procedure/useRoundDraft';
 
 import { ApiError } from '@/lib/api';
 import { formatKoreanDate } from '@/lib/dateFormat';
+import { ICON_SIZE, ICON_STROKE } from '@/lib/iconSize';
+import { STICKY_FOOTER } from '@/lib/panelLayout';
 import type { SessionRead } from '@/types/demo.types';
 
 /**
- * 패널 B 이번 회차 할 일 (2-2.9): D-day 카드 · 필요 활동 카드 · 회차 진행 · 활동 목록 · 경고 · 추천 상자 · 신청서 버튼.
+ * 패널 B 이번 회차 할 일 (2-2.9): 일정 · 필요 활동 · 회차 진행 · 활동 목록 · 경고 · 추천 상자 · 신청서 버튼.
+ * 박스 없이 구분선과 여백으로 나누고, 신청서 버튼은 패널 아래에 붙어 늘 보입니다.
  * 점검 결과는 서버 `check_round` 값을 양식 저장소에서 읽고, 대화의 `form_update`(form: "activities")로 갱신됩니다.
  */
 interface RoundPanelProps {
@@ -27,6 +32,9 @@ interface RoundPanelProps {
   /** `활동 정리 끝 · 신청서 만들기` (부족하면 한 번 물은 뒤). 신청서 화면(2-3)으로 넘어가는 대화를 보냅니다. */
   onOpenForm?: () => void;
 }
+
+/** 섹션 사이 구분선 (이력서 패널과 같은 규칙) */
+const DIVIDED = 'border-line flex flex-col gap-3 border-t pt-6';
 
 export const RoundPanel = ({ session, onOpenForm }: RoundPanelProps) => {
   const query = useRoundCheck(
@@ -72,7 +80,7 @@ export const RoundPanel = ({ session, onOpenForm }: RoundPanelProps) => {
   };
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-6">
       {/* E2 (1.6): 인정일이 지났으면 변경 신청 안내를 맨 위에 둡니다 (DUE-089, DUE-094). */}
       {isOverdue && session.state.next_recognition_date && (
         <div role="alert" className="bg-danger-soft text-danger rounded-xl px-4 py-3">
@@ -86,12 +94,16 @@ export const RoundPanel = ({ session, onOpenForm }: RoundPanelProps) => {
         </div>
       )}
       <DdayCard state={session.state} derived={session.derived} />
-      <RequirementCard check={check} />
-      <RoundProgress markers={check.round_markers} />
-      <BenefitEndNote derived={session.derived} />
+      <div className={DIVIDED}>
+        <RequirementCard check={check} />
+        <RoundProgress markers={check.round_markers} />
+      </div>
+      <div className={DIVIDED}>
+        <BenefitEndNote derived={session.derived} />
+      </div>
 
-      <section className="flex flex-col gap-2">
-        <h3 className="text-base font-bold">이번 회차 활동</h3>
+      <section className={DIVIDED}>
+        <h3 className="text-lg font-bold">이번 회차 활동</h3>
         <ActivityList
           activities={check.activities}
           warnings={check.warnings}
@@ -114,7 +126,16 @@ export const RoundPanel = ({ session, onOpenForm }: RoundPanelProps) => {
         />
       )}
 
-      <div className="flex flex-col gap-2">
+      <div className="flex flex-col gap-1">
+        {check.rule_review === 'not_verified' && (
+          <p className="text-muted text-sm">
+            검수 전 규칙으로 계산했어요. 최종 인정 여부는 관할 고용센터가 판단해요.
+          </p>
+        )}
+        <EvidenceLine cite={check.cite} />
+      </div>
+
+      <div className={STICKY_FOOTER}>
         {isAskingShort ? (
           <div
             role="alertdialog"
@@ -132,19 +153,11 @@ export const RoundPanel = ({ session, onOpenForm }: RoundPanelProps) => {
             </div>
           </div>
         ) : (
-          <Button size="lg" onClick={handleOpenForm} disabled={!onOpenForm}>
+          <Button size="lg" className="w-full" onClick={handleOpenForm} disabled={!onOpenForm}>
+            <FileText aria-hidden size={ICON_SIZE.md} strokeWidth={ICON_STROKE} />
             활동 정리 끝 · 신청서 만들기
           </Button>
         )}
-      </div>
-
-      <div className="flex flex-col gap-1">
-        {check.rule_review === 'not_verified' && (
-          <p className="text-muted text-sm">
-            검수 전 규칙으로 계산했어요. 최종 인정 여부는 관할 고용센터가 판단해요.
-          </p>
-        )}
-        <EvidenceLine cite={check.cite} />
       </div>
     </div>
   );

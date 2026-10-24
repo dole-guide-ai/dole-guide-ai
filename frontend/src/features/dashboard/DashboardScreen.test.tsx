@@ -57,7 +57,7 @@ describe('DashboardScreen', () => {
 
     renderWithProviders(<DashboardScreen />);
 
-    expect(await screen.findByText('이정호님')).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: '이정호님 정보 보기' })).toBeInTheDocument();
     expect(
       screen.getByRole('heading', { level: 1, name: '4차 실업인정 할 일' }),
     ).toBeInTheDocument();
