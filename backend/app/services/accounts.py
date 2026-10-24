@@ -283,6 +283,7 @@ def _round_facts(db: Session, user_id: uuid.UUID, today: date) -> RoundFacts | N
         counted=result.counted,
         counted_job_search=result.counted_job_search,
         weekly=bool(result.weeks),
+        same_day=sum(1 for a in result.activities if a.status == ActivityStatus.SAME_DAY),
     )
 
 
