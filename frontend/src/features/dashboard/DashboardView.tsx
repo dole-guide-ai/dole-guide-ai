@@ -111,11 +111,7 @@ export const DashboardView = ({ session, personaName }: DashboardViewProps) => {
       />
       <NoticeToast key={session.session_id} notices={sessionNotices(session)} />
       {isMyDataOpen && (
-        <MyDataDialog
-          sessionId={session.session_id}
-          personaId={session.persona_id}
-          onClose={() => setIsMyDataOpen(false)}
-        />
+        <MyDataDialog personaId={session.persona_id} onClose={() => setIsMyDataOpen(false)} />
       )}
 
       <main className="grid flex-1 gap-4 p-4 sm:p-6 lg:min-h-0 lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
