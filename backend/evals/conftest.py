@@ -60,13 +60,22 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         help="이 영역만 실행",
     )
     group.addoption("--golden-threshold", type=float, default=0.7, help="LLM 판정 통과 점수(0~1)")
+    group.addoption(
+        "--golden-judge",
+        choices=["on", "off"],
+        default="on",
+        help="off: LLM 판정을 건너뛰고 정답 비교만 (고치는 중 빠르고 싸게 확인할 때)",
+    )
 
 
 @pytest.fixture(scope="session")
 def golden_options(request: pytest.FixtureRequest) -> SimpleNamespace:
     get = request.config.getoption
     return SimpleNamespace(
-        agent=get("--golden-agent"), area=get("--golden-area"), threshold=get("--golden-threshold")
+        agent=get("--golden-agent"),
+        area=get("--golden-area"),
+        threshold=get("--golden-threshold"),
+        judge=get("--golden-judge") == "on",
     )
 
 
