@@ -293,7 +293,7 @@ def _apply_file_ops(
             if file_id not in linked:
                 activity_repo.link_files(db, activity_id, [file_id])
                 linked.add(file_id)
-        elif op.op == PatchOpName.REMOVE:
+        elif op.op == PatchOpName.REMOVE and op.path.startswith(f"{FILE_IDS_PATH}/"):
             file_id = _uuid(op.path.removeprefix(f"{FILE_IDS_PATH}/"))
             activity_repo.unlink_file(db, activity_id, file_id)
             linked.discard(file_id)
