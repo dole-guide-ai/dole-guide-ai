@@ -357,9 +357,8 @@ export const ResumePanel = ({
           rawValue={careerYears}
           meta={fields['job_preferences.experience_summary']}
           isRequired
+          // 경력 합계는 코드가 계산해 확인받는 값이라(2-1.4) 대화로만 고칩니다.
           onEdit={edit('희망 직종 경력')}
-          onDirectSave={direct('job_preferences.experience_summary')}
-          placeholder="경력 9년 6개월 또는 신입"
         />
         <FieldRow
           label="희망직무내용"
@@ -367,7 +366,7 @@ export const ResumePanel = ({
           rawValue={prefs?.desired_duties}
           meta={fields['job_preferences.desired_duties']}
           chip={prefs?.desired_duties ? undefined : OPTIONAL_CHIP}
-          onDirectSave={direct('job_preferences.desired_duties')}
+          onEdit={edit('희망직무내용')}
         />
         <FieldRow
           label="희망근무지역"
