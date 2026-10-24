@@ -12,13 +12,18 @@ def apply_updates(state: AgentState) -> AgentState:
     """
     output = state["output"]
     data = deepcopy(state["data"])
-    period = state["situation"]["derived"]["period"]
     for activity in output.activities:
-        data["activities"].append(situation.complete_activity(activity.model_dump(), period))
+        data["activities"].append(situation.complete_activity(activity.model_dump()))
     _merge_resume(data["resume"], output)
     context = dict(state["situation"])
     if output.activities and context["derived"]["current_round"]:
-        context["round"] = situation.check_round(context["derived"], data["activities"])
+        context["round"], statuses = situation.check_round(
+            state["state"], context["derived"], data["activities"]
+        )
+        # 새로 넣은 활동에만 회차 점검 상태(counted·same_day·out_of_period 등)를 붙입니다.
+        new = len(output.activities)
+        for activity, status in zip(data["activities"][-new:], statuses[-new:], strict=True):
+            activity["status"] = status
     return {"data": data, "situation": context}
 
 

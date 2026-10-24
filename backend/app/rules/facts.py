@@ -4,7 +4,6 @@ AI가 숫자·날짜를 직접 말하게 하지 않고, 이 문장을 그대로 
 답의 근거 줄로 씁니다. DB·LLM을 모르는 순수 함수입니다.
 """
 
-from collections import Counter
 from datetime import date, datetime, time
 from typing import Any
 
@@ -23,9 +22,8 @@ def _md(value: str) -> str:
 
 
 def build_facts(
-    state: dict[str, Any], derived: dict[str, Any], round_check: dict[str, Any] | None,
-    activities: list[dict[str, Any]],
-) -> list[dict[str, str]]:  # fmt: skip
+    state: dict[str, Any], derived: dict[str, Any], round_check: dict[str, Any] | None
+) -> list[dict[str, str]]:
     """지금 상황에서 사용자에게 말해도 되는 사실 문장 목록 [{text, cite}]."""
     facts: list[dict[str, str]] = []
     age = state["age_at_separation"]
@@ -59,17 +57,10 @@ def build_facts(
         need += f"이고, 지금 인정된 활동은 {counted}건이에요."
         need += f" {short}건 더 해야 해요." if short else " 필요한 건수는 채웠어요."
         facts.append({"text": need, "cite": CITE_ROUNDS})
-    period = derived["period"]
-    same_day = Counter(
-        a["date"] for a in activities if period["start"] <= a["date"] <= period["end"]
-    )
-    for day, count in sorted(same_day.items()):
-        if count > 1:
-            facts.append({
-                "text": f"{_md(day)}에 한 활동 {count}건은 같은 날이라 1건만 인정돼요. "
-                "더 할 활동은 다른 날 해야 해요.",
-                "cite": CITE_EVIDENCE,
-            })  # fmt: skip
+    # 같은 날 1건 판정은 회차 점검(rounds.check_round)의 경고 문구를 그대로 씁니다.
+    for message in (round_check or {}).get("same_day_messages", []):
+        text = f"{message} 더 할 활동은 다른 날 해야 해요."
+        facts.append({"text": text, "cite": CITE_EVIDENCE})
     if derived["is_attendance_round"]:
         text = f"이번 {n}차는 고용센터에 직접 출석하는 회차예요. 인터넷으로 보내지 않아요."
         facts.append({"text": text, "cite": CITE_ROUNDS})

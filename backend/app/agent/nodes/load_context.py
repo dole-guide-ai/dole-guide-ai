@@ -9,11 +9,10 @@ def load_context(state: AgentState) -> AgentState:
     계산 결과는 사람이 읽는 사실 문장(facts)으로도 만들어, AI가 숫자·날짜를 그대로 옮기게 합니다.
     """
     derived = situation.derive(state["state"])
-    activities = state["data"]["activities"]
     context = {"today": state["state"]["demo_today"], "derived": derived}
     round_check = None
     if derived["current_round"]:
-        round_check = situation.check_round(derived, activities)
+        round_check, _ = situation.check_round(state["state"], derived, state["data"]["activities"])
         context["round"] = round_check
-    context["facts"] = build_facts(state["state"], derived, round_check, activities)
+    context["facts"] = build_facts(state["state"], derived, round_check)
     return {"situation": context}

@@ -2,38 +2,26 @@
 
 수급자 유형·이번 회차·필요 활동 수·인정 건수처럼 틀리면 안 되는 값은 여기서 정하고,
 AI는 이 결과를 설명만 합니다(설계 초안 결정 ②). DB·LLM을 모르는 순수 함수입니다.
+
+회차 점검은 팀 공용 `rounds.check_round`(같은 날 1건·기간 밖·한도·허용 종류), 활동 종류 이름과
+증빙은 활동 규칙 표(`activity_table`)를 그대로 씁니다. 여기서는 대화 상태값(dict)을 그 입력·출력
+모양으로 바꾸기만 합니다.
 """
 
 from datetime import date, timedelta
 from typing import Any
 
-from app.rules import periods
-from app.rules.activity_table import load_rules
+from app.rules import periods, rounds
+from app.rules.activity_table import load_rules, required_evidence
+from app.rules.application import ActivityInput
+from app.schemas.activities import ActivityCategory
+from app.schemas.rounds import WarningId
 
-OUT_OF_PERIOD = "out_of_period"
-COUNTED = "counted"
-# 구직활동으로 세는 종류. 시연 데이터는 job_search, AI가 뽑은 활동은 세부 종류를 씁니다.
-JOB_SEARCH_KINDS = ("job_search", "job_application", "interview")
-
-# 활동 종류(kind) → 신청서에 보이는 이름
-CATEGORY_LABELS = {
-    "job_application": "입사지원",
-    "interview": "면접",
-    "lecture": "취업특강",
-    "training": "직업훈련",
-    "counseling": "직업상담",
-    "job_fair": "채용박람회",
-}
-# 경로(route) → 제출할 증빙 (상세기획 2-2.4). 고용24 지원은 기록이 남아 증빙이 필요 없습니다.
-EVIDENCE_BY_ROUTE: dict[str, list[str]] = {
-    "work24": [],
-    "step_online": [],
-    "company_site": ["채용공고", "지원 완료 화면 캡처(날짜가 보이게)"],
-    "portal": ["취업포털 지원 내역 캡처 또는 취업활동증명서"],
-    "email": ["채용공고", "보낸 메일 화면 캡처"],
-    "interview": ["면접확인서", "명함"],
-}
-DEFAULT_EVIDENCE = ["지원 사실을 보여 주는 자료(공고·접수증 등)"]
+# 시연·골든셋 데이터의 옛 종류 이름 → 활동 규칙 표의 종류
+LEGACY_KINDS = {"job_search": "job_application"}
+DEFAULT_KIND = "job_application"
+# 증빙 표에 없는 경로
+UNKNOWN_EVIDENCE = ["필요한 증빙은 관할 고용센터에 확인"]
 
 
 def _day(value: str | None) -> date | None:
@@ -47,7 +35,7 @@ def derive(state: dict[str, Any]) -> dict[str, Any]:
     group = periods.recipient_group(
         state["age_at_separation"], state.get("has_disability", False), is_repeat
     )
-    # 반복수급자도 회차 규칙은 일반을 따릅니다.
+    # 반복수급자도 출석 회차는 일반을 따릅니다.
     rule_group = "general" if group == "repeat" else group
     recognition = _day(state.get("next_recognition_date"))
     current_round = (
@@ -68,6 +56,7 @@ def derive(state: dict[str, Any]) -> dict[str, Any]:
         period = {"start": start.isoformat(), "end": recognition.isoformat()}
     return {
         "rule_group": rule_group,
+        "group": group,
         "current_round": current_round,
         "d_day": (recognition - today).days if recognition else None,
         "period": period,
@@ -79,37 +68,57 @@ def derive(state: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def activity_status(activity: dict[str, Any], period: dict[str, str] | None) -> str:
-    if not period or not period["start"] <= activity["date"] <= period["end"]:
-        return OUT_OF_PERIOD
-    return COUNTED
+def _to_input(index: int, activity: dict[str, Any]) -> ActivityInput:
+    kind = LEGACY_KINDS.get(activity.get("kind") or "", activity.get("kind") or DEFAULT_KIND)
+    rule = load_rules().kind(kind)
+    return ActivityInput(
+        activity_id=str(index),
+        activity_date=date.fromisoformat(activity["date"]),
+        category=rule.category if rule else ActivityCategory.NON_JOB_SEARCH,
+        kind=kind,
+        route=activity.get("route"),
+        org_name=activity.get("org_name"),
+        job_title=activity.get("job_title"),
+    )
 
 
-def check_round(derived: dict[str, Any], activities: list[dict[str, Any]]) -> dict[str, Any]:
-    """이번 회차 인정 건수와 부족한 건수. 같은 날 활동은 1건만 인정합니다(설계 6.4)."""
+def check_round(
+    state: dict[str, Any], derived: dict[str, Any], activities: list[dict[str, Any]]
+) -> tuple[dict[str, Any], list[str]]:
+    """이번 회차 점검 요약과, 활동마다의 상태(counted·same_day·out_of_period 등)를 돌려줍니다."""
     period = derived["period"]
-    in_period = [a for a in activities if activity_status(a, period) == COUNTED]
-    counted = len({a["date"] for a in in_period})
-    job_search = len({a["date"] for a in in_period if a.get("kind") in JOB_SEARCH_KINDS})
-    required = derived["required"]
-    # 필요 건수를 모르는 유형(규칙 표에 없음)은 부족 건수도 None입니다.
-    return {
+    result = rounds.check_round(
+        round_no=derived["current_round"],
+        group=derived["group"],
+        period_start=date.fromisoformat(period["start"]),
+        period_end=date.fromisoformat(period["end"]),
+        standard_period=True,
+        activities=[_to_input(i, a) for i, a in enumerate(activities)],
+        history=[],
+        today=date.fromisoformat(state["demo_today"]),
+    )
+    statuses = {check.activity_id: check.status for check in result.activities}
+    summary = {
         "round": derived["current_round"],
-        "required": required,
-        "required_job_search": derived["required_job_search"],
-        "counted": counted,
-        "counted_job_search": job_search,
-        "shortfall": None if required is None else max(required - counted, 0),
+        "required": result.required,
+        "required_job_search": result.required_job_search,
+        "counted": result.counted,
+        "counted_job_search": result.counted_job_search,
+        # 필요 건수를 모르는 유형(규칙 표에 없음)은 부족 건수도 None입니다.
+        "shortfall": None if result.required is None else result.remaining,
+        "same_day_messages": [w.message for w in result.warnings if w.id == WarningId.SAME_DAY],
     }
+    return summary, [str(statuses.get(str(i), "")) for i in range(len(activities))]
 
 
-def complete_activity(activity: dict[str, Any], period: dict[str, str] | None) -> dict[str, Any]:
-    """AI가 뽑은 활동(날짜·종류·경로·기관)에 이름·증빙·인정 여부를 채웁니다."""
-    kind = activity.get("kind") or "job_application"
-    route = activity.get("route")
+def complete_activity(activity: dict[str, Any]) -> dict[str, Any]:
+    """AI가 뽑은 활동(날짜·종류·경로·기관)에 종류 이름과 필요 증빙을 채웁니다."""
+    kind = activity.get("kind") or DEFAULT_KIND
+    rule = load_rules().kind(kind)
+    evidence = required_evidence(activity.get("route"))
     return {
         **activity,
-        "category": CATEGORY_LABELS.get(kind, "기타"),
-        "evidence": {"required": list(EVIDENCE_BY_ROUTE.get(route or "", DEFAULT_EVIDENCE))},
-        "status": activity_status(activity, period),
+        "kind": kind,
+        "category": rule.label if rule else "확인 필요",
+        "evidence": {"required": list(evidence) if evidence is not None else UNKNOWN_EVIDENCE},
     }

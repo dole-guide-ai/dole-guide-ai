@@ -1,4 +1,5 @@
 from app.rules import situation
+from app.schemas.rounds import ActivityStatus
 
 LEE = {
     "age_at_separation": 58,
@@ -11,6 +12,7 @@ LEE = {
     "next_recognition_date": "2026-12-22",
     "demo_today": "2026-12-16",
 }
+# 시연 데이터의 옛 종류 이름(job_search)도 입사지원으로 읽습니다.
 SAME_DAY = [
     {"date": "2026-12-08", "kind": "job_search", "route": "work24"},
     {"date": "2026-12-08", "kind": "job_search", "route": "company_site"},
@@ -36,19 +38,29 @@ def test_derive_before_recognition_has_no_round() -> None:
 
 
 def test_same_day_activities_count_once() -> None:
-    check = situation.check_round(situation.derive(LEE), SAME_DAY)
+    check, statuses = situation.check_round(LEE, situation.derive(LEE), SAME_DAY)
 
     assert (check["counted"], check["shortfall"]) == (1, 1)
+    assert sorted(statuses) == [ActivityStatus.COUNTED, ActivityStatus.SAME_DAY]
+    assert check["same_day_messages"]
 
 
 def test_activity_outside_period_is_not_counted() -> None:
-    derived = situation.derive(LEE)
     late = situation.complete_activity(
-        {"date": "2026-11-20", "kind": "job_application", "route": "company_site"},
-        derived["period"],
+        {"date": "2026-11-20", "kind": "job_application", "route": "company_site"}
     )
+    check, statuses = situation.check_round(LEE, situation.derive(LEE), [*SAME_DAY, late])
 
-    assert late["status"] == situation.OUT_OF_PERIOD
     assert late["category"] == "입사지원"
-    assert late["evidence"]["required"]
-    assert situation.check_round(derived, [*SAME_DAY, late])["counted"] == 1
+    assert "채용공고" in late["evidence"]["required"]
+    assert statuses[-1] == ActivityStatus.OUT_OF_PERIOD
+    assert check["counted"] == 1
+
+
+def test_unknown_group_has_no_shortfall() -> None:
+    repeat = {**LEE, "recipient_type": "repeat"}
+
+    check, _ = situation.check_round(repeat, situation.derive(repeat), SAME_DAY)
+
+    assert check["required"] is None
+    assert check["shortfall"] is None

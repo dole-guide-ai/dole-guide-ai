@@ -21,8 +21,10 @@ SAME_DAY = [
 
 def _facts(state: dict, activities: list) -> list[dict[str, str]]:
     derived = situation.derive(state)
-    check = situation.check_round(derived, activities) if derived["current_round"] else None
-    return build_facts(state, derived, check, activities)
+    check = None
+    if derived["current_round"]:
+        check, _ = situation.check_round(state, derived, activities)
+    return build_facts(state, derived, check)
 
 
 def test_round_facts_state_numbers_dates_and_same_day_rule() -> None:
