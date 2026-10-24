@@ -93,3 +93,11 @@ def link_files(db: Session, activity_id: uuid.UUID, file_ids: list[uuid.UUID]) -
 def remove(db: Session, activity: Activity) -> None:
     """활동을 지웁니다. 증빙 연결(activity_files)도 같이 지워집니다(CASCADE)."""
     db.execute(delete(Activity).where(Activity.activity_id == activity.activity_id))
+
+
+def unlink_file(db: Session, activity_id: uuid.UUID, file_id: uuid.UUID) -> None:
+    db.execute(
+        delete(activity_files).where(
+            activity_files.c.activity_id == activity_id, activity_files.c.file_id == file_id
+        )
+    )

@@ -62,9 +62,10 @@ def test_last_round_gets_last_round_sentence() -> None:
     """마지막 회차면 첫 안내에 마지막 회차 문장을 붙입니다 (F-33)."""
     last = procedure(stage="recognition", last_round=9)
     entry = build_entry(last, "ready", round_summary(9), 7)
-    assert [m.template_id for m in entry.messages] == ["T-LAST"]
-    assert "마지막 회차" in entry.messages[0].text
-    assert build_entry(last, "ready", round_summary(8), 7).messages == []
+    assert entry.messages[-1].template_id == "T-LAST"
+    assert "마지막 회차" in entry.messages[-1].text
+    before = build_entry(last, "ready", round_summary(8), 7).messages
+    assert "T-LAST" not in [m.template_id for m in before]
 
 
 def test_ended_account_shows_end_screen() -> None:

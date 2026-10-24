@@ -24,6 +24,7 @@ from app.core.errors import ConflictError, NotFoundError
 from app.repositories import accounts as repo
 from app.repositories import imports as import_repo
 from app.rules import periods
+from app.rules.entry_text import RoundFacts
 from app.schemas.accounts import AccountRead, PersonaCard, PersonaDisplay, PersonaList
 from app.schemas.application import SubmitMode
 from app.schemas.common import ErrorCode
@@ -32,7 +33,7 @@ from app.schemas.forms import resume as resume_form
 from app.schemas.imports import ImportKind
 from app.schemas.procedure import ProcedureRead, Stage
 from app.schemas.resume import ResumeStatus
-from app.schemas.rounds import ApplicationStatus, RoundStatus, RoundSummary
+from app.schemas.rounds import ActivityStatus, ApplicationStatus, RoundStatus, RoundSummary
 from app.services import messages as message_service
 from app.services.entry import ResumeState, build_entry
 from app.services.seed import at
@@ -138,7 +139,16 @@ def read_account(db: Session, account: AccountContext, today: date) -> AccountRe
     rounds = read_rounds(db, account.user_id, today)
     current = next((r for r in rounds if r.status == RoundStatus.CURRENT), None)
     d_day = (current.recognition_date - today).days if current else None
-    entry = build_entry(procedure, _resume_status(db, account.user_id, procedure), current, d_day)
+    resume_state = _resume_status(db, account.user_id, procedure)
+    entry = build_entry(
+        procedure,
+        resume_state,
+        current,
+        d_day,
+        name=_display_name(db, account.persona_id),
+        old_resume_year=_old_resume_year(db, account.user_id, resume_state),
+        round_facts=_round_facts(db, account.user_id, today) if current else None,
+    )
     return AccountRead(
         persona_id=account.persona_id,
         today=today,
@@ -243,6 +253,44 @@ def read_rounds(db: Session, user_id: uuid.UUID, today: date) -> list[RoundSumma
             )
         )
     return summaries
+
+
+def _display_name(db: Session, persona_id: str) -> str:
+    """첫 안내의 {이름}: 가상 계정 카드의 표시 이름 (개인정보 칸 user_profiles가 아님, 1.2)."""
+    persona = repo.get_persona(db, persona_id)
+    return str((persona.display or {}).get("name", "")) if persona else ""
+
+
+def _old_resume_year(db: Session, user_id: uuid.UUID, state: ResumeState | None) -> int | None:
+    """E7b 첫 안내의 '{연도}년에 쓰신 이력서'."""
+    if state != ResumeState.OUTDATED:
+        return None
+    resume = repo.get_resume(db, user_id)
+    return resume.saved_at.astimezone(KST).year if resume and resume.saved_at else None
+
+
+def _round_facts(db: Session, user_id: uuid.UUID, today: date) -> RoundFacts | None:
+    """E4b 현황 요약(T-S)에 쓸 이번 회차 점검 값.
+
+    회차 점검 서비스가 이 모듈을 쓰므로 함수 안에서 불러옵니다.
+    """
+    from app.services import rounds as round_service  # noqa: PLC0415 - 순환 import 피하기
+
+    result = round_service.evaluate(db, user_id, today).result
+    recorded = sum(
+        1
+        for a in result.activities
+        if a.status not in (ActivityStatus.PLANNED, ActivityStatus.OUT_OF_PERIOD)
+    )
+    return RoundFacts(
+        required=result.required,
+        required_job_search=result.required_job_search,
+        recorded=recorded,
+        counted=result.counted,
+        counted_job_search=result.counted_job_search,
+        weekly=bool(result.weeks),
+        same_day=sum(1 for a in result.activities if a.status == ActivityStatus.SAME_DAY),
+    )
 
 
 def _resume_status(db: Session, user_id: uuid.UUID, procedure: ProcedureRead) -> ResumeState | None:

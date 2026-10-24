@@ -78,7 +78,12 @@ export const mockAccount = (personaId: string): AccountRead => {
             application_status: 'draft',
           }
         : null,
-    entry: { ...entry, panel: entry.panel ?? 'A', flags: { m1: false } },
+    entry: {
+      ...entry,
+      panel: entry.panel ?? 'A',
+      accepts_file: entry.accepts_file ?? false,
+      flags: { m1: false },
+    },
     pending_ask: null,
   };
 };
