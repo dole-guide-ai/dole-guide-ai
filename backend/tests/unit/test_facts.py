@@ -49,7 +49,7 @@ def test_submit_window_after_five_pm_on_recognition_day() -> None:
 def test_repeat_recipient_fact_says_every_two_weeks() -> None:
     texts = " ".join(f["text"] for f in _facts({**LEE, "recipient_type": "repeat"}, []))
 
-    assert "2주(14일)마다 활동 1건씩" in texts
+    assert "2주(14일)마다 활동을 1건씩" in texts
     assert "2건 더" in texts
     assert "채웠어요" not in texts
 

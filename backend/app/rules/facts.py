@@ -52,10 +52,12 @@ def build_facts(
     elif round_check:
         need = f"이번 회차에 필요한 활동은 {round_check['required']}건"
         if days := derived.get("interval_days"):
-            # 일반 8차부터 7일(1주)마다 구직활동, 반복수급자 14일(2주)마다 활동 1건
+            # 일반 8차부터 7일(1주)마다 구직활동, 반복수급자 14일(2주)마다 활동 1건.
+            # 규칙은 따로 한 문장으로 둬야 모델이 건수만 요약하면서 빼먹지 않습니다.
             kind = "구직활동" if round_check["required_job_search"] else "활동"
             span = f"{days // 7}주" if days % 7 == 0 else f"{days}일"
-            need = f"{span}({days}일)마다 {kind} 1건씩이라 {need}"
+            rule = f"이 회차는 {span}({days}일)마다 {kind}을 1건씩 해야 해요."
+            facts.append({"text": rule, "cite": CITE_ROUNDS})
         elif round_check["required_job_search"]:
             need += f"(그중 구직활동 {round_check['required_job_search']}건)"
         counted, short = round_check["counted"], round_check["shortfall"]
