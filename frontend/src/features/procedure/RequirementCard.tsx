@@ -1,3 +1,4 @@
+import { PERCENT_SCALE } from '@/lib/panelLayout';
 import type { RoundCheckRead } from '@/types/procedure.types';
 
 /**
@@ -34,7 +35,7 @@ export const RequirementCard = ({ check }: RequirementCardProps) => {
       : `인정 ${counted}건 · ${check.shortfall}건 더`;
 
   const isCountable = !isUnknown && required !== null && required > 0;
-  const percent = isCountable ? Math.min(100, (counted / required) * 100) : 0;
+  const percent = isCountable ? Math.min(PERCENT_SCALE, (counted / required) * PERCENT_SCALE) : 0;
   const toneText = isSatisfied ? 'text-ok' : 'text-warn';
 
   return (

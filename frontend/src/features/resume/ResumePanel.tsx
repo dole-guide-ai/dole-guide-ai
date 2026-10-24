@@ -27,7 +27,7 @@ import { useResumeForm } from '@/features/resume/useResumeForm';
 import { ApiError } from '@/lib/api';
 import { needsCheck } from '@/lib/fieldChip';
 import type { FieldMeta } from '@/lib/formStore';
-import { STICKY_FOOTER, STICKY_HEADER } from '@/lib/panelLayout';
+import { PERCENT_SCALE, STICKY_FOOTER, STICKY_HEADER } from '@/lib/panelLayout';
 import type { SessionRead } from '@/types/demo.types';
 import type { ResumeCompetencies, ResumeEducation } from '@/types/resume.types';
 
@@ -199,7 +199,8 @@ export const ResumePanel = ({
     saveLabelOverride ?? (isUpdate ? '확인하고 이력서 최신화' : '확인하고 이력서 저장');
   const canSave = values.can_save === true && !confirm.isPending;
   const doneCount = completeness?.done ?? 0;
-  const totalCount = completeness?.total || 5;
+  // 서버 완성도가 오기 전에는 꼭 채울 섹션 수(done의 항목 수)를 분모로 씁니다.
+  const totalCount = completeness?.total || Object.keys(done).length;
   const queue = questionQueue(values.next_question, values.question_queue);
   const careerYears = prefs?.experience_summary;
 
@@ -223,16 +224,10 @@ export const ResumePanel = ({
         >
           <div
             className="bg-ai h-full rounded-full transition-[width] duration-500"
-            style={{ width: `${(doneCount / totalCount) * 100}%` }}
+            style={{ width: `${(doneCount / totalCount) * PERCENT_SCALE}%` }}
           />
         </div>
       </div>
-      {confirm.isError && (
-        <p role="alert" className="text-danger text-sm">
-          {confirm.error instanceof ApiError ? confirm.error.message : '저장하지 못했어요.'}
-        </p>
-      )}
-
       <ResumeSection title="이력서 제목" isRequired isDone={done.title}>
         <FieldRow
           label="제목"
@@ -648,6 +643,11 @@ export const ResumePanel = ({
           >
             {confirm.isPending ? '저장하는 중…' : saveLabel}
           </Button>
+          {confirm.isError && (
+            <p role="alert" className="text-danger text-center text-sm">
+              {confirm.error instanceof ApiError ? confirm.error.message : '저장하지 못했어요.'}
+            </p>
+          )}
           {!canSave && (
             <span className="text-muted text-center text-sm">
               필수 항목을 다 채우고 확인 필요가 없어야 해요

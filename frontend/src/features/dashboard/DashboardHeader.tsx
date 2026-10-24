@@ -65,7 +65,10 @@ export const DashboardHeader = ({
           {nextStepText}
         </p>
       </div>
-      <nav className="ml-auto flex shrink-0 flex-wrap items-center gap-2" aria-label="화면 설정">
+      <nav
+        className="ml-auto flex w-full min-w-0 flex-wrap items-center gap-2 sm:w-auto"
+        aria-label="화면 설정"
+      >
         <BigTextToggle />
         <ThemeToggle />
         <Button variant="secondary" onClick={onOpenMyData} disabled={!onOpenMyData}>

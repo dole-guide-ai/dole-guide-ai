@@ -8,7 +8,7 @@ import { Chip } from '@/components/Chip';
 import { RequiredMark } from '@/components/RequiredMark';
 
 import { ApiError } from '@/lib/api';
-import { type ChipSpec, fieldChip } from '@/lib/fieldChip';
+import { type ChipSpec, EMPTY_CHIP_LABEL, fieldChip } from '@/lib/fieldChip';
 import type { FieldMeta } from '@/lib/formStore';
 import { ICON_SIZE, ICON_STROKE } from '@/lib/iconSize';
 
@@ -78,11 +78,14 @@ export const FieldRow = ({
   // '없어요'로 답한 칸은 '아직 없음'이 아니라 '없음'으로 보입니다 (PPT 점검 N2).
   const rawSpec = chip !== undefined ? chip : meta || isEmpty ? fieldChip(meta) : null;
   // 고정 칩으로 '해당 없음'을 받은 칸(meta 없음)도 '없음'으로 보입니다.
-  const isNotApplicable = meta?.status === 'not_applicable' || rawSpec?.label === '해당 없음';
+  const isNotApplicable =
+    meta?.status === 'not_applicable' || rawSpec?.label === EMPTY_CHIP_LABEL.NOT_APPLICABLE;
   const emptyText = isNotApplicable ? '없음' : '아직 없음';
   // 값 칸이 이미 '아직 없음·없음'을 말하면 같은 뜻의 칩은 겹쳐 달지 않습니다.
   const spec =
-    isEmpty && rawSpec && ['아직 없음', '해당 없음'].includes(rawSpec.label) ? null : rawSpec;
+    isEmpty && rawSpec && (Object.values(EMPTY_CHIP_LABEL) as string[]).includes(rawSpec.label)
+      ? null
+      : rawSpec;
   const isMissingRequired = isRequired && isEmpty && !isNotApplicable;
   const evidence = evidenceText(meta);
   const isEditing = draft !== null;
