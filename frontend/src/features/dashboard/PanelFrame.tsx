@@ -71,10 +71,11 @@ interface PanelFrameProps {
 /** 완료 단계 → 그 단계의 패널. 4단계(실업인정)는 늘 현재 단계라 다시 보기가 없습니다. */
 const STEP_PANEL: Partial<Record<ProgressStep, PanelId>> = { 1: 'A', 2: 'E', 3: 'Q' };
 
-// 박스 없이 화면 오른쪽을 꽉 채우는 영역. 대화와는 왼쪽 손잡이(세로선)로 나뉘고, 스크롤은 안쪽 칸이 맡습니다.
-const ASIDE_CLASS = 'bg-surface flex flex-col lg:min-h-0';
+// 화면 오른쪽을 꽉 채우는 옅은 회색 바탕 위에 흰 문서 면을 한 장 둡니다(문서 편집기처럼).
+// 대화와는 왼쪽 손잡이(세로선)로 나뉘고, 스크롤은 흰 문서 면이 맡습니다.
+const ASIDE_CLASS = 'bg-panel flex flex-col p-3 lg:min-h-0 lg:p-4';
 const SCROLL_CLASS =
-  'scrollbar-hidden flex flex-col gap-6 px-6 py-6 lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:px-8';
+  'scrollbar-hidden bg-surface flex flex-col gap-6 rounded-2xl px-6 py-6 lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:px-8';
 
 export const PanelFrame = ({
   session,

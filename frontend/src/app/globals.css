@@ -11,6 +11,8 @@
   --color-brand-soft: #dbeafe;
 
   --color-canvas: #f4f6f9;
+  /* 오른쪽 패널 바깥 바탕(옅은 회색). 안쪽 문서 면은 surface(흰색). */
+  --color-panel: #f6f7f9;
   --color-surface: #ffffff;
   --color-line: #e2e6ec;
   --color-ink: #1f2937;
