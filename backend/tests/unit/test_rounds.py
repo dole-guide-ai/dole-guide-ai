@@ -238,8 +238,27 @@ def test_volunteer_is_not_allowed_for_general():
     assert statuses(result)["v1"] == ActivityStatus.NOT_ALLOWED
 
 
-def test_repeat_recipient_is_not_supported():
-    result = check([act("a1", date(2026, 12, 1))], group="repeat")
+def test_repeat_recipient_needs_one_activity_every_two_weeks():
+    """반복수급자는 2주에 1회 (1350 의무 횟수 2026-10-15 답변, 팀 결정 2026-10-24).
 
-    assert result.required is None
-    assert result.check_status == CheckStatus.NEEDS_CHECK
+    대상기간 11.25~12.22(28일)를 14일씩 나눈 두 조각에 각각 1건이 있어야 합니다.
+    """
+    first_half = check([act("a1", date(2026, 12, 1))], group="repeat")
+    both_halves = check(
+        [act("a1", date(2026, 12, 1)), act("a2", date(2026, 12, 15))], group="repeat"
+    )
+
+    assert (first_half.required, first_half.counted) == (2, 1)
+    assert first_half.check_status == CheckStatus.SHORT
+    assert (both_halves.required, both_halves.counted) == (2, 2)
+    assert both_halves.check_status == CheckStatus.SATISFIED
+
+
+def test_repeat_recipient_counts_job_search_only_from_round_3():
+    lecture = act("a1", date(2026, 12, 1), kind="lecture", route="step_online")
+
+    round_2 = check([lecture], round_no=2, group="repeat")
+    round_3 = check([lecture], round_no=3, group="repeat")
+
+    assert round_2.activities[0].status == ActivityStatus.COUNTED
+    assert round_3.activities[0].status == ActivityStatus.NOT_ALLOWED

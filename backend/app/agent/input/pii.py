@@ -5,7 +5,11 @@ preprocess(입력), gateway(외부 호출 직전), LangSmith 마스킹, 출력 �
 - 등급 0(금지): 주민등록번호·외국인등록번호(생년월일 유효성), 카드번호(Luhn), 계좌번호.
   보낼 글에 남아 있으면 외부로 보내지 않습니다(`has_blocking`, gateway fail-closed).
 - 등급 1(직접 식별): 전화번호·이메일 → `[전화]`·`[이메일]` 토큰.
-- 실명은 정규식으로 찾을 수 없어 입력 안내와 칸을 만들지 않는 것으로 막습니다(5.5).
+- 실명은 정규식으로 찾을 수 없어 입력 안내와 칸을 만들지 않는 것으로 막습니다(5.5). 다만
+  "제 이름은 OOO이에요" 같은 자기소개 말투는 `[이름]`으로 가립니다(등급 1).
+- 대화에서 자주 나오는 변형도 잡습니다(#176 보안 검토): 점으로 나눈 주민번호, "뒷자리는 …"처럼
+  뒷자리만 말한 주민번호, 붙여 쓰거나 공백·밑줄·슬래시로 나눈 10자리 이상 계좌·카드 번호,
+  한글이 섞인 이메일 주소.
 
 찾은 값 자체는 결과에 담지 않고 종류·위치만 돌려줍니다(로그·트레이스에 원문이 남지 않게).
 """
@@ -23,6 +27,8 @@ class PiiKind(StrEnum):
     ACCOUNT = "account"
     PHONE = "phone"
     EMAIL = "email"
+    NAME = "name"  # 자기소개 말투의 이름만
+    NUMBER = "number"  # 주민번호·카드 모양인데 검증에 떨어진 긴 숫자 (가리되 차단 등급은 아님)
 
 
 BLOCKING = frozenset({PiiKind.RRN, PiiKind.FOREIGNER_RRN, PiiKind.CARD, PiiKind.ACCOUNT})
@@ -33,16 +39,35 @@ TOKENS = {
     PiiKind.ACCOUNT: "[계좌번호]",
     PiiKind.PHONE: "[전화]",
     PiiKind.EMAIL: "[이메일]",
+    PiiKind.NAME: "[이름]",
+    PiiKind.NUMBER: "[번호]",
 }
 
 # 숫자 사이 구분자: 하이픈·공백 (유니코드 하이픈 U+2010, 마이너스 U+2212, 전각 하이픈 U+FF0D 포함)
-_SEP = r"[-‐−－\s]?"
+_SEP = r"[-‐−－.\s]?"
 _RRN = re.compile(rf"(?<!\d)(\d{{6}}){_SEP}([1-8])(\d{{6}})(?!\d)")
 _CARD = re.compile(rf"(?<!\d)(?:\d{{4}}{_SEP}){{3}}\d{{4}}(?!\d)")
 # 은행 계좌: 숫자 2~6 묶음이 하이픈으로 3~4개 이어지고 숫자 10~14자리 (전화·날짜와 구분)
 _ACCOUNT = re.compile(r"(?<![\d-])\d{2,6}(?:-\d{2,6}){2,3}(?![\d-])")
 _PHONE = re.compile(r"(?<!\d)(?:01[016789]|0[2-6]\d?)[-.\s]?\d{3,4}[-.\s]?\d{4}(?!\d)")
 _EMAIL = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
+# 한글이 섞인 이메일("홍길동@회사.한국"). 영문 패턴이 못 잡은 것만 봅니다.
+_EMAIL_UNICODE = re.compile(r"[\w.%+-]+@[\w-]+(?:\.[\w-]+)+")
+# 뒷자리만 따로 말한 주민번호. 아무 7자리 숫자(금액 등)를 가리지 않도록 앞에 단서가 있을 때만.
+_RRN_BACK = re.compile(r"(?:뒷자리|뒷번호|뒤\s*7자리|주민(?:등록)?번호)\D{0,10}?([1-8]\d{6})(?!\d)")
+# 붙여 쓰거나 공백·점·밑줄·슬래시로 나눈 긴 번호(계좌·카드). 숫자 사이 구분자는 3글자까지.
+# 숫자 10~19자리만 보고, 통째로 날짜(+시각)인 것("2026-12-08 10")만 뺍니다(_is_date_time).
+_LONG_NUMBER = re.compile(r"(?<![\d-])\d(?:[\s.\-–—_/]{0,3}\d){9,}(?!\d)")
+_LONG_DIGITS = range(10, 20)
+_DATE_TIME = re.compile(r"(\d{4})[-./](\d{1,2})[-./](\d{1,2})(?:\s+\d{1,2})?")
+# 같은 말 안에 유효한 생년월일 6자리가 먼저 나오면, 뒤에 따로 말한 7자리도 뒷자리로 봅니다.
+_BIRTH6 = re.compile(r"(?<!\d)(\d{6})(?!\d)")
+_BACK7 = re.compile(r"(?<!\d)([1-8])\d{6}(?!\d)")
+# 자기소개 말투의 이름("제 이름은 홍길동이에요", "제 이름은 홍길동").
+# "몰라요"처럼 요·다로 끝나는 말은 이름이 아니라서 뺍니다.
+_NAME = re.compile(
+    r"(?:이름은|이름이)\s*([가-힣]{2,4})(?<![요다죠까네])(?=\s*(?:이에요|예요|입니다|이고|이요|[.,!]|$))"
+)
 _ACCOUNT_DIGITS = range(10, 15)
 
 
@@ -99,8 +124,13 @@ def _add_accounts(text: str, found: list[Finding], groups: int | None = None) ->
 def detect(text: str) -> list[Finding]:
     """찾은 개인정보의 종류·위치. 먼저 찾은 등급 0이 이기고, 같은 자리는 한 번만 셉니다."""
     found: list[Finding] = []
+    # 이메일을 먼저 찾아야 주소 안의 숫자만 가려지고 주소 일부가 남는 일이 없습니다.
+    for pattern in (_EMAIL, _EMAIL_UNICODE):
+        for m in pattern.finditer(text):
+            if not _overlaps(found, m.start(), m.end()):
+                found.append(Finding(PiiKind.EMAIL, m.start(), m.end()))
     for m in _RRN.finditer(text):
-        if _valid_birth(m[1], m[2]):
+        if _valid_birth(m[1], m[2]) and not _overlaps(found, m.start(), m.end()):
             kind = PiiKind.RRN if m[2] in "1234" else PiiKind.FOREIGNER_RRN
             found.append(Finding(kind, m.start(), m.end()))
     for m in _CARD.finditer(text):
@@ -114,9 +144,48 @@ def detect(text: str) -> list[Finding]:
         if not _overlaps(found, m.start(), m.end()):
             found.append(Finding(PiiKind.PHONE, m.start(), m.end()))
     _add_accounts(text, found)
-    for m in _EMAIL.finditer(text):
-        found.append(Finding(PiiKind.EMAIL, m.start(), m.end()))
+    _add_extra(text, found)
     return sorted(found, key=lambda f: f.start)
+
+
+def _is_date_time(text: str) -> bool:
+    """통째로 날짜(+시각 숫자)인지. 앞부분만 날짜인 계좌("3333-01-1234567")는 날짜가 아닙니다."""
+    m = _DATE_TIME.fullmatch(text.strip())
+    if not m:
+        return False
+    try:
+        date(int(m[1]), int(m[2]), int(m[3]))
+    except ValueError:
+        return False
+    return True
+
+
+def _is_birth(yymmdd: str) -> bool:
+    return any(_valid_birth(yymmdd, gender) for gender in "13")
+
+
+def _add_extra(text: str, found: list[Finding]) -> None:
+    """위 기본 패턴이 놓치는 대화 속 변형. 이미 찾은 자리와 겹치면 넘깁니다."""
+    for m in _RRN_BACK.finditer(text):
+        if not _overlaps(found, m.start(1), m.end(1)):
+            found.append(Finding(PiiKind.RRN, m.start(1), m.end(1)))
+    if birth := next((b for b in _BIRTH6.finditer(text) if _is_birth(b[1])), None):
+        for m in _BACK7.finditer(text, birth.end()):
+            if not _overlaps(found, m.start(), m.end()):
+                found.append(Finding(PiiKind.RRN, m.start(), m.end()))
+    for m in _LONG_NUMBER.finditer(text):
+        digits = re.sub(r"\D", "", m[0])
+        if len(digits) not in _LONG_DIGITS or _is_date_time(m[0]):
+            continue
+        if _overlaps(found, m.start(), m.end()):
+            continue
+        # 주민번호·카드 모양인데 검증(생년월일·Luhn)에서 떨어진 숫자도 가립니다(차단 등급은 아님).
+        shaped = _RRN.fullmatch(m[0]) or _CARD.fullmatch(m[0])
+        kind = PiiKind.NUMBER if shaped else PiiKind.ACCOUNT
+        found.append(Finding(kind, m.start(), m.end()))
+    for m in _NAME.finditer(text):
+        if not _overlaps(found, m.start(1), m.end(1)):
+            found.append(Finding(PiiKind.NAME, m.start(1), m.end(1)))
 
 
 def mask(text: str) -> tuple[str, list[Finding]]:
