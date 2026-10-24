@@ -46,19 +46,21 @@ export const sessionFor = (personaId: PersonaId): SessionRead =>
 
 /**
  * 이력서 API 가짜 서버: `GET /accounts/{id}/resume`은 떠 둔 응답(ETag 포함), `PATCH`는 받은 연산을 기록하고
- * 저장(`/status` → saved)이면 다음 단계 첫 안내(E6)를 돌려줍니다. `GET /accounts/{id}`는 계정 응답입니다.
+ * 저장(`/status` → saved)이면 다음 단계 첫 안내(E6)를 돌려줍니다. `GET /accounts/{id}`는 계정 응답이고, 저장 뒤에는 단계가 온라인 교육입니다.
  */
 export const mockResumeApi = (
   personaId: PersonaId,
   resume: Schemas['ResumeRead'] = RESUMES[personaId],
 ) => {
   const patches: unknown[] = [];
+  let isSaved = false;
   const spy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
     const url = String(input);
     if (url.endsWith(`/accounts/${personaId}/resume`) && init?.method === 'PATCH') {
       const ops = JSON.parse(String(init.body)) as { path: string; value: unknown }[];
       patches.push(...ops);
       const saved = ops.some((op) => op.path === '/status' && op.value === 'saved');
+      isSaved = isSaved || saved;
       const entry = saved
         ? { ...ACCOUNTS[personaId].entry, branch_id: 'E6', panel: 'E', messages: [], choices: [] }
         : null;
@@ -67,7 +69,13 @@ export const mockResumeApi = (
     if (url.endsWith(`/accounts/${personaId}/resume`)) {
       return Response.json(resume, { headers: { ETag: `"${resume.lock_version}"` } });
     }
-    if (url.endsWith(`/accounts/${personaId}`)) return Response.json(ACCOUNTS[personaId]);
+    if (url.endsWith(`/accounts/${personaId}`)) {
+      // 저장한 뒤 계정을 다시 받으면 온라인 교육 단계입니다.
+      const account = ACCOUNTS[personaId];
+      return Response.json(
+        isSaved ? { ...account, procedure: { ...account.procedure, stage: 'education' } } : account,
+      );
+    }
     return Response.json({ code: 'NOT_FOUND', message: '없는 경로예요.' }, { status: 404 });
   });
   return { spy, patches };
