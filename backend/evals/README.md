@@ -39,9 +39,19 @@ AI가 바뀔 때마다 같은 문항으로 다시 채점하는 기준 문항 세
 | `pnpm eval:golden` | 만들기 + 실제 AI로 실행·채점 → `evals/reports/golden-<시각>.md` |
 | `pnpm eval:golden:selftest` | 만들기 + 가짜 AI로 채점 코드만 점검. 100개 모두 통과해야 정상 |
 
-- 옵션은 뒤에 붙입니다: `pnpm eval:golden --golden-area=masking`(영역만), `--golden-threshold=0.8`(LLM 판정 기준, 기본 0.7)
+- 옵션은 뒤에 붙입니다: `pnpm eval:golden --golden-area=masking`(영역만), `--golden-threshold=0.8`(LLM 판정 기준, 기본 0.7), `--golden-judge=off`(LLM 판정 끄고 정답 비교만), `-k "P-007 or F-005"`(문항만), `--lf`(지난번 실패 문항만)
+- 보고서 끝에 비용·속도가 나옵니다: 에이전트 모델 호출·입력(그중 캐시)·출력 토큰·시간, LLM 판정 호출·토큰.
+- LLM 판정(G-Eval)은 채점기준마다 '채점 단계'를 만든 뒤 점수를 매깁니다. 단계는 `backend/.cache/golden_judge_steps.json`에 저장해 다시 쓰므로 두 번째 실행부터 판정 호출이 문항당 1번입니다. 판정 모델(`JUDGE_MODEL`)을 바꾸면 새로 만듭니다.
+
+#### 토큰을 아끼는 검증 순서
+
+1. 규칙·흐름 코드는 단위 테스트로 먼저 확인합니다(`uv run pytest tests/unit`, 모델 호출 없음).
+2. 고치는 동안에는 바뀐 영역·문항만, 판정 없이 돌립니다: `--golden-area=form_fill --golden-judge=off` 또는 `-k "..."`.
+3. 결정할 때만 전체 100문항을 판정과 함께 1번 돌립니다. 기준 점수는 저장된 보고서를 다시 쓰고 새로 돌리지 않습니다.
+4. 기준과의 차이가 같은 버전 두 번 사이의 흔들림(약 3~8점) 안이면 그때만 2회차를 돌립니다.
+5. 문항이 나빠졌는지는 `--lf`로 실패 문항만 다시 돌려 확인합니다.
 - GitHub에서: Actions → `golden-eval` → Run workflow. 결과 표는 실행 화면 Summary에, 보고서는 Artifacts에 남습니다. real 모드는 Secrets `OPENAI_API_KEY`·`UPSTAGE_API_KEY`, Variables `*_PROVIDER`·`AGENT_MODEL`·`EXTRACT_MODEL`·`JUDGE_MODEL`을 씁니다.
-- 결과: 통과 · 실패 · 참고 실패(검수 `확인필요` 문항, 실패로 치지 않음) · 판정 건너뜀(키가 없어 LLM 판정만 못 함) · 건너뜀
+- 결과: 통과 · 실패 · 참고 실패(검수 `확인필요` 문항, 실패로 치지 않음) · 판정 건너뜀(키가 없거나 `--golden-judge=off`라 LLM 판정만 못 함) · 건너뜀
 
 ### 문항 고치기
 
