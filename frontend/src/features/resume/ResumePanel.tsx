@@ -147,14 +147,16 @@ export const ResumePanel = ({
     isReadOnly
       ? undefined
       : (text: string) => patch.mutateAsync({ path, op: 'set', value: toValue(text) });
-  /** 기간은 한 칸에 '시작 ~ 끝'으로 적고 시작·끝을 따로 고칩니다. */
+  /** 기간은 한 칸에 '시작 ~ 끝'으로 적고, 시작·끝을 한 PATCH로 고칩니다(버전이 한 번만 바뀜). */
   const directPeriod = (base: string) =>
     isReadOnly
       ? undefined
       : async (text: string) => {
           const { start, end } = splitPeriod(text);
-          await patch.mutateAsync({ path: `${base}.start_date`, op: 'set', value: start });
-          await patch.mutateAsync({ path: `${base}.end_date`, op: 'set', value: end });
+          await patch.mutateAsync([
+            { path: `${base}.start_date`, op: 'set', value: start },
+            { path: `${base}.end_date`, op: 'set', value: end },
+          ]);
         };
   const profile = values.profile_display;
   const education = values.education ?? [];
