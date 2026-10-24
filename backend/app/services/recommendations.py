@@ -4,11 +4,13 @@
 """
 
 import uuid
-from datetime import date
+from datetime import date, datetime
+from typing import Any
 
 from sqlalchemy.orm import Session
 
-from app.core.errors import ConflictError, NotFoundError
+from app.core.clock import KST
+from app.core.errors import ConflictError, ExternalUnavailableError, NotFoundError
 from app.models import Activity
 from app.repositories import accounts as repo
 from app.repositories import activities as activity_repo
@@ -17,23 +19,16 @@ from app.schemas.common import ErrorCode, FieldSource, UpdatesRead
 from app.schemas.rounds import Recommendation, RecommendationList
 from app.services import accounts as account_service
 from app.services import rounds as round_service
+from app.services import trainings as training_service
 from app.services.accounts import AccountContext
 from app.services.application import CURRENT, find_round
 
+LECTURE_KIND = "lecture"
 NOT_RECOMMENDED_MESSAGE = "지금 추천 목록에 없는 활동이에요. 추천을 다시 불러와 주세요."
 DUPLICATE_MESSAGE = "이미 예정으로 넣은 활동이에요."
 PLANNED_NOT_FOUND_MESSAGE = "예정 활동을 찾지 못했어요."
 NOT_PLANNED_MESSAGE = "이미 한 활동으로 기록돼 있어요."
 DONE_DATE_MESSAGE = "한 날은 이번 회차 대상기간 안이고 오늘까지여야 해요."
-
-
-def _desired_occupation(db: Session, user_id: uuid.UUID) -> str | None:
-    resume = repo.get_resume(db, user_id)
-    occupations = ((resume.data if resume else {}).get("job_preferences") or {}).get(
-        "desired_occupations"
-    ) or []
-    names = (((o.get("occupation") or {}).get("value") or {}).get("name") for o in occupations)
-    return next((n for n in names if n), None)
 
 
 def _current(db: Session, account: AccountContext, today: date):
@@ -46,15 +41,43 @@ def _current(db: Session, account: AccountContext, today: date):
         group=context.group,
         round_no=target.round_no,
         limits_used=result.limits_used,
-        desired_occupation=_desired_occupation(db, account.user_id),
+        desired_occupation=training_service.desired_occupation(db, account.user_id),
         planned=frozenset((a.kind, a.route or "") for a in inputs if a.planned),
     )
     busy = [a.activity_date for a in inputs if not a.planned]
     return target, picks, inputs, busy, weekly
 
 
+# 추천 카드에 붙이는 실제 일정 수 (설계 3.9: 카드 안에 붙임)
+EXTERNAL_ITEMS = 2
+
+
+def _external(
+    candidate: rules.Candidate, occupation: str | None, today: date, now: datetime
+) -> dict[str, Any]:
+    """직업훈련은 훈련과정, 특강은 고용센터 특강·집단상담 일정을 붙입니다 (F-30).
+
+    외부 조회가 안 되면 일정 없이 추천만 보여 줍니다(추천은 막지 않음).
+    """
+    external: dict[str, Any] = {"rule_refs": list(candidate.rule_refs)}
+    try:
+        if candidate.is_training:
+            found = training_service.search_trainings(occupation, None, today, now)
+            external["trainings"] = [t.model_dump() for t in found.items[:EXTERNAL_ITEMS]]
+            external["source"] = found.source
+        elif candidate.kind == LECTURE_KIND:
+            programs = training_service.search_programs(None, now)
+            external["programs"] = [p.model_dump() for p in programs.items[:EXTERNAL_ITEMS]]
+            external["source"] = programs.source
+    except ExternalUnavailableError:
+        pass
+    return external
+
+
 def list_recommendations(db: Session, account: AccountContext, today: date) -> RecommendationList:
     target, picks, _, busy, weekly = _current(db, account, today)
+    occupation = training_service.desired_occupation(db, account.user_id)
+    now = datetime.combine(today, datetime.now(KST).time(), KST)
     items = [
         Recommendation(
             recommendation_id=rules.recommendation_id(target.round_no, pick.candidate.key),
@@ -63,7 +86,7 @@ def list_recommendations(db: Session, account: AccountContext, today: date) -> R
             title=pick.title,
             reason=pick.reason,
             evidence_hint=pick.candidate.evidence,
-            external={"rule_refs": list(pick.candidate.rule_refs)},
+            external=_external(pick.candidate, occupation, today, now),
         )
         for pick in picks
     ]

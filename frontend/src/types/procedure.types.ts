@@ -108,6 +108,10 @@ export interface RecommendationItem {
   /** 누적 한도가 있는 종류면 사용 현황 (예: `한도 2회 중 0회 사용`) */
   limit_text?: string | null;
   rule_refs: string[];
+  /** 붙인 실제 일정 (F-30: 훈련과정·고용센터 특강). 한 줄씩 보여 줍니다. */
+  schedules?: string[];
+  /** 일정이 스냅샷(모의)에서 왔으면 true */
+  schedules_from_snapshot?: boolean;
 }
 
 /**

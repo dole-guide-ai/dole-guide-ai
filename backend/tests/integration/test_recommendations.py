@@ -147,3 +147,23 @@ def test_ended_account_cannot_change_activities(
             done_on=date(2026, 10, 20),
             today=date(2026, 10, 21),
         )
+
+
+def test_lecture_recommendation_carries_center_schedule(
+    client: TestClient, entered_headers: Callable[[str], dict[str, str]]
+) -> None:
+    """F-30: 추천에 특강이 있으면 고용센터 특강 일정이 붙습니다(외부 조회가 안 되면 스냅샷)."""
+    items = client.get(URL, headers=entered_headers("lee")).json()["items"]
+    lecture = next(i for i in items if i["kind"] == "lecture")
+
+    assert lecture["external"]["programs"]
+    assert lecture["external"]["source"] == "snapshot"
+
+
+def test_trainings_endpoint_uses_resume_wish_and_snapshot(
+    client: TestClient, entered_headers: Callable[[str], dict[str, str]]
+) -> None:
+    res = client.get("/accounts/lee/trainings", headers=entered_headers("lee"))
+
+    assert res.status_code == 200
+    assert res.json()["source"] == "snapshot"

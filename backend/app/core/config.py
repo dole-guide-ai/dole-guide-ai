@@ -77,6 +77,9 @@ class Settings(BaseSettings):
     account_encryption_key: str = ""
     # 고용24 OpenAPI 인증키. 비우면 스냅샷만 씁니다.
     work24_api_key: str = ""
+    # 고용24 OpenAPI 호출 하나의 대기 시간과 실패 시 다시 부르는 횟수 (설계 3.11: 5초·재시도 1회)
+    external_api_timeout_seconds: float = 5
+    external_api_retries: int = 1
     # LangSmith 관측. 키가 없으면 꺼집니다.
     langsmith_api_key: str = ""
     langsmith_project: str = "dole-guide-ai"
