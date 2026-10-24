@@ -81,6 +81,9 @@ class Settings(BaseSettings):
     # ai: 모델이 바꿈 · code: 말 그대로 받아 규칙 코드(app/rules/dates.py)가 바꿈
     # 기본 code: 실험에서 평균은 같고(70.9% vs 71%) 날짜 문항이 안정됨(17 → 20 / 28)
     date_parsing: Literal["ai", "code"] = "code"
+    # 첨부 사진 처리. off: 무시 · vision: 답하는 모델에 사진째
+    # · transcribe: 글자만 받아써(추출 모델) 가린 뒤 글로 넘김
+    image_mode: Literal["off", "vision", "transcribe"] = "off"
 
     # BFF(Next)가 붙이는 X-Internal-Secret 값. local에서 비우면 확인하지 않습니다.
     internal_api_secret: str = ""

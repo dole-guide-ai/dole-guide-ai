@@ -23,9 +23,14 @@ class ConversationResult:
 
 
 def run_conversation(
-    state: dict[str, Any], data: dict[str, Any], messages: list[str]
+    state: dict[str, Any],
+    data: dict[str, Any],
+    messages: list[str],
+    files: list[str] | None = None,
 ) -> ConversationResult:
     """사용자 말을 한 턴씩 그래프에 넣고, 마지막 서류·상황을 돌려줍니다.
+
+    첨부 사진(files)은 첫 턴에 붙입니다.
 
     모델 호출 실패는 LlmUnavailableError·RateLimitedError로 바꿔 던집니다.
     """
@@ -33,9 +38,12 @@ def run_conversation(
     result = ConversationResult()
     history: list[Turn] = []
     current: AgentState = {"state": state, "data": data}
-    for message in messages:
+    for turn, message in enumerate(messages):
+        images = list(files or []) if turn == 0 else []
         try:
-            current = graph.invoke({**current, "history": history, "message": message})
+            current = graph.invoke(
+                {**current, "history": history, "message": message, "images": images}
+            )
         except openai.OpenAIError as exc:
             raise gateway.to_app_error(exc) from None
         output = current["output"]

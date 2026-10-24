@@ -72,5 +72,6 @@ class AgentState(TypedDict, total=False):
     history: list[Turn]  # 지난 턴 (가린 글)
     message: str  # 이번 사용자 말 (가린 글)
     intent: str  # rule_question · report · other (classify_intent)
+    images: list[str]  # 이번 턴에 첨부한 사진 파일 경로 (read_images가 처리)
     situation: dict[str, Any]  # 규칙 코드가 계산한 derived · round
     output: AgentOutput

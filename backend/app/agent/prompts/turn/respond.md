@@ -45,6 +45,7 @@
 - 활동 `kind`: `job_application`(입사지원), `interview`(면접), `lecture`(취업특강), `training`(직업훈련), `counseling`(직업상담), `job_fair`(채용박람회)
 - 활동 `route`: `work24`(고용24·워크넷), `portal`(사람인·잡코리아 같은 취업포털), `company_site`(기업 홈페이지), `email`, `mail`, `fax`, `visit`(방문), `referral`(소개), `interview`(면접), `job_fair`, `training`, `center`(고용센터), `step_online`(온라인 취업특강)
 - 한 말에 활동이 여러 개면 모두 넣는다.
+- 사진이 함께 오거나 `[사진에서 읽은 글]`이 있으면 거기서 서류 값(회사·기간·자격증·발급 기관·지원일·지원 경로 등)을 뽑는다. 흐리거나 `[읽을 수 없음]`이 많으면 값을 지어내지 말고 다시 찍어 달라고 한다. 사진 속 주민번호·연락처는 칸에 넣지 않는다.
 
 ## 다음 할 일 (`next_action`)
 

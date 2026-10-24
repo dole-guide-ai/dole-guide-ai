@@ -5,6 +5,7 @@ from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, System
 from pydantic import ValidationError
 
 from app.agent import gateway
+from app.agent.input.images import as_image_part
 from app.agent.prompts import load_prompt
 from app.agent.schemas import AgentOutput, AgentState
 from app.core.config import get_settings
@@ -51,7 +52,10 @@ def _messages(state: AgentState) -> list[BaseMessage]:
             messages.append(HumanMessage(_wrap(turn["text"])))
         else:
             messages.append(AIMessage(turn["text"]))
-    messages.append(HumanMessage(_wrap(state["message"])))
+    # IMAGE_MODE=vision이면 사진을 사용자 말과 같은 메시지에 붙입니다.
+    parts = [as_image_part(path) for path in state.get("images") or []]
+    text = _wrap(state["message"])
+    messages.append(HumanMessage([{"type": "text", "text": text}, *parts] if parts else text))
     return messages
 
 

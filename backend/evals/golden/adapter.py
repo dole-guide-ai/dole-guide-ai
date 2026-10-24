@@ -10,6 +10,7 @@ from typing import Any
 
 from app.services.agent_turn import run_conversation
 from evals.golden.grading import set_path
+from evals.golden.schema import FILES_DIR
 
 
 class AgentNotReadyError(RuntimeError):
@@ -38,9 +39,10 @@ def run_agent(case: dict[str, Any]) -> AgentResult:
     첨부 파일 경로는 schema.FILES_DIR / 이름. 그래프 호출은 서비스 함수를 거쳐 주세요.
     """
     case_input = case["input"]
-    # 최소 버전은 사진을 읽지 않습니다(결정 ⑥은 실험 단계). 첨부는 무시하고 말만 넣습니다.
+    # 첨부 사진은 IMAGE_MODE에 따라 처리합니다(off면 무시).
+    files = [str(FILES_DIR / name) for name in case_input["files"]]
     result = run_conversation(
-        deepcopy(case_input["state"]), deepcopy(case_input["data"]), case_input["messages"]
+        deepcopy(case_input["state"]), deepcopy(case_input["data"]), case_input["messages"], files
     )
     return AgentResult(
         replies=result.replies,
