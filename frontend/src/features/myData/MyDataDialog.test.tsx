@@ -33,7 +33,7 @@ describe('MyDataDialog', () => {
   it('확정된 값·절차 상태·확인한 사실과 저장하지 않는 정보를 보여 준다', async () => {
     mockApi();
 
-    renderWithProviders(<MyDataDialog sessionId="s1" personaId="lee" onClose={vi.fn()} />);
+    renderWithProviders(<MyDataDialog personaId="lee" onClose={vi.fn()} />);
 
     expect(await screen.findByText('저장 완료 (일반 사무)')).toBeInTheDocument();
     const procedure = screen.getByRole('region', { name: '절차 상태' });
@@ -45,7 +45,7 @@ describe('MyDataDialog', () => {
 
   it('삭제하면 목록에서 빠진다', async () => {
     mockApi();
-    renderWithProviders(<MyDataDialog sessionId="s1" personaId="lee" onClose={vi.fn()} />);
+    renderWithProviders(<MyDataDialog personaId="lee" onClose={vi.fn()} />);
 
     await userEvent.click(await screen.findByRole('button', { name: '지급 결정 통지 방법 삭제' }));
 
@@ -58,7 +58,7 @@ describe('MyDataDialog', () => {
   it('Esc로 닫는다', async () => {
     mockApi();
     const onClose = vi.fn();
-    renderWithProviders(<MyDataDialog sessionId="s1" personaId="lee" onClose={onClose} />);
+    renderWithProviders(<MyDataDialog personaId="lee" onClose={onClose} />);
 
     await userEvent.keyboard('{Escape}');
 
