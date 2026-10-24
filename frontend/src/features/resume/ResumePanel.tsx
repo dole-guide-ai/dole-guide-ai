@@ -27,6 +27,7 @@ import { useResumeForm } from '@/features/resume/useResumeForm';
 import { ApiError } from '@/lib/api';
 import { needsCheck } from '@/lib/fieldChip';
 import type { FieldMeta } from '@/lib/formStore';
+import { STICKY_FOOTER, STICKY_HEADER } from '@/lib/panelLayout';
 import type { SessionRead } from '@/types/demo.types';
 import type { ResumeCompetencies, ResumeEducation } from '@/types/resume.types';
 
@@ -205,7 +206,7 @@ export const ResumePanel = ({
   return (
     <div className="flex flex-col gap-4">
       {/* 진행 상황: 패널을 내려도 위에 붙어 있습니다. */}
-      <div className="bg-surface/90 border-line sticky -top-6 z-10 -mx-6 flex flex-col gap-2 border-b px-6 py-3 backdrop-blur lg:-mx-8 lg:px-8">
+      <div className={STICKY_HEADER}>
         <div className="flex items-baseline justify-between gap-3">
           <p className="text-sm font-semibold">꼭 채울 항목</p>
           <p className="text-base font-bold" aria-label="완성도">
@@ -638,7 +639,7 @@ export const ResumePanel = ({
 
       {/* 저장: 패널 아래에 붙어 늘 보입니다. */}
       {!isReadOnly && (
-        <div className="bg-surface/90 border-line sticky -bottom-6 z-10 -mx-6 -mb-6 flex flex-wrap items-center justify-end gap-x-4 gap-y-1 border-t px-6 py-3 backdrop-blur lg:-mx-8 lg:px-8">
+        <div className={STICKY_FOOTER}>
           {!canSave && (
             <span className="text-muted text-sm">
               필수 항목을 다 채우고 확인 필요가 없어야 해요
@@ -650,6 +651,11 @@ export const ResumePanel = ({
           >
             {confirm.isPending ? '저장하는 중…' : saveLabel}
           </Button>
+          {!canSave && (
+            <span className="text-muted text-center text-sm">
+              필수 항목을 다 채우고 확인 필요가 없어야 해요
+            </span>
+          )}
         </div>
       )}
     </div>
