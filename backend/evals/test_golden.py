@@ -39,13 +39,25 @@ def model_inputs(monkeypatch: pytest.MonkeyPatch, golden_report) -> list[str]:
         def on_chat_model_start(self, serialized, messages, **kwargs) -> None:
             texts.extend(str(message.content) for batch in messages for message in batch)
 
+        prefix = ""
+
         def on_llm_end(self, response, **kwargs) -> None:
             for generation in (g for batch in response.generations for g in batch):
                 meta = getattr(getattr(generation, "message", None), "usage_metadata", None)
-                usage["calls"] += 1
+                usage[self.prefix + "calls"] += 1
                 if meta:
-                    usage["input"] += meta.get("input_tokens", 0)
-                    usage["output"] += meta.get("output_tokens", 0)
+                    usage[self.prefix + "input"] += meta.get("input_tokens", 0)
+                    usage[self.prefix + "output"] += meta.get("output_tokens", 0)
+                    details = meta.get("input_token_details") or {}
+                    usage[self.prefix + "cached"] += details.get("cache_read", 0) or 0
+
+    class JudgeUsage(Recorder):
+        """판정 모델은 입력을 모으지 않고 사용량만 셉니다."""
+
+        prefix = "judge_"
+
+        def on_chat_model_start(self, serialized, messages, **kwargs) -> None:
+            pass
 
     original = gateway.get_chat_model
 
@@ -53,8 +65,8 @@ def model_inputs(monkeypatch: pytest.MonkeyPatch, golden_report) -> list[str]:
         model = original(role=role)
         if role != "judge" and hasattr(model, "model_name"):
             golden_report.model = model.model_name
-        if role != "judge":
-            model.callbacks = [*(model.callbacks or []), Recorder()]
+        recorder = JudgeUsage() if role == "judge" else Recorder()
+        model.callbacks = [*(model.callbacks or []), recorder]
         return model
 
     monkeypatch.setattr(gateway, "get_chat_model", recording)
@@ -89,7 +101,7 @@ def test_golden(case, golden_options, golden_report, model_inputs) -> None:
         record.finish([f"실행 오류: {type(error).__name__}"], None)
         raise
     try:
-        verdict = judge(case, result.replies, mode, golden_options.threshold)
+        verdict = judge(case, result.replies, mode, golden_options.threshold, golden_options.judge)
     except Exception as error:
         record.finish([*failures, f"LLM 판정 오류: {type(error).__name__}"], None)
         raise

@@ -110,11 +110,15 @@ class Report:
             "",
             "## 비용·속도 (에이전트만, 판정 제외)",
             "",
-            "| 모델 | 실행 문항 | 모델 호출 | 입력 토큰 | 출력 토큰 | 문항당 토큰 "
+            "| 모델 | 실행 문항 | 모델 호출 | 입력 토큰 | 그중 캐시 | 출력 토큰 | 문항당 토큰 "
             "| 평균 시간 | p95 시간 |",
-            "| --- " * 8 + "|",
-            f"| {_cell(self.model)} | {n} | {u['calls']} | {u['input']} | {u['output']} | "
-            f"{(u['input'] + u['output']) / n:.0f} | {sum(times) / n:.1f}초 | {p95:.1f}초 |",
+            "| --- " * 9 + "|",
+            f"| {_cell(self.model)} | {n} | {u['calls']} | {u['input']} | {u['cached']} | "
+            f"{u['output']} | {(u['input'] + u['output']) / n:.0f} | {sum(times) / n:.1f}초 "
+            f"| {p95:.1f}초 |",
+            "",
+            f"LLM 판정: 호출 {u['judge_calls']} · 입력 {u['judge_input']} "
+            f"(캐시 {u['judge_cached']}) · 출력 {u['judge_output']}",
         ]
 
     def write(self) -> Path:
