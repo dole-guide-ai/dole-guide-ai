@@ -126,6 +126,11 @@ class Settings(BaseSettings):
     def check_required_keys(self) -> Settings:
         if not self.database_url:
             raise ValueError("DATABASE_URL이 비어 있습니다. backend/.env를 확인하세요.")
+        if self.retrieval_mode in ("vector", "hybrid") and not self.embedding_model:
+            # 첫 검색에서 실패하지 않게 시작할 때 막습니다.
+            raise ValueError(
+                f"RETRIEVAL_MODE={self.retrieval_mode}에서는 EMBEDDING_MODEL 값이 필요합니다."
+            )
         if self.app_env != "local" and (missing := self.missing_required_keys()):
             names = ", ".join(name.upper() for name in missing)
             raise ValueError(f"APP_ENV={self.app_env}에서는 {names} 값이 필요합니다.")

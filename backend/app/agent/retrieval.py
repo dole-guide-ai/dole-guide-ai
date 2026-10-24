@@ -59,6 +59,9 @@ def load_chunks() -> tuple[Chunk, ...]:
             row = json.loads(line)
             title, cite = _cite(row.get("metadata") or {})
             chunks.append(Chunk(row["chunk_id"], title, row["content"], cite))
+    if not chunks:
+        # 자료 없이 "검색 결과 없음"으로 조용히 답하지 않게 바로 알립니다(자료는 커밋하지 않음).
+        raise FileNotFoundError(f"지식 조각이 없습니다: {CHUNK_DIR}")
     return tuple(chunks)
 
 
