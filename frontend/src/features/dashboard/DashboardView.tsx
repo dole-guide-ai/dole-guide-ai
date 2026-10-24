@@ -114,7 +114,7 @@ export const DashboardView = ({ session, personaName }: DashboardViewProps) => {
       <main
         ref={mainRef}
         style={{ '--chat-width': `${split.ratio}%` } as CSSProperties}
-        className="grid flex-1 gap-4 p-4 sm:px-6 sm:pt-6 lg:min-h-0 lg:grid-cols-[minmax(0,var(--chat-width))_auto_minmax(0,1fr)] lg:gap-2"
+        className="grid flex-1 gap-4 p-4 sm:px-6 sm:pt-6 lg:min-h-0 lg:grid-cols-[minmax(0,var(--chat-width))_auto_minmax(0,1fr)] lg:gap-1"
       >
         <ChatPanel
           messages={chat.messages}
