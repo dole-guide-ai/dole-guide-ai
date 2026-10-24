@@ -50,8 +50,11 @@ _TITLE = {
     1: "이력서부터 같이 만들어요",
     2: "온라인 교육을 들어요",
     3: "수급자격 신청을 준비해요",
-    4: "이번 회차 할 일",
+    4: "실업인정 할 일",
 }
+# 실업인정 단계는 몇 차인지 제목에 보입니다 (예: 4차 실업인정 할 일).
+ROUND_TITLE = "{round}차 실업인정 할 일"
+RECOGNITION_STEP = 4
 END_TITLE = "실업급여 수급이 끝났어요"
 
 # 마지막 회차·종료 안내 (F-33, 설계 6.6). 종료 사유별 문장은 종료 화면 첫 안내에 씁니다.
@@ -126,6 +129,8 @@ def build_entry(
     composed = entry_text.compose(branch, facts)
     next_text = entry_text.next_step_text(facts)
     title = entry_text.stage_title(procedure.stage) or _TITLE[step]
+    if step == RECOGNITION_STEP and facts.round_no:
+        title = ROUND_TITLE.format(round=facts.round_no)
     messages = [
         EntryMessage(template_id=tid, text=text, cite=cite) for tid, text, cite in composed.messages
     ]

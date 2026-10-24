@@ -35,6 +35,8 @@ class RoundFacts:
     counted: int
     counted_job_search: int
     weekly: bool = False
+    # 같은 날 활동이라 계산에서 빠진 건수. 0이면 다른 사유(불인정·한도 초과)로 빠진 것
+    same_day: int = 0
 
 
 @dataclass(frozen=True)
@@ -96,8 +98,13 @@ def _summary(facts: EntryFacts) -> str | None:
     else:
         need = s["required"] + (s["required_job"] if rf.required_job_search else s["required_end"])
         parts.append(need)
-    parts.append(s["recorded_same_day"] if rf.counted < rf.recorded else s["recorded"])
-    if values["remaining"]:
+    if rf.counted >= rf.recorded:
+        parts.append(s["recorded"])
+    else:
+        parts.append(s["recorded_same_day"] if rf.same_day else s["recorded_not_counted"])
+    if values["remaining"] and values["remaining_job"]:
+        parts.append(s["remaining_with_job"])
+    elif values["remaining"]:
         parts.append(s["remaining"])
     elif values["remaining_job"]:
         parts.append(s["remaining_job"])
@@ -124,7 +131,9 @@ def compose(branch: str, facts: EntryFacts) -> Composed:
         "old_resume_year": facts.old_resume_year or "",
         "age": facts.age_at_separation,
     }
-    main = spec["text"].format(**values)
+    # 저장 연도를 모르는 예전 이력서는 연도 없는 문구를 씁니다.
+    text = spec["text_no_year"] if key == "E7b" and not facts.old_resume_year else spec["text"]
+    main = text.format(**values)
     refs = list(spec.get("rule_refs", []))
     cite_ids = list(spec.get("cite", []))
     if key == "E4a":

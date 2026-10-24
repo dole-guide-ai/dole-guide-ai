@@ -23,9 +23,9 @@ export const myDataFromFacts = (facts: FactList): MyDataRead => ({
 });
 
 /** 내 정보 `GET /accounts/{id}/facts` (F-31, 2-0.9): 창을 열 때마다 새로 받습니다. */
-export const useMyData = (sessionId: string, enabled: boolean, personaId: string) =>
+export const useMyData = (personaId: string, enabled: boolean) =>
   useQuery({
-    queryKey: queryKeys.myData(sessionId),
+    queryKey: queryKeys.myData(personaId),
     queryFn: async () => myDataFromFacts(await apiFetch<FactList>(API_PATHS.facts(personaId))),
     enabled,
     staleTime: STALE_TIME.ALWAYS_REFETCH,

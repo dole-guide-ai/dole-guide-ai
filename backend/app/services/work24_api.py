@@ -9,6 +9,7 @@ EXTERNAL_API_TIMEOUT_SECONDS(5초)까지 기다리고 실패하면 EXTERNAL_API_
 import logging
 import xml.etree.ElementTree as ET
 from collections.abc import Callable
+from dataclasses import dataclass
 from datetime import date
 
 import httpx
@@ -22,8 +23,23 @@ TRAINING_URL = "https://www.work24.go.kr/cm/openApi/call/hr/callOpenApiSvcInfo31
 PROGRAM_URL = "https://www.work24.go.kr/cm/openApi/call/wk/callOpenApiSvcInfo217L01.do"
 PAGE_SIZE = 10
 TRAINING_SEARCH_DAYS = 60  # 훈련 시작일 검색 구간 (오늘부터)
+# 217L01 openTimeClcd: 1 오전, 2 오후 (9.5)
+OPEN_TIME_LABELS = {"1": "오전", "2": "오후"}
 # 허용값은 API 계약 확인 전이라(데이터 설계 8.8) 공식 예시의 기본값만 씁니다.
 _TRAINING_FIXED = {"returnType": "XML", "outType": "1", "sort": "ASC", "sortCol": "2"}
+
+
+@dataclass(frozen=True)
+class LivePage[T]:
+    """실시간 조회 한 페이지와 전체 검색 건수."""
+
+    items: list[T]
+    total: int
+
+
+def _total(root: ET.Element, tag: str, fallback: int) -> int:
+    raw = root.findtext(f".//{tag}")
+    return int(raw) if raw and raw.strip().isdigit() else fallback
 
 
 def _get(url: str, params: dict[str, str]) -> ET.Element | None:
@@ -80,23 +96,22 @@ def parse_trainings(root: ET.Element) -> list[Training]:
 def parse_programs(root: ET.Element) -> list[Program]:
     """`empPgmSchdInviteList/empPgmSchdInvite`를 Program으로.
 
-    프로그램 API에는 고유 ID·상세 URL이 없어 만들지 않고(9.8), 목록 안 순서로만 구분합니다.
-    시작시간은 오전·오후 구분값과 같이 원문 그대로 보여 줍니다(9.5).
+    프로그램 API에는 고유 ID·상세 URL이 없어 만들지 않습니다(9.8).
+    시작시간은 오전·오후 구분 코드(1·2)를 글로 바꿔 시간 앞에 붙입니다(9.5).
     """
     items = []
-    for index, node in enumerate(root.iter("empPgmSchdInvite")):
+    for node in root.iter("empPgmSchdInvite"):
         title = _text(node, "pgmNm")
         if not title:
             continue
         start = _ymd(_text(node, "pgmStdt"))
         end = _ymd(_text(node, "pgmEndt"))
-        time_text = " ".join(
-            part for part in (_text(node, "openTimeClcd"), _text(node, "openTime")) if part
-        )
+        clcd = _text(node, "openTimeClcd")
+        am_pm = OPEN_TIME_LABELS.get(clcd, clcd) if clcd else None
+        time_text = " ".join(part for part in (am_pm, _text(node, "openTime")) if part)
         period = start if not end or end == start else f"{start} ~ {end}"
         items.append(
             Program(
-                id=f"live-{index}",
                 title=title,
                 type=_text(node, "pgmSubNm") or "",
                 schedule=" ".join(part for part in (period, time_text) if part),
@@ -107,26 +122,34 @@ def parse_programs(root: ET.Element) -> list[Program]:
 
 
 def fetch_trainings(
-    keyword: str | None, today: date, page: int = 1, get: Callable = _get
-) -> list[Training] | None:
-    start = today.strftime("%Y%m%d")
-    end = date.fromordinal(today.toordinal() + TRAINING_SEARCH_DAYS).strftime("%Y%m%d")
+    keyword: str | None, start: date, end: date, page: int = 1, get: Callable = _get
+) -> LivePage[Training] | None:
+    """훈련 시작일이 start~end인 과정. total은 응답의 전체 검색 건수(scn_cnt)."""
     params = {
         **_TRAINING_FIXED,
         "pageNum": str(page),
         "pageSize": str(PAGE_SIZE),
-        "srchTraStDt": start,
-        "srchTraEndDt": end,
+        "srchTraStDt": start.strftime("%Y%m%d"),
+        "srchTraEndDt": end.strftime("%Y%m%d"),
     }
     if keyword:
         params["srchTraProcessNm"] = keyword
     root = get(TRAINING_URL, params)
-    return None if root is None else parse_trainings(root)
+    if root is None:
+        return None
+    items = parse_trainings(root)
+    return LivePage(items, _total(root, "scn_cnt", len(items)))
 
 
-def fetch_programs(start: date | None, get: Callable = _get) -> list[Program] | None:
-    params = {"returnType": "XML", "startPage": "1", "display": str(PAGE_SIZE)}
+def fetch_programs(
+    start: date | None, page: int = 1, get: Callable = _get
+) -> LivePage[Program] | None:
+    """start에 시작하는 프로그램. total은 응답의 전체 건수(total)."""
+    params = {"returnType": "XML", "startPage": str(page), "display": str(PAGE_SIZE)}
     if start:
         params["pgmStdt"] = start.strftime("%Y%m%d")
     root = get(PROGRAM_URL, params)
-    return None if root is None else parse_programs(root)
+    if root is None:
+        return None
+    items = parse_programs(root)
+    return LivePage(items, _total(root, "total", len(items)))

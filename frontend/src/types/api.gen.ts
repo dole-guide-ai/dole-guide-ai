@@ -651,7 +651,8 @@ export interface paths {
          *     조회합니다.
          *
          *     결과는 저장하지 않고, 실패하면 스냅샷으로 대체합니다. 고용센터 코드 표가 아직 없어 center는
-         *     받기만 하고 쓰지 않으며, from이 있으면 그날 시작하는 과정을 찾습니다.
+         *     받기만 하고 쓰지 않습니다.
+         *     from이 있으면 그날부터, to가 있으면 그날까지 시작하는 과정을 찾습니다.
          */
         get: operations["list_programs"];
         put?: never;
@@ -1880,7 +1881,7 @@ export interface components {
         /** Program */
         Program: {
             /** Id */
-            id: string;
+            id?: string | null;
             /** Title */
             title: string;
             /** Type */
@@ -4365,6 +4366,7 @@ export interface operations {
                 center?: string | null;
                 from?: string | null;
                 to?: string | null;
+                page?: number;
             };
             header?: never;
             path: {

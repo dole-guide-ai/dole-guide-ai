@@ -1,5 +1,6 @@
 """첫 안내 템플릿 (상세기획 1장 1.7·1.9·1.11 예시). 같은 상태면 늘 같은 문구입니다."""
 
+from dataclasses import replace
 from datetime import date
 
 from app.rules.entry_text import EntryFacts, RoundFacts, compose, next_step_text
@@ -14,7 +15,7 @@ LEE = EntryFacts(
     d_day=6,
     attendance=True,
     round_facts=RoundFacts(
-        required=2, required_job_search=1, recorded=2, counted=1, counted_job_search=1
+        required=2, required_job_search=1, recorded=2, counted=1, counted_job_search=1, same_day=1
     ),
 )
 
@@ -77,3 +78,23 @@ def test_recognition_day_without_attendance_opens_online_text() -> None:
     )
 
     assert "17시까지" in compose("E3", today).messages[0][1]
+
+
+def test_summary_reason_and_job_search_shortfall() -> None:
+    """같은 날이 아닌 사유로 빠졌으면 같은 날이라 말하지 않고, 구직활동 부족분도 같이 말합니다."""
+    rf = RoundFacts(required=2, required_job_search=1, recorded=2, counted=1, counted_job_search=0)
+    text = compose("E4b", replace(LEE, round_facts=rf)).messages[1][1]
+
+    assert "같은 날" not in text and "그중 1건만 인정돼요" in text
+    assert "1건 더 필요하고, 그중 구직활동이 1건 있어야 해요" in text
+
+
+def test_e7b_without_saved_year() -> None:
+    choi = EntryFacts(
+        name="최영수",
+        stage="job_registration",
+        rule_group="age65_or_disabled",
+        age_at_separation=67,
+    )
+
+    assert "예전에 쓰신 이력서" in compose("E7b", choi).messages[0][1]
