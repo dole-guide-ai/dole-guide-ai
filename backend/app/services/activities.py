@@ -108,7 +108,13 @@ def _evidence_files(db: Session, user_id: uuid.UUID, file_ids: list[str]) -> lis
 
 
 def record_activity(
-    db: Session, account: AccountContext, body: ActivityCreate, today: date
+    db: Session,
+    account: AccountContext,
+    body: ActivityCreate,
+    today: date,
+    *,
+    source: FieldSource = FieldSource.DIRECT,
+    result: str | None = None,
 ) -> UpdatesRead:
     """활동을 직접 기록합니다. 구분은 종류로 코드가 정하고(2-2.3 표), 오늘보다 뒤면 예정입니다.
 
@@ -145,7 +151,8 @@ def record_activity(
             org_name=body.org_name,
             job_title=body.job_title,
             hours=body.hours,
-            source=FieldSource.DIRECT,
+            result=result,
+            source=source,
             planned=day > today,
         ),
     )

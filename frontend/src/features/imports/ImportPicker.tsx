@@ -16,6 +16,7 @@ import type { ImportCategory, ImportKind } from '@/types/imports.types';
 interface ImportPickerProps {
   kind: ImportKind;
   sessionId: string;
+  personaId: string;
   isDisabled?: boolean;
   onApply: (importIds: string[]) => void;
 }
@@ -36,10 +37,11 @@ const TITLE: Record<ImportKind, string> = {
 export const ImportPicker = ({
   kind,
   sessionId,
+  personaId,
   isDisabled = false,
   onApply,
 }: ImportPickerProps) => {
-  const query = useImportList(kind, sessionId);
+  const query = useImportList(kind, sessionId, personaId);
   const [selected, setSelected] = useState<string[]>([]);
 
   if (query.isPending) return <p className="text-muted text-sm">불러올 내역을 찾는 중…</p>;

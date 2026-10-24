@@ -1,5 +1,3 @@
-import type { FormUpdateEvent } from '@/types/chat.types';
-
 /**
  * 내 정보 탭 (상세기획 2-0.9). 확정된 값 요약과 절차 상태를 보여 주고, 줄마다 지울 수 있습니다.
  * 백엔드 API가 올라오면 `api.gen.ts` 타입으로 바꿉니다.

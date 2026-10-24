@@ -22,6 +22,7 @@ from app.models import (
     User,
     UserProfile,
     Visitor,
+    Work24Import,
 )
 
 
@@ -126,4 +127,5 @@ __all__ = [
     "Resume",
     "Round",
     "UserProfile",
+    "Work24Import",
 ]
