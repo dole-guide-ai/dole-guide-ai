@@ -23,6 +23,9 @@ from app.agent.masking import mask
         ("계좌 110 - 234 - 567890이요", "567890"),
         ("카드 1234  5678  1234  5678", "5678"),
         ("계좌 110_234/567890", "567890"),
+        # 한글이 섞인 이메일 (보안 검토 지적: pii의 이메일 패턴은 영문만 봄)
+        ("메일은 홍길동@회사.한국이에요", "홍길동@회사"),
+        ("gildong@회사.kr로 보내요", "gildong@"),
     ],
 )
 def test_mask_hides_personal_values(text: str, hidden: str) -> None:
