@@ -71,8 +71,10 @@ interface PanelFrameProps {
 /** 완료 단계 → 그 단계의 패널. 4단계(실업인정)는 늘 현재 단계라 다시 보기가 없습니다. */
 const STEP_PANEL: Partial<Record<ProgressStep, PanelId>> = { 1: 'A', 2: 'E', 3: 'Q' };
 
+// 바깥 틀은 둥근 모서리로 자르고(스크롤바가 모서리를 덮지 않게), 스크롤은 안쪽 칸이 맡습니다.
 const ASIDE_CLASS =
-  'border-line bg-surface shadow-card flex flex-col gap-5 rounded-2xl border p-5 lg:min-h-0 lg:overflow-y-auto';
+  'border-line bg-surface shadow-card flex flex-col overflow-hidden rounded-2xl border lg:min-h-0';
+const SCROLL_CLASS = 'flex flex-col gap-5 p-5 lg:min-h-0 lg:flex-1 lg:overflow-y-auto';
 
 export const PanelFrame = ({
   session,
@@ -94,54 +96,55 @@ export const PanelFrame = ({
     const info = PANEL_INFO[reviewPanel];
     return (
       <aside className={ASIDE_CLASS} aria-label={`${info.name} (읽기 전용)`}>
-        <div className="bg-ok-soft flex flex-wrap items-center justify-between gap-2 rounded-xl px-4 py-3">
-          <p className="text-ok text-base font-semibold">
-            완료한 단계 · {info.name} {isResumeEditable ? '(고치는 중)' : '(읽기 전용)'}
-          </p>
-          <div className="flex flex-wrap gap-2">
-            {/* 수급이 끝난 계정은 지난 단계도 읽기만 합니다 (F-33). */}
-            {reviewPanel === 'A' && !isEditingResume && !isEnded && (
-              <Button variant="secondary" onClick={() => setIsEditingResume(true)}>
-                이력서 고치기
-              </Button>
-            )}
-            {onExitReview && (
-              <Button
-                variant="secondary"
-                onClick={() => {
-                  setIsEditingResume(false);
-                  onExitReview();
-                }}
-              >
-                이번 단계로 돌아가기
-              </Button>
-            )}
+        <div className={SCROLL_CLASS}>
+          <div className="bg-ok-soft flex flex-wrap items-center justify-between gap-2 rounded-xl px-4 py-3">
+            <p className="text-ok text-base font-semibold">
+              완료한 단계 · {info.name} {isResumeEditable ? '(고치는 중)' : '(읽기 전용)'}
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {/* 수급이 끝난 계정은 지난 단계도 읽기만 합니다 (F-33). */}
+              {reviewPanel === 'A' && !isEditingResume && !isEnded && (
+                <Button variant="secondary" onClick={() => setIsEditingResume(true)}>
+                  이력서 고치기
+                </Button>
+              )}
+              {onExitReview && (
+                <Button
+                  variant="secondary"
+                  onClick={() => {
+                    setIsEditingResume(false);
+                    onExitReview();
+                  }}
+                >
+                  이번 단계로 돌아가기
+                </Button>
+              )}
+            </div>
           </div>
+          {reviewPanel === 'A' && (
+            <ResumePanel
+              session={session}
+              isReadOnly={!isResumeEditable}
+              onEditRequest={onEditRequest}
+              saveLabel="다시 저장하기"
+              onSaved={() => setIsEditingResume(false)}
+            />
+          )}
+          {reviewPanel === 'E' && <EducationPanel state={state} isReadOnly />}
+          {reviewPanel === 'Q' && (
+            <EligibilityPanel state={state} derived={session.derived} isReadOnly />
+          )}
         </div>
-        {reviewPanel === 'A' && (
-          <ResumePanel
-            session={session}
-            isReadOnly={!isResumeEditable}
-            onEditRequest={onEditRequest}
-            saveLabel="다시 저장하기"
-            onSaved={() => setIsEditingResume(false)}
-          />
-        )}
-        {reviewPanel === 'E' && <EducationPanel state={state} isReadOnly />}
-        {reviewPanel === 'Q' && (
-          <EligibilityPanel state={state} derived={session.derived} isReadOnly />
-        )}
       </aside>
     );
   }
 
   if (!panel) {
     return (
-      <aside
-        className="border-line bg-surface rounded-2xl border p-5 lg:min-h-0 lg:overflow-y-auto"
-        aria-label="패널"
-      >
-        <p className="text-muted text-base">지금 단계를 알려 주시면 맞는 화면을 보여 드릴게요.</p>
+      <aside className={ASIDE_CLASS} aria-label="패널">
+        <p className="text-muted p-5 text-base">
+          지금 단계를 알려 주시면 맞는 화면을 보여 드릴게요.
+        </p>
       </aside>
     );
   }
@@ -150,55 +153,57 @@ export const PanelFrame = ({
 
   return (
     <aside className={ASIDE_CLASS} aria-label={info.name}>
-      <div className="flex items-start gap-3">
-        <span
-          aria-hidden
-          className="bg-neutral-soft text-ink flex size-11 shrink-0 items-center justify-center rounded-xl"
-        >
-          <info.icon size={ICON_SIZE.lg} strokeWidth={ICON_STROKE} />
-        </span>
-        <div className="flex flex-col gap-0.5">
-          <h2 className="text-xl leading-tight font-bold">{info.name}</h2>
-          <p className="text-muted text-base">{info.description}</p>
+      <div className={SCROLL_CLASS}>
+        <div className="flex items-start gap-3">
+          <span
+            aria-hidden
+            className="bg-neutral-soft text-ink flex size-11 shrink-0 items-center justify-center rounded-xl"
+          >
+            <info.icon size={ICON_SIZE.lg} strokeWidth={ICON_STROKE} />
+          </span>
+          <div className="flex flex-col gap-0.5">
+            <h2 className="text-xl leading-tight font-bold">{info.name}</h2>
+            <p className="text-muted text-base">{info.description}</p>
+          </div>
         </div>
+
+        {showsVisitNotice(state) && (
+          <div className="border-warn/30 bg-warn-soft flex flex-col gap-2 rounded-xl border px-4 py-3">
+            <p className="text-warn text-base font-semibold">신청 경로 안내</p>
+            <p className="text-base">
+              이직일 기준 만 65세 이상이라 수급자격 신청은 관할 고용센터에 방문해서 해요. 인터넷
+              사전제출은 이직일 기준 만 65세 미만일 때만 할 수 있어요.
+            </p>
+            <EvidenceLine cite={SOURCE_WORK24} />
+          </div>
+        )}
+
+        {panel === 'A' && <ResumePanel session={session} onEditRequest={onEditRequest} />}
+
+        {panel === 'B' && isEnded && <BenefitEndedPanel derived={session.derived} />}
+
+        {panel === 'B' &&
+          !isEnded &&
+          (state.stage === 'eligibility_applied' || !state.next_recognition_date ? (
+            // E5b · 1.10 예외: 인정일을 모르면 회차 점검 대신 1차 실업인정일을 먼저 받습니다.
+            <FirstDatePanel state={state} />
+          ) : (
+            <RoundPanel session={session} onOpenForm={onOpenForm} />
+          ))}
+
+        {panel === 'C' && (
+          <RecognitionPanel
+            session={session}
+            // 패널을 바꾸는 화면 이동이라 서버를 거치지 않고 세션의 시작 패널만 바꿉니다.
+            onBackToRound={() => patchSession('entry.panel', 'B')}
+            onConfirmed={onFormConfirmed}
+          />
+        )}
+
+        {panel === 'E' && <EducationPanel state={state} />}
+
+        {panel === 'Q' && <EligibilityPanel state={state} derived={session.derived} />}
       </div>
-
-      {showsVisitNotice(state) && (
-        <div className="border-warn/30 bg-warn-soft flex flex-col gap-2 rounded-xl border px-4 py-3">
-          <p className="text-warn text-base font-semibold">신청 경로 안내</p>
-          <p className="text-base">
-            이직일 기준 만 65세 이상이라 수급자격 신청은 관할 고용센터에 방문해서 해요. 인터넷
-            사전제출은 이직일 기준 만 65세 미만일 때만 할 수 있어요.
-          </p>
-          <EvidenceLine cite={SOURCE_WORK24} />
-        </div>
-      )}
-
-      {panel === 'A' && <ResumePanel session={session} onEditRequest={onEditRequest} />}
-
-      {panel === 'B' && isEnded && <BenefitEndedPanel derived={session.derived} />}
-
-      {panel === 'B' &&
-        !isEnded &&
-        (state.stage === 'eligibility_applied' || !state.next_recognition_date ? (
-          // E5b · 1.10 예외: 인정일을 모르면 회차 점검 대신 1차 실업인정일을 먼저 받습니다.
-          <FirstDatePanel state={state} />
-        ) : (
-          <RoundPanel session={session} onOpenForm={onOpenForm} />
-        ))}
-
-      {panel === 'C' && (
-        <RecognitionPanel
-          session={session}
-          // 패널을 바꾸는 화면 이동이라 서버를 거치지 않고 세션의 시작 패널만 바꿉니다.
-          onBackToRound={() => patchSession('entry.panel', 'B')}
-          onConfirmed={onFormConfirmed}
-        />
-      )}
-
-      {panel === 'E' && <EducationPanel state={state} />}
-
-      {panel === 'Q' && <EligibilityPanel state={state} derived={session.derived} />}
     </aside>
   );
 };

@@ -103,7 +103,20 @@ html {
   font-size: var(--font-size-root);
 }
 
+/* 배경: 바탕색 위에 프라이머리(brand) 색을 아주 옅게 번지게 둡니다. 글자 대비에는 영향이 없을 만큼만. */
 body {
   background-color: var(--color-canvas);
+  background-image:
+    radial-gradient(
+      60rem 45rem at 0% 0%,
+      color-mix(in oklab, var(--color-brand) 9%, transparent),
+      transparent 70%
+    ),
+    radial-gradient(
+      50rem 40rem at 100% 100%,
+      color-mix(in oklab, var(--color-ai-to) 7%, transparent),
+      transparent 70%
+    );
+  background-attachment: fixed;
   color: var(--color-ink);
 }
