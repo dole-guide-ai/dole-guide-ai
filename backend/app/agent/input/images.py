@@ -8,7 +8,6 @@
 """
 
 import base64
-import mimetypes
 from pathlib import Path
 
 from langchain_core.messages import HumanMessage, SystemMessage
@@ -17,12 +16,35 @@ from app.agent import gateway
 from app.agent.prompts import load_prompt
 
 TRANSCRIBE_REQUEST = "사진 속 글자를 보이는 그대로 옮겨 적어 주세요."
+# 파일 첫 바이트 → 형식 (WEBP는 RIFF 컨테이너라 따로 봅니다)
+IMAGE_SIGNATURES = (
+    (b"\x89PNG\r\n\x1a\n", "image/png"),
+    (b"\xff\xd8\xff", "image/jpeg"),
+    (b"GIF87a", "image/gif"),
+    (b"GIF89a", "image/gif"),
+)
+
+
+def image_mime(raw: bytes) -> str | None:
+    """파일 앞부분(시그니처)으로 본 이미지 형식. 모르는 형식이면 None."""
+    for signature, mime in IMAGE_SIGNATURES:
+        if raw.startswith(signature):
+            return mime
+    if raw[:4] == b"RIFF" and raw[8:12] == b"WEBP":
+        return "image/webp"
+    return None
 
 
 def as_image_part(path: str) -> dict:
-    """LangChain 메시지에 넣는 이미지 조각(data URL)."""
-    mime = mimetypes.guess_type(path)[0] or "image/png"
-    data = base64.b64encode(Path(path).read_bytes()).decode("ascii")
+    """LangChain 메시지에 넣는 이미지 조각(data URL).
+
+    형식은 확장자가 아니라 파일 내용으로 정합니다. 모르는 형식은 다른 형식으로 꾸며 보내지 않고
+    거절합니다.
+    """
+    raw = Path(path).read_bytes()
+    if (mime := image_mime(raw)) is None:
+        raise ValueError("지원하지 않는 사진 형식입니다.")
+    data = base64.b64encode(raw).decode("ascii")
     return {"type": "image_url", "image_url": {"url": f"data:{mime};base64,{data}"}}
 
 

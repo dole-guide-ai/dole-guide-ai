@@ -118,3 +118,32 @@ def test_fullwidth_hyphen_rrn_is_blocked() -> None:
 def test_four_group_account_is_not_hidden_by_phone() -> None:
     assert has_blocking("계좌 12-010-1234-5678로 주세요")
     assert not has_blocking("전화 010-1234-5678로 주세요")
+
+
+def test_unicode_local_part_email_is_masked_whole() -> None:
+    """코드래빗 지적: ASCII 부분만 이메일로 잡아 앞의 한글이 남던 경우."""
+    masked, _ = mask("메일 홍길동foo@example.com 으로 주세요")
+
+    assert "홍길동" not in masked
+    assert "[이메일]" in masked
+
+
+def test_two_spaced_numbers_are_both_masked() -> None:
+    """코드래빗 지적: 띄어 쓴 번호 둘이 합쳐 너무 길어져 둘 다 남던 경우."""
+    text = "계좌 1234567890 9876543210 둘 다예요"
+    masked, _ = mask(text)
+
+    assert "1234567890" not in masked
+    assert "9876543210" not in masked
+    assert has_blocking(text)
+
+
+def test_very_long_spaced_digits_stay_fast() -> None:
+    """보안 검토 지적: 띄어 쓴 숫자가 아주 많아도 나누기 계산이 길어지지 않아야 합니다."""
+    import time
+
+    text = " ".join(["1"] * 20000)
+    started = time.perf_counter()
+    mask(text)
+
+    assert time.perf_counter() - started < 2

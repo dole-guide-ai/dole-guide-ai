@@ -16,6 +16,9 @@ ISO_DAY = re.compile(r"(\d{4})\s*[-./년]\s*(\d{1,2})\s*[-./월]\s*(\d{1,2})")
 MONTH_DAY = re.compile(r"(\d{1,2})\s*월\s*(\d{1,2})\s*일")
 WEEKDAY = re.compile(r"(지난주|저번 ?주|이번 ?주)?\s*([월화수목금토일])요일")
 YEAR_ONLY = re.compile(r"(\d{4})\s*년")
+# 연도를 말로 한 표현. "재작년"이 "작년"보다 먼저 맞아야 합니다.
+YEAR_WORDS = {"재작년": -2, "작년": -1, "지난해": -1, "올해": 0, "금년": 0}
+MONTH_IN_TEXT = re.compile(r"\d\s*월|\d{4}\s*[-./]\s*\d")
 # 말로 한 달 이름("삼월", "구월")과 "올"(=올해). 긴 이름(십이·십일)부터 맞춥니다.
 KOREAN_MONTHS = {"십이": 12, "십일": 11, "십": 10, "일": 1, "이": 2, "삼": 3, "사": 4, "오": 5,
                  "유": 6, "육": 6, "칠": 7, "팔": 8, "구": 9}  # fmt: skip
@@ -36,6 +39,16 @@ def _safe(year: int, month: int, day: int) -> date | None:
         return None
 
 
+def _spoken_year(text: str, today: date) -> int | None:
+    """말에 들어 있는 연도("2025년", "작년", "올해"). 없으면 None."""
+    if m := YEAR_ONLY.search(text):
+        return int(m[1])
+    for word, delta in YEAR_WORDS.items():
+        if word in text:
+            return today.year + delta
+    return None
+
+
 def normalize_day(expr: str | None, today: date) -> str | None:
     """활동 날짜 표현 → YYYY-MM-DD.
 
@@ -51,6 +64,10 @@ def normalize_day(expr: str | None, today: date) -> str | None:
         if word in text:
             return (today + timedelta(days=delta)).isoformat()
     if m := MONTH_DAY.search(text):
+        if (year := _spoken_year(text, today)) is not None:
+            # "작년 3월 20일"처럼 연도를 말했으면 그 해로 정하고 지난해로 미루지 않습니다.
+            day = _safe(year, int(m[1]), int(m[2]))
+            return day.isoformat() if day else None
         day = _safe(today.year, int(m[1]), int(m[2]))
         if day and day > today:
             day = _safe(today.year - 1, int(m[1]), int(m[2]))
@@ -85,10 +102,13 @@ def normalize_month(
     if not text:
         return None
     if re.fullmatch(r"\d{4}-\d{2}", text):
-        return text
+        return text if 1 <= int(text[5:]) <= 12 else None
     result = normalize_date(text, today, separation_date, age_at_separation)
     if result.value:
         return result.value
+    # 월을 말했는데 읽지 못했으면("2026년 13월") 연도만 남기지 않고 다시 묻습니다.
+    if MONTH_IN_TEXT.search(text):
+        return None
     if allow_year_only and (m := YEAR_ONLY.search(text) or re.fullmatch(r"\d{4}", text)):
         return m[1] if m.re.groups else m[0]
     return None
