@@ -22,11 +22,11 @@ export const OtherActivityCard = ({ activity }: OtherActivityCardProps) => {
 
   return (
     <article
-      className="border-line flex flex-col gap-2 rounded-xl border px-4 py-3"
+      className="bg-neutral-soft/60 flex flex-col gap-3 rounded-xl px-5 py-4"
       aria-label={`구직 외 활동 ${activity.course ?? '과정 미정'}`}
     >
       <div className="flex flex-wrap items-center gap-2">
-        <h4 className="text-base font-bold">{activity.course ?? '과정은 고용24에서 골라요'}</h4>
+        <h4 className="text-lg font-bold">{activity.course ?? '과정은 고용24에서 골라요'}</h4>
         <Chip {...chip} />
         <Chip {...activityEvidenceChip(activity)} />
       </div>

@@ -2,6 +2,8 @@
 
 import { useState } from 'react';
 
+import { CircleAlert, CircleCheck, CircleDashed } from 'lucide-react';
+
 import { Button } from '@/components/Button';
 import {
   ATTEND_ITEM_LABEL,
@@ -9,6 +11,7 @@ import {
   SUBMIT_MODE_TEXT,
 } from '@/features/recognition/recognitionLabels';
 
+import { ICON_SIZE, ICON_STROKE } from '@/lib/iconSize';
 import type { AttendItem, ChecklistItem, SubmitMode } from '@/types/recognition.types';
 
 /**
@@ -49,19 +52,23 @@ export const SubmitBox = ({
     );
 
   return (
-    <section
-      className="bg-canvas flex flex-col gap-3 rounded-2xl px-4 py-4"
-      aria-label="제출 전 확인"
-    >
-      <h3 className="text-base font-bold">제출 전 확인</h3>
-      <ul className="grid grid-cols-1 gap-1 text-sm sm:grid-cols-2">
+    <section className="border-line flex flex-col gap-4 border-t pt-6" aria-label="제출 전 확인">
+      <h3 className="text-lg font-bold">제출 전 확인</h3>
+      <ul className="grid grid-cols-1 gap-2 text-sm sm:grid-cols-2">
         {checklist.map((item) => (
           <li
             key={item.key}
-            className={
-              item.done ? 'text-ok' : item.blocking ? 'text-warn font-semibold' : 'text-muted'
-            }
+            className={`flex items-center gap-2 ${
+              item.done ? 'text-ok' : item.blocking ? 'text-warn font-semibold' : 'text-neutral'
+            }`}
           >
+            {item.done ? (
+              <CircleCheck aria-hidden size={ICON_SIZE.md} strokeWidth={ICON_STROKE} />
+            ) : item.blocking ? (
+              <CircleDashed aria-hidden size={ICON_SIZE.md} strokeWidth={ICON_STROKE} />
+            ) : (
+              <CircleAlert aria-hidden size={ICON_SIZE.md} strokeWidth={ICON_STROKE} />
+            )}
             {item.done ? '완료' : item.blocking ? '남음' : '주의'} · {CHECKLIST_LABEL[item.key]}
           </li>
         ))}
@@ -86,7 +93,7 @@ export const SubmitBox = ({
       )}
 
       <p className="text-base">{text.guide(recognitionDate)}</p>
-      <Button size="lg" onClick={onSubmit} disabled={!isEnabled}>
+      <Button size="lg" className="w-full" onClick={onSubmit} disabled={!isEnabled}>
         {isDone ? '확인했어요 (모의)' : isSubmitting ? '확인하는 중…' : text.button}
       </Button>
       {!isDone && remaining.length > 0 && (
