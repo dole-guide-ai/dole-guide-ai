@@ -1,5 +1,5 @@
 from app.rules import situation
-from app.rules.facts import CITE_EVIDENCE, build_facts
+from app.rules.facts import CITE_EVIDENCE, build_facts, recorded_count_text
 
 LEE = {
     "age_at_separation": 58,
@@ -59,3 +59,16 @@ def test_presubmit_depends_on_age_at_separation() -> None:
 
     assert "대상이 될 수" in _facts({**before, "age_at_separation": 64}, [])[0]["text"]
     assert "방문" in _facts({**before, "age_at_separation": 65}, [])[0]["text"]
+
+
+def test_recorded_count_text_states_counts_after_recording() -> None:
+    derived = situation.derive(LEE)
+    one = [{"date": "2026-12-01", "kind": "job_application", "route": "work24"}]
+    check, _ = situation.check_round(LEE, derived, one)
+
+    text = recorded_count_text(check)
+
+    assert text is not None
+    assert "인정된 활동은 1건" in text
+    assert "1건 더" in text
+    assert recorded_count_text(None) is None
