@@ -1304,6 +1304,11 @@ export interface components {
              */
             choices: string[];
             /**
+             * Accepts File
+             * @default false
+             */
+            accepts_file: boolean;
+            /**
              * @default {
              *       "big_text": false
              *     }

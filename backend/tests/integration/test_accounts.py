@@ -60,6 +60,7 @@ def test_lee_is_in_round_four_with_relative_dates(client: TestClient) -> None:
     body = client.put("/accounts/lee", headers=headers).json()
 
     assert body["entry"]["branch_id"] == "E4b"
+    assert body["entry"]["title"] == "4차 실업인정 할 일"
     assert body["current_round"]["round"] == 4
     assert body["current_round"]["attendance_required"] is True
     assert body["procedure"]["benefit_days"] == 270

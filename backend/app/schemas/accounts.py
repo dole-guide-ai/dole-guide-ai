@@ -67,6 +67,8 @@ class Entry(BaseModel):
     next_step_text: str
     messages: list[EntryMessage] = []
     choices: list[str] = []
+    # 첫 안내가 서류·사진을 요청하면 파일 올리기를 켭니다 (2-0.4 accepts_file)
+    accepts_file: bool = False
     ui: EntryUi = EntryUi()
     flags: EntryFlags = EntryFlags()
     rule_refs: list[str] = []
