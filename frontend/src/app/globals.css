@@ -120,3 +120,12 @@ body {
   background-attachment: fixed;
   color: var(--color-ink);
 }
+
+/* 스크롤바만 숨깁니다. 휠·터치·키보드 스크롤은 그대로 됩니다. */
+@utility scrollbar-hidden {
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}

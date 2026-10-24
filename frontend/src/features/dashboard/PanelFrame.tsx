@@ -74,7 +74,8 @@ const STEP_PANEL: Partial<Record<ProgressStep, PanelId>> = { 1: 'A', 2: 'E', 3: 
 // 바깥 틀은 둥근 모서리로 자르고(스크롤바가 모서리를 덮지 않게), 스크롤은 안쪽 칸이 맡습니다.
 const ASIDE_CLASS =
   'border-line bg-surface shadow-card flex flex-col overflow-hidden rounded-2xl border lg:min-h-0';
-const SCROLL_CLASS = 'flex flex-col gap-5 p-5 lg:min-h-0 lg:flex-1 lg:overflow-y-auto';
+const SCROLL_CLASS =
+  'scrollbar-hidden flex flex-col gap-5 p-5 lg:min-h-0 lg:flex-1 lg:overflow-y-auto';
 
 export const PanelFrame = ({
   session,
