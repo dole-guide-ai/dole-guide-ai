@@ -57,3 +57,8 @@ def test_fullwidth_hyphen_rrn_is_blocked() -> None:
     text = "번호는 800101－1234567이에요"
     assert has_blocking(text)
     assert "[주민번호]" in mask(text)[0]
+
+
+def test_four_group_account_is_not_hidden_by_phone() -> None:
+    assert has_blocking("계좌 12-010-1234-5678로 주세요")
+    assert not has_blocking("전화 010-1234-5678로 주세요")

@@ -282,6 +282,10 @@ def read_resume_data(resume: repo.Resume | None) -> resume_form.ResumeData:
 
 
 def _outdated(resume: repo.Resume | None, separation_date: date) -> bool:
+    if resume is not None and resume.status == ResumeStatus.SAVED and resume.saved_at is None:
+        return (
+            True  # 저장일을 모르는 저장 이력서는 예전 것으로 봅니다(accounts._resume_status와 같음)
+        )
     saved_on = resume.saved_at.astimezone(KST).date() if resume and resume.saved_at else None
     return rules.saved_before_separation(saved_on, separation_date)
 

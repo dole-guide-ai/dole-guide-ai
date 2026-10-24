@@ -250,10 +250,13 @@ def test_outdated_resume_does_not_count_old_careers_until_asked() -> None:
     data = complete_resume()
     for c in data.careers:
         c.company_name.source = FieldSource.SEED
+        c.start_date.source = FieldSource.SEED
     data.careers_status = FormField()
     assert resume_completeness(data).filled == 5
     assert resume_completeness(data, outdated=True).filled == 4
     assert not can_save_resume(data, outdated=True)
+    data.careers[0].company_name.source = FieldSource.DIRECT  # 회사명만 고쳐도 그대로
+    assert resume_completeness(data, outdated=True).filled == 4
 
     data.careers_status = FormField(status=FieldStatus.CONFIRMED)  # "없어요"로 답함
     assert resume_completeness(data, outdated=True).filled == 5

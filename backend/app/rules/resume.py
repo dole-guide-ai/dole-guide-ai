@@ -294,11 +294,15 @@ def saved_before_separation(saved_on: date | None, separation_date: date) -> boo
 
 
 def _old_careers_pending(data: ResumeData) -> bool:
-    """예전 이력서의 경력만 있고 그 뒤 경력을 아직 묻지 않았는지 (1장 1.9 ④, 질문 4)."""
+    """예전 이력서의 경력만 있고 그 뒤 경력을 아직 묻지 않았는지 (1장 1.9 ④, 질문 4).
+
+    새로 더한 경력은 시작일부터 새로 받으므로 시작일 출처로 봅니다. 예전 경력의 회사명만
+    고쳐서는 확인이 끝나지 않습니다.
+    """
     return (
         data.careers_status.status == FieldStatus.MISSING
         and bool(data.careers)
-        and all(c.company_name.source == FieldSource.SEED for c in data.careers)
+        and all(c.start_date.source == FieldSource.SEED for c in data.careers)
     )
 
 

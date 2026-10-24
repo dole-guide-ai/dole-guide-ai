@@ -84,6 +84,18 @@ def _overlaps(found: list[Finding], start: int, end: int) -> bool:
     return any(f.start < end and start < f.end for f in found)
 
 
+_FOUR_GROUPS = 4
+
+
+def _add_accounts(text: str, found: list[Finding], groups: int | None = None) -> None:
+    for m in _ACCOUNT.finditer(text):
+        if groups is not None and m[0].count("-") + 1 != groups:
+            continue
+        digits = re.sub(r"\D", "", m[0])
+        if len(digits) in _ACCOUNT_DIGITS and not _overlaps(found, m.start(), m.end()):
+            found.append(Finding(PiiKind.ACCOUNT, m.start(), m.end()))
+
+
 def detect(text: str) -> list[Finding]:
     """찾은 개인정보의 종류·위치. 먼저 찾은 등급 0이 이기고, 같은 자리는 한 번만 셉니다."""
     found: list[Finding] = []
@@ -95,13 +107,13 @@ def detect(text: str) -> list[Finding]:
         digits = re.sub(r"\D", "", m[0])
         if _luhn(digits) and not _overlaps(found, m.start(), m.end()):
             found.append(Finding(PiiKind.CARD, m.start(), m.end()))
+    # 네 묶음 계좌(12-010-1234-5678)는 전화번호보다 먼저 봅니다. 전화번호는 세 묶음까지라
+    # 먼저 찾으면 계좌 안의 010-1234-5678만 전화로 가려지고 계좌(등급 0)를 놓칩니다.
+    _add_accounts(text, found, groups=_FOUR_GROUPS)
     for m in _PHONE.finditer(text):
         if not _overlaps(found, m.start(), m.end()):
             found.append(Finding(PiiKind.PHONE, m.start(), m.end()))
-    for m in _ACCOUNT.finditer(text):
-        digits = re.sub(r"\D", "", m[0])
-        if len(digits) in _ACCOUNT_DIGITS and not _overlaps(found, m.start(), m.end()):
-            found.append(Finding(PiiKind.ACCOUNT, m.start(), m.end()))
+    _add_accounts(text, found)
     for m in _EMAIL.finditer(text):
         found.append(Finding(PiiKind.EMAIL, m.start(), m.end()))
     return sorted(found, key=lambda f: f.start)
