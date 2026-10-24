@@ -106,3 +106,15 @@ def test_file_ops_missing_value_and_remove_then_add(client: TestClient, entered_
     assert next(a for a in listed if a["activity_id"] == activity["activity_id"])["file_ids"] == [
         file_id
     ]
+
+
+def test_remove_without_file_id_is_unknown_path(client: TestClient, entered_headers: Headers):
+    headers = entered_headers("lee")
+    activity = client.get(ACTIVITIES, headers=headers).json()["items"][0]
+    res = client.patch(
+        f"{ACTIVITIES}/{activity['activity_id']}",
+        headers=headers,
+        json=[{"op": "remove", "path": "/file_ids"}],
+    )
+    assert res.status_code == 422
+    assert res.json()["details"] == [{"field": "patch[0]", "type": "unknown_path"}]
