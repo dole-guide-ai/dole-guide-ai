@@ -22,6 +22,9 @@ SEPARATION = date(2026, 9, 30)
         ("2026.12.08", "2026-12-08"),
         ("다음 주쯤", None),
         ("2월 30일", None),
+        ("작년 3월 20일", "2025-03-20"),  # 말한 연도를 따름
+        ("올해 12월 20일", "2026-12-20"),
+        ("2025년 11월 20일", "2025-11-20"),
     ],
 )
 def test_normalize_day(expr: str, expected: str | None) -> None:
@@ -40,6 +43,8 @@ def test_normalize_day(expr: str, expected: str | None) -> None:
         ("2011년", False, None),  # 경력은 월까지 필요
         ("2011년에", True, "2011"),  # 자격증 취득·졸업은 연도만도 받음
         ("1990", True, "1990"),
+        ("2026-13", False, None),  # 없는 달
+        ("2026년 13월", True, None),  # 월을 말했으면 연도만 남기지 않음
     ],
 )
 def test_normalize_month(expr: str, year_only: bool, expected: str | None) -> None:
