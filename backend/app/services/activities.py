@@ -287,6 +287,8 @@ def _apply_file_ops(
     linked = set(activity_repo.file_ids_by_activity(db, [activity_id]).get(activity_id, []))
     for index, op in ops:
         if op.op == PatchOpName.ADD and op.path == f"{FILE_IDS_PATH}/-":
+            if "value" not in op.model_fields_set or op.value is None:
+                raise _bad(index, PatchErrorType.REQUIRED)
             [file_id] = _evidence_files(db, account.user_id, [str(op.value)])
             if file_id not in linked:
                 activity_repo.link_files(db, activity_id, [file_id])
@@ -294,6 +296,7 @@ def _apply_file_ops(
         elif op.op == PatchOpName.REMOVE:
             file_id = _uuid(op.path.removeprefix(f"{FILE_IDS_PATH}/"))
             activity_repo.unlink_file(db, activity_id, file_id)
+            linked.discard(file_id)
         else:
             raise _bad(index, PatchErrorType.UNKNOWN_PATH)
 
