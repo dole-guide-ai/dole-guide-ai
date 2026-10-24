@@ -96,7 +96,7 @@ def test_turn_streams_events_and_saves_bubbles(client, entered_headers, monkeypa
     assert history["next_cursor"] is None
 
 
-def test_default_echo_responder_works(client, entered_headers):
+def test_default_graph_responder_works(client, entered_headers):
     events = sse_events(send(client, entered_headers("lee")))
 
     assert events[-1][0] == "done"

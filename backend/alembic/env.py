@@ -4,6 +4,7 @@ from sqlalchemy import engine_from_config, pool
 
 from alembic import context
 from app import models  # noqa: F401
+from app.agent.checkpointer import CHECKPOINT_TABLES
 from app.core.config import get_settings
 from app.core.db import Base
 
@@ -23,6 +24,13 @@ if config.config_file_name is not None:
 # from myapp import mymodel
 # target_metadata = mymodel.Base.metadata
 target_metadata = Base.metadata
+
+
+def include_object(obj, name, type_, reflected, compare_to) -> bool:
+    """모델에 없는 LangGraph 체크포인트 테이블을 autogenerate가 지우지 않게 뺍니다."""
+    table = name if type_ == "table" else getattr(getattr(obj, "table", None), "name", None)
+    return table not in CHECKPOINT_TABLES
+
 
 # other values from the config, defined by the needs of env.py,
 # can be acquired:
@@ -68,7 +76,11 @@ def run_migrations_online() -> None:
     )
 
     with connectable.connect() as connection:
-        context.configure(connection=connection, target_metadata=target_metadata)
+        context.configure(
+            connection=connection,
+            target_metadata=target_metadata,
+            include_object=include_object,
+        )
 
         with context.begin_transaction():
             context.run_migrations()

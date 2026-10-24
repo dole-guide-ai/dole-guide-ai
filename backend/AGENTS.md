@@ -12,8 +12,8 @@ uv run pytest
 
 설계는 노션 「API · ERD 설계」, 할 일은 「요구사항 목록」의 행(F-xx·N-xx)이 기준입니다.
 
-1. 요청·응답 스키마는 `app/schemas/`에 이미 있습니다(설계 3.11). 바꿔야 하면 여기부터 고칩니다.
-2. 라우터(`app/api/routers/`)의 `NotImplementedYetError`(501)를 지우고, 서비스(`app/services/`) → 레포지토리(`app/repositories/`)를 구현합니다.
+1. 요청·응답 스키마를 `app/schemas/`에 둡니다(설계 3.11). 기존 스키마를 바꿀 때도 여기부터 고칩니다.
+2. 라우터(`app/api/routers/`) → 서비스(`app/services/`) → 레포지토리(`app/repositories/`) 순서로 붙입니다. 순서는 `new-be-feature` 스킬을 따릅니다.
 3. 계산은 `app/rules/`의 순수 함수로 둡니다. 오늘 날짜는 인자로 받고, 라우터는 `Today` 의존성(`app/core/clock.py`)을 씁니다.
 4. 계정 데이터는 `CurrentAccount`(`app/api/deps.py`)의 `user_id`로만 조회합니다.
 5. 오류는 `app/core/errors.py` 예외 + `ErrorCode`(예: `ConflictError(code=ErrorCode.ROUND_CLOSED)`).
