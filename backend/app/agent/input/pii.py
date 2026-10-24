@@ -177,19 +177,31 @@ def _number_groups(m: re.Match[str]) -> list[tuple[int, int]]:
     띄어쓰기로 나눈 조각을 이어 붙여 번호 길이가 되는 묶음을 가장 많이 덮도록 고릅니다.
     """
     pieces = [p.span() for p in re.finditer(r"\S+", m[0]) if re.search(r"\d", p[0])]
-    # best[i]: 앞 조각 i개로 덮은 숫자 수와 그 묶음들
-    best: list[tuple[int, list[tuple[int, int]]]] = [(0, [])]
+    counts = [sum(ch.isdigit() for ch in m[0][s:e]) for s, e in pieces]
+    longest = max(_LONG_DIGITS)
+    # covered[i]: 앞 조각 i개로 덮은 숫자 수, back[i]: 그때 마지막 묶음의 첫 조각(None이면 건너뜀)
+    covered, back = [0], [None]
     for i in range(1, len(pieces) + 1):
-        best.append(best[i - 1])
-        for j in range(i):
-            start, end = pieces[j][0], pieces[i - 1][1]
-            span = m[0][start:end]
-            if not _is_number(span):
-                continue
-            covered = best[j][0] + len(re.sub(r"\D", "", span))
-            if covered > best[i][0]:
-                best[i] = (covered, [*best[j][1], (m.start() + start, m.start() + end)])
-    return best[-1][1]
+        covered.append(covered[i - 1])
+        back.append(None)
+        digits = 0
+        # 묶음은 번호 길이(최대 19자리)를 넘을 수 없으니 그 안에서만 찾습니다(긴 입력에도 선형).
+        for j in range(i - 1, -1, -1):
+            digits += counts[j]
+            if digits > longest:
+                break
+            span = m[0][pieces[j][0] : pieces[i - 1][1]]
+            if _is_number(span) and covered[j] + digits > covered[i]:
+                covered[i], back[i] = covered[j] + digits, j
+    groups = []
+    i = len(pieces)
+    while i > 0:
+        if (j := back[i]) is None:
+            i -= 1
+            continue
+        groups.append((m.start() + pieces[j][0], m.start() + pieces[i - 1][1]))
+        i = j
+    return groups[::-1]
 
 
 def _add_extra(text: str, found: list[Finding]) -> None:
