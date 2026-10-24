@@ -136,3 +136,14 @@ def test_two_spaced_numbers_are_both_masked() -> None:
     assert "1234567890" not in masked
     assert "9876543210" not in masked
     assert has_blocking(text)
+
+
+def test_very_long_spaced_digits_stay_fast() -> None:
+    """보안 검토 지적: 띄어 쓴 숫자가 아주 많아도 나누기 계산이 길어지지 않아야 합니다."""
+    import time
+
+    text = " ".join(["1"] * 20000)
+    started = time.perf_counter()
+    mask(text)
+
+    assert time.perf_counter() - started < 2
