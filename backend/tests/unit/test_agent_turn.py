@@ -1,0 +1,86 @@
+import json
+
+import pytest
+
+from app.agent.nodes.respond import FALLBACK_REPLY, parse_output
+from app.services.agent_turn import run_conversation
+
+LEE = {
+    "age_at_separation": 58,
+    "has_disability": False,
+    "recipient_type": "general",
+    "stage": "recognition",
+    "eligibility_applied_date": "2026-09-15",
+    "completed_rounds": 3,
+    "last_recognition_date": "2026-11-24",
+    "next_recognition_date": "2026-12-22",
+    "demo_today": "2026-12-16",
+}
+PARK = {**LEE, "age_at_separation": 61, "stage": "job_registration", "completed_rounds": 0}
+
+
+def _data(activities: list | None = None) -> dict:
+    resume = {
+        "education": [],
+        "competencies": {"careers": [], "certifications": []},
+        "job_preferences": {"desired_occupations": [], "desired_regions": []},
+    }
+    return {"resume": resume, "activities": activities or [], "recognition": {}}
+
+
+def _reply(**fields) -> str:
+    return json.dumps({"reply": "알겠어요.", **fields}, ensure_ascii=False)
+
+
+def test_activity_from_message_updates_round(fake_llm) -> None:
+    earlier = [{"date": "2026-12-08", "kind": "job_search", "route": "work24"}]
+    activity = {"date": "2026-12-16", "kind": "job_application", "route": "work24"}
+    fake_llm([_reply(activities=[activity], next_action="review_form")])
+
+    result = run_conversation(LEE, _data(earlier), ["방금 고용24로 OO물산에 지원했어요"])
+
+    assert result.next_action == "review_form"
+    assert result.data["activities"][-1]["evidence"]["required"] == []
+    assert result.data["round"]["counted"] == 2
+    assert result.data["derived"]["current_round"] == 4
+
+
+def test_career_without_company_merges_into_latest(fake_llm) -> None:
+    fake_llm([
+        _reply(careers=[{"company_name": "OO산업"}]),
+        _reply(careers=[{"start_date": "2004-03"}]),
+    ])  # fmt: skip
+
+    result = run_conversation(PARK, _data(), ["OO산업 다녔어요", "2004년 3월부터요"])
+
+    careers = result.data["resume"]["competencies"]["careers"]
+    assert len(careers) == 1
+    assert careers[0]["start_date"] == "2004-03"
+    assert result.replies == ["알겠어요.", "알겠어요."]
+
+
+def test_model_never_sees_resident_number(fake_llm, monkeypatch: pytest.MonkeyPatch) -> None:
+    model = fake_llm([_reply()])
+    seen: list[str] = []
+    original = type(model)._call
+
+    def spy(self, messages, *args, **kwargs):
+        seen.extend(str(m.content) for m in messages)
+        return original(self, messages, *args, **kwargs)
+
+    monkeypatch.setattr(type(model), "_call", spy)
+    run_conversation(PARK, _data(), ["제 주민번호 650101-1234567이에요"])
+
+    assert seen
+    assert not any("1234567" in text for text in seen)
+
+
+def test_broken_json_falls_back_without_changes() -> None:
+    output = parse_output("이건 JSON이 아니에요")
+
+    assert output.reply == FALLBACK_REPLY
+    assert output.activities == []
+
+
+def test_fenced_json_is_read() -> None:
+    assert parse_output("```json\n" + _reply() + "\n```").reply == "알겠어요."

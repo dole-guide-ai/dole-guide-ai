@@ -8,6 +8,7 @@ from copy import deepcopy
 from dataclasses import dataclass, field
 from typing import Any
 
+from app.services.agent_turn import run_conversation
 from evals.golden.grading import set_path
 
 
@@ -36,7 +37,17 @@ def run_agent(case: dict[str, Any]) -> AgentResult:
     messages(턴별 말), files(첨부 이름).
     첨부 파일 경로는 schema.FILES_DIR / 이름. 그래프 호출은 서비스 함수를 거쳐 주세요.
     """
-    raise AgentNotReadyError("AI 본체 연결 전이라 건너뜀. 채점 코드 점검은 --golden-agent=selftest")
+    case_input = case["input"]
+    # 최소 버전은 사진을 읽지 않습니다(결정 ⑥은 실험 단계). 첨부는 무시하고 말만 넣습니다.
+    result = run_conversation(
+        deepcopy(case_input["state"]), deepcopy(case_input["data"]), case_input["messages"]
+    )
+    return AgentResult(
+        replies=result.replies,
+        next_action=result.next_action,
+        data=result.data,
+        cites=result.cites,
+    )
 
 
 def run_selftest(case: dict[str, Any], broken: bool = False) -> AgentResult:
