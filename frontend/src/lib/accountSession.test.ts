@@ -1,14 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
 import { sessionFromAccount } from '@/lib/accountSession';
-import type { components } from '@/types/api.gen';
-import { resolveMock } from '@/mocks/handlers';
-
-type AccountRead = components['schemas']['AccountRead'];
+import { ACCOUNTS } from '@/test/fixtures';
 
 describe('sessionFromAccount', () => {
-  it('새로고침 전 멈춘 질문이 있으면 그 선택지를 다시 띄운다 (F-03)', async () => {
-    const account = await resolveMock<AccountRead>('/accounts/lee', { method: 'PUT' });
+  it('새로고침 전 멈춘 질문이 있으면 그 선택지를 다시 띄운다 (F-03)', () => {
+    const account = ACCOUNTS.lee;
 
     const restored = sessionFromAccount({
       ...account,

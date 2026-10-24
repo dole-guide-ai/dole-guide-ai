@@ -1,12 +1,9 @@
 import { ERROR_CODES } from '@/lib/errorCodes';
 /**
  * 브라우저에서 서버를 부르는 유일한 창구입니다. 모든 요청은 같은 사이트의 BFF(/api/*)로 갑니다.
- * 실패 응답은 ApiError 하나로 바꿔 던지고, 모의 응답 모드에 따라 요청을 mock(src/mocks)으로 돌리기도 합니다.
- * mock으로 돌릴 경로는 `lib/mockMode.ts`가 정합니다.
+ * 실패 응답은 ApiError 하나로 바꿔 던집니다.
  */
-import { usesMock } from '@/lib/mockMode';
 import type { components } from '@/types/api.gen';
-import { resolveMock } from '@/mocks/handlers';
 
 /** 브라우저는 같은 사이트의 BFF(`src/app/api/[...path]/route.ts`)만 부릅니다. 백엔드 주소는 서버만 압니다. */
 export const API_BASE_URL = '/api';
@@ -55,8 +52,6 @@ export const toApiError = async (res: Response): Promise<ApiError> => {
 };
 
 export const apiFetch = async <T>(path: string, init?: RequestInit): Promise<T> => {
-  if (usesMock(path)) return resolveMock<T>(path, init);
-
   let res: Response;
   try {
     res = await fetch(`${API_BASE_URL}${path}`, {
@@ -75,13 +70,17 @@ export const apiSend = <T>(path: string, method: 'POST' | 'PATCH' | 'DELETE', bo
   apiFetch<T>(path, { method, body: JSON.stringify(body) });
 
 /**
- * 파일 올리기 (`POST /files`, 2-0.4). multipart라 Content-Type을 직접 넣지 않습니다 (브라우저가 boundary를 붙임).
- * 모의 모드에서는 FormData 그대로 `resolveMock`에 넘깁니다.
+ * 파일 올리기 (`POST /accounts/{id}/files`, 2-0.4). `fields`는 함께 보낼 폼 값(purpose 등)입니다. multipart라 Content-Type을 직접 넣지 않습니다 (브라우저가 boundary를 붙임).
  */
-export const apiUpload = async <T>(path: string, file: File, signal?: AbortSignal): Promise<T> => {
+export const apiUpload = async <T>(
+  path: string,
+  file: File,
+  fields: Record<string, string> = {},
+  signal?: AbortSignal,
+): Promise<T> => {
   const form = new FormData();
   form.append('file', file);
-  if (usesMock(path)) return resolveMock<T>(path, { method: 'POST', body: form, signal });
+  for (const [name, value] of Object.entries(fields)) form.append(name, value);
 
   let res: Response;
   try {

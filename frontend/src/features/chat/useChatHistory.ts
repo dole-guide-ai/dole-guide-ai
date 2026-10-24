@@ -2,7 +2,6 @@ import { useQuery } from '@tanstack/react-query';
 
 import type { ChatMessage, ChatRole } from '@/features/chat/chat.types';
 
-import { isServerSession } from '@/lib/accountSession';
 import { apiFetch } from '@/lib/api';
 import { API_PATHS } from '@/lib/apiPaths';
 import { queryKeys } from '@/lib/queryKeys';
@@ -46,13 +45,11 @@ const fetchAll = async (personaId: string) => {
 
 /**
  * 새로고침해도 대화가 그대로 보이게 서버 대화 기록(`GET /accounts/{id}/messages`)을 받습니다 (F-03).
- * 실제 서버 세션(`acct-`)에서만 받고, 모의 세션은 진입 안내부터 다시 시작합니다.
  */
 export const useChatHistory = (session: SessionRead) =>
   useQuery({
     queryKey: queryKeys.messages(session.session_id),
     queryFn: () => fetchAll(session.persona_id),
-    enabled: isServerSession(session.session_id),
     // 다시 입장(방문자 토큰이 바뀔 수 있음)하면 캐시를 쓰지 않고 새로 받습니다.
     gcTime: 0,
     refetchOnWindowFocus: false,

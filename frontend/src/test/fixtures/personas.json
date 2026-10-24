@@ -1,0 +1,38 @@
+{
+  "items": [
+    {
+      "persona_id": "park",
+      "display": {
+        "name": "박진수",
+        "age": 61,
+        "job": "생산직 · 프레스",
+        "quote": "컴퓨터는 잘 못 해요. 이력서를 어디서부터 써야 할지 모르겠어요.",
+        "summary": "구직등록 전 · 이력서 없음"
+      },
+      "progress_summary": null
+    },
+    {
+      "persona_id": "choi",
+      "display": {
+        "name": "최영수",
+        "age": 67,
+        "job": "시설관리",
+        "quote": "예전에 써 둔 이력서가 있는데, 그걸 그대로 쓰면 되는 건가요?",
+        "summary": "구직등록 전 · 예전 이력서 최신화"
+      },
+      "progress_summary": null
+    },
+    {
+      "persona_id": "lee",
+      "display": {
+        "name": "이정호",
+        "age": 58,
+        "job": "일반 사무 · 행정지원",
+        "quote": "회사에 지원은 했는데 증빙을 뭘 올려야 하는지, 이번 회차에 몇 번 했는지 기억이 안 납니다.",
+        "summary": "수급 중 · 4차 실업인정 준비 · 이력서 있음"
+      },
+      "progress_summary": null
+    }
+  ],
+  "total": 3
+}

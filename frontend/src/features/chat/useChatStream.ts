@@ -8,7 +8,6 @@ import { activeToolAfter, chatActionFor, isBubbleEvent } from '@/features/chat/c
 import { chatReducer, initChatState } from '@/features/chat/chatReducer';
 import { useChatHistory } from '@/features/chat/useChatHistory';
 
-import { isServerSession } from '@/lib/accountSession';
 import { ApiError } from '@/lib/api';
 import { streamChat } from '@/lib/chatStream';
 import { ERROR_CODES } from '@/lib/errorCodes';
@@ -49,7 +48,7 @@ export const useChatStream = (session: SessionRead) => {
     const prev = entryRef.current;
     entryRef.current = { sessionId, messages: session.entry.messages };
     if (prev.sessionId !== sessionId || prev.messages === session.entry.messages) return;
-    if (isServerSession(sessionId)) dispatch({ type: CHAT_ACTIONS.ENTRY, entry: session.entry });
+    dispatch({ type: CHAT_ACTIONS.ENTRY, entry: session.entry });
   }, [session.entry, sessionId]);
 
   // F-03: 새로고침 뒤에는 서버에 저장된 대화로 말풍선을 되살립니다. 저장된 대화가 없으면 진입 안내를 둡니다.

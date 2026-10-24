@@ -4,12 +4,12 @@ import { describe, expect, it } from 'vitest';
 import { BenefitEndedPanel } from '@/features/procedure/BenefitEndedPanel';
 import { BenefitEndNote } from '@/features/procedure/BenefitEndNote';
 
-import { buildMockSession } from '@/mocks/handlers';
+import { sessionFor } from '@/test/fixtures';
 import { renderWithProviders } from '@/test/renderWithProviders';
 
 // 이정호(270일, 신청일 9.15) 기준 값. 대기기간 다음 날(9.22) + 269일
 const LEE_DERIVED = {
-  ...buildMockSession('lee').derived,
+  ...sessionFor('lee').derived,
   expected_end_date: '2027-06-18',
   remaining_rounds: 8,
   last_round: 11,

@@ -2,7 +2,6 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { toRecognitionDraft } from '@/features/recognition/useRecognitionForm';
 
-import { isServerSession } from '@/lib/accountSession';
 import { apiFetch } from '@/lib/api';
 import { API_PATHS } from '@/lib/apiPaths';
 import { recognitionFromApplication } from '@/lib/applicationForm';
@@ -52,23 +51,17 @@ const submitToServer = async (personaId: string, round: number | null, body: Con
 
 /**
  * 모의 제출·출석 준비 확인 (2-3.7). 실제 고용24 제출은 하지 않습니다.
- * - 모의 세션: `POST /forms/recognition/confirm { submit_mode }`
- * - 실제 서버 세션: 회차 신청서 PATCH로 제출하고, 다시 받은 신청서로 저장소를 바꿉니다.
+ * 회차 신청서 PATCH로 제출하고, 다시 받은 신청서로 저장소를 바꿉니다 (F-27).
  */
 export const useConfirmRecognition = (
-  sessionId?: string,
-  personaId?: string,
+  sessionId: string,
+  personaId: string,
   round: number | null = null,
 ) => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (body: ConfirmBody): Promise<RecognitionFormRead | null> =>
-      sessionId && personaId && isServerSession(sessionId)
-        ? submitToServer(personaId, round, body)
-        : apiFetch<RecognitionFormRead>(API_PATHS.LEGACY_RECOGNITION_CONFIRM, {
-            method: 'POST',
-            body: JSON.stringify({ submit_mode: body.submit_mode }),
-          }),
+      submitToServer(personaId, round, body),
     onSuccess: (form, body) => {
       // 신청서 쿼리는 다시 받지 않으므로(staleTime: Infinity) 제출 뒤 값으로 캐시도 바꿉니다.
       const key = sessionId ? queryKeys.recognitionForm(sessionId, round) : null;

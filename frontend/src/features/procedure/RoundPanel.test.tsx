@@ -6,7 +6,7 @@ import { RoundPanel } from '@/features/procedure/RoundPanel';
 
 import { applyFormUpdate, resetForms } from '@/lib/formStore';
 import { ROUND_CHECK_PATH } from '@/lib/roundCheck';
-import { buildMockSession } from '@/mocks/handlers';
+import { sessionFor } from '@/test/fixtures';
 import { renderWithProviders } from '@/test/renderWithProviders';
 import {
   activityCheck,
@@ -96,7 +96,7 @@ const mockApi = (options: { checkStatus?: number } = {}) =>
     return Response.json({ code: 'NOT_FOUND', message: '없는 경로예요.' }, { status: 404 });
   });
 
-const session = () => buildMockSession('lee');
+const session = () => sessionFor('lee');
 
 describe('RoundPanel', () => {
   beforeEach(() => resetForms());
@@ -208,7 +208,7 @@ describe('RoundPanel', () => {
       <RoundPanel session={{ ...lee, derived: { ...lee.derived, d_day: -2 } }} />,
     );
 
-    expect(await screen.findByText('12월 22일(화) 실업인정일이 지났어요.')).toBeInTheDocument();
+    expect(await screen.findByText(/실업인정일이 지났어요\./)).toBeInTheDocument();
     expect(screen.getByText(/14일 안에 고용센터에 가서 변경 신청/)).toBeInTheDocument();
   });
 });

@@ -3,13 +3,11 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { resumeIfMatch } from '@/features/resume/usePatchResumeField';
 import { resumePath } from '@/features/resume/useResumeForm';
 
-import { isServerSession, sessionFromAccount } from '@/lib/accountSession';
+import { sessionFromAccount } from '@/lib/accountSession';
 import { apiFetch } from '@/lib/api';
-import { API_PATHS } from '@/lib/apiPaths';
 import { IF_MATCH_HEADER } from '@/lib/etag';
-import { applyFormUpdate } from '@/lib/formStore';
 import { queryKeys } from '@/lib/queryKeys';
-import { getSession, setSession } from '@/lib/sessionStore';
+import { setSession } from '@/lib/sessionStore';
 import type { components } from '@/types/api.gen';
 import type { SessionRead } from '@/types/demo.types';
 
@@ -32,27 +30,15 @@ const saveToServer = async (personaId: string): Promise<SessionRead> => {
 };
 
 /**
- * 이력서 저장 (2-1.6). 이력서가 `finalized`가 되고 단계가 온라인 교육으로 넘어가므로,
- * 응답으로 새 세션(상태·파생값·진입 결과)을 받아 그대로 바꿔 끼웁니다.
- * - 모의 세션: `POST /forms/resume/confirm`
- * - 실제 서버 세션: `saveToServer`
+ * 이력서 저장 (2-1.6, F-15). 단계가 온라인 교육으로 넘어가므로(다시 저장이면 단계 그대로)
+ * 새 세션(상태·파생값·진입 결과)으로 바꿔 끼웁니다.
  */
-export const useConfirmResume = (sessionId?: string, personaId?: string) => {
+export const useConfirmResume = (personaId: string) => {
   const queryClient = useQueryClient();
-  const isServer = !!sessionId && isServerSession(sessionId) && !!personaId;
 
   return useMutation({
-    mutationFn: () =>
-      isServer
-        ? saveToServer(personaId)
-        : apiFetch<SessionRead>(API_PATHS.LEGACY_RESUME_CONFIRM, { method: 'POST', body: '{}' }),
+    mutationFn: () => saveToServer(personaId),
     onSuccess: (session) => {
-      // 이미 저장한 이력서를 고쳐 다시 저장하면(2-1.6) 단계가 그대로라 지금 초안을 확정 상태로만 바꿉니다.
-      if (!isServer && getSession()?.state.resume_status === 'ready') {
-        applyFormUpdate({ form: 'resume', path: 'status', op: 'set', value: 'finalized' });
-        applyFormUpdate({ form: 'resume', path: 'can_save', op: 'set', value: false });
-        return;
-      }
       setSession(session);
       void queryClient.invalidateQueries({ queryKey: queryKeys.forms });
     },

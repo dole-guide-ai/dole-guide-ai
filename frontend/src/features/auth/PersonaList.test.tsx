@@ -5,16 +5,14 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { PersonaList } from '@/features/auth/PersonaList';
 
 import { getSession, setSession } from '@/lib/sessionStore';
-import { mockAccount } from '@/mocks/handlers';
-import { MOCK_PERSONAS } from '@/mocks/personas';
+import { ACCOUNTS, PERSONAS } from '@/test/fixtures';
 import { mockFetchJson } from '@/test/mockFetch';
 import { renderWithProviders } from '@/test/renderWithProviders';
 
 const push = vi.fn();
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push, replace: vi.fn() }) }));
 
-const cards = MOCK_PERSONAS.map(({ persona_id, display }) => ({ persona_id, display }));
-const list = { items: cards, total: cards.length };
+const list = PERSONAS;
 
 describe('PersonaList', () => {
   afterEach(() => {
@@ -36,7 +34,7 @@ describe('PersonaList', () => {
     const fetchSpy = mockFetchJson(list);
     fetchSpy
       .mockResolvedValueOnce(Response.json(list))
-      .mockResolvedValueOnce(Response.json(mockAccount('lee'), { status: 201 }));
+      .mockResolvedValueOnce(Response.json(ACCOUNTS.lee, { status: 201 }));
 
     renderWithProviders(<PersonaList />);
     await userEvent.click(await screen.findByRole('button', { name: '이정호 계정으로 시작' }));

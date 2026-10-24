@@ -21,6 +21,6 @@ uv run pytest
    - 서류 PATCH: `app/core/json_patch.py`(`split_status` → `apply_patch`), `app/core/etag.py`(`etag`, `check_if_match`)
    - POST 재시도: `app/services/idempotency.py`(`run_once`)
 6. 테스트: 규칙·서비스는 `tests/unit/`, 라우터→DB는 `tests/integration/`. 입장한 계정은 공용 픽스처 `entered_headers("lee")`(API), `entered_account("lee")`(서비스)로 받습니다. 오늘은 2026-10-21로 고정됩니다.
-7. 루트에서 `pnpm gen:api` → 프론트에서 해당 mock(`src/mocks/handlers.ts`)과 손으로 쓴 타입을 지우고 `api.gen.ts` 타입으로 바꿉니다.
+7. 루트에서 `pnpm gen:api` → 프론트의 손으로 쓴 타입을 `api.gen.ts` 타입으로 바꾸고, 응답 모양이 바뀌었으면 `frontend/src/test/fixtures/*.json`을 다시 뜹니다.
 
 시연 계정 seed는 `data/seeds/personas.json`(날짜는 입장일 기준 상대값)이고, 서버가 시작할 때 `personas` 테이블에 적재합니다.

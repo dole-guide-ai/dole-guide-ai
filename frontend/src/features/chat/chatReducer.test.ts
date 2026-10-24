@@ -3,20 +3,20 @@ import { describe, expect, it } from 'vitest';
 import { CHAT_ACTIONS } from '@/features/chat/chatActions';
 import { chatReducer, initChatState } from '@/features/chat/chatReducer';
 
-import { buildMockSession } from '@/mocks/handlers';
+import { sessionFor } from '@/test/fixtures';
 
 const run = (actions: Parameters<typeof chatReducer>[1][]) =>
-  actions.reduce(chatReducer, initChatState(buildMockSession('lee')));
+  actions.reduce(chatReducer, initChatState(sessionFor('lee')));
 
 describe('chatReducer', () => {
   it('첫 안내 말풍선과 선택지로 시작한다', () => {
-    const state = initChatState(buildMockSession('lee'));
+    const state = initChatState(sessionFor('lee'));
     expect(state.messages).toHaveLength(2);
     expect(state.choices).toHaveLength(3);
   });
 
   it('entry는 새 첫 안내를 이어 붙이고 선택지를 바꾼다', () => {
-    const entry = { ...buildMockSession('lee').entry };
+    const entry = { ...sessionFor('lee').entry };
     entry.messages = [{ template_id: 'T-SAVE-E7a', text: '이력서를 저장했어요.' }];
     entry.choices = ['교육 다 들었어요'];
     const state = run([{ type: 'entry', entry }]);
