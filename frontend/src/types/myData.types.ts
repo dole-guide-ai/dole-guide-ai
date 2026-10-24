@@ -24,13 +24,3 @@ export interface MyDataRead {
   /** 저장하지 않는 정보 목록 (2-0.5) */
   not_stored: string[];
 }
-
-/** DELETE /me/data 본문: 지울 줄 */
-export interface MyDataDelete {
-  item_id: string;
-}
-
-/** DELETE /me/data 응답: 그 값을 쓰던 패널 칸을 `아직 없음`으로 돌리는 `form_update`들 */
-export interface MyDataDeleteRead {
-  updates: FormUpdateEvent[];
-}

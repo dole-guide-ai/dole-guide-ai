@@ -26,7 +26,6 @@ export const API_PATHS = {
   LEGACY_RESUME_CONFIRM: '/forms/resume/confirm',
   LEGACY_RECOGNITION: '/forms/recognition',
   LEGACY_RECOGNITION_CONFIRM: '/forms/recognition/confirm',
-  LEGACY_MY_DATA: '/me/data',
   LEGACY_FILES: '/files',
   legacyImports: (kind: string) => `/imports/${kind}`,
 } as const;

@@ -1,6 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
 
-import { isServerSession } from '@/lib/accountSession';
 import { apiFetch } from '@/lib/api';
 import { API_PATHS } from '@/lib/apiPaths';
 import { STALE_TIME } from '@/lib/queryConfig';
@@ -23,20 +22,11 @@ export const myDataFromFacts = (facts: FactList): MyDataRead => ({
   not_stored: facts.not_stored,
 });
 
-/**
- * 내 정보 (2-0.9): 창을 열 때마다 새로 받습니다.
- * - 모의 세션: `GET /me/data`
- * - 실제 서버 세션: `GET /accounts/{id}/facts` (F-31)
- */
-export const useMyData = (sessionId: string, enabled: boolean, personaId?: string) => {
-  const isServer = isServerSession(sessionId) && !!personaId;
-  return useQuery({
-    queryKey: queryKeys.myData(sessionId),
-    queryFn: async () =>
-      isServer
-        ? myDataFromFacts(await apiFetch<FactList>(API_PATHS.facts(personaId)))
-        : apiFetch<MyDataRead>(API_PATHS.LEGACY_MY_DATA),
+/** 내 정보 `GET /accounts/{id}/facts` (F-31, 2-0.9): 창을 열 때마다 새로 받습니다. */
+export const useMyData = (personaId: string, enabled: boolean) =>
+  useQuery({
+    queryKey: queryKeys.myData(personaId),
+    queryFn: async () => myDataFromFacts(await apiFetch<FactList>(API_PATHS.facts(personaId))),
     enabled,
     staleTime: STALE_TIME.ALWAYS_REFETCH,
   });
-};
