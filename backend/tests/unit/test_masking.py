@@ -12,6 +12,14 @@ from app.agent.masking import mask
         ("번호 010 0000 0000으로 연락 주세요", "010 0000 0000"),
         ("메일은 a.b@example.com이에요", "a.b@example.com"),
         ("제 이름은 홍길동이에요", "홍길동"),
+        # 구분자 없음·점 구분·한글에 붙은 번호 (보안 검토 지적)
+        ("주민번호 6501011234567이요", "1234567"),
+        ("주민번호 650101.1234567", "1234567"),
+        ("연락처01012345678이요", "12345678"),
+        ("010.1234.5678로 주세요", "5678"),
+        ("계좌110-234-567890이에요", "567890"),
+        ("카드 1234 5678 1234 5678", "5678"),
+        ("계좌번호 11023456789012", "56789"),
     ],
 )
 def test_mask_hides_personal_values(text: str, hidden: str) -> None:
@@ -21,6 +29,8 @@ def test_mask_hides_personal_values(text: str, hidden: str) -> None:
     assert found
 
 
-@pytest.mark.parametrize("text", ["2026-12-08에 고용24로 지원했어요", "2004년 3월부터 일했어요"])
+@pytest.mark.parametrize(
+    "text", ["2026-12-08에 고용24로 지원했어요", "2004년 3월부터 일했어요", "20261208 면접"]
+)
 def test_mask_keeps_dates(text: str) -> None:
     assert mask(text) == (text, [])
