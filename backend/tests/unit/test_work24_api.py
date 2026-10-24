@@ -16,7 +16,7 @@ TRAINING_XML = """<HRDNet><scn_cnt>1</scn_cnt><srchList><scn_list>
 PROGRAM_XML = """<empPgmSchdInviteList><total>1</total><empPgmSchdInvite>
 <orgNm>OO고용센터</orgNm><pgmNm>이력서 특강</pgmNm><pgmSubNm>취업특강</pgmSubNm>
 <pgmStdt>20261112</pgmStdt><pgmEndt>20261112</pgmEndt>
-<openTimeClcd>오후</openTimeClcd><openTime>2:00</openTime>
+<openTimeClcd>2</openTimeClcd><openTime>2:00</openTime>
 </empPgmSchdInvite></empPgmSchdInviteList>"""
 NOW = datetime(2026, 10, 21, 9, tzinfo=KST)
 
@@ -27,11 +27,11 @@ def test_training_id_is_course_plus_degree() -> None:
     assert (t.id, t.title, t.period) == ("T1:3", "엑셀 실무", "2026-11-09 ~ 2026-12-18")
 
 
-def test_program_keeps_am_pm_and_has_no_made_up_url() -> None:
+def test_program_am_pm_code_and_no_made_up_id_or_url() -> None:
     [p] = work24_api.parse_programs(ET.fromstring(PROGRAM_XML))
 
     assert p.schedule == "2026-11-12 오후 2:00"
-    assert p.url is None
+    assert (p.id, p.url) == (None, None)
 
 
 def test_live_search_passes_keyword(monkeypatch) -> None:
@@ -41,10 +41,14 @@ def test_live_search_passes_keyword(monkeypatch) -> None:
         sent.update(params)
         return ET.fromstring(TRAINING_XML)
 
-    result = work24_api.fetch_trainings("사무", date(2026, 10, 21), get=fake_get)
+    result = work24_api.fetch_trainings("사무", date(2026, 11, 1), date(2026, 11, 30), get=fake_get)
 
-    assert sent["srchTraProcessNm"] == "사무"
-    assert result and result[0].id == "T1:3"
+    assert (sent["srchTraProcessNm"], sent["srchTraStDt"], sent["srchTraEndDt"]) == (
+        "사무",
+        "20261101",
+        "20261130",
+    )
+    assert result and result.items[0].id == "T1:3" and result.total == 1
 
 
 def test_falls_back_to_snapshot_without_key(monkeypatch) -> None:
@@ -55,3 +59,15 @@ def test_falls_back_to_snapshot_without_key(monkeypatch) -> None:
 
     assert result.source == ExternalSource.SNAPSHOT
     assert result.items and all("사무" in t.title or "회계" in t.title for t in result.items)
+
+
+def test_snapshot_applies_range_and_page(monkeypatch) -> None:
+    monkeypatch.setattr(work24_api, "fetch_programs", lambda *a, **k: None)
+
+    everything = training_service.search_programs(None, NOW)
+    later = training_service.search_programs(date(2026, 11, 13), NOW)
+    second_page = training_service.search_programs(None, NOW, page=2)
+
+    assert later.total < everything.total
+    assert all(p.schedule[:10] >= "2026-11-13" for p in later.items)
+    assert second_page.items == [] and second_page.total == everything.total
