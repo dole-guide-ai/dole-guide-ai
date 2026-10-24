@@ -9,7 +9,8 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const VARIANT_CLASS: Record<ButtonVariant, string> = {
-  primary: 'bg-brand text-white hover:bg-brand-strong disabled:bg-neutral-soft disabled:text-muted',
+  primary:
+    'bg-brand-fill text-white hover:bg-brand-fill-strong disabled:bg-neutral-soft disabled:text-muted',
   secondary:
     'border border-line bg-surface text-ink hover:border-brand hover:text-brand disabled:text-muted',
   ghost: 'text-brand hover:bg-brand-soft disabled:text-muted',
@@ -29,7 +30,7 @@ export const Button = ({
 }: ButtonProps) => (
   <button
     type={type}
-    className={`focus-visible:ring-brand/40 inline-flex items-center justify-center gap-2 rounded-xl font-semibold transition focus-visible:ring-3 focus-visible:outline-hidden disabled:cursor-not-allowed ${VARIANT_CLASS[variant]} ${SIZE_CLASS[size]} ${className}`}
+    className={`focus-visible:ring-brand inline-flex items-center justify-center gap-2 rounded-xl font-semibold transition focus-visible:ring-3 focus-visible:outline-hidden disabled:cursor-not-allowed ${VARIANT_CLASS[variant]} ${SIZE_CLASS[size]} ${className}`}
     {...rest}
   />
 );

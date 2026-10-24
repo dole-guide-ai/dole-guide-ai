@@ -41,9 +41,9 @@ def _messages(state: AgentState) -> list[BaseMessage]:
     }
     # 날짜 안내는 DATE_PARSING에 따라 고릅니다.
     # ai: 모델이 바꿈 · code: 말 그대로 옮기고 규칙 코드(apply_updates)가 바꿈
-    date_rules = load_prompt(f"dates_{get_settings().date_parsing}").strip()
+    date_rules = load_prompt(f"turn/dates_{get_settings().date_parsing}")
     messages: list[BaseMessage] = [
-        SystemMessage(load_prompt("respond").replace("{date_rules}", date_rules)),
+        SystemMessage(load_prompt("turn/respond").replace("{date_rules}", date_rules)),
         SystemMessage("## 상황\n" + json.dumps(context, ensure_ascii=False)),
     ]
     for turn in state.get("history", []):

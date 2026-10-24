@@ -47,7 +47,7 @@ def by_keyword(message: str) -> str:
 def by_llm(message: str) -> str:
     model = gateway.get_chat_model("agent").bind(response_format={"type": "json_object"})
     response = model.invoke([
-        SystemMessage(load_prompt("classify_intent")),
+        SystemMessage(load_prompt("turn/classify_intent")),
         HumanMessage(f"<user_message>\n{message}\n</user_message>"),
     ])  # fmt: skip
     try:

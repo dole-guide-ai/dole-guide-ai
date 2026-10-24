@@ -50,7 +50,7 @@ export const RecommendationBox = ({
 
   return (
     <section
-      className="border-brand/30 bg-brand-soft/40 flex flex-col gap-3 rounded-2xl border p-4"
+      className="border-brand-soft bg-brand-soft flex flex-col gap-3 rounded-2xl border p-4"
       aria-label="추천 활동"
     >
       <h3 className="text-lg font-bold">이렇게 채워 보세요</h3>

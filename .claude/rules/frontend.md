@@ -34,7 +34,7 @@ paths:
 
 | 무엇 | 위치 |
 | --- | --- |
-| API 경로 | `lib/apiPaths.ts` (`API_PATHS`, 기능 훅과 mock이 같이 씀) |
+| API 경로 | `lib/apiPaths.ts` (`API_PATHS`, 기능 훅이 같이 씀) |
 | 쿼리 키 · 캐시 시간 | `lib/queryKeys.ts` · `lib/queryConfig.ts` (`STALE_TIME`) |
 | 오류 코드 | `lib/errorCodes.ts` (`ERROR_CODES`) |
 | SSE 이벤트 · 대화 액션 · 역할 · 입력 방식 | `lib/sseEvents.ts` · `features/chat/chatActions.ts` · `CHAT_ROLE` · `INPUT_KIND` |

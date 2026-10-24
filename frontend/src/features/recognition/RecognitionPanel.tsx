@@ -1,5 +1,7 @@
 'use client';
 
+import { Info, ListChecks } from 'lucide-react';
+
 import { Button } from '@/components/Button';
 import { EvidenceLine } from '@/components/EvidenceLine';
 import { JobSearchCard } from '@/features/recognition/JobSearchCard';
@@ -20,6 +22,7 @@ import { ApiError } from '@/lib/api';
 import { formatDotDate, formatShortDate } from '@/lib/dateFormat';
 import { type ChipSpec, fieldChip } from '@/lib/fieldChip';
 import type { FieldMeta } from '@/lib/formStore';
+import { ICON_SIZE, ICON_STROKE } from '@/lib/iconSize';
 import type { SessionRead } from '@/types/demo.types';
 import type { ConsentValue, RecognitionFormRead } from '@/types/recognition.types';
 
@@ -105,8 +108,14 @@ export const RecognitionPanel = ({
   };
 
   return (
-    <div className="flex flex-col gap-4">
-      <p className="bg-canvas text-muted rounded-xl px-4 py-2 text-sm">
+    <div className="flex flex-col gap-6">
+      <p className="text-neutral flex items-start gap-2 text-sm">
+        <Info
+          aria-hidden
+          size={ICON_SIZE.sm}
+          strokeWidth={ICON_STROKE}
+          className="mt-0.5 shrink-0"
+        />
         사전 확인 · 재취업을 위한 약속, 부정수급 고지 확인서는 고용24에서 본인이 확인해요.
       </p>
 
@@ -155,7 +164,7 @@ export const RecognitionPanel = ({
           chip={prevChip(workPath('has_work_or_service'), work.answered_on)}
         />
         {work.has_work_or_service && (
-          <div className="bg-canvas my-1 rounded-xl px-3 py-1">
+          <div className="border-line my-2 ml-1 border-l-2 pl-4">
             {workList.map((detail, index) => (
               <div key={index} className={index > 0 ? 'border-line mt-2 border-t pt-2' : undefined}>
                 {workList.length > 1 && (
@@ -226,9 +235,18 @@ export const RecognitionPanel = ({
         </p>
       ) : (
         <>
-          <section className="flex flex-col gap-3" aria-label="2 재취업 활동정보등록">
-            <h3 className="text-base font-bold">2 재취업 활동정보등록</h3>
-            <p className="bg-brand-soft text-brand rounded-xl px-4 py-2 text-sm">
+          <section
+            className="border-line flex flex-col gap-4 border-t pt-6"
+            aria-label="2 재취업 활동정보등록"
+          >
+            <h3 className="text-lg font-bold">2 재취업 활동정보등록</h3>
+            <p className="text-brand flex items-start gap-2 text-sm font-semibold">
+              <ListChecks
+                aria-hidden
+                size={ICON_SIZE.sm}
+                strokeWidth={ICON_STROKE}
+                className="mt-0.5 shrink-0"
+              />
               {form.recognition_round}차 실업인정 필수 등록 요건: 재취업활동{' '}
               {activity.required.activities}회 등록 대상
               {(activity.required.job_search ?? 0) > 0 &&
@@ -338,7 +356,7 @@ export const RecognitionPanel = ({
         </>
       )}
 
-      <div className="flex flex-col gap-1">
+      <div className="border-line flex flex-col gap-1 border-t pt-4">
         <p className="text-muted text-sm">
           실업인정은 본인이 직접 신청해요. 서비스는 정리·점검만 하고 최종 인정 여부는 관할
           고용센터가 판단해요.

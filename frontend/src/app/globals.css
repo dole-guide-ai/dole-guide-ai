@@ -6,19 +6,26 @@
     'Pretendard Variable', Pretendard, 'Apple SD Gothic Neo', 'Malgun Gothic', 'Noto Sans KR',
     system-ui, sans-serif;
 
-  --color-brand: #1d4ed8;
-  --color-brand-strong: #1e40af;
-  --color-brand-soft: #dbeafe;
+  /* 메인 파랑. 글자·주 버튼은 흰 바탕 대비 4.5:1을 넘는 brand, 글자가 아닌 장식 강조(진행·그라데이션)는 accent(#379fff). */
+  --color-brand: #1673d6;
+  --color-brand-strong: #125fb3;
+  --color-brand-soft: #e3f0ff;
+  --color-accent: #379fff;
+  /* 흰 글자를 얹는 채움색(주 버튼·현재 단계). 밝게 보기에서는 brand와 같습니다. */
+  --color-brand-fill: #1673d6;
+  --color-brand-fill-strong: #125fb3;
 
   --color-canvas: #f4f6f9;
+  /* 오른쪽 패널 바깥 바탕(옅은 회색). 안쪽 문서 면은 surface(흰색). */
+  --color-panel: #f6f7f9;
   --color-surface: #ffffff;
   --color-line: #e2e6ec;
   --color-ink: #1f2937;
   --color-muted: #6b7280;
 
   /* 칩: 파랑(서류·불러오기) · 초록(확정) · 주황(확인 필요) · 회색(자동·없음) */
-  --color-info: #1d4ed8;
-  --color-info-soft: #dbeafe;
+  --color-info: #1673d6;
+  --color-info-soft: #e3f0ff;
   --color-ok: #15803d;
   --color-ok-soft: #dcfce7;
   --color-warn: #c2410c;
@@ -27,6 +34,102 @@
   --color-neutral-soft: #f1f3f6;
   --color-danger: #b91c1c;
   --color-danger-soft: #fee2e2;
+
+  /* AI 상태(답 만드는 중·입력창 포커스·보내기)에만 쓰는 그라데이션. 글자 배경으로는 쓰지 않아 대비를 지킵니다. */
+  --color-ai-from: #379fff;
+  --color-ai-via: #7c3aed;
+  --color-ai-to: #0ea5e9;
+
+  --shadow-card: 0 1px 2px rgb(15 23 42 / 0.04), 0 4px 16px rgb(15 23 42 / 0.05);
+  --shadow-composer: 0 2px 6px rgb(15 23 42 / 0.05), 0 12px 32px rgb(15 23 42 / 0.08);
+
+  --animate-shimmer: shimmer 2s linear infinite;
+
+  @keyframes shimmer {
+    from {
+      background-position: 200% 0;
+    }
+    to {
+      background-position: -200% 0;
+    }
+  }
+}
+
+/* AI 그라데이션 글자(답 만드는 중 상태). 움직임을 줄인 환경에서는 멈춥니다. */
+@utility text-ai-shimmer {
+  background-image: linear-gradient(
+    90deg,
+    var(--color-ink) 0%,
+    var(--color-ai-via) 40%,
+    var(--color-brand) 50%,
+    var(--color-ink) 90%
+  );
+  background-size: 200% 100%;
+  background-clip: text;
+  color: transparent;
+  animation: var(--animate-shimmer);
+
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+    color: var(--color-ink);
+    background-image: none;
+  }
+}
+
+/* 그라데이션 테두리: 안쪽은 surface, 바깥 1.5px만 그라데이션. */
+@utility border-ai {
+  border: 1.5px solid transparent;
+  background:
+    linear-gradient(var(--color-surface), var(--color-surface)) padding-box,
+    linear-gradient(120deg, var(--color-ai-from), var(--color-ai-via), var(--color-ai-to))
+      border-box;
+}
+
+@utility bg-ai {
+  background-image: linear-gradient(
+    135deg,
+    var(--color-ai-from),
+    var(--color-ai-via) 60%,
+    var(--color-ai-to)
+  );
+}
+
+/*
+ * 어둡게 보기: <html data-theme="dark">일 때 같은 이름의 토큰 값만 바꿉니다(첫 그림 전 스크립트가 기기 설정·저장값으로 정함).
+ * 글자 대비는 바탕(surface) 기준 4.5:1 이상으로 골랐습니다. 옅은 색도 모두 불투명한 단색입니다(뒤가 비치지 않게).
+ */
+html[data-theme='dark'] {
+  color-scheme: dark;
+  /* 강조색은 채도를 낮춰 어두운 바탕에서 빛나 보이지 않게 합니다. */
+  --color-ai-from: #379fff;
+  --color-ai-via: #7a6bb0;
+  --color-ai-to: #5e94b3;
+  --color-brand: #379fff;
+  --color-brand-strong: #5cb1ff;
+  --color-brand-soft: #14263b;
+  --color-brand-fill: #1a6cd1;
+  --color-brand-fill-strong: #1660bb;
+
+  --color-canvas: #0b0b0c;
+  --color-panel: #0b0b0c;
+  --color-surface: #101011;
+  --color-line: #26262b;
+  --color-ink: #e3e4e7;
+  --color-muted: #a0a4ab;
+
+  --color-info: #6fb6ff;
+  --color-info-soft: #14263b;
+  --color-ok: #7fb393;
+  --color-ok-soft: #26302a;
+  --color-warn: #d6a179;
+  --color-warn-soft: #352d27;
+  --color-neutral: #b3b6bc;
+  --color-neutral-soft: #1f1f23;
+  --color-danger: #d98e8e;
+  --color-danger-soft: #362a2b;
+
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.4);
+  --shadow-composer: 0 2px 6px rgb(0 0 0 / 0.35), 0 12px 32px rgb(0 0 0 / 0.35);
 }
 
 /*
@@ -46,6 +149,15 @@ html {
 }
 
 body {
-  background-color: var(--color-canvas);
+  background-color: var(--color-surface);
   color: var(--color-ink);
+}
+
+/* 스크롤바만 숨깁니다. 휠·터치·키보드 스크롤은 그대로 됩니다. */
+@utility scrollbar-hidden {
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
 }

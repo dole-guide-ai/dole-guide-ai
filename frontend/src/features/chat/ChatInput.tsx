@@ -2,23 +2,28 @@
 
 import { type ChangeEvent, type KeyboardEvent, useRef, useState } from 'react';
 
-import { Button } from '@/components/Button';
+import { ArrowUp, Maximize2, Mic, Paperclip } from 'lucide-react';
+
 import { LargeInputDialog } from '@/features/chat/LargeInputDialog';
 import { ACCEPTED_FILE_TYPES } from '@/features/chat/useFileUpload';
 
-/** 말하기·파일·크게 쓰기: 아이콘 위·짧은 이름 아래로 작게 둬 입력칸을 넓힙니다 (시연 개선 5번). */
+import { ICON_SIZE, ICON_STROKE, ICON_STROKE_BOLD } from '@/lib/iconSize';
+
+/** 입력창 안 도구(파일·말하기·크게 쓰기): 아이콘과 짧은 이름을 한 줄로, 누르기 쉽게 높이 44px. */
+/** 입력창 안내 문구 id (aria-describedby로 입력칸·파일 버튼에 연결) */
+const FILE_HINT_ID = 'chat-file-hint';
+const PRIVACY_NOTE_ID = 'chat-privacy-note';
+
 const TOOL_CLASS =
-  'focus-visible:ring-brand/40 flex w-16 shrink-0 flex-col items-center gap-0.5 rounded-xl border py-1 text-xs font-semibold focus-visible:ring-3 focus-visible:outline-hidden disabled:cursor-not-allowed';
-/** 기본·강조 색은 한쪽만 붙입니다. 둘을 같이 붙이면 배경은 흰색, 글자도 흰색이 돼 이름이 안 보입니다. */
+  'focus-visible:ring-brand inline-flex h-11 shrink-0 items-center gap-1.5 rounded-full px-3 text-sm font-semibold transition focus-visible:ring-3 focus-visible:outline-hidden disabled:cursor-not-allowed';
 const TOOL_NORMAL =
-  'border-line bg-surface text-ink hover:border-brand hover:text-brand disabled:text-muted';
-const TOOL_HIGHLIGHT = 'border-brand bg-brand text-white';
+  'text-ink hover:bg-neutral-soft disabled:text-muted disabled:hover:bg-transparent';
+const TOOL_HIGHLIGHT = 'bg-brand-soft text-brand ring-brand/30 ring-1 hover:bg-brand-soft';
 
 /**
- * 입력창 (2-0.4·2-0.5): 입력칸과 말하기·파일 올리기·크게 쓰기·보내기를 한 줄에 둡니다 (시연 개선 5번).
- * 대화창이 좁아 입력칸이 15rem보다 작아지면 버튼만 다음 줄로 내립니다 (시연 검증 14번).
+ * 입력창 (2-0.4·2-0.5): 글을 쓰는 칸 아래에 도구(파일·말하기·크게 쓰기)와 보내기를 한 상자 안에 둡니다.
  * 파일 올리기는 AI가 서류를 요청한 질문(`accepts_file`)에서만 켜지고 강조됩니다 (시연 개선 2번).
- * 개인정보 안내는 늘 보입니다. 글자 상태는 부모가 가집니다.
+ * 포커스가 들어오면 상자 테두리가 AI 그라데이션으로 바뀝니다. 개인정보 안내는 상자 아래에 늘 보입니다.
  */
 interface ChatInputProps {
   value: string;
@@ -63,13 +68,13 @@ export const ChatInput = ({
   };
 
   return (
-    <div className="border-line bg-surface flex flex-col gap-2 border-t p-3">
+    <div className="flex flex-col gap-2 px-4 pt-2 pb-3 lg:px-6">
       {canUpload && (
-        <p className="text-brand text-sm font-semibold">
+        <p id={FILE_HINT_ID} className="text-brand text-sm font-semibold">
           서류를 올릴 수 있어요. 사진이나 문서(pdf·hwp·docx) 모두 돼요.
         </p>
       )}
-      <div className="flex flex-wrap items-end gap-2">
+      <div className="border-line bg-surface focus-within:border-ai shadow-composer flex flex-col gap-1 rounded-3xl border p-2 transition">
         <textarea
           value={value}
           onChange={(event) => onChange(event.target.value)}
@@ -78,21 +83,10 @@ export const ChatInput = ({
           rows={2}
           placeholder={isDisabled ? '답을 만드는 중이에요…' : '여기에 말씀하듯 적어 주세요'}
           aria-label="메시지 입력"
-          className="border-line focus-visible:border-brand focus-visible:ring-brand/40 disabled:bg-neutral-soft min-w-60 flex-1 resize-none rounded-xl border px-4 py-3 text-base focus-visible:ring-3 focus-visible:outline-hidden"
+          aria-describedby={PRIVACY_NOTE_ID}
+          className="placeholder:text-muted w-full resize-none bg-transparent px-3 pt-2 text-base leading-relaxed focus-visible:outline-hidden disabled:cursor-not-allowed"
         />
-        <div className="flex shrink-0 items-center gap-1.5">
-          <button
-            type="button"
-            disabled
-            title="음성 입력은 서버 음성 인식 경로를 정한 뒤 연결돼요"
-            aria-label="눌러서 말하기"
-            className={`${TOOL_CLASS} ${TOOL_NORMAL}`}
-          >
-            <span aria-hidden className="text-lg">
-              🎤
-            </span>
-            말하기
-          </button>
+        <div className="flex flex-wrap items-center gap-1">
           <input
             ref={fileInputRef}
             type="file"
@@ -111,12 +105,21 @@ export const ChatInput = ({
                 : 'AI가 서류를 요청하면 올릴 수 있어요'
             }
             aria-label="파일 올리기"
+            aria-describedby={canUpload ? FILE_HINT_ID : undefined}
             className={`${TOOL_CLASS} ${canUpload ? TOOL_HIGHLIGHT : TOOL_NORMAL}`}
           >
-            <span aria-hidden className="text-lg">
-              📎
-            </span>
+            <Paperclip aria-hidden size={ICON_SIZE.md} strokeWidth={ICON_STROKE} />
             {isUploading ? '올리는 중…' : '파일'}
+          </button>
+          <button
+            type="button"
+            disabled
+            title="음성 입력은 서버 음성 인식 경로를 정한 뒤 연결돼요"
+            aria-label="눌러서 말하기"
+            className={`${TOOL_CLASS} ${TOOL_NORMAL}`}
+          >
+            <Mic aria-hidden size={ICON_SIZE.md} strokeWidth={ICON_STROKE} />
+            말하기
           </button>
           <button
             type="button"
@@ -125,17 +128,21 @@ export const ChatInput = ({
             aria-label="크게 쓰기"
             className={`${TOOL_CLASS} ${TOOL_NORMAL}`}
           >
-            <span aria-hidden className="text-lg">
-              🔍
-            </span>
+            <Maximize2 aria-hidden size={ICON_SIZE.md} strokeWidth={ICON_STROKE} />
             크게 쓰기
           </button>
-          <Button size="lg" onClick={handleSend} disabled={!canSend}>
-            보내기
-          </Button>
+          <button
+            type="button"
+            onClick={handleSend}
+            disabled={!canSend}
+            aria-label="보내기"
+            className="bg-ai focus-visible:ring-brand disabled:bg-neutral-soft disabled:text-muted ml-auto inline-flex size-11 shrink-0 items-center justify-center rounded-full text-white transition hover:brightness-110 focus-visible:ring-3 focus-visible:outline-hidden disabled:cursor-not-allowed disabled:bg-none"
+          >
+            <ArrowUp aria-hidden size={ICON_SIZE.lg} strokeWidth={ICON_STROKE_BOLD} />
+          </button>
         </div>
       </div>
-      <p className="text-muted text-sm">
+      <p id={PRIVACY_NOTE_ID} className="text-muted text-center text-sm">
         개인정보를 입력하지 마세요(데모). 이름·전화번호·주민등록번호는 받지 않아요. 올린 파일은 읽은
         뒤 바로 지워요.
       </p>

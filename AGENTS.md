@@ -28,7 +28,7 @@ uv run uvicorn app.main:app --reload
 uv run ruff check --fix . && uv run ruff format .
 uv run pytest
 uv run alembic revision --autogenerate -m "메시지"
-uv run alembic upgrade head
+uv run alembic upgrade head   # pull해서 마이그레이션이 늘었으면 먼저 실행 (예: 0004 체크포인트 테이블이 없으면 대화가 실패)
 ```
 
 팀원이 macOS와 Windows에서 개발합니다. 스크립트·훅·경로는 두 환경에서 모두 동작해야 합니다.
@@ -69,6 +69,32 @@ uv run alembic upgrade head
 - 백엔드: snake_case 모듈·함수, PascalCase 클래스, 테이블은 snake_case 복수형, API 경로는 kebab-case 복수형, Pydantic 모델은 `Read`/`Create`/`Update` 접미사.
 - AI: 도구 이름은 `동사_명사`, 그래프 노드는 snake_case 동사형, 양식 스키마는 `app/schemas/forms/`에 양식당 한 파일, 규칙표 행마다 출처 URL·출처 날짜·검수자·검수일.
 
+## AI 엔지니어링
+
+LangGraph 에이전트 작업 전에 읽을 것:
+
+- `backend/app/agent/README.md`: 공용 부품(gateway·`events.emit`·도구 어댑터·체크포인터·`load_prompt`·`pii`)과 한 턴의 흐름
+- `.claude/rules/ai.md`: 위치·도구·개인정보 규칙 (Claude Code가 아니어도 읽습니다)
+- 금액·회차·건수·마감 같은 판단은 `app/rules`의 규칙 함수와 도구가 합니다. LLM이 계산하지 않습니다.
+
+### 영역 분담
+
+<!-- TODO(팀 합의): 담당자별 영역과 공용 파일 변경 절차를 채웁니다. -->
+
+| 영역 | 담당 | 노드 | 프롬프트 | 평가 시나리오 |
+| --- | --- | --- | --- | --- |
+| (미정) | | `agent/nodes/<영역>.py` | `agent/prompts/<영역>/` | `evals/scenarios/<영역>/` |
+
+공용 파일(`agent/graph.py`, `AgentState`, `agent/responder.py`, `agent/tools/registry.py`)을 바꾸는 절차: (미정)
+
+### 평가 기준
+
+<!-- TODO(팀 합의): AI PR이 통과해야 할 지표와 기준값을 채웁니다. -->
+
+| 골든셋 | 지표 | 기준 |
+| --- | --- | --- |
+| form_fill · grounding · masking · procedure | (미정) | (미정) |
+
 ## 배포
 
 - 운영 구성은 `docker-compose.yml` 위에 `docker-compose.prod.yml`을 덮어써서 띄웁니다. 운영에서 DB(5432)·앱(8000) 포트를 외부에 열지 않습니다(외부는 Caddy 80·443만).
@@ -99,6 +125,7 @@ uv run alembic upgrade head
   - `client`: 테스트 DB(`dole_test`, 자동 생성·마이그레이션)를 쓰는 TestClient. 테스트마다 롤백됩니다.
   - `db_session`: 레포지토리 테스트용 세션
   - `fake_llm(["응답", ...])`: 실제 모델 호출 없이 LLM 응답을 고정합니다. 에이전트 코드는 `gateway.get_chat_model()`처럼 모듈 경유로 호출하세요.
+- 그래프는 DB 없이 `graph_responder(turn, InMemorySaver())`로 한 턴을 돌려 이벤트를 확인하고, 도구는 `run_tool(ctx, name, args)`로 그래프 없이 부릅니다(`tests/unit/test_agent_skeleton.py`).
 - 평가: `backend/evals/README.md` 참고. 모델·프롬프트·규칙표 변경 PR에 결과를 첨부합니다.
 - integration 테스트 전에 `pnpm dev:db`로 DB를 띄웁니다. DB가 없으면 integration 테스트는 skip됩니다.
 
@@ -109,5 +136,5 @@ uv run alembic upgrade head
 - 자주 쓰는 검사 명령(`pnpm test`, `uv run pytest` 등)은 `permissions.allow`에 등록돼 승인 없이 실행됩니다.
 - 읽기 차단(`permissions.deny`): 실제 `.env`·`.env.local`, `node_modules`, `.next`, `.venv`, `coverage`, 캐시, lock 파일, `openapi.json`. `.env.example`은 읽을 수 있습니다.
 - 편집 후 훅(`.claude/hooks/after-edit.mjs`): 파일을 수정하면 그 파일만 ESLint·Prettier 또는 ruff로 정리하고, 관련 단위 테스트만 실행합니다(FE `vitest related`, BE 같은 이름의 `tests/unit/**/test_<파일명>.py`). 실패하면 결과가 바로 돌아오니 그 자리에서 고칩니다.
-- vercel 플러그인의 React 베스트 프랙티스 스킬을 참고합니다. 렌더링 방식(서버/클라이언트)은 아직 정하지 않았습니다.
+- vercel 플러그인의 React 베스트 프랙티스 스킬을 참고합니다. 브라우저는 같은 사이트의 Next BFF(`frontend/src/app/api/[...path]`)만 부르고 백엔드 주소를 모릅니다(`.claude/rules/frontend.md`).
 - `.claude/launch.json`: 프론트(3000)·백엔드(8000) 실행 설정.

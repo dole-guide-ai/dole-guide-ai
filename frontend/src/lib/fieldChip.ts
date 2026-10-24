@@ -12,19 +12,23 @@ interface FieldChipOptions {
   isSelfAnswerRequired?: boolean;
 }
 
+/** 값이 비었다는 뜻의 칩 이름. 패널 줄(FieldRow)은 같은 뜻의 칩을 값 옆에 겹쳐 달지 않을 때 씁니다. */
+export const EMPTY_CHIP_LABEL = { MISSING: '아직 없음', NOT_APPLICABLE: '해당 없음' } as const;
+
 /** 저장 상태 6종 + 출처 + transformed → 칩 12종 (상세기획 2-0.6 표). */
 export const fieldChip = (meta?: FieldMeta, options: FieldChipOptions = {}): ChipSpec => {
   if (!meta || meta.status === 'missing' || meta.status === 'rejected') {
     return options.isSelfAnswerRequired
       ? { label: '답변 필요', tone: 'warn' }
-      : { label: '아직 없음', tone: 'neutral' };
+      : { label: EMPTY_CHIP_LABEL.MISSING, tone: 'neutral' };
   }
 
   if (meta.status === 'conflict' || (meta.status === 'extracted' && meta.transformed)) {
     return { label: '확인 필요', tone: 'warn' };
   }
 
-  if (meta.status === 'not_applicable') return { label: '해당 없음', tone: 'neutral' };
+  if (meta.status === 'not_applicable')
+    return { label: EMPTY_CHIP_LABEL.NOT_APPLICABLE, tone: 'neutral' };
 
   if (meta.status === 'extracted') {
     if (meta.source === 'seed') return { label: '예전 이력서', tone: 'info' };

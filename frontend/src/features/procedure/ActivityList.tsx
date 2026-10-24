@@ -2,9 +2,12 @@
 
 import { useState } from 'react';
 
+import { Trash2, TriangleAlert } from 'lucide-react';
+
 import { Button } from '@/components/Button';
 import { Chip } from '@/components/Chip';
 import {
+  categoryLabel,
   evidenceChip,
   KIND_LABEL,
   ROUTE_LABEL,
@@ -13,6 +16,7 @@ import {
 } from '@/features/procedure/activityLabels';
 
 import { formatShortDate } from '@/lib/dateFormat';
+import { ICON_SIZE, ICON_STROKE } from '@/lib/iconSize';
 import type { RoundActivity, RoundWarning } from '@/types/procedure.types';
 
 /**
@@ -48,17 +52,33 @@ export const ActivityList = ({
           const evidence = evidenceChip(activity.evidence);
           const source = SOURCE_CHIP[activity.source];
           const route = ROUTE_LABEL[activity.route];
-          const meta = [activity.category, KIND_LABEL[activity.kind]];
+          const category = categoryLabel(activity.category);
+          const meta = [category, KIND_LABEL[activity.kind]].filter(Boolean);
           // 온라인 취업특강처럼 종류와 경로 이름이 같으면 한 번만 씁니다.
-          if (route !== activity.category) meta.push(route);
+          if (route !== category) meta.push(route);
           return (
-            <li key={activity.item_id} className="flex flex-col gap-1.5 py-3">
-              <div className="flex flex-wrap items-baseline gap-x-2">
-                <span className="font-semibold">{formatShortDate(activity.date)}</span>
-                <span className="text-lg font-bold">{activity.org_name}</span>
-                <span className="text-muted text-sm">{meta.join(' · ')}</span>
+            <li key={activity.item_id} className="flex flex-col gap-2 py-4">
+              <div className="flex items-start gap-3">
+                <span className="text-neutral w-20 shrink-0 pt-0.5 text-sm font-semibold">
+                  {formatShortDate(activity.date)}
+                </span>
+                <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                  <span className="text-lg leading-snug font-bold">{activity.org_name}</span>
+                  <span className="text-neutral text-sm">{meta.join(' · ')}</span>
+                </div>
+                {onRemove && confirmingId !== activity.item_id && (
+                  <button
+                    type="button"
+                    onClick={() => setConfirmingId(activity.item_id)}
+                    className="text-muted hover:bg-danger-soft hover:text-danger focus-visible:ring-brand inline-flex h-9 shrink-0 items-center gap-1 rounded-lg px-2.5 text-sm font-medium focus-visible:ring-3 focus-visible:outline-hidden"
+                    aria-label={`${activity.org_name} 활동 빼기`}
+                  >
+                    <Trash2 aria-hidden size={ICON_SIZE.sm} strokeWidth={ICON_STROKE} />
+                    빼기
+                  </button>
+                )}
               </div>
-              <div className="flex flex-wrap gap-1.5">
+              <div className="flex flex-wrap gap-1.5 pl-23">
                 <Chip {...status} />
                 <Chip
                   {...evidence}
@@ -70,19 +90,9 @@ export const ActivityList = ({
                 />
                 <Chip {...source} />
                 {warned.has(activity.item_id) && <Chip label="주의" tone="warn" />}
-                {onRemove && confirmingId !== activity.item_id && (
-                  <button
-                    type="button"
-                    onClick={() => setConfirmingId(activity.item_id)}
-                    className="text-muted hover:text-danger ml-auto text-sm font-medium"
-                    aria-label={`${activity.org_name} 활동 빼기`}
-                  >
-                    빼기
-                  </button>
-                )}
               </div>
               {onRemove && confirmingId === activity.item_id && (
-                <div className="bg-canvas flex flex-wrap items-center gap-2 rounded-lg px-3 py-2">
+                <div className="bg-neutral-soft ml-23 flex flex-wrap items-center gap-2 rounded-xl px-4 py-3">
                   <span className="text-base">이 활동을 목록에서 뺄까요? 다시 계산해요.</span>
                   <Button
                     variant="secondary"
@@ -104,9 +114,15 @@ export const ActivityList = ({
         })}
       </ul>
       {warnings.length > 0 && (
-        <ul className="flex flex-col gap-1" aria-label="경고">
+        <ul className="bg-warn-soft flex flex-col gap-1.5 rounded-xl px-4 py-3" aria-label="경고">
           {warnings.map((warning) => (
-            <li key={warning.id} className="bg-warn-soft text-warn rounded-lg px-3 py-2 text-sm">
+            <li key={warning.id} className="text-warn flex items-start gap-2 text-sm font-medium">
+              <TriangleAlert
+                aria-hidden
+                size={ICON_SIZE.sm}
+                strokeWidth={ICON_STROKE}
+                className="mt-0.5 shrink-0"
+              />
               {warning.message}
             </li>
           ))}

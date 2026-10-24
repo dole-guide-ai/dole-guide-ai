@@ -38,6 +38,8 @@ dev = [
 line-length = 100
 target-version = "py314"
 extend-exclude = ["alembic/versions", "experiments"]
+# 훅(lefthook·after-edit)이 파일 경로를 직접 넘겨도 위 제외 경로는 검사하지 않습니다.
+force-exclude = true
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "N", "UP", "B", "SIM", "FAST"]

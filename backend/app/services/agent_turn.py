@@ -10,8 +10,8 @@ from typing import Any
 import openai
 
 from app.agent import gateway
-from app.agent.graph import build_graph
 from app.agent.schemas import AgentState, Turn
+from app.agent.turn_graph import build_turn_graph
 
 
 @dataclass
@@ -29,7 +29,7 @@ def run_conversation(
 
     모델 호출 실패는 LlmUnavailableError·RateLimitedError로 바꿔 던집니다.
     """
-    graph = build_graph()
+    graph = build_turn_graph()
     result = ConversationResult()
     history: list[Turn] = []
     current: AgentState = {"state": state, "data": data}

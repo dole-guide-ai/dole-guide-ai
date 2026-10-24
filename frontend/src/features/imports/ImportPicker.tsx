@@ -61,7 +61,7 @@ export const ImportPicker = ({
   return (
     <section
       aria-label={`${TITLE[kind]} 고르기`}
-      className="border-brand/30 bg-surface flex flex-col gap-3 rounded-2xl border p-4"
+      className="border-brand-soft bg-surface flex flex-col gap-3 rounded-2xl border p-4"
     >
       <div>
         <p className="text-base font-bold">{TITLE[kind]}</p>

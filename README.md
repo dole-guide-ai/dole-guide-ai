@@ -88,8 +88,6 @@ pnpm check:pr-size # PR 추가 줄 수(+1000 이내) 확인
 | frontend | 린트·포맷·타입·테스트·빌드 (`frontend/**` 변경 시) |
 | backend | uv.lock 동기화·ruff·마이그레이션·pytest, api.gen.ts 재생성 여부 (`backend/**` 변경 시) |
 | security | gitleaks로 커밋에 들어간 비밀값 검사 |
-| pr-title | PR 제목 `type(scope): 내용` |
-| pr-size | 추가 줄 수 +1000 이내 (lock·api.gen.ts·마이그레이션 제외) |
 
 같은 브랜치에 새로 push하면 진행 중인 이전 실행은 취소됩니다.
 
