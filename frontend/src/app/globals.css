@@ -103,16 +103,8 @@ html {
   font-size: var(--font-size-root);
 }
 
-/* 배경: 흰 바탕에 메인 컬러(brand)가 화면 위쪽 가운데에서 아래로 은은하게 퍼집니다. 글자 대비에는 영향이 없을 만큼만. */
 body {
   background-color: var(--color-surface);
-  background-image: radial-gradient(
-    120% 55% at 50% 0%,
-    color-mix(in oklab, var(--color-brand) 14%, transparent),
-    color-mix(in oklab, var(--color-brand) 5%, transparent) 45%,
-    transparent 75%
-  );
-  background-attachment: fixed;
   color: var(--color-ink);
 }
 

@@ -34,7 +34,7 @@ export const DashboardHeader = ({
   onSwitchAccount,
   onOpenMyData,
 }: DashboardHeaderProps) => (
-  <header className="relative">
+  <header className="bg-surface relative">
     <div className="flex flex-wrap items-center gap-x-6 gap-y-3 px-4 py-3 sm:px-6">
       <div className="flex shrink-0 items-center gap-3">
         <Image
