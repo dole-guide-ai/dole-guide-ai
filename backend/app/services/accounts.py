@@ -22,6 +22,7 @@ from app.core.config import get_settings
 from app.core.db import create_or_existing
 from app.core.errors import ConflictError, NotFoundError
 from app.repositories import accounts as repo
+from app.repositories import imports as import_repo
 from app.rules import periods
 from app.schemas.accounts import AccountRead, PersonaCard, PersonaDisplay, PersonaList
 from app.schemas.application import SubmitMode
@@ -110,6 +111,10 @@ def enter(
         user, created = create_or_existing(
             db, create, lambda: repo.get_user(db, visitor_id, persona_id)
         )
+    elif not import_repo.has_any(db, user.user_id):
+        # 불러오기 테이블(0003)보다 먼저 만든 계정은 입장할 때 seed 목록을 채웁니다.
+        repo.add_all(db, _import_rows(user.user_id, persona.seed, user.anchor_date))
+        db.commit()
     account = AccountContext(user.user_id, user.persona_id, user.anchor_date)
     return read_account(db, account, today), created
 
@@ -250,6 +255,31 @@ def _resume_status(db: Session, user_id: uuid.UUID, procedure: ProcedureRead) ->
 # ── seed → 계정 행 ─────────────────────────────────────────────
 
 
+def _import_rows(user_id: uuid.UUID, seed: dict[str, Any], anchor: date) -> list[repo.Work24Import]:
+    """seed의 고용24 불러오기 목록 → work24_imports 행."""
+    rows: list[repo.Work24Import] = []
+    imports = seed.get("imports") or {}
+    for kind, key in (
+        (ImportKind.CAREER_CERTIFICATE, "career_certificates"),
+        (ImportKind.JOB_APPLICATION, "job_applications"),
+    ):
+        for position, raw in enumerate(imports.get(key, [])):
+            rows.append(
+                repo.Work24Import(
+                    user_id=user_id,
+                    source_id=raw["import_id"],
+                    kind=kind,
+                    category=raw["category"],
+                    title=raw["title"],
+                    detail=raw["detail"],
+                    item_date=at(anchor, raw.get("date_offset")),
+                    position=position,
+                    is_recorded=bool(raw.get("is_recorded", False)),
+                )
+            )
+    return rows
+
+
 def _materialize(db: Session, user_id: uuid.UUID, seed: dict[str, Any], anchor: date) -> None:
     proc = seed["procedure"]
     profile = seed["profile"]
@@ -299,25 +329,7 @@ def _materialize(db: Session, user_id: uuid.UUID, seed: dict[str, Any], anchor: 
                 saved_at=datetime.combine(saved_on, datetime.min.time(), KST) if saved_on else None,
             )
         )
-    imports = seed.get("imports") or {}
-    for kind, key in (
-        (ImportKind.CAREER_CERTIFICATE, "career_certificates"),
-        (ImportKind.JOB_APPLICATION, "job_applications"),
-    ):
-        for position, raw in enumerate(imports.get(key, [])):
-            rows.append(
-                repo.Work24Import(
-                    user_id=user_id,
-                    source_id=raw["import_id"],
-                    kind=kind,
-                    category=raw["category"],
-                    title=raw["title"],
-                    detail=raw["detail"],
-                    item_date=at(anchor, raw.get("date_offset")),
-                    position=position,
-                    is_recorded=bool(raw.get("is_recorded", False)),
-                )
-            )
+    rows.extend(_import_rows(user_id, seed, anchor))
     for activity in seed.get("activities", []):
         rows.append(
             repo.Activity(
