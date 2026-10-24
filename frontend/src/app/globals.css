@@ -9,6 +9,9 @@
   --color-brand: #1d4ed8;
   --color-brand-strong: #1e40af;
   --color-brand-soft: #dbeafe;
+  /* 흰 글자를 얹는 채움색(주 버튼·현재 단계). 밝게 보기에서는 brand와 같습니다. */
+  --color-brand-fill: #1d4ed8;
+  --color-brand-fill-strong: #1e40af;
 
   --color-canvas: #f4f6f9;
   /* 오른쪽 패널 바깥 바탕(옅은 회색). 안쪽 문서 면은 surface(흰색). */
@@ -95,27 +98,33 @@
  */
 html[data-theme='dark'] {
   color-scheme: dark;
-  --color-brand: #4f8cff;
-  --color-brand-strong: #6b9eff;
-  --color-brand-soft: #1b2a44;
+  /* 강조색은 채도를 낮춰 어두운 바탕에서 빛나 보이지 않게 합니다. */
+  --color-ai-from: #379fff;
+  --color-ai-via: #7a6bb0;
+  --color-ai-to: #5e94b3;
+  --color-brand: #379fff;
+  --color-brand-strong: #5cb1ff;
+  --color-brand-soft: #14263b;
+  --color-brand-fill: #1a6cd1;
+  --color-brand-fill-strong: #1660bb;
 
-  --color-canvas: #0f1115;
-  --color-panel: #0b0d10;
-  --color-surface: #16191f;
-  --color-line: #2a2f38;
-  --color-ink: #e6e8ec;
-  --color-muted: #9aa1ad;
+  --color-canvas: #0b0b0c;
+  --color-panel: #0b0b0c;
+  --color-surface: #101011;
+  --color-line: #26262b;
+  --color-ink: #e3e4e7;
+  --color-muted: #a0a4ab;
 
-  --color-info: #7aa7ff;
-  --color-info-soft: #1c2a42;
-  --color-ok: #4ade80;
-  --color-ok-soft: #15291d;
-  --color-warn: #fb923c;
-  --color-warn-soft: #33241a;
-  --color-neutral: #b4bac4;
-  --color-neutral-soft: #222731;
-  --color-danger: #f87171;
-  --color-danger-soft: #331d1f;
+  --color-info: #6fb6ff;
+  --color-info-soft: #14263b;
+  --color-ok: #7fb393;
+  --color-ok-soft: #26302a;
+  --color-warn: #d6a179;
+  --color-warn-soft: #352d27;
+  --color-neutral: #b3b6bc;
+  --color-neutral-soft: #1f1f23;
+  --color-danger: #d98e8e;
+  --color-danger-soft: #362a2b;
 
   --shadow-card: 0 1px 2px rgb(0 0 0 / 0.4);
   --shadow-composer: 0 2px 6px rgb(0 0 0 / 0.35), 0 12px 32px rgb(0 0 0 / 0.35);

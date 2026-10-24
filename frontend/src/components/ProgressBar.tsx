@@ -35,7 +35,7 @@ export const ProgressBar = ({
       const circleClass = isDone
         ? 'bg-ok text-white'
         : isCurrent
-          ? 'bg-brand text-white'
+          ? 'bg-brand-fill text-white'
           : 'bg-neutral-soft text-muted';
       const labelClass = isCurrent ? 'font-bold text-ink' : isDone ? 'text-ok' : 'text-muted';
       const content = (
