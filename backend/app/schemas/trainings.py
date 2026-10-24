@@ -24,7 +24,8 @@ class Training(BaseModel):
 
 
 class Program(BaseModel):
-    id: str
+    # 프로그램 API에는 고유 ID가 없어 만들지 않습니다(데이터 설계 9.8).
+    id: str | None = None
     title: str
     type: str
     schedule: str

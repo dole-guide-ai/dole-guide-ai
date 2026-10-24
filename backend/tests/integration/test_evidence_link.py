@@ -86,3 +86,23 @@ def test_cannot_attach_someone_elses_file(client: TestClient, entered_headers: H
     )
 
     assert res.status_code == 404
+
+
+def test_file_ops_missing_value_and_remove_then_add(client: TestClient, entered_headers: Headers):
+    headers = entered_headers("lee")
+    activity = client.get(ACTIVITIES, headers=headers).json()["items"][0]
+    url = f"{ACTIVITIES}/{activity['activity_id']}"
+    file_id = _upload(client, headers)
+
+    missing = client.patch(url, headers=headers, json=[{"op": "add", "path": "/file_ids/-"}])
+    assert missing.status_code == 422
+    assert missing.json()["details"] == [{"field": "patch[0]", "type": "required"}]
+
+    add = {"op": "add", "path": "/file_ids/-", "value": file_id}
+    remove = {"op": "remove", "path": f"/file_ids/{file_id}"}
+    assert client.patch(url, headers=headers, json=[add]).status_code == 200
+    assert client.patch(url, headers=headers, json=[remove, add]).status_code == 200
+    listed = client.get(ACTIVITIES, headers=headers).json()["items"]
+    assert next(a for a in listed if a["activity_id"] == activity["activity_id"])["file_ids"] == [
+        file_id
+    ]

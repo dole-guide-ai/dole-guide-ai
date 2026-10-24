@@ -11,7 +11,8 @@ import re
 from dataclasses import dataclass
 
 SEPARATOR = " · "
-_YM = re.compile(r"(\d{4})\.(\d{1,2})(?!\.\d)")
+# 연월만 뽑습니다. 일까지 있으면(2004.03.15) 일은 버립니다.
+_YM = re.compile(r"(\d{4})\.(\d{1,2})(?:\.\d{1,2})?(?!\d)")
 _YMD = re.compile(r"(\d{4})\.(\d{1,2})\.(\d{1,2})")
 
 

@@ -27,3 +27,10 @@ def get_many(db: Session, user_id: uuid.UUID, source_ids: list[str]) -> list[Wor
             .with_for_update()
         )
     )
+
+
+def has_any(db: Session, user_id: uuid.UUID) -> bool:
+    return (
+        db.scalar(select(Work24Import.user_id).where(Work24Import.user_id == user_id).limit(1))
+        is not None
+    )

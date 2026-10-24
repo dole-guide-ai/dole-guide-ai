@@ -58,7 +58,9 @@ describe('DashboardScreen', () => {
     renderWithProviders(<DashboardScreen />);
 
     expect(await screen.findByText('이정호님')).toBeInTheDocument();
-    expect(screen.getByRole('heading', { level: 1, name: '이번 회차 할 일' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { level: 1, name: '4차 실업인정 할 일' }),
+    ).toBeInTheDocument();
     expect(
       screen.getByText('다음 기한 : 4차 실업인정일 10.27(화) · 고용센터 출석'),
     ).toBeInTheDocument();

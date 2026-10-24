@@ -94,6 +94,7 @@ describe('ResumePanel (실제 이력서 API 응답)', () => {
     await userEvent.click(button);
 
     await vi.waitFor(() => expect(getSession()?.entry.branch_id).toBe('E6'));
+    await vi.waitFor(() => expect(getSession()?.state.stage).toBe('education'));
     expect(patches).toEqual([{ op: 'replace', path: '/status', value: 'saved' }]);
   });
 });

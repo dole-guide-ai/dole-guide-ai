@@ -113,3 +113,20 @@ def test_park_applies_career_and_license_to_resume(
     )
     assert training.status_code == 422
     assert missing.status_code == 404
+
+
+def test_old_account_gets_import_rows_on_enter(
+    client: TestClient, db_session, entered_headers: Callable[[str], dict[str, str]]
+) -> None:
+    """불러오기 테이블보다 먼저 만든 계정도 다시 입장하면 목록이 생깁니다."""
+    from sqlalchemy import delete
+
+    from app.models import Work24Import
+
+    headers = entered_headers("park")
+    db_session.execute(delete(Work24Import))
+    db_session.flush()
+
+    assert client.put("/accounts/park", headers=headers).status_code == 200
+    body = client.get("/accounts/park/imports/career-certificates", headers=headers).json()
+    assert body["total"] == 3
