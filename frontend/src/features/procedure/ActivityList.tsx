@@ -114,10 +114,7 @@ export const ActivityList = ({
         })}
       </ul>
       {warnings.length > 0 && (
-        <ul
-          className="bg-warn-soft/60 flex flex-col gap-1.5 rounded-xl px-4 py-3"
-          aria-label="경고"
-        >
+        <ul className="bg-warn-soft flex flex-col gap-1.5 rounded-xl px-4 py-3" aria-label="경고">
           {warnings.map((warning) => (
             <li key={warning.id} className="text-warn flex items-start gap-2 text-sm font-medium">
               <TriangleAlert

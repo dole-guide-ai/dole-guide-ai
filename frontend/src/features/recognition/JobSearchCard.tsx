@@ -31,7 +31,7 @@ export const JobSearchCard = ({ activity, meta }: JobSearchCardProps) => {
 
   return (
     <article
-      className="bg-neutral-soft/60 flex flex-col gap-3 rounded-xl px-5 py-4"
+      className="bg-neutral-soft flex flex-col gap-3 rounded-xl px-5 py-4"
       aria-label={`구직활동 ${activity.company_name}`}
     >
       <div className="flex flex-wrap items-center gap-2">

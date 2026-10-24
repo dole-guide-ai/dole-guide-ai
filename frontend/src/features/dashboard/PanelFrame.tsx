@@ -169,7 +169,7 @@ export const PanelFrame = ({
         </div>
 
         {showsVisitNotice(state) && (
-          <div className="border-warn/30 bg-warn-soft flex flex-col gap-2 rounded-xl border px-4 py-3">
+          <div className="border-warn bg-warn-soft flex flex-col gap-2 rounded-xl border px-4 py-3">
             <p className="text-warn text-base font-semibold">신청 경로 안내</p>
             <p className="text-base">
               이직일 기준 만 65세 이상이라 수급자격 신청은 관할 고용센터에 방문해서 해요. 인터넷

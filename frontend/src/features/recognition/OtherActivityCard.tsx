@@ -22,7 +22,7 @@ export const OtherActivityCard = ({ activity }: OtherActivityCardProps) => {
 
   return (
     <article
-      className="bg-neutral-soft/60 flex flex-col gap-3 rounded-xl px-5 py-4"
+      className="bg-neutral-soft flex flex-col gap-3 rounded-xl px-5 py-4"
       aria-label={`구직 외 활동 ${activity.course ?? '과정 미정'}`}
     >
       <div className="flex flex-wrap items-center gap-2">

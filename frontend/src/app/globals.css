@@ -90,6 +90,38 @@
 }
 
 /*
+ * 어둡게 보기: <html data-theme="dark">일 때 같은 이름의 토큰 값만 바꿉니다(첫 그림 전 스크립트가 기기 설정·저장값으로 정함).
+ * 글자 대비는 바탕(surface) 기준 4.5:1 이상으로 골랐습니다. 옅은 색도 모두 불투명한 단색입니다(뒤가 비치지 않게).
+ */
+html[data-theme='dark'] {
+  color-scheme: dark;
+  --color-brand: #4f8cff;
+  --color-brand-strong: #6b9eff;
+  --color-brand-soft: #1b2a44;
+
+  --color-canvas: #0f1115;
+  --color-panel: #0b0d10;
+  --color-surface: #16191f;
+  --color-line: #2a2f38;
+  --color-ink: #e6e8ec;
+  --color-muted: #9aa1ad;
+
+  --color-info: #7aa7ff;
+  --color-info-soft: #1c2a42;
+  --color-ok: #4ade80;
+  --color-ok-soft: #15291d;
+  --color-warn: #fb923c;
+  --color-warn-soft: #33241a;
+  --color-neutral: #b4bac4;
+  --color-neutral-soft: #222731;
+  --color-danger: #f87171;
+  --color-danger-soft: #331d1f;
+
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.4);
+  --shadow-composer: 0 2px 6px rgb(0 0 0 / 0.35), 0 12px 32px rgb(0 0 0 / 0.35);
+}
+
+/*
  * 중장년층 대상이라 기본 글자를 조금 크게 두고, `글자 크게`(M4)는 루트 글자 크기 변수만 키웁니다.
  * 화면의 글자·여백은 rem이라 이 변수 하나로 함께 커집니다 (F-06).
  */

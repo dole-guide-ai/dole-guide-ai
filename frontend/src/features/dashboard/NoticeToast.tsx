@@ -21,7 +21,7 @@ export const NoticeToast = ({ notices }: NoticeToastProps) => {
   return (
     <div
       role="status"
-      className="border-warn/30 bg-warn-soft fixed top-32 right-6 z-40 flex max-w-sm flex-col gap-2 rounded-2xl border p-4 shadow-lg"
+      className="border-warn bg-surface from-warn-soft to-warn-soft fixed top-32 right-6 z-40 flex max-w-sm flex-col gap-2 rounded-2xl border bg-linear-to-b p-4 shadow-lg"
     >
       <p className="text-warn text-base font-bold">{notice.title}</p>
       <p className="text-base">{notice.text}</p>

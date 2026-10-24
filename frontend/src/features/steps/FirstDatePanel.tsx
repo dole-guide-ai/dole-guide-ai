@@ -17,7 +17,7 @@ const SOURCE = citeOf('SRC-011', 'SRC-013');
 
 export const FirstDatePanel = ({ state }: FirstDatePanelProps) => (
   <div className="flex flex-col gap-4">
-    <div className="border-brand/30 bg-brand-soft/40 flex flex-col gap-2 rounded-2xl border px-5 py-4">
+    <div className="border-brand-soft bg-brand-soft flex flex-col gap-2 rounded-2xl border px-5 py-4">
       <p className="text-lg font-bold">1차 실업인정일을 알려 주세요</p>
       <p className="text-base">
         고용센터에서 받은 안내문에 1차 실업인정일이 적혀 있어요. 안내문을 파일(사진·문서)로 올리거나
