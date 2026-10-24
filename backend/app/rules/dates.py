@@ -11,7 +11,7 @@ from datetime import date, timedelta
 from app.rules.resume import normalize_date
 
 WEEKDAYS = "월화수목금토일"
-RELATIVE_DAYS = {"오늘": 0, "방금": 0, "아까": 0, "어제": -1, "그제": -2, "그저께": -2}
+RELATIVE_DAYS = {"오늘": 0, "방금": 0, "지금": 0, "아까": 0, "어제": -1, "그제": -2, "그저께": -2}
 ISO_DAY = re.compile(r"(\d{4})\s*[-./년]\s*(\d{1,2})\s*[-./월]\s*(\d{1,2})")
 MONTH_DAY = re.compile(r"(\d{1,2})\s*월\s*(\d{1,2})\s*일")
 WEEKDAY = re.compile(r"(지난주|저번 ?주|이번 ?주)?\s*([월화수목금토일])요일")
