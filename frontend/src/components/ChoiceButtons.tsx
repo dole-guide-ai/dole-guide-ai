@@ -19,7 +19,7 @@ export const ChoiceButtons = ({ choices, onSelect, isDisabled = false }: ChoiceB
           type="button"
           disabled={isDisabled}
           onClick={() => onSelect(choice)}
-          className="bg-neutral-soft text-ink hover:bg-brand-soft hover:text-brand focus-visible:ring-brand/40 disabled:text-muted disabled:hover:bg-neutral-soft min-h-11 rounded-full px-5 py-2 text-base font-medium transition focus-visible:ring-3 focus-visible:outline-hidden disabled:cursor-not-allowed"
+          className="bg-neutral-soft text-ink hover:bg-brand-soft hover:text-brand focus-visible:ring-accent/50 disabled:text-muted disabled:hover:bg-neutral-soft min-h-11 rounded-full px-5 py-2 text-base font-medium transition focus-visible:ring-3 focus-visible:outline-hidden disabled:cursor-not-allowed"
         >
           {choice}
         </button>

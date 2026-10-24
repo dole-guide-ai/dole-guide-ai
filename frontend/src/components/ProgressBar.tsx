@@ -59,7 +59,7 @@ export const ProgressBar = ({
             <button
               type="button"
               onClick={() => onStepClick(step)}
-              className="hover:bg-ok-soft focus-visible:ring-brand/40 flex items-center gap-2 rounded-lg px-1 py-0.5 focus-visible:ring-3 focus-visible:outline-hidden"
+              className="hover:bg-ok-soft focus-visible:ring-accent/50 flex items-center gap-2 rounded-lg px-1 py-0.5 focus-visible:ring-3 focus-visible:outline-hidden"
               aria-label={`${label} 단계 다시 보기 (완료)`}
             >
               {content}

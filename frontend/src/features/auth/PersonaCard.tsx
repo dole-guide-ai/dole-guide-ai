@@ -19,7 +19,7 @@ export const PersonaCard = ({ persona, onSelect, isDisabled = false }: PersonaCa
       onClick={() => onSelect(persona.persona_id)}
       aria-label={`${name} 계정으로 시작`}
       aria-describedby={descriptionId}
-      className="border-line bg-surface hover:border-brand focus-visible:ring-brand/40 flex w-full items-start gap-4 rounded-2xl border p-5 text-left shadow-xs transition hover:shadow-sm focus-visible:ring-3 focus-visible:outline-hidden disabled:cursor-wait disabled:opacity-60"
+      className="border-line bg-surface hover:border-brand focus-visible:ring-accent/50 flex w-full items-start gap-4 rounded-2xl border p-5 text-left shadow-xs transition hover:shadow-sm focus-visible:ring-3 focus-visible:outline-hidden disabled:cursor-wait disabled:opacity-60"
     >
       <span
         className="bg-brand-soft text-brand flex size-14 shrink-0 items-center justify-center rounded-full text-2xl font-bold"

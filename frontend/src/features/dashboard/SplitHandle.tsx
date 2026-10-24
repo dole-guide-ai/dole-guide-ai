@@ -66,7 +66,7 @@ export const SplitHandle = ({
       onPointerMove={handlePointerMove}
       onKeyDown={handleKeyDown}
       onDoubleClick={onReset}
-      className="group focus-visible:ring-brand/40 bg-line relative hidden w-px cursor-col-resize touch-none items-center justify-center before:absolute before:-inset-x-2 before:inset-y-0 focus-visible:ring-3 focus-visible:outline-hidden lg:flex"
+      className="group focus-visible:ring-accent/50 bg-line relative hidden w-px cursor-col-resize touch-none items-center justify-center before:absolute before:-inset-x-2 before:inset-y-0 focus-visible:ring-3 focus-visible:outline-hidden lg:flex"
     >
       <span
         aria-hidden

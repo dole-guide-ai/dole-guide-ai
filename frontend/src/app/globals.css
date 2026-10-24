@@ -6,12 +6,14 @@
     'Pretendard Variable', Pretendard, 'Apple SD Gothic Neo', 'Malgun Gothic', 'Noto Sans KR',
     system-ui, sans-serif;
 
-  --color-brand: #1d4ed8;
-  --color-brand-strong: #1e40af;
-  --color-brand-soft: #dbeafe;
+  /* 메인 파랑. 글자·주 버튼은 흰 바탕 대비 4.5:1을 넘는 brand, 글자가 아닌 강조(포커스·진행·아이콘)는 accent(#379fff). */
+  --color-brand: #1673d6;
+  --color-brand-strong: #125fb3;
+  --color-brand-soft: #e3f0ff;
+  --color-accent: #379fff;
   /* 흰 글자를 얹는 채움색(주 버튼·현재 단계). 밝게 보기에서는 brand와 같습니다. */
-  --color-brand-fill: #1d4ed8;
-  --color-brand-fill-strong: #1e40af;
+  --color-brand-fill: #1673d6;
+  --color-brand-fill-strong: #125fb3;
 
   --color-canvas: #f4f6f9;
   /* 오른쪽 패널 바깥 바탕(옅은 회색). 안쪽 문서 면은 surface(흰색). */
@@ -22,8 +24,8 @@
   --color-muted: #6b7280;
 
   /* 칩: 파랑(서류·불러오기) · 초록(확정) · 주황(확인 필요) · 회색(자동·없음) */
-  --color-info: #1d4ed8;
-  --color-info-soft: #dbeafe;
+  --color-info: #1673d6;
+  --color-info-soft: #e3f0ff;
   --color-ok: #15803d;
   --color-ok-soft: #dcfce7;
   --color-warn: #c2410c;
@@ -34,7 +36,7 @@
   --color-danger-soft: #fee2e2;
 
   /* AI 상태(답 만드는 중·입력창 포커스·보내기)에만 쓰는 그라데이션. 글자 배경으로는 쓰지 않아 대비를 지킵니다. */
-  --color-ai-from: #2563eb;
+  --color-ai-from: #379fff;
   --color-ai-via: #7c3aed;
   --color-ai-to: #0ea5e9;
 

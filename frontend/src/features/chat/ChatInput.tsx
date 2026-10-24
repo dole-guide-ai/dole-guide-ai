@@ -11,7 +11,7 @@ import { ICON_SIZE, ICON_STROKE } from '@/lib/iconSize';
 
 /** 입력창 안 도구(파일·말하기·크게 쓰기): 아이콘과 짧은 이름을 한 줄로, 누르기 쉽게 높이 44px. */
 const TOOL_CLASS =
-  'focus-visible:ring-brand/40 inline-flex h-11 shrink-0 items-center gap-1.5 rounded-full px-3 text-sm font-semibold transition focus-visible:ring-3 focus-visible:outline-hidden disabled:cursor-not-allowed';
+  'focus-visible:ring-accent/50 inline-flex h-11 shrink-0 items-center gap-1.5 rounded-full px-3 text-sm font-semibold transition focus-visible:ring-3 focus-visible:outline-hidden disabled:cursor-not-allowed';
 const TOOL_NORMAL =
   'text-ink hover:bg-neutral-soft disabled:text-muted disabled:hover:bg-transparent';
 const TOOL_HIGHLIGHT = 'bg-brand-soft text-brand ring-brand/30 ring-1 hover:bg-brand-soft';
@@ -132,7 +132,7 @@ export const ChatInput = ({
             onClick={handleSend}
             disabled={!canSend}
             aria-label="보내기"
-            className="bg-ai focus-visible:ring-brand/40 disabled:bg-neutral-soft disabled:text-muted ml-auto inline-flex size-11 shrink-0 items-center justify-center rounded-full text-white transition hover:brightness-110 focus-visible:ring-3 focus-visible:outline-hidden disabled:cursor-not-allowed disabled:bg-none"
+            className="bg-ai focus-visible:ring-accent/50 disabled:bg-neutral-soft disabled:text-muted ml-auto inline-flex size-11 shrink-0 items-center justify-center rounded-full text-white transition hover:brightness-110 focus-visible:ring-3 focus-visible:outline-hidden disabled:cursor-not-allowed disabled:bg-none"
           >
             <ArrowUp aria-hidden size={ICON_SIZE.lg} strokeWidth={2} />
           </button>

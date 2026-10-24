@@ -30,7 +30,7 @@ export const Button = ({
 }: ButtonProps) => (
   <button
     type={type}
-    className={`focus-visible:ring-brand/40 inline-flex items-center justify-center gap-2 rounded-xl font-semibold transition focus-visible:ring-3 focus-visible:outline-hidden disabled:cursor-not-allowed ${VARIANT_CLASS[variant]} ${SIZE_CLASS[size]} ${className}`}
+    className={`focus-visible:ring-accent/50 inline-flex items-center justify-center gap-2 rounded-xl font-semibold transition focus-visible:ring-3 focus-visible:outline-hidden disabled:cursor-not-allowed ${VARIANT_CLASS[variant]} ${SIZE_CLASS[size]} ${className}`}
     {...rest}
   />
 );

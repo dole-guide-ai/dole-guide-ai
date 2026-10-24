@@ -70,7 +70,7 @@ export const ActivityList = ({
                   <button
                     type="button"
                     onClick={() => setConfirmingId(activity.item_id)}
-                    className="text-muted hover:bg-danger-soft hover:text-danger focus-visible:ring-brand/40 inline-flex h-9 shrink-0 items-center gap-1 rounded-lg px-2.5 text-sm font-medium focus-visible:ring-3 focus-visible:outline-hidden"
+                    className="text-muted hover:bg-danger-soft hover:text-danger focus-visible:ring-accent/50 inline-flex h-9 shrink-0 items-center gap-1 rounded-lg px-2.5 text-sm font-medium focus-visible:ring-3 focus-visible:outline-hidden"
                     aria-label={`${activity.org_name} 활동 빼기`}
                   >
                     <Trash2 aria-hidden size={ICON_SIZE.sm} strokeWidth={ICON_STROKE} />
