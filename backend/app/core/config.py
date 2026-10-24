@@ -70,6 +70,22 @@ class Settings(BaseSettings):
     embedding_provider: Provider = "openai"
     embedding_model: str = ""
     embedding_query_model: str = ""
+    # 근거 검색(RAG) 방식. none이면 검색하지 않습니다. vector·hybrid는 EMBEDDING_MODEL이 필요합니다.
+    retrieval_mode: Literal["none", "keyword", "vector", "hybrid"] = "none"
+    retrieval_top_k: int = 4
+    # 활동 규칙 표(data/rules/activities.json)를 내 상황에 맞춘 규칙 카드로 AI에게 줄지.
+    # off: 안 줌 · always: 매 턴 · keyword: 규정 질문 단어가 있을 때 · llm: AI 분류가 규정 질문일 때
+    # 기본 keyword: 실험 ④-2에서 골든셋 평균 71%(기준 69.5%), 추가 호출 없음
+    rule_cards_mode: Literal["off", "always", "keyword", "llm"] = "keyword"
+    # 대화 속 날짜("작년 3월")를 누가 바꿀지.
+    # ai: 모델이 바꿈 · code: 말 그대로 받아 규칙 코드(app/rules/dates.py)가 바꿈
+    # 기본 code: 실험에서 평균은 같고(70.9% vs 71%) 날짜 문항이 안정됨(17 → 20 / 28)
+    date_parsing: Literal["ai", "code"] = "code"
+    # 첨부 사진 처리. off: 무시 · vision: 답하는 모델에 사진째
+    # · transcribe: 글자만 받아써(추출 모델) 가린 뒤 글로 넘김
+    # 실험 결과는 vision이 가장 좋음(사진 문항 6/9, 받아쓰기 4/9). 다만 어느 방식이든 사진 속
+    # 개인정보가 외부 모델로 나가므로 기본은 off이고, 쓰는 환경에서 명시적으로 켭니다.
+    image_mode: Literal["off", "vision", "transcribe"] = "off"
 
     # BFF(Next)가 붙이는 X-Internal-Secret 값. local에서 비우면 확인하지 않습니다.
     internal_api_secret: str = ""
@@ -110,6 +126,11 @@ class Settings(BaseSettings):
     def check_required_keys(self) -> Settings:
         if not self.database_url:
             raise ValueError("DATABASE_URL이 비어 있습니다. backend/.env를 확인하세요.")
+        if self.retrieval_mode in ("vector", "hybrid") and not self.embedding_model:
+            # 첫 검색에서 실패하지 않게 시작할 때 막습니다.
+            raise ValueError(
+                f"RETRIEVAL_MODE={self.retrieval_mode}에서는 EMBEDDING_MODEL 값이 필요합니다."
+            )
         if self.app_env != "local" and (missing := self.missing_required_keys()):
             names = ", ".join(name.upper() for name in missing)
             raise ValueError(f"APP_ENV={self.app_env}에서는 {names} 값이 필요합니다.")
