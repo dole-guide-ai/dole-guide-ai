@@ -64,11 +64,11 @@ export const ChatPanel = ({
     <section
       id="dashboard-chat"
       aria-label="대화"
-      className="mx-auto flex h-[70dvh] w-full max-w-3xl flex-col overflow-hidden lg:h-auto lg:min-h-0"
+      className="flex h-[70dvh] w-full flex-col overflow-hidden lg:h-auto lg:min-h-0"
     >
       <div
         ref={logRef}
-        className="scrollbar-hidden flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-5"
+        className="scrollbar-hidden flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-6 py-5 lg:px-8"
         role="log"
         aria-live="polite"
       >

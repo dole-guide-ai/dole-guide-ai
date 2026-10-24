@@ -64,7 +64,7 @@ export const ChatInput = ({
   };
 
   return (
-    <div className="flex flex-col gap-2 px-4 pt-2 pb-3">
+    <div className="flex flex-col gap-2 px-4 pt-2 pb-3 lg:px-6">
       {canUpload && (
         <p id="chat-file-hint" className="text-brand text-sm font-semibold">
           서류를 올릴 수 있어요. 사진이나 문서(pdf·hwp·docx) 모두 돼요.
