@@ -1,4 +1,5 @@
 from app.rules import situation
+from app.rules.rule_cards import build_rule_cards
 from app.schemas.rounds import ActivityStatus
 
 LEE = {
@@ -70,3 +71,25 @@ def test_interval_rules_count_slices_of_the_period() -> None:
     assert (eighth["required"], eighth["required_job_search"], eighth["interval_days"]) == (4, 4, 7)
     check, _ = situation.check_round(LEE, repeat, SAME_DAY)
     assert (check["counted"], check["shortfall"]) == (1, 1)
+
+
+def test_training_hours_reach_round_check() -> None:
+    """코드래빗 지적: 활동의 훈련 시간이 회차 점검에 전달되지 않던 문제."""
+    training = {"date": "2026-12-01", "kind": "training", "route": "training", "hours": 30}
+    check, statuses = situation.check_round(LEE, situation.derive(LEE), [training])
+
+    assert statuses == [ActivityStatus.COUNTED]
+    assert check["shortfall"] == 0
+
+
+def test_rule_cards_skip_training_hours_when_training_is_not_allowed() -> None:
+    """코드래빗 지적: 직업훈련이 인정되지 않는 회차에도 훈련 시간 기준을 안내하던 문제."""
+    derived = situation.derive(LEE)
+    round_3 = {**derived, "group": "repeat", "current_round": 3}
+    round_2 = {**derived, "group": "repeat", "current_round": 2}
+
+    def texts(d: dict) -> str:
+        return " ".join(card["text"] for card in build_rule_cards(d))
+
+    assert "시간 이상이면" not in texts(round_3)
+    assert "시간 이상이면" in texts(round_2)

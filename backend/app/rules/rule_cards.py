@@ -41,9 +41,14 @@ def build_rule_cards(derived: dict[str, Any]) -> list[dict[str, str]]:
         "누적 한도(수급 기간 전체): "
         + ", ".join(f"{limit.label} {limit.max}회까지" for limit in rules.limits)
         + ".",
-        f"직업훈련은 대상 기간에 {rules.training_hours.min_counted}시간 이상이면 1건, "
-        f"{rules.training_hours.full_round}시간 이상이면 그 회차 활동을 모두 채운 것으로 봐요.",
     ]
+    training = next((k for k in rules.kinds if k.by_hours), None)
+    if training and not is_not_allowed(training, rules, group, round_no):
+        # 직업훈련이 인정되지 않는 회차(구직활동만 인정)에는 시간 기준을 말하지 않습니다.
+        cards.append(
+            f"직업훈련은 대상 기간에 {rules.training_hours.min_counted}시간 이상이면 1건, "
+            f"{rules.training_hours.full_round}시간 이상이면 그 회차 활동을 모두 채운 것으로 봐요."
+        )
     for route in rules.routes:
         label = ROUTE_LABELS.get(route.route, route.route)
         evidence = ", ".join(route.evidence) if route.evidence else "따로 낼 증빙이 없어요"

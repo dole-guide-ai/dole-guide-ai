@@ -125,10 +125,11 @@ def detect(text: str) -> list[Finding]:
     """찾은 개인정보의 종류·위치. 먼저 찾은 등급 0이 이기고, 같은 자리는 한 번만 셉니다."""
     found: list[Finding] = []
     # 이메일을 먼저 찾아야 주소 안의 숫자만 가려지고 주소 일부가 남는 일이 없습니다.
-    for pattern in (_EMAIL, _EMAIL_UNICODE):
-        for m in pattern.finditer(text):
-            if not _overlaps(found, m.start(), m.end()):
-                found.append(Finding(PiiKind.EMAIL, m.start(), m.end()))
+    # 두 패턴이 겹치면 긴 쪽("홍길동foo@ex.com" 전체)을 골라 한글 부분이 남지 않게 합니다.
+    emails = [m.span() for p in (_EMAIL, _EMAIL_UNICODE) for m in p.finditer(text)]
+    for start, end in sorted(emails, key=lambda span: span[0] - span[1]):
+        if not _overlaps(found, start, end):
+            found.append(Finding(PiiKind.EMAIL, start, end))
     for m in _RRN.finditer(text):
         if _valid_birth(m[1], m[2]) and not _overlaps(found, m.start(), m.end()):
             kind = PiiKind.RRN if m[2] in "1234" else PiiKind.FOREIGNER_RRN
@@ -164,6 +165,33 @@ def _is_birth(yymmdd: str) -> bool:
     return any(_valid_birth(yymmdd, gender) for gender in "13")
 
 
+def _is_number(text: str) -> bool:
+    digits = re.sub(r"\D", "", text)
+    return len(digits) in _LONG_DIGITS and not _is_date_time(text)
+
+
+def _number_groups(m: re.Match[str]) -> list[tuple[int, int]]:
+    """긴 숫자 덩어리에서 가릴 번호 자리들.
+
+    "1234567890 9876543210"처럼 띄어 쓴 번호 둘은 합치면 너무 길어 통째로는 번호가 아니므로,
+    띄어쓰기로 나눈 조각을 이어 붙여 번호 길이가 되는 묶음을 가장 많이 덮도록 고릅니다.
+    """
+    pieces = [p.span() for p in re.finditer(r"\S+", m[0]) if re.search(r"\d", p[0])]
+    # best[i]: 앞 조각 i개로 덮은 숫자 수와 그 묶음들
+    best: list[tuple[int, list[tuple[int, int]]]] = [(0, [])]
+    for i in range(1, len(pieces) + 1):
+        best.append(best[i - 1])
+        for j in range(i):
+            start, end = pieces[j][0], pieces[i - 1][1]
+            span = m[0][start:end]
+            if not _is_number(span):
+                continue
+            covered = best[j][0] + len(re.sub(r"\D", "", span))
+            if covered > best[i][0]:
+                best[i] = (covered, [*best[j][1], (m.start() + start, m.start() + end)])
+    return best[-1][1]
+
+
 def _add_extra(text: str, found: list[Finding]) -> None:
     """위 기본 패턴이 놓치는 대화 속 변형. 이미 찾은 자리와 겹치면 넘깁니다."""
     for m in _RRN_BACK.finditer(text):
@@ -174,15 +202,14 @@ def _add_extra(text: str, found: list[Finding]) -> None:
             if not _overlaps(found, m.start(), m.end()):
                 found.append(Finding(PiiKind.RRN, m.start(), m.end()))
     for m in _LONG_NUMBER.finditer(text):
-        digits = re.sub(r"\D", "", m[0])
-        if len(digits) not in _LONG_DIGITS or _is_date_time(m[0]):
-            continue
-        if _overlaps(found, m.start(), m.end()):
-            continue
-        # 주민번호·카드 모양인데 검증(생년월일·Luhn)에서 떨어진 숫자도 가립니다(차단 등급은 아님).
-        shaped = _RRN.fullmatch(m[0]) or _CARD.fullmatch(m[0])
-        kind = PiiKind.NUMBER if shaped else PiiKind.ACCOUNT
-        found.append(Finding(kind, m.start(), m.end()))
+        for start, end in _number_groups(m):
+            if _overlaps(found, start, end):
+                continue
+            # 주민번호·카드 모양인데 검증(생년월일·Luhn)에서 떨어진 숫자도 가립니다
+            # (차단 등급은 아님).
+            shaped = _RRN.fullmatch(text[start:end]) or _CARD.fullmatch(text[start:end])
+            kind = PiiKind.NUMBER if shaped else PiiKind.ACCOUNT
+            found.append(Finding(kind, start, end))
     for m in _NAME.finditer(text):
         if not _overlaps(found, m.start(1), m.end(1)):
             found.append(Finding(PiiKind.NAME, m.start(1), m.end(1)))
