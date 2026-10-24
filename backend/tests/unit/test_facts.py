@@ -1,0 +1,51 @@
+from app.rules import situation
+from app.rules.facts import CITE_EVIDENCE, build_facts
+
+LEE = {
+    "age_at_separation": 58,
+    "has_disability": False,
+    "recipient_type": "general",
+    "stage": "recognition",
+    "eligibility_applied_date": "2026-09-15",
+    "completed_rounds": 3,
+    "last_recognition_date": "2026-11-24",
+    "next_recognition_date": "2026-12-22",
+    "demo_today": "2026-12-16",
+    "demo_time": "10:00",
+}
+SAME_DAY = [
+    {"date": "2026-12-08", "kind": "job_search"},
+    {"date": "2026-12-08", "kind": "job_search"},
+]
+
+
+def _facts(state: dict, activities: list) -> list[dict[str, str]]:
+    derived = situation.derive(state)
+    check = situation.check_round(derived, activities) if derived["current_round"] else None
+    return build_facts(state, derived, check, activities)
+
+
+def test_round_facts_state_numbers_dates_and_same_day_rule() -> None:
+    texts = " ".join(f["text"] for f in _facts(LEE, SAME_DAY))
+
+    assert "12월 22일(화)" in texts
+    assert "2건(그중 구직활동 1건)" in texts
+    assert "1건 더" in texts
+    assert "다른 날" in texts
+    assert "출석" in texts
+    assert any(f["cite"] == CITE_EVIDENCE for f in _facts(LEE, SAME_DAY))
+
+
+def test_submit_window_after_five_pm_on_recognition_day() -> None:
+    state = {**LEE, "completed_rounds": 4, "demo_today": "2026-12-22", "demo_time": "17:30"}
+
+    texts = " ".join(f["text"] for f in _facts(state, []))
+
+    assert "17시가 지나" in texts
+
+
+def test_presubmit_depends_on_age_at_separation() -> None:
+    before = {**LEE, "stage": "eligibility_application", "next_recognition_date": None}
+
+    assert "대상이 될 수" in _facts({**before, "age_at_separation": 64}, [])[0]["text"]
+    assert "방문" in _facts({**before, "age_at_separation": 65}, [])[0]["text"]
