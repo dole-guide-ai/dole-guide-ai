@@ -84,6 +84,31 @@ def test_variants_do_not_overmask(text: str) -> None:
     assert mask(text) == (text, [])
 
 
+@pytest.mark.parametrize(
+    ("text", "hidden", "kind"),
+    [
+        ("계좌 3333-01-1234567이요", "1234567", PiiKind.ACCOUNT),  # 날짜로 시작하는 계좌
+        ("메일 800101-1234567@ex.com 이에요", "@ex.com", PiiKind.EMAIL),  # 이메일 통째로
+        ("제 이름은 홍길동", "홍길동", PiiKind.NAME),  # 문장 끝 이름
+        ("앞자리 650101 그리고 1234567이요", "1234567", PiiKind.RRN),  # 생년월일 뒤 7자리
+    ],
+)
+def test_security_review_cases_are_masked(text: str, hidden: str, kind: PiiKind) -> None:
+    """#176 보안 검토 두 번째 지적."""
+    masked, findings = mask(text)
+
+    assert hidden not in masked
+    assert kind in {f.kind for f in findings}
+
+
+@pytest.mark.parametrize("text", ["991399-1234567", "4111-1111-1111-1112"])
+def test_failed_validation_numbers_are_masked_but_not_blocking(text: str) -> None:
+    masked, findings = mask(text)
+
+    assert masked == "[번호]"
+    assert not has_blocking(text)
+
+
 def test_fullwidth_hyphen_rrn_is_blocked() -> None:
     text = "번호는 800101－1234567이에요"
     assert has_blocking(text)
