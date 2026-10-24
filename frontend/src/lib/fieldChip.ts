@@ -27,24 +27,27 @@ export const fieldChip = (meta?: FieldMeta, options: FieldChipOptions = {}): Chi
   if (meta.status === 'not_applicable') return { label: '해당 없음', tone: 'neutral' };
 
   if (meta.status === 'extracted') {
-    if (meta.source === 'old_resume') return { label: '예전 이력서', tone: 'info' };
+    if (meta.source === 'seed') return { label: '예전 이력서', tone: 'info' };
     if (meta.source === 'work24_import') return { label: '고용24 불러오기', tone: 'info' };
     return { label: '문서에서 확인', tone: 'info' };
   }
 
   // confirmed
   switch (meta.source) {
-    case 'self_answer':
-      return { label: '본인 확인', tone: 'ok' };
-    case 'manual':
+    case 'user_answer':
+      // 같은 출처라도 신청서 본인 답변 칸이면 `본인 확인`, 그 밖은 `대화로 추가`
+      return options.isSelfAnswerRequired
+        ? { label: '본인 확인', tone: 'ok' }
+        : { label: '대화로 추가', tone: 'ok' };
+    case 'direct':
       return { label: '직접 입력', tone: 'ok' };
-    case 'computed':
+    case 'auto':
       return { label: '자동', tone: 'neutral' };
     case 'account':
       return { label: '고용24에서', tone: 'neutral' };
-    case 'document':
+    case 'doc':
       return { label: '문서에서 확인', tone: 'info' };
-    case 'old_resume':
+    case 'seed':
       return { label: '예전 이력서', tone: 'info' };
     case 'work24_import':
       return { label: '고용24 불러오기', tone: 'info' };

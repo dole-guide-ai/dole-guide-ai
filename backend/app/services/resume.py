@@ -15,6 +15,7 @@ from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
 from app.core import json_patch
+from app.core.clock import KST
 from app.core.errors import ConflictError, NotFoundError, UnprocessableError
 from app.core.etag import check_if_match
 from app.repositories import accounts as repo
@@ -107,7 +108,9 @@ def save_resume_fields(
     resume.lock_version += 1
     db.commit()
 
-    completeness = rules.resume_completeness(data).model_dump()
+    completeness = rules.resume_completeness(
+        data, outdated=_outdated(resume, procedure.separation_date)
+    ).model_dump()
     old = dict(rules.form_fields(before))
     updates = [
         FormUpdate(
@@ -138,13 +141,14 @@ def read_resume(db: Session, account: AccountContext) -> ResumeRead:
     question = rules.next_resume_question(
         data, entry_branch=_branch(data), separation_date=procedure.separation_date
     )
+    outdated = _outdated(resume, procedure.separation_date)
     return ResumeRead(
         status=resume.status if resume else ResumeStatus.DRAFT,
         lock_version=resume.lock_version if resume else 0,
         data=data,
-        completeness=Completeness(filled=rules.resume_completeness(data).filled),
+        completeness=Completeness(filled=rules.resume_completeness(data, outdated=outdated).filled),
         next_question=question.id,
-        can_save=rules.can_save_resume(data),
+        can_save=rules.can_save_resume(data, outdated=outdated),
         profile_display=read_profile_display(db, account.user_id),
     )
 
@@ -198,7 +202,9 @@ def _save(db: Session, account: AccountContext, now: datetime) -> UpdatesRead:
     procedure = _procedure_or_404(db, account.user_id)
     resume = repo.get_resume(db, account.user_id)
     data = read_resume_data(resume)
-    if resume is None or not rules.can_save_resume(data):
+    if resume is None or not rules.can_save_resume(
+        data, outdated=_outdated(resume, procedure.separation_date)
+    ):
         raise ConflictError(code=ErrorCode.RESUME_NOT_READY)
     branch = _branch(data)
     resume.status = ResumeStatus.SAVED
@@ -273,6 +279,15 @@ def read_resume_data(resume: repo.Resume | None) -> resume_form.ResumeData:
     if resume is None:
         return resume_form.ResumeData()
     return resume_form.ResumeData.model_validate(_upgrade_legacy(resume.data))
+
+
+def _outdated(resume: repo.Resume | None, separation_date: date) -> bool:
+    if resume is not None and resume.status == ResumeStatus.SAVED and resume.saved_at is None:
+        return (
+            True  # 저장일을 모르는 저장 이력서는 예전 것으로 봅니다(accounts._resume_status와 같음)
+        )
+    saved_on = resume.saved_at.astimezone(KST).date() if resume and resume.saved_at else None
+    return rules.saved_before_separation(saved_on, separation_date)
 
 
 def _branch(data: resume_form.ResumeData) -> str:

@@ -24,6 +24,7 @@ from app.core.errors import ConflictError, NotFoundError
 from app.repositories import accounts as repo
 from app.repositories import imports as import_repo
 from app.rules import periods
+from app.rules import resume as resume_rules
 from app.rules.entry_text import RoundFacts
 from app.schemas.accounts import AccountRead, PersonaCard, PersonaDisplay, PersonaList
 from app.schemas.application import SubmitMode
@@ -301,7 +302,9 @@ def _resume_status(db: Session, user_id: uuid.UUID, procedure: ProcedureRead) ->
     if resume.status == ResumeStatus.DRAFT:
         return ResumeState.DRAFT
     saved_on = resume.saved_at.astimezone(KST).date() if resume.saved_at else None
-    if saved_on is None or saved_on <= procedure.separation_date:
+    if saved_on is None or resume_rules.saved_before_separation(
+        saved_on, procedure.separation_date
+    ):
         return ResumeState.OUTDATED
     return ResumeState.READY
 

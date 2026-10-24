@@ -78,7 +78,8 @@ def test_lee_applies_job_application_and_round_is_satisfied(
 
     assert res.status_code == 200, res.text
     added = res.json()["updates"][0]["value"]
-    assert (added["org_name"], added["source"], added["route"]) == ("OO물산", "import", "work24")
+    expected = ("OO물산", "work24_import", "work24")
+    assert (added["org_name"], added["source"], added["route"]) == expected
     check = next(u["value"] for u in res.json()["updates"] if u["path"] == "/round_check")
     assert check["check_status"] == "satisfied"
     items = client.get(f"{url}/job-applications", headers=headers).json()["items"]
@@ -102,7 +103,7 @@ def test_park_applies_career_and_license_to_resume(
     resume = client.get("/accounts/park/resume", headers=headers).json()["data"]
     career = resume["careers"][0]
     assert (career["company_name"]["value"], career["start_date"]["value"]) == ("OO산업", "2004-03")
-    assert career["company_name"]["source"] == "import"
+    assert career["company_name"]["source"] == "work24_import"
     assert resume["certifications"][0]["acquired_date"]["value"] == "2011-05-20"
     training = client.post(
         "/accounts/park/imports/apply", headers=headers, json={"import_ids": ["cc_training_001"]}

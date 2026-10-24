@@ -22,10 +22,7 @@ describe('ResumePanel (실제 이력서 API 응답)', () => {
 
     renderWithProviders(<ResumePanel session={sessionFor('choi')} />);
 
-    // 백엔드 완성도는 4/5 (상세기획 1.9는 3/5, 설계와 다른 점으로 보고함)
-    expect(await screen.findByLabelText('완성도')).toHaveTextContent(
-      `${RESUMES.choi.completeness.filled} / 5`,
-    );
+    expect(await screen.findByLabelText('완성도')).toHaveTextContent('3 / 5');
     expect(screen.getAllByText('예전 이력서').length).toBeGreaterThan(0);
     expect(screen.getByText('OO아파트 관리사무소')).toBeInTheDocument();
     expect(screen.getByText('전기기능사')).toBeInTheDocument();
@@ -67,7 +64,7 @@ describe('ResumePanel (실제 이력서 API 응답)', () => {
         op: 'replace',
         value: '프레스 반장 22년',
         status: 'extracted',
-        source: 'self_answer',
+        source: 'user_answer',
         transformed: true,
         evidence: {
           kind: 'utterance',

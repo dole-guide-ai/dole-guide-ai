@@ -9,6 +9,7 @@ from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 
 from app.core.config import PROVIDERS, ModelRole, Provider, Settings, get_settings
 from app.core.errors import AppError, LlmUnavailableError, RateLimitedError
+from app.core.request_id import current_request_id
 
 MAX_RETRIES = 1
 
@@ -34,6 +35,14 @@ def get_embeddings() -> Embeddings:
     if not query_model or query_model == settings.embedding_model:
         return documents
     return _SplitEmbeddings(documents, _embeddings(provider, query_model))
+
+
+def trace_config() -> dict[str, dict[str, str]]:
+    """그래프·모델 호출 config에 붙일 트레이스 metadata (N-09).
+
+    지금 요청의 X-Request-ID를 넣어 화면 오류·서버 로그·LangSmith 트레이스를 잇습니다.
+    """
+    return {"metadata": {"request_id": current_request_id.get()}}
 
 
 def tracing_env(settings: Settings) -> dict[str, str]:

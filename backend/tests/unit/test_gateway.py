@@ -139,3 +139,14 @@ def test_tracing_env_is_pure_and_off_without_key(clean_langsmith_env) -> None:
     env = gateway.tracing_env(Settings(_env_file=None, langsmith_tracing=True))
 
     assert env == {"LANGSMITH_TRACING": "false"}
+
+
+def test_trace_config_carries_request_id() -> None:
+    from app.agent import gateway
+    from app.core.request_id import current_request_id
+
+    token = current_request_id.set("req-12345678")
+    try:
+        assert gateway.trace_config() == {"metadata": {"request_id": "req-12345678"}}
+    finally:
+        current_request_id.reset(token)

@@ -46,15 +46,8 @@ export type FormKind = 'resume' | 'activities' | 'recognition' | 'procedure';
 export type FieldStatus =
   'missing' | 'extracted' | 'confirmed' | 'conflict' | 'rejected' | 'not_applicable';
 
-export type FieldSource =
-  | 'document'
-  | 'old_resume'
-  | 'conversation'
-  | 'self_answer'
-  | 'work24_import'
-  | 'computed'
-  | 'account'
-  | 'manual';
+/** 칸 값의 출처. 백엔드 `FieldSource`와 같은 이름입니다 (API·ERD 설계). */
+export type FieldSource = components['schemas']['FieldSource'];
 
 export interface FieldEvidence {
   kind: string;

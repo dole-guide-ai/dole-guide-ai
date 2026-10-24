@@ -17,11 +17,6 @@ const JOB_SEARCH = 'job_search';
 // 증빙 파일 이름은 응답에 없어 첨부 여부만 표시합니다.
 const ATTACHED_LABEL = '증빙 파일';
 
-const SOURCE_LABELS: Record<string, ActivitySource> = {
-  import: 'work24_import',
-  doc: 'document',
-};
-
 const toActivity = (round: number, activity: ActivityCheck): RoundActivity => ({
   item_id: activity.activity_id,
   round,
@@ -35,7 +30,7 @@ const toActivity = (round: number, activity: ActivityCheck): RoundActivity => ({
     required: activity.required_evidence ?? [],
     attached: activity.has_evidence ? [ATTACHED_LABEL] : [],
   },
-  source: SOURCE_LABELS[activity.source] ?? 'conversation',
+  source: (activity.source ?? 'user_answer') as ActivitySource,
   status: activity.status,
   rule_refs: activity.rule_refs,
 });

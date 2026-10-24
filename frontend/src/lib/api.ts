@@ -77,6 +77,7 @@ export const apiUpload = async <T>(
   file: File,
   fields: Record<string, string> = {},
   signal?: AbortSignal,
+  headers?: HeadersInit,
 ): Promise<T> => {
   const form = new FormData();
   form.append('file', file);
@@ -87,6 +88,7 @@ export const apiUpload = async <T>(
     res = await fetch(`${API_BASE_URL}${path}`, {
       method: 'POST',
       body: form,
+      headers,
       signal,
     });
   } catch {

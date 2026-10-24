@@ -2,6 +2,7 @@ import { useMutation } from '@tanstack/react-query';
 
 import { apiUpload } from '@/lib/api';
 import { API_PATHS } from '@/lib/apiPaths';
+import { IDEMPOTENCY_HEADER, newIdempotencyKey } from '@/lib/idempotency';
 import type { components } from '@/types/api.gen';
 
 type FileCreated = components['schemas']['FileCreated'];
@@ -17,11 +18,23 @@ export type FilePurpose = (typeof FILE_PURPOSE)[keyof typeof FILE_PURPOSE];
 export const purposeForStage = (stage: string): FilePurpose =>
   stage === 'job_registration' ? FILE_PURPOSE.RESUME_DOC : FILE_PURPOSE.EVIDENCE;
 
+// 같은 파일을 다시 보내면(재시도·두 번 누름) 같은 키를 써서 한 번만 저장됩니다.
+const uploadKeys = new WeakMap<File, string>();
+const keyFor = (file: File) => {
+  const key = uploadKeys.get(file) ?? newIdempotencyKey();
+  uploadKeys.set(file, key);
+  return key;
+};
+
 /** `POST /accounts/{id}/files` → `{ file_id, … }`. 올린 뒤 대화 메시지에 `file_ids`를 붙여 보냅니다. */
 export const useFileUpload = (personaId: string, stage: string) =>
   useMutation({
     mutationFn: (file: File) =>
-      apiUpload<FileCreated>(API_PATHS.files(personaId), file, {
-        purpose: purposeForStage(stage),
-      }),
+      apiUpload<FileCreated>(
+        API_PATHS.files(personaId),
+        file,
+        { purpose: purposeForStage(stage) },
+        undefined,
+        { [IDEMPOTENCY_HEADER]: keyFor(file) },
+      ),
   });
