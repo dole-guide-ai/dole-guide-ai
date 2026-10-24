@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { type CSSProperties, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 import { ProgressBar } from '@/components/ProgressBar';
@@ -12,6 +12,8 @@ import { DashboardHeader } from '@/features/dashboard/DashboardHeader';
 import { NoticeToast } from '@/features/dashboard/NoticeToast';
 import { PanelFrame } from '@/features/dashboard/PanelFrame';
 import { sessionNotices } from '@/features/dashboard/sessionNotices';
+import { SplitHandle } from '@/features/dashboard/SplitHandle';
+import { useSplitRatio } from '@/features/dashboard/useSplitRatio';
 import { MyDataDialog } from '@/features/myData/MyDataDialog';
 import { CONFIRMED_MESSAGE } from '@/features/recognition/recognitionLabels';
 
@@ -42,6 +44,8 @@ export const DashboardView = ({ session, personaName }: DashboardViewProps) => {
   const [review, setReview] = useState<{ sessionId: string; step: ProgressStep } | null>(null);
   const reviewStep = review?.sessionId === session.session_id ? review.step : null;
   const [isMyDataOpen, setIsMyDataOpen] = useState(false);
+  const split = useSplitRatio();
+  const mainRef = useRef<HTMLElement>(null);
   const upload = useFileUpload(session.persona_id, session.state.stage);
   const { entry } = session;
   const bigTextDefault = entry.ui.big_text;
@@ -106,7 +110,12 @@ export const DashboardView = ({ session, personaName }: DashboardViewProps) => {
         <MyDataDialog personaId={session.persona_id} onClose={() => setIsMyDataOpen(false)} />
       )}
 
-      <main className="grid flex-1 gap-4 p-4 sm:p-6 lg:min-h-0 lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
+      {/* 넓은 화면: 대화창 | 손잡이 | 패널. 대화창 폭은 손잡이로 바꾸는 --chat-width(%)입니다. */}
+      <main
+        ref={mainRef}
+        style={{ '--chat-width': `${split.ratio}%` } as CSSProperties}
+        className="grid flex-1 gap-4 p-4 sm:p-6 lg:min-h-0 lg:grid-cols-[minmax(0,var(--chat-width))_auto_minmax(0,1fr)] lg:gap-2"
+      >
         <ChatPanel
           messages={chat.messages}
           choices={chat.choices}
@@ -128,6 +137,13 @@ export const DashboardView = ({ session, personaName }: DashboardViewProps) => {
           isStreaming={chat.isStreaming}
           isUploading={upload.isPending}
           statusText={statusText}
+        />
+        <SplitHandle
+          ratio={split.ratio}
+          onChange={split.setRatio}
+          onReset={split.reset}
+          containerRef={mainRef}
+          controlsId="dashboard-chat"
         />
         <PanelFrame
           session={session}

@@ -113,7 +113,10 @@ describe('RoundPanel', () => {
     expect(screen.getByText('12월 8일 활동은 2건이지만 하루 1건만 인정돼요.')).toBeInTheDocument();
     expect(screen.getAllByText('주의')).toHaveLength(2);
     const progress = screen.getByRole('list', { name: '회차 진행' });
-    expect(within(progress).getByText('4차 ! (출석)')).toHaveAttribute('aria-current', 'step');
+    expect(within(progress).getByText('4차 진행 중 (출석)')).toHaveAttribute(
+      'aria-current',
+      'step',
+    );
     expect(screen.getByText(/검수 전 규칙으로 계산했어요/)).toBeInTheDocument();
     expect(screen.queryByRole('region', { name: '추천 활동' })).not.toBeInTheDocument();
   });

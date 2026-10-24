@@ -3,6 +3,7 @@
 import { type ReactNode, useState } from 'react';
 
 import { Chip } from '@/components/Chip';
+import { RequiredMark } from '@/components/RequiredMark';
 
 import { ApiError } from '@/lib/api';
 import { type ChipSpec, fieldChip } from '@/lib/fieldChip';
@@ -95,11 +96,7 @@ export const FieldRow = ({
       <div className="flex flex-wrap items-start gap-x-3 gap-y-1">
         <dt className="text-muted w-28 shrink-0 text-sm">
           {label}
-          {isRequired && (
-            <span className="text-warn ml-0.5" aria-label="필수">
-              ★
-            </span>
-          )}
+          {isRequired && <RequiredMark />}
         </dt>
         {isEditing ? (
           <dd className="flex min-w-0 flex-1 flex-wrap items-center gap-2">

@@ -26,7 +26,7 @@ export const ResumeSection = ({
     <div className="flex flex-wrap items-center gap-2">
       <h3 className="text-base font-bold">{title}</h3>
       {isRequired && !isDone && <Chip label="필수" tone="warn" />}
-      {isRequired && isDone && <Chip label="완료 ✓" tone="ok" />}
+      {isRequired && isDone && <Chip label="완료" tone="ok" />}
       {hint && <span className="text-muted text-sm">{hint}</span>}
     </div>
     <dl className="divide-line mt-1 divide-y">{children}</dl>

@@ -1,5 +1,14 @@
 import { useState } from 'react';
 
+import {
+  ClipboardCheck,
+  FilePen,
+  FileText,
+  ListChecks,
+  type LucideIcon,
+  MonitorPlay,
+} from 'lucide-react';
+
 import { Button } from '@/components/Button';
 import { EvidenceLine } from '@/components/EvidenceLine';
 import { showsVisitNotice } from '@/features/dashboard/sessionNotices';
@@ -11,6 +20,7 @@ import { EducationPanel } from '@/features/steps/EducationPanel';
 import { EligibilityPanel } from '@/features/steps/EligibilityPanel';
 import { FirstDatePanel } from '@/features/steps/FirstDatePanel';
 
+import { ICON_SIZE, ICON_STROKE } from '@/lib/iconSize';
 import { patchSession } from '@/lib/sessionStore';
 import { citeOf } from '@/lib/sources';
 import type { PanelId, ProgressStep, SessionRead } from '@/types/demo.types';
@@ -19,13 +29,26 @@ import type { PanelId, ProgressStep, SessionRead } from '@/types/demo.types';
  * 오른쪽 패널 틀 (1.1 패널 A/E/Q/B/C): A 이력서(2-1), B 회차 할 일(2-2), C 신청서(2-3),
  * E 온라인 교육·Q 수급자격 신청·E5b 1차 인정일 입력(기획 "예정", 정적 화면).
  */
-const PANEL_INFO: Record<PanelId, { name: string; description: string }> = {
-  A: { name: '이력서', description: '고용24 이력서 항목을 같은 순서로 채워요.' },
-  E: { name: '온라인 교육', description: '수급자격 신청자 온라인 교육(약 1시간) 이수를 확인해요.' },
-  Q: { name: '수급자격 신청', description: '준비물과 신청 경로를 정리해요.' },
-  B: { name: '이번 회차 할 일', description: '재취업활동을 기록하고 회차 규칙으로 점검해요.' },
+const PANEL_INFO: Record<PanelId, { name: string; description: string; icon: LucideIcon }> = {
+  A: {
+    name: '이력서',
+    icon: FileText,
+    description: '고용24 이력서 항목을 같은 순서로 채워요.',
+  },
+  E: {
+    name: '온라인 교육',
+    icon: MonitorPlay,
+    description: '수급자격 신청자 온라인 교육(약 1시간) 이수를 확인해요.',
+  },
+  Q: { name: '수급자격 신청', icon: ClipboardCheck, description: '준비물과 신청 경로를 정리해요.' },
+  B: {
+    name: '이번 회차 할 일',
+    icon: ListChecks,
+    description: '재취업활동을 기록하고 회차 규칙으로 점검해요.',
+  },
   C: {
     name: '실업인정 신청서 검토',
+    icon: FilePen,
     description: '정리한 활동으로 신청서를 검토하고 본인이 제출해요.',
   },
 };
@@ -49,7 +72,7 @@ interface PanelFrameProps {
 const STEP_PANEL: Partial<Record<ProgressStep, PanelId>> = { 1: 'A', 2: 'E', 3: 'Q' };
 
 const ASIDE_CLASS =
-  'border-line bg-surface flex flex-col gap-4 rounded-2xl border p-5 lg:min-h-0 lg:overflow-y-auto';
+  'border-line bg-surface shadow-card flex flex-col gap-5 rounded-2xl border p-5 lg:min-h-0 lg:overflow-y-auto';
 
 export const PanelFrame = ({
   session,
@@ -70,7 +93,7 @@ export const PanelFrame = ({
   if (reviewPanel) {
     const info = PANEL_INFO[reviewPanel];
     return (
-      <aside className={ASIDE_CLASS} aria-label={`패널 ${info.name} (읽기 전용)`}>
+      <aside className={ASIDE_CLASS} aria-label={`${info.name} (읽기 전용)`}>
         <div className="bg-ok-soft flex flex-wrap items-center justify-between gap-2 rounded-xl px-4 py-3">
           <p className="text-ok text-base font-semibold">
             완료한 단계 · {info.name} {isResumeEditable ? '(고치는 중)' : '(읽기 전용)'}
@@ -126,11 +149,18 @@ export const PanelFrame = ({
   const info = PANEL_INFO[panel];
 
   return (
-    <aside className={ASIDE_CLASS} aria-label={`패널 ${info.name}`}>
-      <div>
-        <p className="text-brand text-sm font-semibold">패널 {panel}</p>
-        <h2 className="text-xl font-bold">{info.name}</h2>
-        <p className="text-muted text-base">{info.description}</p>
+    <aside className={ASIDE_CLASS} aria-label={info.name}>
+      <div className="flex items-start gap-3">
+        <span
+          aria-hidden
+          className="bg-neutral-soft text-ink flex size-11 shrink-0 items-center justify-center rounded-xl"
+        >
+          <info.icon size={ICON_SIZE.lg} strokeWidth={ICON_STROKE} />
+        </span>
+        <div className="flex flex-col gap-0.5">
+          <h2 className="text-xl leading-tight font-bold">{info.name}</h2>
+          <p className="text-muted text-base">{info.description}</p>
+        </div>
       </div>
 
       {showsVisitNotice(state) && (

@@ -1,4 +1,5 @@
 import { Chip } from '@/components/Chip';
+import { RequiredMark } from '@/components/RequiredMark';
 import { activityEvidenceChip } from '@/features/recognition/recognitionLabels';
 
 import { fieldChip } from '@/lib/fieldChip';
@@ -34,7 +35,7 @@ export const OtherActivityCard = ({ activity }: OtherActivityCardProps) => {
           <div key={label} className="flex gap-2">
             <dt className="text-muted w-32 shrink-0">
               {label}
-              <span className="text-warn ml-0.5">★</span>
+              <RequiredMark />
             </dt>
             <dd className={value ? 'text-ink' : 'text-warn font-semibold'}>
               {value ?? (label === '과정' ? '고용24에서 해당 과정을 골라 주세요' : '답변 필요')}

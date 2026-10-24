@@ -1,9 +1,12 @@
 import Image from 'next/image';
 
+import { Paperclip } from 'lucide-react';
+
 import { EvidenceLine } from '@/components/EvidenceLine';
 import type { ChatMessage } from '@/features/chat/chat.types';
 import { CHAT_ROLE } from '@/features/chat/chat.types';
 
+import { ICON_SIZE, ICON_STROKE } from '@/lib/iconSize';
 import { INPUT_KIND } from '@/types/chat.types';
 
 interface MessageBubbleProps {
@@ -32,16 +35,15 @@ export const MessageBubble = ({ message }: MessageBubbleProps) => {
       {message.attachments?.map((attachment) => (
         <span
           key={attachment.name}
-          className="border-line bg-surface text-ink rounded-lg border px-3 py-1 text-sm"
+          className="border-line bg-surface text-ink inline-flex items-center gap-1.5 rounded-lg border px-3 py-1 text-sm"
         >
-          📎 {attachment.name} · 읽기 요청
+          <Paperclip aria-hidden size={ICON_SIZE.sm} strokeWidth={ICON_STROKE} />
+          {attachment.name} · 읽기 요청
         </span>
       ))}
       <div
         className={`max-w-[85%] rounded-2xl px-4 py-3 text-base leading-relaxed whitespace-pre-line ${
-          isUser
-            ? 'bg-brand rounded-br-md text-white'
-            : 'border-line bg-surface text-ink rounded-bl-md border shadow-xs'
+          isUser ? 'bg-brand rounded-br-md text-white' : 'bg-neutral-soft text-ink rounded-bl-md'
         }`}
       >
         {message.text}

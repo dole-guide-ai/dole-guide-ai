@@ -62,7 +62,7 @@ export const SubmitBox = ({
               item.done ? 'text-ok' : item.blocking ? 'text-warn font-semibold' : 'text-muted'
             }
           >
-            {item.done ? '✓' : item.blocking ? '남음' : '주의'} · {CHECKLIST_LABEL[item.key]}
+            {item.done ? '완료' : item.blocking ? '남음' : '주의'} · {CHECKLIST_LABEL[item.key]}
           </li>
         ))}
       </ul>

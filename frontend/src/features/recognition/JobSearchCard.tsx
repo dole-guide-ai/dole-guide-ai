@@ -1,4 +1,5 @@
 import { Chip } from '@/components/Chip';
+import { RequiredMark } from '@/components/RequiredMark';
 import { activityEvidenceChip } from '@/features/recognition/recognitionLabels';
 
 import { formatShortDate } from '@/lib/dateFormat';
@@ -45,7 +46,7 @@ export const JobSearchCard = ({ activity, meta }: JobSearchCardProps) => {
           <div key={label} className="flex gap-2">
             <dt className="text-muted w-32 shrink-0">
               {label}
-              {isRequired && <span className="text-warn ml-0.5">★</span>}
+              {isRequired && <RequiredMark />}
             </dt>
             <dd className={value ? 'text-ink' : 'text-warn font-semibold'}>
               {value ?? (isRequired ? '답변 필요' : '없음')}

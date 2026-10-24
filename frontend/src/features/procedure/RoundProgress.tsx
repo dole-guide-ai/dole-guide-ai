@@ -20,7 +20,7 @@ export const RoundProgress = ({ markers }: RoundProgressProps) => (
             isCurrent ? 'bg-warn-soft text-warn' : 'bg-ok-soft text-ok'
           }`}
         >
-          {round}차 {isCurrent ? '!' : '✓'}
+          {round}차 {isCurrent ? '진행 중' : '완료'}
           {is_attendance && ' (출석)'}
         </li>
       );
