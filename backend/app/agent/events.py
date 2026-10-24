@@ -51,3 +51,13 @@ class TurnEvent:
             # 칸을 비우는 replace(value=None)도 값 키가 있어야 화면이 null로 바꿉니다.
             payload["value"] = self.data.model_dump(mode="json")["value"]
         return {"event": self.name, "data": json.dumps(payload, ensure_ascii=False)}
+
+
+def emit(data: BaseModel) -> None:
+    """그래프 노드 안에서 화면으로 이벤트 하나를 냅니다.
+
+    `stream_mode="custom"`으로 응답기에 전달됩니다.
+    """
+    from langgraph.config import get_stream_writer
+
+    get_stream_writer()(TurnEvent(data))

@@ -156,5 +156,7 @@ def start_turn(
         today=today,
         file_ids=body.file_ids,
         import_ids=body.import_ids,
+        db=db,
+        anchor_date=account.anchor_date,
     )
     return Turn(db, account, turn_input)
