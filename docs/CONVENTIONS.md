@@ -50,7 +50,7 @@ feat(ai)!: 에이전트 상태 필드 구조 변경
 ```
 
 - 큰 호환성 변경은 type 뒤에 `!`를 붙입니다.
-- PR·이슈 제목은 커밋과 같은 형식, 접두어는 소문자 (`pr-title` 워크플로가 검사).
+- PR·이슈 제목은 커밋과 같은 형식, 접두어는 소문자.
 - PR 본문: 관련 이슈(`closes #12`), 변경 내용, 확인 방법. AI 영역 PR은 평가 결과 첨부.
 
 ## 3. 모노레포 규칙
@@ -77,7 +77,7 @@ feat(ai)!: 에이전트 상태 필드 구조 변경
 
 - 라우트 파일(`page.tsx`, `layout.tsx` 등)은 `export default function`. 그 외 컴포넌트는 화살표 함수 + `export const`, 한 파일에 한 컴포넌트.
 - Props는 구조 분해, early return 사용. `'use client'`는 상태·이벤트가 있는 컴포넌트에만.
-- 업무 로직과 모델 호출은 FastAPI에 둡니다. 렌더링 방식(서버/클라이언트)은 아직 정하지 않았습니다.
+- 업무 로직과 모델 호출은 FastAPI에 둡니다. 브라우저는 같은 사이트의 BFF(`src/app/api/[...path]`)만 부르고, BFF가 쿠키를 `Authorization`으로 바꿔 백엔드에 전달합니다.
 - API 타입은 `api.gen.ts`만, 쿼리 키는 `lib/queryKeys.ts`, SSE 이벤트 이름은 `shared/sse-events.json`.
 - 절대 경로(`@/`). import 순서(React·Next → 외부 → 내부 컴포넌트 → 유틸·타입 → 에셋)는 ESLint가, Tailwind 클래스 순서는 Prettier가 정렬합니다.
 - 라우팅은 `next/navigation`.
@@ -91,14 +91,23 @@ feat(ai)!: 에이전트 상태 필드 구조 변경
 | 클래스 | PascalCase | `ProcedureState` |
 | 상수 | UPPER_SNAKE_CASE | `MAX_ASK_COUNT` |
 | DB 테이블 | snake_case 복수형 | `procedure_states` |
-| API 경로 | kebab-case 복수형 | `/forms/{kind}/review` |
-| Pydantic 모델 | 용도 접미사 | `FormDraftRead`, `FormDraftUpdate` |
+| API 경로 | kebab-case 복수형 | `/accounts/{persona_id}/rounds/current` |
+| Pydantic 모델 | 용도 접미사 | `ResumeRead`, `ActivityCreate` |
 
 - 호출 방향은 라우터 → 서비스 → 레포지토리 한 방향. 라우터에는 HTTP 처리만.
 - 조건·벡터·키워드를 합치는 검색 쿼리는 레포지토리에 SQL로 직접 작성합니다.
 - 마이그레이션은 Alembic으로만, 메시지 필수. 마이그레이션 파일은 PR에서 따로 확인합니다.
 - 로그에 이름, 연락처, 발화 원문 등 개인정보를 남기지 않습니다.
 - 비밀값은 `.env`와 GitHub Secrets에만 둡니다.
+
+**API 경로 규칙**
+
+- 리소스는 명사, 동작은 HTTP 메서드. 경로에 동사(`confirm`, `save`, `enter`)를 쓰지 않습니다.
+- 계정 데이터는 모두 `/accounts/{persona_id}/...` 아래에 둡니다. 계정 찾기는 `app/api/deps.py`의 `CurrentAccount`가 합니다.
+- 부분 수정은 JSON Patch 배열 `[{op, path, value}]`. 저장·제출은 `/status`를 바꾸는 PATCH이고 다른 칸과 섞지 않습니다.
+- 서류(이력서·신청서) PATCH는 `If-Match`(GET 응답 `ETag`)가 필요합니다. 다르면 409 `VERSION_CONFLICT`.
+- POST(메시지·활동·파일)는 `Idempotency-Key` 헤더를 받습니다.
+- 생성 201(+`Location`), 삭제 204. 시각 계산은 `app/core/clock.py`의 `today_kst()`/`Today` 의존성만 씁니다.
 
 ## 6. AI
 
@@ -116,7 +125,7 @@ feat(ai)!: 에이전트 상태 필드 구조 변경
 
 ## 7. API 응답 · 에러 형식
 
-**성공**: 감싸지 않고 데이터 그대로(`response_model`). 성공·실패는 HTTP 상태 코드로 구분합니다. 목록은 `Page[T]`(`{items, total}`).
+**성공**: 감싸지 않고 데이터 그대로(라우터 함수의 반환 타입이 응답 모델). 성공·실패는 HTTP 상태 코드로 구분합니다. 목록은 `Page[T]`(`{items, total}`).
 
 **실패**: 모든 오류는 한 형식입니다.
 

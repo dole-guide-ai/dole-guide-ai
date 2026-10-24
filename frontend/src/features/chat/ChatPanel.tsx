@@ -2,12 +2,15 @@
 
 import { useEffect, useRef } from 'react';
 
+import { Sparkles } from 'lucide-react';
+
 import { ChoiceButtons } from '@/components/ChoiceButtons';
 import type { ChatMessage } from '@/features/chat/chat.types';
 import { ChatInput } from '@/features/chat/ChatInput';
 import { MessageBubble } from '@/features/chat/MessageBubble';
 import { ImportPicker } from '@/features/imports/ImportPicker';
 
+import { ICON_SIZE, ICON_STROKE } from '@/lib/iconSize';
 import type { ImportKind } from '@/types/imports.types';
 
 interface ChatPanelProps {
@@ -16,6 +19,8 @@ interface ChatPanelProps {
   /** 마지막 질문이 연 고용24 불러오기 목록 (2-0.4) */
   importKind?: ImportKind | null;
   sessionId?: string;
+  /** 불러오기 목록을 받을 계정 */
+  personaId?: string;
   onImport?: (importIds: string[]) => void;
   inputText: string;
   onInputChange: (text: string) => void;
@@ -34,6 +39,7 @@ export const ChatPanel = ({
   choices,
   importKind,
   sessionId,
+  personaId,
   onImport,
   inputText,
   onInputChange,
@@ -56,12 +62,13 @@ export const ChatPanel = ({
 
   return (
     <section
+      id="dashboard-chat"
       aria-label="대화"
-      className="border-line bg-canvas flex h-[70dvh] flex-col overflow-hidden rounded-2xl border lg:h-auto lg:min-h-0"
+      className="flex h-[70dvh] w-full flex-col overflow-hidden lg:h-auto lg:min-h-0"
     >
       <div
         ref={logRef}
-        className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-4"
+        className="scrollbar-hidden flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-6 py-5 lg:px-8"
         role="log"
         aria-live="polite"
       >
@@ -69,16 +76,23 @@ export const ChatPanel = ({
           <MessageBubble key={message.id} message={message} />
         ))}
         {statusText && (
-          <p role="status" className="text-muted text-sm">
-            {statusText}
+          <p role="status" className="flex items-center gap-2 text-sm font-semibold">
+            <Sparkles
+              aria-hidden
+              size={ICON_SIZE.sm}
+              strokeWidth={ICON_STROKE}
+              className="text-ai-via motion-safe:animate-pulse"
+            />
+            <span className="text-ai-shimmer">{statusText}</span>
           </p>
         )}
         <ChoiceButtons choices={choices} onSelect={onChoice} isDisabled={isStreaming} />
-        {importKind && sessionId && onImport && (
+        {importKind && sessionId && personaId && onImport && (
           <ImportPicker
             key={`${importKind}-${messages.length}`}
             kind={importKind}
             sessionId={sessionId}
+            personaId={personaId}
             isDisabled={isStreaming}
             onApply={onImport}
           />

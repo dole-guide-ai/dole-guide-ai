@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { type CSSProperties, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 import { ProgressBar } from '@/components/ProgressBar';
@@ -12,8 +12,9 @@ import { DashboardHeader } from '@/features/dashboard/DashboardHeader';
 import { NoticeToast } from '@/features/dashboard/NoticeToast';
 import { PanelFrame } from '@/features/dashboard/PanelFrame';
 import { sessionNotices } from '@/features/dashboard/sessionNotices';
+import { SplitHandle } from '@/features/dashboard/SplitHandle';
+import { useSplitRatio } from '@/features/dashboard/useSplitRatio';
 import { MyDataDialog } from '@/features/myData/MyDataDialog';
-import { OPEN_FORM_MESSAGE } from '@/features/procedure/activityLabels';
 import { CONFIRMED_MESSAGE } from '@/features/recognition/recognitionLabels';
 
 import { ApiError } from '@/lib/api';
@@ -43,7 +44,9 @@ export const DashboardView = ({ session, personaName }: DashboardViewProps) => {
   const [review, setReview] = useState<{ sessionId: string; step: ProgressStep } | null>(null);
   const reviewStep = review?.sessionId === session.session_id ? review.step : null;
   const [isMyDataOpen, setIsMyDataOpen] = useState(false);
-  const upload = useFileUpload();
+  const split = useSplitRatio();
+  const mainRef = useRef<HTMLElement>(null);
+  const upload = useFileUpload(session.persona_id, session.state.stage);
   const { entry } = session;
   const bigTextDefault = entry.ui.big_text;
 
@@ -51,6 +54,9 @@ export const DashboardView = ({ session, personaName }: DashboardViewProps) => {
   useEffect(() => {
     setIsBig(bigTextDefault);
   }, [session.session_id, bigTextDefault, setIsBig]);
+
+  // F-22: 대화 응답을 기다리지 않고 바로 신청서(패널 C)를 엽니다.
+  const handleOpenForm = () => setSession({ ...session, entry: { ...entry, panel: 'C' } });
 
   const handleSwitchAccount = () => {
     resetForms();
@@ -101,15 +107,21 @@ export const DashboardView = ({ session, personaName }: DashboardViewProps) => {
       />
       <NoticeToast key={session.session_id} notices={sessionNotices(session)} />
       {isMyDataOpen && (
-        <MyDataDialog sessionId={session.session_id} onClose={() => setIsMyDataOpen(false)} />
+        <MyDataDialog personaId={session.persona_id} onClose={() => setIsMyDataOpen(false)} />
       )}
 
-      <main className="grid flex-1 gap-4 p-4 sm:p-6 lg:min-h-0 lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
+      {/* 넓은 화면: 대화창 | 손잡이 | 패널. 대화창 폭은 손잡이로 바꾸는 --chat-width(%)입니다. */}
+      <main
+        ref={mainRef}
+        style={{ '--chat-width': `${split.ratio}%` } as CSSProperties}
+        className="grid flex-1 gap-4 lg:min-h-0 lg:grid-cols-[minmax(0,var(--chat-width))_auto_minmax(0,1fr)] lg:gap-0"
+      >
         <ChatPanel
           messages={chat.messages}
           choices={chat.choices}
           importKind={chat.importKind}
           sessionId={session.session_id}
+          personaId={session.persona_id}
           onImport={(importIds) =>
             void chat.send(`고용24에서 고른 ${importIds.length}건 넣어 주세요`, {
               inputKind: 'choice',
@@ -126,10 +138,17 @@ export const DashboardView = ({ session, personaName }: DashboardViewProps) => {
           isUploading={upload.isPending}
           statusText={statusText}
         />
+        <SplitHandle
+          ratio={split.ratio}
+          onChange={split.setRatio}
+          onReset={split.reset}
+          containerRef={mainRef}
+          controlsId="dashboard-chat"
+        />
         <PanelFrame
           session={session}
           onEditRequest={(label) => chat.setInputText(`${label} 고칠게요`)}
-          onOpenForm={() => void chat.send(OPEN_FORM_MESSAGE, { inputKind: 'choice' })}
+          onOpenForm={handleOpenForm}
           reviewStep={reviewStep}
           onExitReview={() => setReview(null)}
           onFormConfirmed={(mode) =>

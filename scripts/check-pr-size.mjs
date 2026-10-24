@@ -9,6 +9,7 @@ const EXCLUDED = [
   /(^|\/)uv\.lock$/,
   /^frontend\/src\/types\/api\.gen\.ts$/,
   /^backend\/alembic\/versions\//,
+  /^backend\/data\/reference\/work24_codes\.json$/, // scripts/fetch_work24_codes.py가 만듦
 ];
 
 const out = execFileSync('git', ['diff', '--numstat', `${base}...HEAD`], { encoding: 'utf8' });

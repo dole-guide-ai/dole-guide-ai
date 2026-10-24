@@ -1,3 +1,4 @@
+import type { components } from '@/types/api.gen';
 import type { Completeness, FieldEvidence, FieldSource, FieldStatus } from '@/types/chat.types';
 
 /**
@@ -103,4 +104,11 @@ export interface ResumeDraftRead extends ResumeValues {
   /** 남은 질문 순서 (2-1.3). 패널의 "AI가 물어볼 순서" 미리 보기에 씁니다. */
   question_queue?: string[];
   can_save: boolean;
+  /** 실제 서버 이력서 버전 (PATCH If-Match). 모의 세션에는 없습니다. */
+  lock_version?: number;
+  /** 이력서 맨 위 기본정보. 고용24 회원정보에서 연동되는 칸이라 고칠 수 없습니다 (F-32). */
+  profile_display?: ProfileDisplay | null;
 }
+
+/** 기본정보 표시값. 계좌는 끝 4자리만 옵니다. 백엔드 `ProfileDisplay`와 같은 모양입니다. */
+export type ProfileDisplay = components['schemas']['ProfileDisplay'];

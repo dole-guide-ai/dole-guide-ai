@@ -1,0 +1,62 @@
+{
+  "persona_id": "lee",
+  "today": "2026-10-21",
+  "procedure": {
+    "stage": "recognition",
+    "recipient_group": "general",
+    "age_at_separation": 58,
+    "has_disability": false,
+    "separation_date": "2026-07-06",
+    "education_done": true,
+    "eligibility_applied_on": "2026-07-21",
+    "first_recognition_date": "2026-08-04",
+    "benefit_days": 270,
+    "benefit_end_date": "2027-04-23",
+    "period_end_date": "2027-07-06",
+    "expected_end_date": "2027-04-23",
+    "end_reason": null,
+    "remaining_rounds": 8,
+    "last_round": 11
+  },
+  "current_round": {
+    "round": 4,
+    "period_start": "2026-09-30",
+    "period_end": "2026-10-27",
+    "recognition_date": "2026-10-27",
+    "attendance_required": true,
+    "status": "current",
+    "application_status": "draft"
+  },
+  "entry": {
+    "branch_id": "E4b",
+    "panel": "B",
+    "progress": {
+      "current": 4,
+      "done": [1, 2, 3]
+    },
+    "title": "4차 실업인정 할 일",
+    "next_step_text": "다음 기한 : 4차 실업인정일 10.27(화) · 고용센터 출석",
+    "messages": [
+      {
+        "template_id": "T-E4b",
+        "text": "이정호님, 3차 실업인정까지 받으셨네요. 이제 4차 실업인정 준비를 시작해 볼까요? 10월 27일(화)까지 6일 남았어요.",
+        "cite": null
+      },
+      {
+        "template_id": "T-S+M3",
+        "text": "4차는 4주에 활동 2건, 그중 구직활동 1건이 꼭 있어야 해요. 지금 기록된 활동은 2건인데 같은 날 활동이 있어 1건만 인정돼요. 다른 날 활동이 1건 더 필요해요. 4차는 고용센터에 직접 가는 출석 회차예요.",
+        "cite": "실업인정 인정기준 · 2026.3.1 신청자부터 / 취업드림수첩(2025년판)"
+      }
+    ],
+    "choices": ["부족한 활동 추천해 주세요", "새 활동 기록할게요", "신청서 미리 볼래요"],
+    "accepts_file": false,
+    "ui": {
+      "big_text": false
+    },
+    "flags": {
+      "m1": false
+    },
+    "rule_refs": ["ACT-025", "ACT-026", "ACT-055", "ACT-110", "ACT-040"]
+  },
+  "pending_ask": null
+}

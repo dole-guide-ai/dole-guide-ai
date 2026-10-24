@@ -1,5 +1,7 @@
 'use client';
 
+import { Info, ListChecks } from 'lucide-react';
+
 import { Button } from '@/components/Button';
 import { EvidenceLine } from '@/components/EvidenceLine';
 import { JobSearchCard } from '@/features/recognition/JobSearchCard';
@@ -20,6 +22,7 @@ import { ApiError } from '@/lib/api';
 import { formatDotDate, formatShortDate } from '@/lib/dateFormat';
 import { type ChipSpec, fieldChip } from '@/lib/fieldChip';
 import type { FieldMeta } from '@/lib/formStore';
+import { ICON_SIZE, ICON_STROKE } from '@/lib/iconSize';
 import type { SessionRead } from '@/types/demo.types';
 import type { ConsentValue, RecognitionFormRead } from '@/types/recognition.types';
 
@@ -40,6 +43,7 @@ const OPTIONAL_CHIP: ChipSpec = { label: '선택', tone: 'neutral' };
 
 const CONSENT_LABEL: Record<ConsentValue, string> = {
   agree: '동의함',
+  agree_required_only: '필수 항목만 동의함',
   disagree: '동의하지 않음',
   decide_on_work24: '고용24에서 고르기',
 };
@@ -57,9 +61,17 @@ export const RecognitionPanel = ({
   onBackToRound,
   onConfirmed,
 }: RecognitionPanelProps) => {
-  const query = useRecognitionForm(session.session_id, session.derived.current_round);
+  const query = useRecognitionForm(
+    session.session_id,
+    session.derived.current_round,
+    session.persona_id,
+  );
   const draft = useRecognitionDraft();
-  const confirm = useConfirmRecognition();
+  const confirm = useConfirmRecognition(
+    session.session_id,
+    session.persona_id,
+    session.derived.current_round,
+  );
 
   if (query.isPending) return <p className="text-muted text-base">신청서를 정리하는 중…</p>;
   if (query.isError) {
@@ -78,18 +90,32 @@ export const RecognitionPanel = ({
   const work = form.work_and_employment;
   const activity = form.reemployment_activity;
   const plan = form.notification_and_plan;
-  const shortBy = activity.required.activities - activity.counted.activities;
+  // 규칙으로 셀 수 없는 회차(필요 건수 null)는 부족 안내를 띄우지 않습니다.
+  const shortBy = (activity.required.activities ?? 0) - activity.counted.activities;
   const prevChip = (path: string, answeredOn?: string | null) => selfChip(fields[path], answeredOn);
   const workPath = (key: string) => `work_and_employment.${key}`;
+  // 한 회차에 근로내역이 여러 건이면 모두 보여 줍니다(고용24도 근로내역을 건별로 적음).
+  const workList = work.work_entries?.length ? work.work_entries : [work.work_details ?? null];
 
   const handleSubmit = () => {
-    const mode = form.submit_mode === 'attend' ? 'attend' : 'send';
-    confirm.mutate({ submit_mode: mode }, { onSuccess: () => onConfirmed?.(mode) });
+    // 서버가 정한 방식(send·attend)으로만 보냅니다. 인정일 전(preview)·지난 뒤에는 보내지 않습니다 (F-27).
+    const mode = form.submit_mode;
+    if (mode !== 'send' && mode !== 'attend') return;
+    confirm.mutate(
+      { submit_mode: mode, attend_items: mode === 'attend' ? form.attend_items : undefined },
+      { onSuccess: () => onConfirmed?.(mode) },
+    );
   };
 
   return (
-    <div className="flex flex-col gap-4">
-      <p className="bg-canvas text-muted rounded-xl px-4 py-2 text-sm">
+    <div className="flex flex-col gap-6">
+      <p className="text-neutral flex items-start gap-2 text-sm">
+        <Info
+          aria-hidden
+          size={ICON_SIZE.sm}
+          strokeWidth={ICON_STROKE}
+          className="mt-0.5 shrink-0"
+        />
         사전 확인 · 재취업을 위한 약속, 부정수급 고지 확인서는 고용24에서 본인이 확인해요.
       </p>
 
@@ -138,43 +164,42 @@ export const RecognitionPanel = ({
           chip={prevChip(workPath('has_work_or_service'), work.answered_on)}
         />
         {work.has_work_or_service && (
-          <div className="bg-canvas my-1 rounded-xl px-3 py-1">
-            <FieldRow
-              label="근로내역(일한 날)"
-              value={formatWorkDates(work.work_details?.work_dates)}
-              isRequired
-              chip={prevChip(workPath('work_details.work_dates'), work.answered_on)}
-            />
-            <FieldRow
-              label="총 근로시간"
-              value={
-                work.work_details?.total_hours != null
-                  ? `${work.work_details.total_hours}시간`
-                  : null
-              }
-              isRequired
-              chip={prevChip(workPath('work_details.total_hours'), work.answered_on)}
-            />
-            <FieldRow
-              label="소득수령(예정)일"
-              value={
-                work.work_details?.income_date
-                  ? formatShortDate(work.work_details.income_date)
-                  : null
-              }
-              isRequired
-              chip={prevChip(workPath('work_details.income_date'), work.answered_on)}
-            />
-            <FieldRow
-              label="소득수령(예정)액"
-              value={
-                work.work_details?.income_amount != null
-                  ? `${work.work_details.income_amount.toLocaleString('ko-KR')}원`
-                  : null
-              }
-              isRequired
-              chip={prevChip(workPath('work_details.income_amount'), work.answered_on)}
-            />
+          <div className="border-line my-2 ml-1 border-l-2 pl-4">
+            {workList.map((detail, index) => (
+              <div key={index} className={index > 0 ? 'border-line mt-2 border-t pt-2' : undefined}>
+                {workList.length > 1 && (
+                  <p className="text-muted pt-1 text-sm">근로내역 {index + 1}</p>
+                )}
+                <FieldRow
+                  label="근로내역(일한 날)"
+                  value={formatWorkDates(detail?.work_dates)}
+                  isRequired
+                  chip={prevChip(workPath('work_details.work_dates'), work.answered_on)}
+                />
+                <FieldRow
+                  label="총 근로시간"
+                  value={detail?.total_hours != null ? `${detail.total_hours}시간` : null}
+                  isRequired
+                  chip={prevChip(workPath('work_details.total_hours'), work.answered_on)}
+                />
+                <FieldRow
+                  label="소득수령(예정)일"
+                  value={detail?.income_date ? formatShortDate(detail.income_date) : null}
+                  isRequired
+                  chip={prevChip(workPath('work_details.income_date'), work.answered_on)}
+                />
+                <FieldRow
+                  label="소득수령(예정)액"
+                  value={
+                    detail?.income_amount != null
+                      ? `${detail.income_amount.toLocaleString('ko-KR')}원`
+                      : null
+                  }
+                  isRequired
+                  chip={prevChip(workPath('work_details.income_amount'), work.answered_on)}
+                />
+              </div>
+            ))}
             {/* DUE-011~021 · DUE-102: 취업으로 보는 기준과 신고 범위 */}
             <div className="text-muted flex flex-col gap-1 py-1 text-sm">
               <p>
@@ -210,12 +235,21 @@ export const RecognitionPanel = ({
         </p>
       ) : (
         <>
-          <section className="flex flex-col gap-3" aria-label="2 재취업 활동정보등록">
-            <h3 className="text-base font-bold">2 재취업 활동정보등록</h3>
-            <p className="bg-brand-soft text-brand rounded-xl px-4 py-2 text-sm">
+          <section
+            className="border-line flex flex-col gap-4 border-t pt-6"
+            aria-label="2 재취업 활동정보등록"
+          >
+            <h3 className="text-lg font-bold">2 재취업 활동정보등록</h3>
+            <p className="text-brand flex items-start gap-2 text-sm font-semibold">
+              <ListChecks
+                aria-hidden
+                size={ICON_SIZE.sm}
+                strokeWidth={ICON_STROKE}
+                className="mt-0.5 shrink-0"
+              />
               {form.recognition_round}차 실업인정 필수 등록 요건: 재취업활동{' '}
               {activity.required.activities}회 등록 대상
-              {activity.required.job_search > 0 &&
+              {(activity.required.job_search ?? 0) > 0 &&
                 `, 구직활동 ${activity.required.job_search}회 이상 포함`}
             </p>
             {shortBy > 0 && (
@@ -322,7 +356,7 @@ export const RecognitionPanel = ({
         </>
       )}
 
-      <div className="flex flex-col gap-1">
+      <div className="border-line flex flex-col gap-1 border-t pt-4">
         <p className="text-muted text-sm">
           실업인정은 본인이 직접 신청해요. 서비스는 정리·점검만 하고 최종 인정 여부는 관할
           고용센터가 판단해요.

@@ -2,7 +2,7 @@
 
 판정 모델도 gateway를 거칩니다(JUDGE_MODEL, 비우면 AGENT_MODEL).
 
-LLM_API_KEY가 없으면 판정을 건너뛰고 '판정 건너뜀'으로 기록합니다.
+판정 모델 공급자 키가 없으면 판정을 건너뛰고 '판정 건너뜀'으로 기록합니다.
 """
 
 import os
@@ -31,8 +31,8 @@ def judge(case: dict[str, Any], replies: list[str], mode: str, threshold: float)
         return Verdict(passed=True)
     if mode != "real":
         return Verdict(passed=mode == "selftest", score=1.0 if mode == "selftest" else 0.0)
-    if not get_settings().llm_api_key:
-        return Verdict(passed=None, reason="LLM_API_KEY가 없어 LLM 판정 건너뜀")
+    if not get_settings().has_llm_key("judge"):
+        return Verdict(passed=None, reason="판정 모델 공급자 키가 없어 LLM 판정 건너뜀")
 
     from deepeval.metrics import GEval
     from deepeval.test_case import LLMTestCase, SingleTurnParams

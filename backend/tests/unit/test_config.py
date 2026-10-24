@@ -5,7 +5,18 @@ from pydantic import ValidationError
 
 from app.core.config import Settings
 
-LLM_KEYS = ("LLM_API_KEY", "AGENT_MODEL", "EXTRACT_MODEL", "LLM_BASE_URL")
+LLM_KEYS = (
+    "OPENAI_API_KEY",
+    "UPSTAGE_API_KEY",
+    "AGENT_PROVIDER",
+    "AGENT_MODEL",
+    "EXTRACT_PROVIDER",
+    "EXTRACT_MODEL",
+    "JUDGE_PROVIDER",
+    "JUDGE_MODEL",
+    "INTERNAL_API_SECRET",
+    "ACCOUNT_ENCRYPTION_KEY",
+)
 
 
 @pytest.fixture(autouse=True)
@@ -24,17 +35,48 @@ def test_settings_reads_model_names_from_env(monkeypatch: pytest.MonkeyPatch) ->
     assert settings.extract_model == "test-extract-model"
 
 
-def test_empty_base_url_becomes_none(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("LLM_BASE_URL", "")
+def test_empty_judge_provider_follows_agent(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("AGENT_PROVIDER", "upstage")
+    monkeypatch.setenv("AGENT_MODEL", "test-agent-model")
+    monkeypatch.setenv("JUDGE_PROVIDER", "")
 
-    assert Settings(_env_file=None).llm_base_url is None
+    assert Settings(_env_file=None).chat_target("judge") == ("upstage", "test-agent-model")
+
+
+def test_chat_target_by_role(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("AGENT_PROVIDER", "upstage")
+    monkeypatch.setenv("AGENT_MODEL", "test-agent-model")
+    monkeypatch.setenv("EXTRACT_MODEL", "test-extract-model")
+    monkeypatch.setenv("JUDGE_PROVIDER", "openai")
+    monkeypatch.setenv("JUDGE_MODEL", "test-judge-model")
+    settings = Settings(_env_file=None)
+
+    assert settings.chat_target("agent") == ("upstage", "test-agent-model")
+    assert settings.chat_target("extract") == ("openai", "test-extract-model")
+    assert settings.chat_target("judge") == ("openai", "test-judge-model")
+
+
+def test_has_llm_key_checks_chosen_provider(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test-synthetic-value")
+    monkeypatch.setenv("AGENT_PROVIDER", "upstage")
+    settings = Settings(_env_file=None)
+
+    assert not settings.has_llm_key("agent")
+    assert settings.has_llm_key("extract")
+
+
+def test_unknown_provider_is_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("AGENT_PROVIDER", "unknown")
+
+    with pytest.raises(ValidationError):
+        Settings(_env_file=None)
 
 
 def test_non_local_env_requires_llm_keys(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("APP_ENV", "production")
     monkeypatch.setenv("AGENT_MODEL", "test-agent-model")
 
-    with pytest.raises(ValidationError, match="LLM_API_KEY, EXTRACT_MODEL"):
+    with pytest.raises(ValidationError, match="OPENAI_API_KEY, EXTRACT_MODEL"):
         Settings(_env_file=None)
 
 
@@ -44,13 +86,13 @@ def test_local_env_only_warns_missing_keys(caplog: pytest.LogCaptureFixture) -> 
     with caplog.at_level(logging.WARNING):
         settings.warn_missing_keys()
 
-    assert "LLM_API_KEY, AGENT_MODEL, EXTRACT_MODEL" in caplog.text
+    assert "OPENAI_API_KEY, AGENT_MODEL, EXTRACT_MODEL" in caplog.text
 
 
 def test_warning_does_not_log_secret_values(
     monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
-    monkeypatch.setenv("LLM_API_KEY", "sk-test-synthetic-value")
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test-synthetic-value")
     settings = Settings(_env_file=None)
 
     with caplog.at_level(logging.WARNING):
@@ -74,3 +116,54 @@ def test_cors_origins_reads_json_list(monkeypatch: pytest.MonkeyPatch) -> None:
         "https://a.example.com",
         "https://b.example.com",
     ]
+
+
+def test_non_local_env_requires_secrets(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("APP_ENV", "production")
+    for key in ("OPENAI_API_KEY", "AGENT_MODEL", "EXTRACT_MODEL"):
+        monkeypatch.setenv(key, "test-value")
+
+    with pytest.raises(ValidationError, match="INTERNAL_API_SECRET, ACCOUNT_ENCRYPTION_KEY"):
+        Settings(_env_file=None)
+
+
+def test_non_local_env_requires_only_used_provider_keys(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("APP_ENV", "production")
+    monkeypatch.setenv("AGENT_PROVIDER", "upstage")
+    monkeypatch.setenv("EXTRACT_PROVIDER", "upstage")
+    for key in ("AGENT_MODEL", "EXTRACT_MODEL", "INTERNAL_API_SECRET", "ACCOUNT_ENCRYPTION_KEY"):
+        monkeypatch.setenv(key, "test-value")
+
+    with pytest.raises(ValidationError, match="APP_ENV=production에서는 UPSTAGE_API_KEY 값이"):
+        Settings(_env_file=None)
+
+
+def test_runtime_defaults() -> None:
+    settings = Settings(_env_file=None)
+
+    assert settings.visitor_ttl_days == 7
+    assert settings.max_upload_mb == 4
+    assert settings.turn_timeout_seconds == 180
+
+
+def test_embedding_provider_key_required_when_model_set(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("APP_ENV", "production")
+    for key in (
+        "OPENAI_API_KEY",
+        "AGENT_MODEL",
+        "EXTRACT_MODEL",
+        "INTERNAL_API_SECRET",
+        "ACCOUNT_ENCRYPTION_KEY",
+    ):
+        monkeypatch.setenv(key, "test-value")
+    monkeypatch.setenv("EMBEDDING_PROVIDER", "upstage")
+    monkeypatch.setenv("EMBEDDING_MODEL", "test-embed")
+
+    with pytest.raises(ValidationError, match="UPSTAGE_API_KEY"):
+        Settings(_env_file=None)
+
+
+def test_embedding_key_not_required_without_model(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("EMBEDDING_PROVIDER", "upstage")
+
+    assert "upstage_api_key" not in Settings(_env_file=None).missing_required_keys()

@@ -1,23 +1,28 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { apiFetch } from '@/lib/api';
-import { applyFormUpdate } from '@/lib/formStore';
+import { API_PATHS } from '@/lib/apiPaths';
+import { applyFormUpdates } from '@/lib/formStore';
 import { queryKeys } from '@/lib/queryKeys';
-import type { MyDataDelete, MyDataDeleteRead } from '@/types/myData.types';
+import type { FormPatchRead } from '@/types/chat.types';
+
+const DELETE = 'DELETE';
 
 /**
- * 내 정보 한 줄 삭제 (2-0.9): `DELETE /me/data`. 서버가 돌려준 `form_update`로 그 값을 쓰던 패널 칸을
- * `아직 없음`으로 돌리고, 목록을 다시 받습니다. AI는 필요할 때 다시 묻습니다.
+ * 내 정보 한 줄 삭제 `DELETE /accounts/{id}/facts/{fact_id}` (F-31, 2-0.9). AI는 필요할 때 다시 묻습니다.
+ * 지운 뒤 이력서·신청서를 다시 받아 그 칸이 `답변 필요`로 보이게 합니다.
  */
-export const useDeleteMyData = (sessionId: string) => {
+export const useDeleteMyData = (personaId: string) => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (body: MyDataDelete) =>
-      apiFetch<MyDataDeleteRead>('/me/data', { method: 'DELETE', body: JSON.stringify(body) }),
-    onSuccess: ({ updates }) => {
-      updates.forEach(applyFormUpdate);
-      void queryClient.invalidateQueries({ queryKey: queryKeys.myData(sessionId) });
+    mutationFn: (factId: string) =>
+      apiFetch<FormPatchRead>(API_PATHS.facts(personaId, factId), { method: DELETE }),
+    onSuccess: (result) => {
+      // 지운 칸(답변 필요로 돌아간 칸)을 바로 반영하고, 서류도 다시 받습니다.
+      applyFormUpdates(result);
+      void queryClient.invalidateQueries({ queryKey: queryKeys.forms });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.myData(personaId) });
     },
   });
 };

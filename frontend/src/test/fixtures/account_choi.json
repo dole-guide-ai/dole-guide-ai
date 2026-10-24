@@ -1,0 +1,54 @@
+{
+  "persona_id": "choi",
+  "today": "2026-10-21",
+  "procedure": {
+    "stage": "job_registration",
+    "recipient_group": "age65_or_disabled",
+    "age_at_separation": 67,
+    "has_disability": false,
+    "separation_date": "2026-09-30",
+    "education_done": false,
+    "eligibility_applied_on": null,
+    "first_recognition_date": null,
+    "benefit_days": 210,
+    "benefit_end_date": null,
+    "period_end_date": "2027-09-30",
+    "expected_end_date": "2027-09-30",
+    "end_reason": null,
+    "remaining_rounds": null,
+    "last_round": null
+  },
+  "current_round": null,
+  "entry": {
+    "branch_id": "E7b",
+    "panel": "A",
+    "progress": {
+      "current": 1,
+      "done": []
+    },
+    "title": "이력서부터 같이 만들어요",
+    "next_step_text": "다음 할 일 : 이력서 최신화 → 온라인 교육 → 고용센터 방문 신청",
+    "messages": [
+      {
+        "template_id": "T-E7b",
+        "text": "최영수님, 반가워요. 2019년에 쓰신 이력서가 있네요. 그 뒤로 일하신 곳만 더하면 최신 이력서가 돼요. 같이 고쳐 볼까요?",
+        "cite": null
+      },
+      {
+        "template_id": "T-M1",
+        "text": "참고로 그만두실 때 67세셨으니, 수급자격 신청은 인터넷 사전제출 대신 관할 고용센터에 방문해서 해요. 실업급여를 못 받는다는 뜻은 아니에요.",
+        "cite": "실업급여(상용직) · 2026.08.25"
+      }
+    ],
+    "choices": ["네, 고칠게요", "새로 쓸래요", "전체 순서가 궁금해요"],
+    "accepts_file": false,
+    "ui": {
+      "big_text": true
+    },
+    "flags": {
+      "m1": true
+    },
+    "rule_refs": ["PROC-009", "PROC-085", "PROC-048"]
+  },
+  "pending_ask": null
+}

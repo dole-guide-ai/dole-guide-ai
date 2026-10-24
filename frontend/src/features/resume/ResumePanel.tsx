@@ -27,6 +27,7 @@ import { useResumeForm } from '@/features/resume/useResumeForm';
 import { ApiError } from '@/lib/api';
 import { needsCheck } from '@/lib/fieldChip';
 import type { FieldMeta } from '@/lib/formStore';
+import { PERCENT_SCALE, STICKY_FOOTER, STICKY_HEADER } from '@/lib/panelLayout';
 import type { SessionRead } from '@/types/demo.types';
 import type { ResumeCompetencies, ResumeEducation } from '@/types/resume.types';
 
@@ -47,6 +48,8 @@ interface ResumePanelProps {
 }
 
 const WORK24_CHIP = { label: '고용24에서', tone: 'neutral' } as const;
+// 섹션 머리에 출처를 한 번만 둔 칸은 줄마다 칩을 달지 않습니다.
+const NO_CHIP = null;
 // 고르지 않아도 되는 칸 (시연 개선 9번: '있으면' → '선택')
 const OPTIONAL_CHIP = { label: '선택', tone: 'neutral' } as const;
 
@@ -125,10 +128,10 @@ export const ResumePanel = ({
   saveLabel: saveLabelOverride,
   onSaved,
 }: ResumePanelProps) => {
-  const query = useResumeForm(session.session_id);
+  const query = useResumeForm(session.session_id, session.persona_id);
   const { values, fields, completeness } = useResumeDraft();
-  const confirm = useConfirmResume();
-  const patch = usePatchResumeField();
+  const confirm = useConfirmResume(session.persona_id);
+  const patch = usePatchResumeField(session.session_id, session.persona_id);
 
   if (query.isPending) return <p className="text-muted text-base">이력서를 불러오는 중…</p>;
   if (query.isError) {
@@ -147,15 +150,18 @@ export const ResumePanel = ({
     isReadOnly
       ? undefined
       : (text: string) => patch.mutateAsync({ path, op: 'set', value: toValue(text) });
-  /** 기간은 한 칸에 '시작 ~ 끝'으로 적고 시작·끝을 따로 고칩니다. */
+  /** 기간은 한 칸에 '시작 ~ 끝'으로 적고, 시작·끝을 한 PATCH로 고칩니다(버전이 한 번만 바뀜). */
   const directPeriod = (base: string) =>
     isReadOnly
       ? undefined
       : async (text: string) => {
           const { start, end } = splitPeriod(text);
-          await patch.mutateAsync({ path: `${base}.start_date`, op: 'set', value: start });
-          await patch.mutateAsync({ path: `${base}.end_date`, op: 'set', value: end });
+          await patch.mutateAsync([
+            { path: `${base}.start_date`, op: 'set', value: start },
+            { path: `${base}.end_date`, op: 'set', value: end },
+          ]);
         };
+  const profile = values.profile_display;
   const education = values.education ?? [];
   const prefs = values.job_preferences;
   const careers = values.competencies?.careers ?? [];
@@ -192,40 +198,36 @@ export const ResumePanel = ({
   const saveLabel =
     saveLabelOverride ?? (isUpdate ? '확인하고 이력서 최신화' : '확인하고 이력서 저장');
   const canSave = values.can_save === true && !confirm.isPending;
+  const doneCount = completeness?.done ?? 0;
+  // 서버 완성도가 오기 전에는 꼭 채울 섹션 수(done의 항목 수)를 분모로 씁니다.
+  const totalCount = completeness?.total || Object.keys(done).length;
   const queue = questionQueue(values.next_question, values.question_queue);
   const careerYears = prefs?.experience_summary;
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="bg-canvas flex flex-wrap items-center justify-between gap-3 rounded-xl px-4 py-3">
-        <div>
-          <p className="text-muted text-sm">완성도 (꼭 묻는 5개)</p>
-          <p className="text-2xl font-bold" aria-label="완성도">
-            {completeness?.done ?? 0} / {completeness?.total ?? 5}
+      {/* 진행 상황: 패널을 내려도 위에 붙어 있습니다. */}
+      <div className={STICKY_HEADER}>
+        <div className="flex items-baseline justify-between gap-3">
+          <p className="text-sm font-semibold">꼭 채울 항목</p>
+          <p className="text-base font-bold" aria-label="완성도">
+            {doneCount} / {totalCount}
           </p>
         </div>
-        {!isReadOnly && (
-          <div className="flex flex-col items-end gap-1">
-            <Button
-              onClick={() => confirm.mutate(undefined, { onSuccess: onSaved })}
-              disabled={!canSave}
-            >
-              {confirm.isPending ? '저장하는 중…' : saveLabel}
-            </Button>
-            {!canSave && (
-              <span className="text-muted text-xs">
-                필수 항목을 다 채우고 확인 필요가 없어야 해요
-              </span>
-            )}
-          </div>
-        )}
+        <div
+          role="progressbar"
+          aria-label="이력서 완성도"
+          aria-valuemin={0}
+          aria-valuemax={totalCount}
+          aria-valuenow={doneCount}
+          className="bg-neutral-soft h-2 overflow-hidden rounded-full"
+        >
+          <div
+            className="bg-ai h-full rounded-full transition-[width] duration-500"
+            style={{ width: `${(doneCount / totalCount) * PERCENT_SCALE}%` }}
+          />
+        </div>
       </div>
-      {confirm.isError && (
-        <p role="alert" className="text-danger text-sm">
-          {confirm.error instanceof ApiError ? confirm.error.message : '저장하지 못했어요.'}
-        </p>
-      )}
-
       <ResumeSection title="이력서 제목" isRequired isDone={done.title}>
         <FieldRow
           label="제목"
@@ -238,8 +240,28 @@ export const ResumePanel = ({
         />
       </ResumeSection>
 
-      <ResumeSection title="기본정보" hint="고용24 회원정보에서 자동으로 들어가요">
-        <FieldRow label="성명·연락처·주소" value="고용24 회원정보에서 자동" chip={WORK24_CHIP} />
+      <ResumeSection
+        title="기본정보"
+        hint="고용24 회원정보에서 연동돼요. 여기서는 고칠 수 없어요"
+        badge={WORK24_CHIP}
+      >
+        {profile ? (
+          <>
+            <FieldRow label="성명" value={profile.name} chip={NO_CHIP} />
+            <FieldRow
+              label="생년·성별"
+              value={[profile.birth_year && `${profile.birth_year}년생`, profile.gender]
+                .filter(Boolean)
+                .join(' · ')}
+              chip={NO_CHIP}
+            />
+            <FieldRow label="휴대전화" value={profile.phone ?? null} chip={NO_CHIP} />
+            <FieldRow label="이메일" value={profile.email ?? null} chip={NO_CHIP} />
+            <FieldRow label="주소" value={profile.address ?? null} chip={NO_CHIP} />
+          </>
+        ) : (
+          <FieldRow label="성명·연락처·주소" value="고용24 회원정보에서 자동" chip={NO_CHIP} />
+        )}
       </ResumeSection>
 
       <ResumeSection title="학력사항" isRequired isDone={done.education}>
@@ -338,9 +360,8 @@ export const ResumePanel = ({
           rawValue={careerYears}
           meta={fields['job_preferences.experience_summary']}
           isRequired
+          // 경력 합계는 코드가 계산해 확인받는 값이라(2-1.4) 대화로만 고칩니다.
           onEdit={edit('희망 직종 경력')}
-          onDirectSave={direct('job_preferences.experience_summary')}
-          placeholder="경력 9년 6개월 또는 신입"
         />
         <FieldRow
           label="희망직무내용"
@@ -348,7 +369,7 @@ export const ResumePanel = ({
           rawValue={prefs?.desired_duties}
           meta={fields['job_preferences.desired_duties']}
           chip={prefs?.desired_duties ? undefined : OPTIONAL_CHIP}
-          onDirectSave={direct('job_preferences.desired_duties')}
+          onEdit={edit('희망직무내용')}
         />
         <FieldRow
           label="희망근무지역"
@@ -609,6 +630,30 @@ export const ResumePanel = ({
             ))}
           </ol>
         </section>
+      )}
+
+      {/* 저장: 패널 아래에 붙어 늘 보입니다. */}
+      {!isReadOnly && (
+        <div className={STICKY_FOOTER}>
+          <Button
+            size="lg"
+            className="w-full"
+            onClick={() => confirm.mutate(undefined, { onSuccess: onSaved })}
+            disabled={!canSave}
+          >
+            {confirm.isPending ? '저장하는 중…' : saveLabel}
+          </Button>
+          {confirm.isError && (
+            <p role="alert" className="text-danger text-center text-sm">
+              {confirm.error instanceof ApiError ? confirm.error.message : '저장하지 못했어요.'}
+            </p>
+          )}
+          {!canSave && (
+            <span className="text-muted text-center text-sm">
+              필수 항목을 다 채우고 확인 필요가 없어야 해요
+            </span>
+          )}
+        </div>
       )}
     </div>
   );

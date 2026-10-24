@@ -1,7 +1,8 @@
 """tests/와 evals/가 함께 쓰는 공용 픽스처입니다."""
 
 import os
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
+from datetime import date, datetime, time
 
 import pytest
 from sqlalchemy.engine import make_url
@@ -13,6 +14,11 @@ TEST_DATABASE_URL = os.environ.get(
 if not (make_url(TEST_DATABASE_URL).database or "").endswith("_test"):
     raise RuntimeError("TEST_DATABASE_URL의 DB 이름은 _test로 끝나야 합니다. (예: dole_test)")
 os.environ["DATABASE_URL"] = TEST_DATABASE_URL
+# 테스트가 .env의 LangSmith 설정으로 트레이스를 보내지 않게 끕니다.
+# 실제 모델 평가는 evals/conftest.py가 .env 값으로 되돌립니다.
+os.environ["LANGSMITH_TRACING"] = "false"
+# 테스트는 고용24 OpenAPI를 실제로 부르지 않습니다. 인증키를 비워 늘 스냅샷을 씁니다.
+os.environ["WORK24_API_KEY"] = ""
 
 from alembic.config import Config  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
@@ -23,9 +29,14 @@ from sqlalchemy.orm import Session  # noqa: E402
 
 from alembic import command  # noqa: E402
 from app.agent import gateway  # noqa: E402
+from app.core.clock import KST, get_today  # noqa: E402
 from app.core.config import get_settings  # noqa: E402
 from app.core.db import engine, get_db  # noqa: E402
 from app.main import app  # noqa: E402
+from app.services import accounts as account_service  # noqa: E402
+from app.services.accounts import AccountContext  # noqa: E402
+from app.services.seed import load_personas  # noqa: E402
+from app.services.visitors import authenticate, create_visitor  # noqa: E402
 
 BACKEND_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -94,3 +105,43 @@ def fake_llm(monkeypatch: pytest.MonkeyPatch):
         return model
 
     return _install
+
+
+TEST_TODAY = date(2026, 10, 21)
+
+
+@pytest.fixture
+def entered_headers(client: TestClient) -> Callable[[str], dict[str, str]]:
+    """API 테스트용: 새 방문자로 시연 계정에 입장하고 요청 헤더를 돌려줍니다.
+
+    사용: headers = entered_headers("lee"); client.get("/accounts/lee/rounds", headers=headers)
+    오늘 날짜는 TEST_TODAY로 고정됩니다.
+    """
+    app.dependency_overrides[get_today] = lambda: TEST_TODAY
+
+    def _enter(persona_id: str) -> dict[str, str]:
+        token = client.post("/visitors").json()["visitor_token"]
+        headers = {"Authorization": f"Bearer {token}"}
+        res = client.put(f"/accounts/{persona_id}", headers=headers)
+        assert res.status_code in (200, 201), res.text
+        return headers
+
+    return _enter
+
+
+@pytest.fixture
+def entered_account(db_session: Session) -> Callable[[str], AccountContext]:
+    """서비스 테스트용: HTTP 없이 시연 계정을 만들고 AccountContext를 돌려줍니다.
+
+    오늘 날짜는 TEST_TODAY로 봅니다.
+    """
+    load_personas(db_session)
+
+    def _enter(persona_id: str) -> AccountContext:
+        now = datetime.combine(TEST_TODAY, time(9), KST)
+        visitor = create_visitor(db_session, now)
+        ctx = authenticate(db_session, visitor.visitor_token, now)
+        account_service.enter(db_session, ctx.visitor_id, persona_id, TEST_TODAY)
+        return account_service.find_account(db_session, ctx.visitor_id, persona_id)
+
+    return _enter

@@ -1,7 +1,11 @@
 'use client';
 
+import { Type } from 'lucide-react';
+
 import { Button } from '@/components/Button';
 import { useBigText } from '@/features/bigText/useBigText';
+
+import { ICON_SIZE, ICON_STROKE } from '@/lib/iconSize';
 
 /**
  * 켜져 있으면 `글자 보통`, 꺼져 있으면 `글자 크게`가 보입니다 (1.9 시안 1-3 ①).
@@ -12,6 +16,7 @@ export const BigTextToggle = () => {
 
   return (
     <Button variant="secondary" onClick={toggle}>
+      <Type aria-hidden size={ICON_SIZE.md} strokeWidth={ICON_STROKE} />
       {isBig ? '글자 보통' : '글자 크게'}
     </Button>
   );

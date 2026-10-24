@@ -35,3 +35,12 @@ coverage/
 htmlcov/
 
 .vscode
+
+# crawled knowledge data (not committed)
+backend/data/knowledge/
+
+# 업로드 파일 (로컬 개발)
+backend/uploads/
+
+# Playwright MCP 스크린샷·스냅샷
+.playwright-mcp/

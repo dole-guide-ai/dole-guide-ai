@@ -37,6 +37,8 @@ export interface WorkAndEmployment {
   has_work_or_service: boolean | null;
   /** 근로 있음일 때만 */
   work_details?: WorkDetails | null;
+  /** 근로내역이 여러 건일 때 전부 (있으면 work_details 대신 이 목록을 보여 줌) */
+  work_entries?: WorkDetails[] | null;
   has_employment: boolean | null;
   has_industrial_accident_benefit_right: boolean | null;
   answered_on: string | null;
@@ -74,7 +76,8 @@ export interface OtherActivity {
 }
 
 export interface ReemploymentActivity {
-  required: { activities: number; job_search: number };
+  /** 규칙으로 셀 수 없으면(대상기간 변경 등) null */
+  required: { activities: number | null; job_search: number | null };
   counted: { activities: number; job_search: number };
   has_job_search_activity: boolean;
   job_search_activities: JobSearchActivity[];
@@ -89,7 +92,7 @@ export interface NotificationAndPlan {
   next_activity: { value: string | null; memo: string | null; answered_on: string | null };
 }
 
-export type ConsentValue = 'agree' | 'disagree' | 'decide_on_work24';
+export type ConsentValue = 'agree' | 'agree_required_only' | 'disagree' | 'decide_on_work24';
 
 /** 2-3.6 제출 버튼 상태 */
 export type SubmitMode = 'attend' | 'preview' | 'send' | 'visit_today' | 'change';
@@ -124,6 +127,8 @@ export interface RecognitionFormRead {
   schema_version: 'work24_recognition_v1';
   recognition_round: number;
   status: 'draft' | 'review' | 'finalized';
+  /** 서버 신청서 버전. 제출 PATCH의 If-Match로 보냅니다 (실제 서버 세션만). */
+  lock_version?: number;
   recognition_info: RecognitionInfo;
   unemployment_credit: UnemploymentCredit;
   work_and_employment: WorkAndEmployment;

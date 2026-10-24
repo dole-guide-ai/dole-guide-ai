@@ -1,7 +1,9 @@
 import type { ChatAttachment, ChatMessage } from '@/features/chat/chat.types';
+import { CHAT_ROLE } from '@/features/chat/chat.types';
+import { CHAT_ACTIONS } from '@/features/chat/chatActions';
 
 import type { ChatInputKind } from '@/types/chat.types';
-import type { SessionRead } from '@/types/demo.types';
+import type { EntryResult, SessionRead } from '@/types/demo.types';
 import type { ImportKind } from '@/types/imports.types';
 
 /**
@@ -19,33 +21,60 @@ export interface ChatState {
   acceptsFile: boolean;
   streamingId: string | null;
   nextId: number;
+  /** 마지막으로 보낸 말풍선과 보내기 전 선택지. 턴 시작 전에 거절되면 이 상태로 되돌립니다. */
+  lastSent?: Pick<ChatState, 'choices' | 'importKind' | 'acceptsFile'> & { messageId: string };
 }
 
 export type ChatAction =
-  | { type: 'reset'; session: SessionRead }
-  | { type: 'user_sent'; text: string; inputKind: ChatInputKind; attachments?: ChatAttachment[] }
-  | { type: 'token'; text: string }
+  | { type: typeof CHAT_ACTIONS.RESET; session: SessionRead }
+  /**
+   * 새로고침 뒤 서버에 저장된 대화로 말풍선을 되살립니다 (F-03).
+   * 선택지·불러오기 종류는 멈춘 질문(`pending_ask`)의 것만 남기고, 답을 마친 대화면 비웁니다.
+   */
   | {
-      type: 'ask_user';
+      type: typeof CHAT_ACTIONS.RESTORE;
+      messages: ChatMessage[];
+      pendingAsk: EntryResult['pending_ask'];
+    }
+  | {
+      type: typeof CHAT_ACTIONS.USER_SENT;
+      text: string;
+      inputKind: ChatInputKind;
+      attachments?: ChatAttachment[];
+    }
+  | { type: typeof CHAT_ACTIONS.TOKEN; text: string }
+  | {
+      type: typeof CHAT_ACTIONS.USER_SENT;
+      text: string;
+      inputKind: ChatInputKind;
+      attachments?: ChatAttachment[];
+    }
+  /** 턴이 시작되기 전에 거절됐으면(409 등) 보낸 말풍선을 지우고 선택지를 되살립니다. */
+  | { type: typeof CHAT_ACTIONS.SEND_REJECTED }
+  | { type: typeof CHAT_ACTIONS.TOKEN; text: string }
+  | {
+      type: typeof CHAT_ACTIONS.ASK_USER;
       text: string;
       choices: string[];
       importKind?: ImportKind;
       acceptsFile?: boolean;
     }
-  | { type: 'done'; cite?: string }
-  | { type: 'system'; text: string };
+  | { type: typeof CHAT_ACTIONS.DONE; cite?: string }
+  | { type: typeof CHAT_ACTIONS.SYSTEM; text: string }
+  /** 같은 대화 중 진입 결과가 바뀌면(예: 이력서 저장, F-15) 새 첫 안내를 이어 붙이고 선택지를 바꿉니다. */
+  | { type: typeof CHAT_ACTIONS.ENTRY; entry: EntryResult };
 
 export const initChatState = (session: SessionRead): ChatState => ({
   sessionId: session.session_id,
   messages: session.entry.messages.map((message, index) => ({
     id: `entry-${index}`,
-    role: 'assistant',
+    role: CHAT_ROLE.ASSISTANT,
     text: message.text,
     cite: message.cite,
   })),
   choices: session.entry.choices,
-  importKind: null,
-  acceptsFile: session.entry.accepts_file ?? false,
+  importKind: session.entry.pending_ask?.import_kind ?? null,
+  acceptsFile: session.entry.pending_ask?.accepts_file ?? session.entry.accepts_file ?? false,
   streamingId: null,
   nextId: 1,
 });
@@ -67,13 +96,27 @@ const push = (state: ChatState, message: Omit<ChatMessage, 'id'>): ChatState => 
 
 export const chatReducer = (state: ChatState, action: ChatAction): ChatState => {
   switch (action.type) {
-    case 'reset':
+    case CHAT_ACTIONS.RESET:
       return initChatState(action.session);
 
-    case 'user_sent':
+    case CHAT_ACTIONS.RESTORE:
+      // 이미 이번 화면에서 대화를 이어 갔으면 덮어쓰지 않습니다.
+      if (state.messages.some((message) => message.role === CHAT_ROLE.USER) || state.streamingId) {
+        return state;
+      }
       return {
-        ...push(closeStreaming(state), {
-          role: 'user',
+        ...state,
+        messages: action.messages,
+        choices: action.pendingAsk?.choices ?? [],
+        importKind: action.pendingAsk?.import_kind ?? null,
+        acceptsFile: action.pendingAsk?.accepts_file ?? false,
+      };
+
+    case CHAT_ACTIONS.USER_SENT: {
+      const closed = closeStreaming(state);
+      return {
+        ...push(closed, {
+          role: CHAT_ROLE.USER,
           text: action.text,
           inputKind: action.inputKind,
           attachments: action.attachments,
@@ -81,9 +124,27 @@ export const chatReducer = (state: ChatState, action: ChatAction): ChatState => 
         choices: [],
         importKind: null,
         acceptsFile: false,
+        lastSent: {
+          messageId: `m-${closed.nextId}`,
+          choices: state.choices,
+          importKind: state.importKind,
+          acceptsFile: state.acceptsFile,
+        },
       };
+    }
 
-    case 'token': {
+    case CHAT_ACTIONS.SEND_REJECTED: {
+      if (!state.lastSent) return state;
+      const { messageId, ...ask } = state.lastSent;
+      return {
+        ...state,
+        ...ask,
+        messages: state.messages.filter((message) => message.id !== messageId),
+        lastSent: undefined,
+      };
+    }
+
+    case CHAT_ACTIONS.TOKEN: {
       if (state.streamingId) {
         return {
           ...state,
@@ -94,21 +155,22 @@ export const chatReducer = (state: ChatState, action: ChatAction): ChatState => 
           ),
         };
       }
-      const started = push(state, { role: 'assistant', text: action.text });
+      const started = push(state, { role: CHAT_ROLE.ASSISTANT, text: action.text });
       return { ...started, streamingId: `m-${state.nextId}` };
     }
 
-    case 'ask_user':
+    case CHAT_ACTIONS.ASK_USER:
       return {
-        ...push(closeStreaming(state), { role: 'assistant', text: action.text }),
+        ...push(closeStreaming(state), { role: CHAT_ROLE.ASSISTANT, text: action.text }),
         choices: action.choices,
         importKind: action.importKind ?? null,
         acceptsFile: action.acceptsFile ?? false,
       };
 
-    case 'done': {
+    case CHAT_ACTIONS.DONE: {
       const targetId =
-        state.streamingId ?? [...state.messages].reverse().find((m) => m.role === 'assistant')?.id;
+        state.streamingId ??
+        [...state.messages].reverse().find((m) => m.role === CHAT_ROLE.ASSISTANT)?.id;
       const withCite = action.cite
         ? {
             ...state,
@@ -120,7 +182,16 @@ export const chatReducer = (state: ChatState, action: ChatAction): ChatState => 
       return closeStreaming(withCite);
     }
 
-    case 'system':
-      return push(closeStreaming(state), { role: 'system', text: action.text });
+    case CHAT_ACTIONS.ENTRY: {
+      const next = action.entry.messages.reduce(
+        (acc, message) =>
+          push(acc, { role: CHAT_ROLE.ASSISTANT, text: message.text, cite: message.cite }),
+        closeStreaming(state),
+      );
+      return { ...next, choices: action.entry.choices };
+    }
+
+    case CHAT_ACTIONS.SYSTEM:
+      return push(closeStreaming(state), { role: CHAT_ROLE.SYSTEM, text: action.text });
   }
 };

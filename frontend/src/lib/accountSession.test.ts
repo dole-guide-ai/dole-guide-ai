@@ -1,0 +1,28 @@
+import { describe, expect, it } from 'vitest';
+
+import { sessionFromAccount } from '@/lib/accountSession';
+import { ACCOUNTS } from '@/test/fixtures';
+
+describe('sessionFromAccount', () => {
+  it('새로고침 전 멈춘 질문이 있으면 그 선택지를 다시 띄운다 (F-03)', () => {
+    const account = ACCOUNTS.lee;
+
+    const restored = sessionFromAccount({
+      ...account,
+      pending_ask: {
+        question_id: 'activity.category',
+        text: '어떤 활동이었어요?',
+        choices: ['입사지원', '면접', '다른 활동'],
+        import_kind: 'work24-activities',
+        accepts_file: true,
+      },
+    });
+
+    expect(restored.entry.choices).toEqual(['입사지원', '면접', '다른 활동']);
+    expect(restored.entry.pending_ask?.import_kind).toBe('work24-activities');
+    expect(restored.entry.pending_ask?.accepts_file).toBe(true);
+    expect(sessionFromAccount({ ...account, pending_ask: null }).entry.choices).toEqual(
+      account.entry.choices,
+    );
+  });
+});

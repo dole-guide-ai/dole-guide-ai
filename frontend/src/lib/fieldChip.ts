@@ -12,39 +12,46 @@ interface FieldChipOptions {
   isSelfAnswerRequired?: boolean;
 }
 
+/** 값이 비었다는 뜻의 칩 이름. 패널 줄(FieldRow)은 같은 뜻의 칩을 값 옆에 겹쳐 달지 않을 때 씁니다. */
+export const EMPTY_CHIP_LABEL = { MISSING: '아직 없음', NOT_APPLICABLE: '해당 없음' } as const;
+
 /** 저장 상태 6종 + 출처 + transformed → 칩 12종 (상세기획 2-0.6 표). */
 export const fieldChip = (meta?: FieldMeta, options: FieldChipOptions = {}): ChipSpec => {
   if (!meta || meta.status === 'missing' || meta.status === 'rejected') {
     return options.isSelfAnswerRequired
       ? { label: '답변 필요', tone: 'warn' }
-      : { label: '아직 없음', tone: 'neutral' };
+      : { label: EMPTY_CHIP_LABEL.MISSING, tone: 'neutral' };
   }
 
   if (meta.status === 'conflict' || (meta.status === 'extracted' && meta.transformed)) {
     return { label: '확인 필요', tone: 'warn' };
   }
 
-  if (meta.status === 'not_applicable') return { label: '해당 없음', tone: 'neutral' };
+  if (meta.status === 'not_applicable')
+    return { label: EMPTY_CHIP_LABEL.NOT_APPLICABLE, tone: 'neutral' };
 
   if (meta.status === 'extracted') {
-    if (meta.source === 'old_resume') return { label: '예전 이력서', tone: 'info' };
+    if (meta.source === 'seed') return { label: '예전 이력서', tone: 'info' };
     if (meta.source === 'work24_import') return { label: '고용24 불러오기', tone: 'info' };
     return { label: '문서에서 확인', tone: 'info' };
   }
 
   // confirmed
   switch (meta.source) {
-    case 'self_answer':
-      return { label: '본인 확인', tone: 'ok' };
-    case 'manual':
+    case 'user_answer':
+      // 같은 출처라도 신청서 본인 답변 칸이면 `본인 확인`, 그 밖은 `대화로 추가`
+      return options.isSelfAnswerRequired
+        ? { label: '본인 확인', tone: 'ok' }
+        : { label: '대화로 추가', tone: 'ok' };
+    case 'direct':
       return { label: '직접 입력', tone: 'ok' };
-    case 'computed':
+    case 'auto':
       return { label: '자동', tone: 'neutral' };
     case 'account':
       return { label: '고용24에서', tone: 'neutral' };
-    case 'document':
+    case 'doc':
       return { label: '문서에서 확인', tone: 'info' };
-    case 'old_resume':
+    case 'seed':
       return { label: '예전 이력서', tone: 'info' };
     case 'work24_import':
       return { label: '고용24 불러오기', tone: 'info' };

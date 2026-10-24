@@ -2,11 +2,17 @@ import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 
 import { applyFormUpdateEvent } from '@/features/chat/applyFormUpdateEvent';
 import type { ChatAttachment } from '@/features/chat/chat.types';
+import { CHAT_ACTIONS } from '@/features/chat/chatActions';
 import { describeChatError } from '@/features/chat/chatErrors';
+import { activeToolAfter, chatActionFor, isBubbleEvent } from '@/features/chat/chatEvents';
 import { chatReducer, initChatState } from '@/features/chat/chatReducer';
+import { useChatHistory } from '@/features/chat/useChatHistory';
 
+import { ApiError } from '@/lib/api';
 import { streamChat } from '@/lib/chatStream';
-import type { ChatInputKind } from '@/types/chat.types';
+import { ERROR_CODES } from '@/lib/errorCodes';
+import { SSE_EVENTS } from '@/lib/sseEvents';
+import { type ChatInputKind, INPUT_KIND } from '@/types/chat.types';
 import type { SessionRead } from '@/types/demo.types';
 
 export interface SendOptions {
@@ -29,70 +35,94 @@ export const useChatStream = (session: SessionRead) => {
   const [inputText, setInputText] = useState('');
   const abortRef = useRef<AbortController | null>(null);
   const sessionId = session.session_id;
+  const personaId = session.persona_id;
 
   if (state.sessionId !== sessionId) {
-    dispatch({ type: 'reset', session });
+    dispatch({ type: CHAT_ACTIONS.RESET, session });
   }
+
+  // 실제 서버 세션: 이력서 저장처럼 같은 대화 안에서 첫 안내가 새로 오면 말풍선으로 이어 붙입니다.
+  // 세션이 바뀐 경우는 위의 reset이 첫 안내를 새로 깔므로 붙이지 않습니다.
+  const entryRef = useRef({ sessionId, messages: session.entry.messages });
+  useEffect(() => {
+    const prev = entryRef.current;
+    entryRef.current = { sessionId, messages: session.entry.messages };
+    if (prev.sessionId !== sessionId || prev.messages === session.entry.messages) return;
+    dispatch({ type: CHAT_ACTIONS.ENTRY, entry: session.entry });
+  }, [session.entry, sessionId]);
+
+  // F-03: 새로고침 뒤에는 서버에 저장된 대화로 말풍선을 되살립니다. 저장된 대화가 없으면 진입 안내를 둡니다.
+  const history = useChatHistory(session);
+  const pendingAsk = session.entry.pending_ask;
+  useEffect(() => {
+    if (history.data?.length)
+      dispatch({ type: CHAT_ACTIONS.RESTORE, messages: history.data, pendingAsk });
+  }, [history.data, pendingAsk]);
+  // 이전 대화를 못 받으면 대화가 없던 것처럼 보이지 않게 서버 문구를 말풍선으로 알립니다.
+  useEffect(() => {
+    if (!history.error) return;
+    dispatch({
+      type: CHAT_ACTIONS.SYSTEM,
+      text:
+        history.error instanceof ApiError
+          ? history.error.message
+          : '이전 대화를 불러오지 못했어요. 새로고침해 주세요.',
+    });
+  }, [history.error]);
 
   useEffect(() => () => abortRef.current?.abort(), [sessionId]);
 
   /** 업로드 실패처럼 스트림 밖에서 생긴 오류를 말풍선으로 보여 줍니다. */
-  const notifySystem = useCallback((text: string) => dispatch({ type: 'system', text }), []);
+  const notifySystem = useCallback(
+    (text: string) => dispatch({ type: CHAT_ACTIONS.SYSTEM, text }),
+    [],
+  );
 
   const send = useCallback(
     async (text: string, options: SendOptions = {}) => {
-      const { inputKind = 'text', fileIds, attachments, importIds } = options;
+      const { inputKind = INPUT_KIND.TEXT, fileIds, attachments, importIds } = options;
       const message = text.trim();
       if (!message || abortRef.current) return;
 
       const controller = new AbortController();
       abortRef.current = controller;
-      dispatch({ type: 'user_sent', text: message, inputKind, attachments });
+      dispatch({ type: CHAT_ACTIONS.USER_SENT, text: message, inputKind, attachments });
       setInputText('');
       setIsStreaming(true);
 
+      /** 오류 문구를 말풍선으로 보이고, 필요하면 보낸 글을 입력창에 되돌립니다. */
+      const showError = (code: string, restore = false) => {
+        const described = describeChatError({ code });
+        dispatch({ type: CHAT_ACTIONS.SYSTEM, text: described.text });
+        if (described.restoresInput || restore) setInputText(message);
+      };
+
       try {
         const stream = await streamChat(
-          sessionId,
-          { message, input_kind: inputKind, file_ids: fileIds, import_ids: importIds },
+          personaId,
+          {
+            text: message,
+            input_kind: inputKind,
+            file_ids: fileIds ?? [],
+            import_ids: importIds ?? [],
+          },
           controller.signal,
         );
         for await (const event of stream) {
           if (controller.signal.aborted) break;
-          switch (event.event) {
-            case 'token':
-              dispatch({ type: 'token', text: event.data.text });
-              break;
-            case 'tool_call':
-              setActiveTool(event.data.status === 'started' ? event.data.name : null);
-              break;
-            case 'ask_user':
-              dispatch({
-                type: 'ask_user',
-                text: event.data.text,
-                choices: event.data.choices,
-                importKind: event.data.import_kind,
-                acceptsFile: event.data.accepts_file,
-              });
-              break;
-            case 'form_update':
-              applyFormUpdateEvent(event.data);
-              break;
-            case 'done':
-              dispatch({ type: 'done', cite: event.data.cite });
-              break;
-            case 'error': {
-              const described = describeChatError(event.data);
-              dispatch({ type: 'system', text: described.text });
-              if (described.restoresInput) setInputText(message);
-              break;
-            }
-          }
+          if (isBubbleEvent(event)) dispatch(chatActionFor(event));
+          else if (event.event === SSE_EVENTS.TOOL_CALL) setActiveTool(activeToolAfter(event.data));
+          else if (event.event === SSE_EVENTS.FORM_UPDATE) applyFormUpdateEvent(event.data);
+          else if (event.event === SSE_EVENTS.ERROR) showError(event.data.code);
         }
-      } catch {
+      } catch (error) {
+        // 턴 시작 전 실패(409 턴 진행 중 등)는 보낸 말풍선을 지우고 글을 입력창에 되돌립니다.
+        // 그 밖(연결 끊김 등)은 답을 못 만든 것으로 봅니다.
         if (!controller.signal.aborted) {
-          dispatch({ type: 'system', text: describeChatError({ code: 'LLM_UNAVAILABLE' }).text });
-          setInputText(message);
+          if (error instanceof ApiError) {
+            dispatch({ type: CHAT_ACTIONS.SEND_REJECTED });
+            showError(error.code, true);
+          } else showError(ERROR_CODES.LLM_UNAVAILABLE);
         }
       } finally {
         if (abortRef.current === controller) abortRef.current = null;
@@ -100,7 +130,7 @@ export const useChatStream = (session: SessionRead) => {
         setIsStreaming(false);
       }
     },
-    [sessionId],
+    [personaId],
   );
 
   return {

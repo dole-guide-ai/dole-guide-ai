@@ -16,7 +16,7 @@ describe('FieldRow', () => {
           value="프레스 라인 운영"
           meta={{
             status: 'extracted',
-            source: 'conversation',
+            source: 'user_answer',
             transformed: true,
             evidence: {
               kind: 'utterance',
