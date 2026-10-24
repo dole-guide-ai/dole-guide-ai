@@ -83,7 +83,8 @@ class Settings(BaseSettings):
     date_parsing: Literal["ai", "code"] = "code"
     # 첨부 사진 처리. off: 무시 · vision: 답하는 모델에 사진째
     # · transcribe: 글자만 받아써(추출 모델) 가린 뒤 글로 넘김
-    image_mode: Literal["off", "vision", "transcribe"] = "off"
+    # 기본 vision: 사진 문항 평균 6/9(받아쓰기 4/9), 호출 1번으로 더 싸고 빠름
+    image_mode: Literal["off", "vision", "transcribe"] = "vision"
 
     # BFF(Next)가 붙이는 X-Internal-Secret 값. local에서 비우면 확인하지 않습니다.
     internal_api_secret: str = ""
