@@ -76,12 +76,14 @@ export const FieldRow = ({
   const isEmpty = value === null || value === undefined || value === '';
   // 값은 있는데 저장 상태가 없는 칸(예: 직종 이름)은 '아직 없음' 칩을 달지 않습니다 (PPT 점검 N1).
   // '없어요'로 답한 칸은 '아직 없음'이 아니라 '없음'으로 보입니다 (PPT 점검 N2).
-  const emptyText = meta?.status === 'not_applicable' ? '없음' : '아직 없음';
   const rawSpec = chip !== undefined ? chip : meta || isEmpty ? fieldChip(meta) : null;
+  // 고정 칩으로 '해당 없음'을 받은 칸(meta 없음)도 '없음'으로 보입니다.
+  const isNotApplicable = meta?.status === 'not_applicable' || rawSpec?.label === '해당 없음';
+  const emptyText = isNotApplicable ? '없음' : '아직 없음';
   // 값 칸이 이미 '아직 없음·없음'을 말하면 같은 뜻의 칩은 겹쳐 달지 않습니다.
   const spec =
     isEmpty && rawSpec && ['아직 없음', '해당 없음'].includes(rawSpec.label) ? null : rawSpec;
-  const isMissingRequired = isRequired && isEmpty && meta?.status !== 'not_applicable';
+  const isMissingRequired = isRequired && isEmpty && !isNotApplicable;
   const evidence = evidenceText(meta);
   const isEditing = draft !== null;
 

@@ -61,7 +61,7 @@ export const DashboardHeader = ({
       <span className="bg-line hidden h-6 w-px sm:block" aria-hidden />
       <div className="flex min-w-60 flex-1 items-baseline gap-3">
         <h1 className="shrink-0 text-lg leading-tight font-bold">{title}</h1>
-        <p className="text-muted min-w-0 truncate text-base" title={nextStepText}>
+        <p className="text-muted min-w-0 text-base lg:truncate" title={nextStepText}>
           {nextStepText}
         </p>
       </div>

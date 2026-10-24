@@ -61,7 +61,7 @@
     90deg,
     var(--color-ink) 0%,
     var(--color-ai-via) 40%,
-    var(--color-ai-from) 50%,
+    var(--color-brand) 50%,
     var(--color-ink) 90%
   );
   background-size: 200% 100%;

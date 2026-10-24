@@ -7,9 +7,13 @@ import { ArrowUp, Maximize2, Mic, Paperclip } from 'lucide-react';
 import { LargeInputDialog } from '@/features/chat/LargeInputDialog';
 import { ACCEPTED_FILE_TYPES } from '@/features/chat/useFileUpload';
 
-import { ICON_SIZE, ICON_STROKE } from '@/lib/iconSize';
+import { ICON_SIZE, ICON_STROKE, ICON_STROKE_BOLD } from '@/lib/iconSize';
 
 /** 입력창 안 도구(파일·말하기·크게 쓰기): 아이콘과 짧은 이름을 한 줄로, 누르기 쉽게 높이 44px. */
+/** 입력창 안내 문구 id (aria-describedby로 입력칸·파일 버튼에 연결) */
+const FILE_HINT_ID = 'chat-file-hint';
+const PRIVACY_NOTE_ID = 'chat-privacy-note';
+
 const TOOL_CLASS =
   'focus-visible:ring-accent/50 inline-flex h-11 shrink-0 items-center gap-1.5 rounded-full px-3 text-sm font-semibold transition focus-visible:ring-3 focus-visible:outline-hidden disabled:cursor-not-allowed';
 const TOOL_NORMAL =
@@ -66,7 +70,7 @@ export const ChatInput = ({
   return (
     <div className="flex flex-col gap-2 px-4 pt-2 pb-3 lg:px-6">
       {canUpload && (
-        <p id="chat-file-hint" className="text-brand text-sm font-semibold">
+        <p id={FILE_HINT_ID} className="text-brand text-sm font-semibold">
           서류를 올릴 수 있어요. 사진이나 문서(pdf·hwp·docx) 모두 돼요.
         </p>
       )}
@@ -79,10 +83,10 @@ export const ChatInput = ({
           rows={2}
           placeholder={isDisabled ? '답을 만드는 중이에요…' : '여기에 말씀하듯 적어 주세요'}
           aria-label="메시지 입력"
-          aria-describedby="chat-privacy-note"
+          aria-describedby={PRIVACY_NOTE_ID}
           className="placeholder:text-muted w-full resize-none bg-transparent px-3 pt-2 text-base leading-relaxed focus-visible:outline-hidden disabled:cursor-not-allowed"
         />
-        <div className="flex items-center gap-1">
+        <div className="flex flex-wrap items-center gap-1">
           <input
             ref={fileInputRef}
             type="file"
@@ -101,7 +105,7 @@ export const ChatInput = ({
                 : 'AI가 서류를 요청하면 올릴 수 있어요'
             }
             aria-label="파일 올리기"
-            aria-describedby={canUpload ? 'chat-file-hint' : undefined}
+            aria-describedby={canUpload ? FILE_HINT_ID : undefined}
             className={`${TOOL_CLASS} ${canUpload ? TOOL_HIGHLIGHT : TOOL_NORMAL}`}
           >
             <Paperclip aria-hidden size={ICON_SIZE.md} strokeWidth={ICON_STROKE} />
@@ -134,11 +138,11 @@ export const ChatInput = ({
             aria-label="보내기"
             className="bg-ai focus-visible:ring-accent/50 disabled:bg-neutral-soft disabled:text-muted ml-auto inline-flex size-11 shrink-0 items-center justify-center rounded-full text-white transition hover:brightness-110 focus-visible:ring-3 focus-visible:outline-hidden disabled:cursor-not-allowed disabled:bg-none"
           >
-            <ArrowUp aria-hidden size={ICON_SIZE.lg} strokeWidth={2} />
+            <ArrowUp aria-hidden size={ICON_SIZE.lg} strokeWidth={ICON_STROKE_BOLD} />
           </button>
         </div>
       </div>
-      <p id="chat-privacy-note" className="text-muted text-center text-sm">
+      <p id={PRIVACY_NOTE_ID} className="text-muted text-center text-sm">
         개인정보를 입력하지 마세요(데모). 이름·전화번호·주민등록번호는 받지 않아요. 올린 파일은 읽은
         뒤 바로 지워요.
       </p>

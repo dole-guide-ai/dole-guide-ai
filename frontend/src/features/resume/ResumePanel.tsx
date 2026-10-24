@@ -640,12 +640,9 @@ export const ResumePanel = ({
       {/* 저장: 패널 아래에 붙어 늘 보입니다. */}
       {!isReadOnly && (
         <div className={STICKY_FOOTER}>
-          {!canSave && (
-            <span className="text-muted text-sm">
-              필수 항목을 다 채우고 확인 필요가 없어야 해요
-            </span>
-          )}
           <Button
+            size="lg"
+            className="w-full"
             onClick={() => confirm.mutate(undefined, { onSuccess: onSaved })}
             disabled={!canSave}
           >

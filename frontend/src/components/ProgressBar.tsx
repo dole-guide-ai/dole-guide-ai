@@ -1,6 +1,6 @@
 import { Check } from 'lucide-react';
 
-import { ICON_SIZE } from '@/lib/iconSize';
+import { ICON_SIZE, ICON_STROKE_BOLD } from '@/lib/iconSize';
 import type { ProgressStep } from '@/types/demo.types';
 
 /** 1.8 진행바. 4단계 고정, 완료 단계는 눌러서 읽기 전용으로 다시 볼 수 있습니다. */
@@ -44,7 +44,7 @@ export const ProgressBar = ({
             className={`flex shrink-0 items-center justify-center rounded-full font-bold ${isCompact ? 'size-6 text-xs' : 'size-8 text-sm'} ${circleClass}`}
             aria-hidden
           >
-            {isDone ? <Check size={ICON_SIZE.sm} strokeWidth={3} /> : step}
+            {isDone ? <Check size={ICON_SIZE.sm} strokeWidth={ICON_STROKE_BOLD} /> : step}
           </span>
           <span className={`${isCompact ? 'text-sm' : 'text-base'} ${labelClass}`}>{label}</span>
         </>

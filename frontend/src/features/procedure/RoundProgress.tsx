@@ -1,6 +1,6 @@
 import { Check } from 'lucide-react';
 
-import { ICON_SIZE } from '@/lib/iconSize';
+import { ICON_SIZE, ICON_STROKE_BOLD } from '@/lib/iconSize';
 import type { RoundMarker } from '@/types/procedure.types';
 
 /**
@@ -26,7 +26,7 @@ export const RoundProgress = ({ markers }: RoundProgressProps) => (
           {isCurrent ? (
             <span aria-hidden className="bg-warn size-2 rounded-full" />
           ) : (
-            <Check aria-hidden size={ICON_SIZE.sm} strokeWidth={2.5} />
+            <Check aria-hidden size={ICON_SIZE.sm} strokeWidth={ICON_STROKE_BOLD} />
           )}
           {round}차 {isCurrent ? '진행 중' : '완료'}
           {is_attendance && ' (출석)'}

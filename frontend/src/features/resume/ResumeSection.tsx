@@ -4,7 +4,7 @@ import { CircleCheck } from 'lucide-react';
 
 import { Chip, type ChipTone } from '@/components/Chip';
 
-import { ICON_SIZE } from '@/lib/iconSize';
+import { ICON_SIZE, ICON_STROKE_BOLD } from '@/lib/iconSize';
 
 /**
  * 이력서 섹션 (2-1.2): 머리줄에 제목 · 필수/완료 · 설명, 아래에 칸 목록.
@@ -31,7 +31,12 @@ export const ResumeSection = ({
   <section className="border-line flex flex-col gap-1 border-t pt-6 first-of-type:border-t-0 first-of-type:pt-0">
     <div className="flex flex-wrap items-center gap-2">
       {isDone && (
-        <CircleCheck aria-hidden size={ICON_SIZE.md} strokeWidth={2} className="text-ok" />
+        <CircleCheck
+          aria-hidden
+          size={ICON_SIZE.md}
+          strokeWidth={ICON_STROKE_BOLD}
+          className="text-ok"
+        />
       )}
       <h3 className="text-lg font-bold">{title}</h3>
       {isRequired && !isDone && <Chip label="필수" tone="warn" />}
