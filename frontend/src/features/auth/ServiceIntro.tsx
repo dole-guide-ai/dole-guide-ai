@@ -12,22 +12,23 @@ const CAPABILITIES: { icon: LucideIcon; title: string; description: string }[] =
   {
     icon: FileText,
     title: '이력서 작성',
-    description: '대화와 서류 사진으로 고용24 이력서를 양식 그대로 채워요.',
+    description: '에이전트와 대화하거나 파일·음성으로 고용24 이력서를 양식 그대로 채워요.',
   },
   {
     icon: Route,
-    title: '절차 안내',
-    description: '구직등록부터 실업인정까지 지금 할 일과 기한을 알려 드려요.',
+    title: '절차 안내 및 상담',
+    description:
+      '따로 찾아볼 필요 없이 실업급여에 대해 무엇이든 묻고, 지금 할 일과 기한까지 안내받아요.',
   },
   {
     icon: ClipboardCheck,
     title: '구직활동 점검',
-    description: '이번 회차에 필요한 활동 건수를 채웠는지 보고, 부족하면 추천해요.',
+    description: '회차마다 활동을 제대로 했는지 확인하고, 부족하면 추천해 함께 기록해요.',
   },
   {
     icon: FilePen,
     title: '신청서 검토',
-    description: '실업인정 신청서를 정리해 드리고, 제출은 본인이 직접 해요.',
+    description: '센터에 가거나 따로 알아보지 않고, 한곳에서 직접 확인하고 제출까지 해요.',
   },
 ];
 
