@@ -46,7 +46,7 @@ F-004,서류,기본,확정,"직무만 말함, 다른 칸은 비워 둠",park,see
 F-005,서류,기본,확정,고용24 지원 기록(오늘 2026-12-16),lee,,,방금 고용24로 OO물산 사무보조에 지원했어요,,,activities[-1].date=2026-12-16; activities[-1].category=입사지원; activities[-1].route=work24; activities[-1].org_name=OO물산; activities[-1].job_title=사무보조; activities[-1].evidence.required=[],,,,,,,,"1350 인정·증빙(고용24 지원은 별도 증빙 불필요, 2026-08-20), 대본 ACT-001·132"
 F-006,서류,기본,확정,회사 홈페이지 지원 기록,lee,,,어제 OO기획 홈페이지에서 지원했어요,,,activities[-1].date=2026-12-15; activities[-1].route=company_site; activities[-1].evidence.required*=지원 완료 화면 캡처,,,,,,,,"1350 인정·증빙(회사 홈페이지는 지원 완료 화면 캡처, 2026-08-20), 대본 ACT-001·136"
 F-007,서류,경계값,확정,'지난주 금요일'을 날짜로,lee,,,지난주 금요일에 OO물산 면접 봤어요,,,activities[-1].date=2026-12-11; activities[-1].category=면접; activities[-1].route=interview,,,,,,,,기획서 7쪽(말한 날짜를 기준일로 계산)
-F-008,서류,경계값,확정,이번 회차 기간(11.25~12.22) 밖 활동,lee,,,11월 20일에 OO유통에 지원했어요,,,activities[-1].status=out_of_period; round.counted=1,,기간,,,,,,"대본(활동 상태 out_of_period, 대상 기간 11.25~12.22)"
+F-008,서류,경계값,확정,이번 회차 기간(11.25~12.22) 밖 활동,lee,,,11월 20일에 OO유통에 지원했어요,,,round.counted=1,activities,기간,,,,,,"대본(대상 기간 11.25~12.22) · 2026-10-25 결정: 지난 회차 활동은 기록하지 않고 기간을 안내(F-28 회차 자동 전환과 맞춤)"
 F-009,서류,경계값,확정,오늘 같은 날 2건,lee,,,오늘 OO물산 고용24 지원이랑 OO상사 홈페이지 지원 두 개 했어요,,,round.counted=2; activities.length=4,,같은 날,,,,,,"1350 인정·증빙(같은 날 1건, 2026-04-08)"
 F-010,서류,바꿔말하기,확정,F-001을 한글 숫자·사투리로,park,,,작년 삼월부터 올 구월까지 다녔슴다,,,resume.competencies.careers[-1].start_date=2025-03; resume.competencies.careers[-1].end_date=2026-09,,,,,,,,기획서 7쪽
 F-011,서류,바꿔말하기,확정,'워크넷'을 고용24로,lee,,,방금 워크넷으로 OO물산 넣었어요,,,activities[-1].route=work24; activities[-1].org_name=OO물산; activities[-1].date=2026-12-16,,,,,,,,대본(고용24(워크넷))

@@ -62,6 +62,12 @@ def pytest_addoption(parser: pytest.Parser) -> None:
     group.addoption("--golden-threshold", type=float, default=0.7, help="LLM 판정 통과 점수(0~1)")
 
 
+def pytest_configure(config: pytest.Config) -> None:
+    """LangSmith 실험은 실제 AI 실행만 남깁니다. selftest·broken은 올리지 않습니다."""
+    if config.getoption("--golden-agent", default="real") != "real":
+        os.environ["LANGSMITH_TEST_TRACKING"] = "false"
+
+
 @pytest.fixture(scope="session")
 def golden_options(request: pytest.FixtureRequest) -> SimpleNamespace:
     get = request.config.getoption

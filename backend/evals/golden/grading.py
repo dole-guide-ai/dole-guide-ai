@@ -88,7 +88,8 @@ def _show(value: Any) -> str:
 
 
 def check(case: dict[str, Any], result: AgentResult) -> list[str]:
-    expected, initial = case["expected"], case["input"]["data"]
+    expected = case["expected"]
+    initial = case["input"]["data"] if result.initial_data is None else result.initial_data
     failures = []
     if expected["next_action"] and result.next_action != expected["next_action"]:
         failures.append(f"다음할일: {result.next_action!r} (기대 {expected['next_action']!r})")

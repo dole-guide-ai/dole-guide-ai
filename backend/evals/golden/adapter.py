@@ -8,6 +8,8 @@ from copy import deepcopy
 from dataclasses import dataclass, field
 from typing import Any
 
+from sqlalchemy.orm import Session
+
 from evals.golden.grading import set_path
 
 
@@ -23,20 +25,26 @@ class AgentResult:
     # · round(RoundCheckRead) · resume(ResumeValues) · activities(RoundActivity[])
     # · recognition(RecognitionFormRead)
     data: dict[str, Any] = field(default_factory=dict)
+    # 대화 전 데이터('변경금지' 비교 기준). 비우면 문항 입력의 data와 비교합니다.
+    initial_data: dict[str, Any] | None = None
     cites: list[str] = field(default_factory=list)  # 근거 줄
     stored: list[str] = field(default_factory=list)  # DB 등에 저장된 값(데이터 밖에 저장한 것)
     # 모델에 보낸 글. 비우면 테스트가 gateway 호출을 자동으로 기록합니다.
     model_inputs: list[str] = field(default_factory=list)
 
 
-def run_agent(case: dict[str, Any]) -> AgentResult:
-    """문항 하나를 실제 AI로 실행합니다.
+def run_agent(case: dict[str, Any], db: Session) -> AgentResult:
+    """문항 하나를 실제 AI로 실행합니다. 실행은 runner.run_case(서비스 함수 경유)가 합니다.
 
     case["input"]: persona, state(합친 상태값), data(시작 데이터),
     messages(턴별 말), files(첨부 이름).
     첨부 파일 경로는 schema.FILES_DIR / 이름. 그래프 호출은 서비스 함수를 거쳐 주세요.
     """
-    raise AgentNotReadyError("AI 본체 연결 전이라 건너뜀. 채점 코드 점검은 --golden-agent=selftest")
+    if case["input"]["files"]:
+        raise AgentNotReadyError("첨부 파일 입력은 아직 연결 전이라 건너뜀")
+    from evals.golden.runner import run_case  # noqa: PLC0415 - runner가 AgentResult를 import
+
+    return run_case(db, case)
 
 
 def run_selftest(case: dict[str, Any], broken: bool = False) -> AgentResult:
