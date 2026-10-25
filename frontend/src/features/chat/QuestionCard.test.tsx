@@ -1,14 +1,16 @@
-import { render, screen } from '@testing-library/react';
+import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
 import { QuestionCard } from '@/features/chat/QuestionCard';
 
+import { renderWithProviders } from '@/test/renderWithProviders';
+
 const CHOICES = ['이력서 만들기 시작할게요', '사진부터 올릴게요', '전체 순서가 궁금해요'];
 
 const renderCard = (isDisabled = false) => {
   const handlers = { onChoice: vi.fn(), onAnswer: vi.fn(), onDismiss: vi.fn() };
-  render(<QuestionCard choices={CHOICES} isDisabled={isDisabled} {...handlers} />);
+  renderWithProviders(<QuestionCard choices={CHOICES} isDisabled={isDisabled} {...handlers} />);
   return handlers;
 };
 
