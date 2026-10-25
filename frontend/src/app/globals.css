@@ -153,6 +153,17 @@ body {
   color: var(--color-ink);
 }
 
+/* Tailwind v4는 버튼 기본 커서가 default라, 누를 수 있는 요소에 손가락 커서를 다시 줍니다. 꺼진 버튼은 각자의 disabled 커서를 씁니다. */
+@layer base {
+  button:not(:disabled),
+  [role='button']:not([aria-disabled='true']),
+  summary,
+  select:not(:disabled),
+  label[for] {
+    cursor: pointer;
+  }
+}
+
 /* 스크롤바만 숨깁니다. 휠·터치·키보드 스크롤은 그대로 됩니다. */
 @utility scrollbar-hidden {
   scrollbar-width: none;
