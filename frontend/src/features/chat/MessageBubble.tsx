@@ -57,7 +57,7 @@ export const MessageBubble = ({ message }: MessageBubbleProps) => {
   return (
     <article className="flex flex-col gap-2" aria-label="길잡이 답변">
       <div className="flex items-center gap-2">
-        <Image src="/brand/avatar.svg" alt="" width={32} height={32} unoptimized />
+        <Image src="/brand/avatar.svg" alt="" width={26} height={26} unoptimized />
         <span className="text-muted text-sm font-semibold">실업급여 길잡이</span>
       </div>
       {attachments}

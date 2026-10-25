@@ -4,6 +4,7 @@ import { useState } from 'react';
 
 import { Button } from '@/components/Button';
 import { Chip } from '@/components/Chip';
+import { Spinner } from '@/components/Spinner';
 import { useImportList } from '@/features/imports/useImportList';
 
 import { ApiError } from '@/lib/api';
@@ -44,7 +45,7 @@ export const ImportPicker = ({
   const query = useImportList(kind, sessionId, personaId);
   const [selected, setSelected] = useState<string[]>([]);
 
-  if (query.isPending) return <p className="text-muted text-sm">불러올 내역을 찾는 중…</p>;
+  if (query.isPending) return <Spinner label="불러올 내역을 찾는 중…" size="md" />;
   if (query.isError) {
     return (
       <p role="alert" className="text-danger text-sm">

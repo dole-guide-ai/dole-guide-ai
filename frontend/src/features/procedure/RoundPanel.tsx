@@ -6,6 +6,7 @@ import { FileText } from 'lucide-react';
 
 import { Button } from '@/components/Button';
 import { EvidenceLine } from '@/components/EvidenceLine';
+import { Spinner } from '@/components/Spinner';
 import { ActivityList } from '@/features/procedure/ActivityList';
 import { BenefitEndNote } from '@/features/procedure/BenefitEndNote';
 import { DdayCard } from '@/features/procedure/DdayCard';
@@ -46,7 +47,7 @@ export const RoundPanel = ({ session, onOpenForm }: RoundPanelProps) => {
   const [isAskingShort, setIsAskingShort] = useState(false);
   const remove = useRemoveActivity(session.persona_id);
 
-  if (query.isPending) return <p className="text-muted text-base">이번 회차 활동을 불러오는 중…</p>;
+  if (query.isPending) return <Spinner label="이번 회차 활동을 불러오는 중…" isCentered />;
   if (query.isError) {
     // 점검을 못 받아도(예: 회차 점검 API 준비 전) 신청서로는 넘어갈 수 있게 버튼을 남깁니다 (F-22).
     return (
@@ -129,7 +130,8 @@ export const RoundPanel = ({ session, onOpenForm }: RoundPanelProps) => {
       <div className="flex flex-col gap-1">
         {check.rule_review === 'not_verified' && (
           <p className="text-muted text-sm">
-            검수 전 규칙으로 계산했어요. 최종 인정 여부는 관할 고용센터가 판단해요.
+            적어 둔 활동을 고용24 안내의 회차별 필요 건수와 비교한 결과예요. 이 기준은 아직 전문가
+            검토 전이라, 최종 인정 여부는 관할 고용센터가 판단해요.
           </p>
         )}
         <EvidenceLine cite={check.cite} />

@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { Button } from '@/components/Button';
 import { Chip } from '@/components/Chip';
 import { EvidenceLine } from '@/components/EvidenceLine';
+import { Spinner } from '@/components/Spinner';
 import { KIND_LABEL } from '@/features/procedure/activityLabels';
 import { usePlanActivity } from '@/features/procedure/usePlanActivity';
 import { useRecommendations } from '@/features/procedure/useRecommendations';
@@ -37,7 +38,7 @@ export const RecommendationBox = ({
   // 서버가 만든 예정 활동 ID는 추천 ID와 달라서, 이번 화면에서 고른 추천을 따로 기억합니다.
   const [pickedIds, setPickedIds] = useState<string[]>([]);
 
-  if (query.isPending) return <p className="text-muted text-base">추천을 고르는 중…</p>;
+  if (query.isPending) return <Spinner label="추천을 고르는 중…" size="md" />;
   if (query.isError) {
     return (
       <p role="alert" className="text-danger text-base">
