@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 
+import { useQueryClient } from '@tanstack/react-query';
+
 import { applyFormUpdateEvent } from '@/features/chat/applyFormUpdateEvent';
 import type { ChatAttachment } from '@/features/chat/chat.types';
 import { CHAT_ACTIONS } from '@/features/chat/chatActions';
@@ -11,6 +13,7 @@ import { useChatHistory } from '@/features/chat/useChatHistory';
 import { ApiError } from '@/lib/api';
 import { streamChat } from '@/lib/chatStream';
 import { ERROR_CODES } from '@/lib/errorCodes';
+import { queryKeys } from '@/lib/queryKeys';
 import { SSE_EVENTS } from '@/lib/sseEvents';
 import { type ChatInputKind, INPUT_KIND } from '@/types/chat.types';
 import type { SessionRead } from '@/types/demo.types';
@@ -34,6 +37,7 @@ export const useChatStream = (session: SessionRead) => {
   const [activeTool, setActiveTool] = useState<string | null>(null);
   const [inputText, setInputText] = useState('');
   const abortRef = useRef<AbortController | null>(null);
+  const queryClient = useQueryClient();
   const sessionId = session.session_id;
   const personaId = session.persona_id;
 
@@ -86,6 +90,9 @@ export const useChatStream = (session: SessionRead) => {
 
       const controller = new AbortController();
       abortRef.current = controller;
+      // 대화가 이력서를 고치면 서버 버전(lock_version)이 오릅니다. 턴이 끝나면 이력서를 다시 받아
+      // 패널 직접 고치기의 If-Match가 옛 버전으로 409를 받지 않게 합니다.
+      let resumeChanged = false;
       dispatch({ type: CHAT_ACTIONS.USER_SENT, text: message, inputKind, attachments });
       setInputText('');
       setIsStreaming(true);
@@ -112,8 +119,10 @@ export const useChatStream = (session: SessionRead) => {
           if (controller.signal.aborted) break;
           if (isBubbleEvent(event)) dispatch(chatActionFor(event));
           else if (event.event === SSE_EVENTS.TOOL_CALL) setActiveTool(activeToolAfter(event.data));
-          else if (event.event === SSE_EVENTS.FORM_UPDATE) applyFormUpdateEvent(event.data);
-          else if (event.event === SSE_EVENTS.ERROR) showError(event.data.code);
+          else if (event.event === SSE_EVENTS.FORM_UPDATE) {
+            applyFormUpdateEvent(event.data);
+            resumeChanged ||= event.data.form === 'resume';
+          } else if (event.event === SSE_EVENTS.ERROR) showError(event.data.code);
         }
       } catch (error) {
         // 턴 시작 전 실패(409 턴 진행 중 등)는 보낸 말풍선을 지우고 글을 입력창에 되돌립니다.
@@ -126,11 +135,14 @@ export const useChatStream = (session: SessionRead) => {
         }
       } finally {
         if (abortRef.current === controller) abortRef.current = null;
+        if (resumeChanged) {
+          void queryClient.invalidateQueries({ queryKey: queryKeys.resumeForm(sessionId) });
+        }
         setActiveTool(null);
         setIsStreaming(false);
       }
     },
-    [personaId],
+    [personaId, queryClient, sessionId],
   );
 
   return {
