@@ -4,6 +4,7 @@ import { Info, ListChecks } from 'lucide-react';
 
 import { Button } from '@/components/Button';
 import { EvidenceLine } from '@/components/EvidenceLine';
+import { Spinner } from '@/components/Spinner';
 import { JobSearchCard } from '@/features/recognition/JobSearchCard';
 import { OtherActivityCard } from '@/features/recognition/OtherActivityCard';
 import {
@@ -73,7 +74,7 @@ export const RecognitionPanel = ({
     session.derived.current_round,
   );
 
-  if (query.isPending) return <p className="text-muted text-base">신청서를 정리하는 중…</p>;
+  if (query.isPending) return <Spinner label="신청서를 정리하는 중…" isCentered />;
   if (query.isError) {
     return (
       <p role="alert" className="text-danger text-base">

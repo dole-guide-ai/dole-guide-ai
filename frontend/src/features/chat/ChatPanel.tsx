@@ -1,13 +1,13 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { Sparkles } from 'lucide-react';
 
-import { ChoiceButtons } from '@/components/ChoiceButtons';
 import type { ChatMessage } from '@/features/chat/chat.types';
 import { ChatInput } from '@/features/chat/ChatInput';
 import { MessageBubble } from '@/features/chat/MessageBubble';
+import { QuestionCard } from '@/features/chat/QuestionCard';
 import { ImportPicker } from '@/features/imports/ImportPicker';
 
 import { ICON_SIZE, ICON_STROKE } from '@/lib/iconSize';
@@ -53,6 +53,10 @@ export const ChatPanel = ({
 }: ChatPanelProps) => {
   const logRef = useRef<HTMLDivElement>(null);
   const lastText = messages[messages.length - 1]?.text;
+  // 질문 카드는 건너뛰면 닫히고, 새 질문(말풍선 수·선택지가 바뀜)이 오면 다시 뜹니다.
+  const questionKey = `${messages.length}:${choices.join('|')}`;
+  const [dismissedKey, setDismissedKey] = useState<string | null>(null);
+  const isQuestionOpen = choices.length > 0 && dismissedKey !== questionKey;
 
   useEffect(() => {
     // 페이지가 아니라 대화 목록 칸만 맨 아래로 내립니다.
@@ -86,7 +90,6 @@ export const ChatPanel = ({
             <span className="text-ai-shimmer">{statusText}</span>
           </p>
         )}
-        <ChoiceButtons choices={choices} onSelect={onChoice} isDisabled={isStreaming} />
         {importKind && sessionId && personaId && onImport && (
           <ImportPicker
             key={`${importKind}-${messages.length}`}
@@ -98,6 +101,18 @@ export const ChatPanel = ({
           />
         )}
       </div>
+      {isQuestionOpen && (
+        <div className="px-4 pt-2 lg:px-6">
+          <QuestionCard
+            key={questionKey}
+            choices={choices}
+            onChoice={onChoice}
+            onAnswer={onSend}
+            onDismiss={() => setDismissedKey(questionKey)}
+            isDisabled={isStreaming}
+          />
+        </div>
+      )}
       <ChatInput
         value={inputText}
         onChange={onInputChange}

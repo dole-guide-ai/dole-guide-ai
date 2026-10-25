@@ -99,7 +99,7 @@ describe('패널 E · Q · E5b (정적)', () => {
 
     renderWithProviders(<PanelFrame session={session} reviewStep={1} />);
 
-    expect(screen.getByText(/완료한 단계 · 이력서/)).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /^이력서\s*읽기 전용$/ })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '이력서 고치기' })).not.toBeInTheDocument();
     vi.restoreAllMocks();
   });
@@ -112,7 +112,7 @@ describe('패널 E · Q · E5b (정적)', () => {
     );
 
     await userEvent.click(screen.getByRole('button', { name: '이력서 고치기' }));
-    expect(screen.getByText(/\(고치는 중\)/)).toBeInTheDocument();
+    expect(screen.getByText('고치는 중')).toBeInTheDocument();
 
     rerender(
       <QueryClientProvider client={queryClient}>
@@ -128,7 +128,33 @@ describe('패널 E · Q · E5b (정적)', () => {
         </BigTextProvider>
       </QueryClientProvider>,
     );
-    expect(screen.getByText(/\(읽기 전용\)/)).toBeInTheDocument();
+    expect(screen.getByText('읽기 전용')).toBeInTheDocument();
+    vi.restoreAllMocks();
+  });
+
+  it('다시 보던 단계를 떠났다 돌아오면 이력서 고치는 중 상태가 풀려 있다', async () => {
+    mockFetchPending();
+    const session = withPanel('lee', 'B');
+    const { rerender, queryClient } = renderWithProviders(
+      <PanelFrame session={session} reviewStep={1} />,
+    );
+    const renderStep = (reviewStep: 1 | null) =>
+      rerender(
+        <QueryClientProvider client={queryClient}>
+          <BigTextProvider>
+            <PanelFrame session={session} reviewStep={reviewStep} />
+          </BigTextProvider>
+        </QueryClientProvider>,
+      );
+
+    await userEvent.click(screen.getByRole('button', { name: '이력서 고치기' }));
+    expect(screen.getByText('고치는 중')).toBeInTheDocument();
+
+    // 진행바에서 현재 단계를 눌러 돌아간 뒤 다시 구직등록을 연 경우
+    renderStep(null);
+    renderStep(1);
+    expect(screen.getByText('읽기 전용')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '이력서 고치기' })).toBeInTheDocument();
     vi.restoreAllMocks();
   });
 

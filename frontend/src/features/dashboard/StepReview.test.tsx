@@ -40,7 +40,12 @@ describe('완료 단계 읽기 전용 다시 보기 (1.8)', () => {
     );
 
     expect(await screen.findByText('OO유통')).toBeInTheDocument();
-    expect(screen.getByText('완료한 단계 · 이력서 (읽기 전용)')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /^이력서\s*읽기 전용$/ })).toBeInTheDocument();
+    expect(screen.getByText('1단계 · 구직등록 · 완료')).toBeInTheDocument();
+    expect(screen.getByLabelText('구직등록 완료 · 보는 중')).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
     expect(screen.queryByRole('button', { name: '확인하고 이력서 저장' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '고치기' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '직접 입력' })).not.toBeInTheDocument();
@@ -56,7 +61,9 @@ describe('완료 단계 읽기 전용 다시 보기 (1.8)', () => {
       await screen.findByRole('button', { name: '수급자격 신청 단계 다시 보기 (완료)' }),
     );
 
-    expect(screen.getByText('완료한 단계 · 수급자격 신청 (읽기 전용)')).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: /^수급자격 신청\s*읽기 전용$/ }),
+    ).toBeInTheDocument();
     expect(screen.getByText('신청 완료')).toBeInTheDocument();
   });
 });

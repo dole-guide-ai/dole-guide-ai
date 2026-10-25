@@ -60,7 +60,7 @@ export const LargeInputDialog = ({ value, onChange, onSend, onClose }: LargeInpu
           onChange={(event) => onChange(event.target.value)}
           onKeyDown={handleKeyDown}
           autoFocus
-          placeholder="여기에 말씀하듯 적어 주세요"
+          placeholder="실업급여에 대해 궁금한 점을 적어 주세요"
           aria-label="크게 쓰기 입력"
           className="border-line focus-visible:border-accent focus-visible:ring-brand min-h-0 w-full flex-1 resize-none rounded-2xl border px-6 py-5 text-3xl leading-relaxed focus-visible:ring-3 focus-visible:outline-hidden"
         />
