@@ -4,14 +4,14 @@ import { PersonaList } from '@/features/auth/PersonaList';
 
 /** 시안 1-1 로그인 화면: 시연 고지(①) → 가상 계정 카드(②). */
 export const LoginScreen = () => (
-  <main className="mx-auto flex min-h-screen w-full max-w-2xl flex-col gap-8 px-4 py-10">
+  <main className="mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-8 px-4 py-10">
     <header className="flex flex-col gap-3">
       {/* SVG는 최적화가 필요 없어 그대로 씁니다 (public/brand). */}
       <Image
         src="/brand/logo-stacked.svg"
         alt="실업급여 길잡이"
-        width={154}
-        height={120}
+        width={123}
+        height={96}
         priority
         unoptimized
         className="in-data-[theme=dark]:hidden"
@@ -19,8 +19,8 @@ export const LoginScreen = () => (
       <Image
         src="/brand/logo-stacked-dark.svg"
         alt="실업급여 길잡이"
-        width={154}
-        height={120}
+        width={123}
+        height={96}
         priority
         unoptimized
         className="hidden in-data-[theme=dark]:block"

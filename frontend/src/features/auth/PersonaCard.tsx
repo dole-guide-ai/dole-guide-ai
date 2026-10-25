@@ -25,19 +25,21 @@ export const PersonaCard = ({ persona, onSelect, isDisabled = false }: PersonaCa
       onClick={() => onSelect(persona.persona_id)}
       aria-label={`${name} 계정으로 시작`}
       aria-describedby={descriptionId}
-      className="border-line bg-surface hover:border-brand focus-visible:ring-brand flex w-full items-start gap-4 rounded-2xl border p-5 text-left shadow-xs transition hover:shadow-sm focus-visible:ring-3 focus-visible:outline-hidden disabled:cursor-wait disabled:opacity-60"
+      className="border-line bg-surface hover:border-brand focus-visible:ring-brand flex h-full w-full flex-col rounded-2xl border p-5 text-left shadow-xs transition hover:shadow-sm focus-visible:ring-3 focus-visible:outline-hidden disabled:cursor-wait disabled:opacity-60"
     >
-      <span
-        className="bg-brand-soft text-brand flex size-14 shrink-0 items-center justify-center rounded-full text-2xl font-bold"
-        aria-hidden
-      >
-        {name.charAt(0)}
-      </span>
-      <span id={descriptionId} className="flex min-w-0 flex-1 flex-col gap-2">
-        <span className="text-xl font-bold">
-          {name}
-          <span className="text-muted ml-2 text-base font-normal">
-            {age}세 · {job}
+      <span id={descriptionId} className="flex min-w-0 flex-col gap-3">
+        <span className="flex items-center gap-3">
+          <span
+            className="bg-brand-soft text-brand flex size-12 shrink-0 items-center justify-center rounded-full text-xl font-bold"
+            aria-hidden
+          >
+            {name.charAt(0)}
+          </span>
+          <span className="flex min-w-0 flex-col">
+            <span className="text-xl font-bold">{name}</span>
+            <span className="text-muted text-base">
+              {age}세 · {job}
+            </span>
           </span>
         </span>
         <span className="text-ink text-base">“{quote}”</span>

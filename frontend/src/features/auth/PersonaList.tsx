@@ -19,7 +19,7 @@ export const PersonaList = () => {
 
   return (
     <div className="flex flex-col gap-3">
-      <ul className="flex flex-col gap-3" aria-busy={login.isPending}>
+      <ul className="grid gap-3 lg:grid-cols-3" aria-busy={login.isPending}>
         {data.map((persona) => (
           <li key={persona.persona_id}>
             <PersonaCard persona={persona} onSelect={login.mutate} isDisabled={login.isPending} />
