@@ -44,3 +44,10 @@ backend/uploads/
 
 # Playwright MCP 스크린샷·스냅샷
 .playwright-mcp/
+
+# 설계 결정 기록(ADR). 로컬에만 둡니다.
+adr/
+# 실험 코드·결과. 로컬에만 둡니다 (.gitkeep만 추적).
+backend/experiments/*
+!backend/experiments/.gitkeep
+docs/experiments/
