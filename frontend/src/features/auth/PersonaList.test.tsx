@@ -4,8 +4,9 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { PersonaList } from '@/features/auth/PersonaList';
 
+import { getFormDrafts, replaceFormDraft } from '@/lib/formStore';
 import { getSession, setSession } from '@/lib/sessionStore';
-import { ACCOUNTS, PERSONAS } from '@/test/fixtures';
+import { ACCOUNTS, PERSONAS, sessionFor } from '@/test/fixtures';
 import { mockFetchJson } from '@/test/mockFetch';
 import { renderWithProviders } from '@/test/renderWithProviders';
 
@@ -55,6 +56,28 @@ describe('PersonaList', () => {
     const [url, init] = fetchSpy.mock.calls[1];
     expect(url).toBe('/api/accounts/lee');
     expect(init?.method).toBe('PUT');
+  });
+
+  it('같은 계정으로 다시 들어가면 작성 중이던 양식을 두고, 다른 계정이면 비운다', async () => {
+    const enter = async (personaId: 'lee' | 'park', name: string) => {
+      const fetchSpy = mockFetchJson(list);
+      fetchSpy
+        .mockResolvedValueOnce(Response.json(list))
+        .mockResolvedValueOnce(Response.json(ACCOUNTS[personaId], { status: 201 }));
+      const view = renderWithProviders(<PersonaList />);
+      await userEvent.click(await screen.findByRole('button', { name: `${name} 계정으로 시작` }));
+      await vi.waitFor(() => expect(getSession()?.persona_id).toBe(personaId));
+      view.unmount();
+      vi.restoreAllMocks();
+    };
+    setSession(sessionFor('lee'));
+    replaceFormDraft('resume', { values: { title: '작성 중' }, fields: {} });
+
+    await enter('lee', '이정호');
+    expect(getFormDrafts().resume.values).toEqual({ title: '작성 중' });
+
+    await enter('park', '박진수');
+    expect(getFormDrafts().resume.values).toEqual({});
   });
 
   it('목록을 못 받으면 안내 문구를 보여준다', async () => {
