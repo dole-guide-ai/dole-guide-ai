@@ -60,6 +60,38 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         help="이 영역만 실행",
     )
     group.addoption("--golden-threshold", type=float, default=0.7, help="LLM 판정 통과 점수(0~1)")
+    group.addoption(
+        "--golden-judge",
+        choices=["on", "off"],
+        default="on",
+        help="off: LLM 판정 없이 규칙 채점만(비교 실험용. 판정 포함 실행과 점수를 견주지 않음)",
+    )
+    group.addoption(
+        "--golden-shard",
+        default="1/1",
+        help="i/n: 문항을 n조각으로 나눈 것 중 i번째만 실행. 여러 프로세스로 동시에 돌린 뒤 "
+        "evals.golden.merge로 합칩니다",
+    )
+
+
+def _shard(config: pytest.Config) -> tuple[int, int]:
+    index, total = (int(x) for x in config.getoption("--golden-shard").split("/"))
+    if not 1 <= index <= total:
+        raise pytest.UsageError("--golden-shard는 1/4처럼 1 이상 n 이하로 줍니다.")
+    return index, total
+
+
+def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
+    """골든셋 문항 중 이 조각에 해당하는 것만 남깁니다(문항 순서의 i번째마다)."""
+    index, total = _shard(config)
+    if total == 1:
+        return
+    golden = [item for item in items if item.originalname == "test_golden"]
+    keep = {id(item) for n, item in enumerate(golden) if n % total == index - 1}
+    deselected = [item for item in golden if id(item) not in keep]
+    if deselected:
+        config.hook.pytest_deselected(items=deselected)
+        items[:] = [item for item in items if id(item) not in {id(d) for d in deselected}]
 
 
 def pytest_configure(config: pytest.Config) -> None:
@@ -72,13 +104,19 @@ def pytest_configure(config: pytest.Config) -> None:
 def golden_options(request: pytest.FixtureRequest) -> SimpleNamespace:
     get = request.config.getoption
     return SimpleNamespace(
-        agent=get("--golden-agent"), area=get("--golden-area"), threshold=get("--golden-threshold")
+        agent=get("--golden-agent"),
+        area=get("--golden-area"),
+        threshold=get("--golden-threshold"),
+        judge=get("--golden-judge") == "on",
     )
 
 
 @pytest.fixture(scope="session")
 def golden_report(request: pytest.FixtureRequest) -> Report:
-    report = Report(mode=request.config.getoption("--golden-agent"))
+    get = request.config.getoption
+    report = Report(
+        mode=get("--golden-agent"), judge=get("--golden-judge"), shard=get("--golden-shard")
+    )
     request.config.stash[GOLDEN_REPORT] = report
     return report
 

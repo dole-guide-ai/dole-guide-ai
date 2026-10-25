@@ -5,7 +5,9 @@ evals/reports/golden-<시각>.md에 쓰고, GitHub Actions에서는 실행 화�
 보고서에는 AI 답 원문을 넣지 않습니다(공개 저장소의 실행 기록에 남지 않게). 틀린 이유만 적습니다.
 """
 
+import json
 import os
+import uuid
 from collections import Counter
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -14,6 +16,7 @@ from typing import Any
 
 REPORT_DIR = Path(__file__).parents[1] / "reports"
 ORDER = ["통과", "실패", "참고 실패", "판정 건너뜀", "건너뜀"]
+OFF_NOTE = " · 판정을 끈 실행은 판정 포함 실행과 점수를 견주지 않습니다"
 AREA_NAMES = {"procedure": "절차", "form_fill": "서류", "grounding": "근거", "masking": "개인정보"}
 
 
@@ -42,6 +45,8 @@ class Record:
 @dataclass
 class Report:
     mode: str
+    judge: str = "on"  # off면 LLM 판정 없이 규칙 채점만 한 실행
+    shard: str = "1/1"
     records: list[Record] = field(default_factory=list)
 
     def start(self, case: dict[str, Any]) -> Record:
@@ -57,6 +62,9 @@ class Report:
         rate = f"{counts['통과'] / graded:.0%}" if graded else "-"
         lines = [
             f"# 골든셋 결과 ({datetime.now():%Y-%m-%d %H:%M}, 모드 {self.mode})",
+            "",
+            f"LLM 판정: {self.judge} · 조각: {self.shard}"
+            + (OFF_NOTE if self.judge == "off" else ""),
             "",
             "| 전체 | " + " | ".join(ORDER) + " | 통과율(확정 문항) |",
             "| --- " * (len(ORDER) + 2) + "|",
@@ -94,11 +102,19 @@ class Report:
             lines += ["", "## 건너뛴 이유", ""] + [f"- {why}: {n}개" for why, n in skipped.items()]
         return "\n".join(lines) + "\n"
 
-    def write(self) -> Path:
+    def write(self, stem: str | None = None) -> Path:
+        """보고서(.md)와 조각을 합칠 때 쓰는 기록(.json)을 함께 씁니다."""
         text = self.render()
         REPORT_DIR.mkdir(exist_ok=True)
-        path = REPORT_DIR / f"golden-{datetime.now():%Y%m%d-%H%M%S}.md"
+        stem = stem or (
+            f"golden-{datetime.now():%Y%m%d-%H%M%S}-{self.shard.replace('/', 'of')}"
+            f"-{uuid.uuid4().hex[:6]}"
+        )
+        path = REPORT_DIR / f"{stem}.md"
         path.write_text(text, encoding="utf-8")
+        records = [{"case": r.case, "status": r.status, "reasons": r.reasons} for r in self.records]
+        meta = {"mode": self.mode, "judge": self.judge, "shard": self.shard, "records": records}
+        path.with_suffix(".json").write_text(json.dumps(meta, ensure_ascii=False), encoding="utf-8")
         if summary := os.environ.get("GITHUB_STEP_SUMMARY"):
             with open(summary, "a", encoding="utf-8") as fh:
                 fh.write(text)

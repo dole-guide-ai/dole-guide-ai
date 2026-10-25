@@ -13,7 +13,7 @@ from langsmith import testing as ls
 from app.agent import gateway
 from evals.golden import grading
 from evals.golden.adapter import AgentNotReadyError, run_agent, run_selftest
-from evals.golden.judge import judge
+from evals.golden.judge import Verdict, judge
 from evals.golden.schema import OUT_DIR
 from evals.golden.tracking import LANGSMITH_SUITE, experiment_metadata
 
@@ -93,7 +93,11 @@ def test_golden(case, golden_options, golden_report, model_inputs, golden_db) ->
         record.finish([f"실행 오류: {type(error).__name__}"], None)
         raise
     try:
-        verdict = judge(case, result.replies, mode, golden_options.threshold)
+        verdict = (
+            judge(case, result.replies, mode, golden_options.threshold)
+            if golden_options.judge
+            else Verdict(passed=None, reason="--golden-judge off")
+        )
     except Exception as error:
         record.finish([*failures, f"LLM 판정 오류: {type(error).__name__}"], None)
         raise
