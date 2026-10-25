@@ -36,8 +36,8 @@ export const ServiceIntro = () => (
         복잡한 실업급여 신청 과정을 도와드려요
       </h1>
       <p className="text-muted text-lg break-keep">
-        실업급여 길잡이는 수급 조건에 따라 달라지는 신청 과정을 안내하고, 서류를 잘못 내지 않도록
-        함께 확인해요.
+        어려운 이력서 작성부터 구직등록, 실업급여 신청까지 한 번에 간단하게 끝내요. 수급 조건에 따라
+        달라지는 절차를 안내하고, 서류를 잘못 내지 않도록 함께 확인해요.
       </p>
     </div>
     <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4" aria-label="도와 드리는 일">
