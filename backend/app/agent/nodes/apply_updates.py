@@ -8,6 +8,11 @@ from app.rules import situation
 from app.rules.dates import normalize_day, normalize_month
 from app.rules.facts import recorded_count_text
 
+UNDATED_ACTIVITY_TEXT = (
+    "다만 언제 한 활동인지 날짜를 정하지 못해 아직 기록하지 않았어요. "
+    "몇 월 며칠에 하셨는지 알려 주시면 기록할게요."
+)
+
 
 def apply_updates(state: AgentState) -> AgentState:
     """모델이 뽑은 값을 서류에 합치고, 활동이 바뀌었으면 회차 점검을 다시 계산합니다.
@@ -18,6 +23,10 @@ def apply_updates(state: AgentState) -> AgentState:
     output = state["output"]
     if get_settings().date_parsing == "code":
         output = _normalize_dates(output, state["state"])
+        # 날짜를 못 정해 빠진 활동이 있으면, 답이 "기록했어요"라고 해도 저장되지 않았음을 밝히고
+        # 날짜를 다시 묻습니다(코드래빗 지적: 저장된 줄 알고 실업인정을 신청하면 건수가 모자람).
+        if len(output.activities) < len(state["output"].activities):
+            output = output.model_copy(update={"reply": f"{output.reply} {UNDATED_ACTIVITY_TEXT}"})
     data = deepcopy(state["data"])
     for activity in output.activities:
         data["activities"].append(situation.complete_activity(activity.model_dump()))

@@ -122,3 +122,14 @@ def test_repeated_preferences_are_kept_once(fake_llm) -> None:
     preferences = result.data["resume"]["job_preferences"]
     assert preferences["desired_occupations"] == [{"name": "경비원"}]
     assert preferences["desired_regions"] == ["서울"]
+
+
+def test_undated_activity_is_not_recorded_and_date_is_asked(fake_llm) -> None:
+    """코드래빗 지적: 날짜를 못 정한 활동은 빠지는데 답이 기록했다고 말할 수 있던 문제."""
+    activity = {"date": "다음 주쯤", "kind": "job_application", "route": "work24"}
+    fake_llm([_reply(activities=[activity])])
+
+    result = run_conversation(LEE, _data(), ["다음 주쯤 고용24로 지원했어요"])
+
+    assert result.data["activities"] == []
+    assert "아직 기록하지 않았어요" in result.replies[-1]
