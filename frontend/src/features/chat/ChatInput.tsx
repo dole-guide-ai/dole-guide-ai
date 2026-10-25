@@ -143,8 +143,7 @@ export const ChatInput = ({
         </div>
       </div>
       <p id={PRIVACY_NOTE_ID} className="text-muted text-center text-sm">
-        개인정보를 입력하지 마세요(데모). 이름·전화번호·주민등록번호는 받지 않아요. 올린 파일은 읽은
-        뒤 바로 지워요.
+        이름·전화번호·주민등록번호는 적지 마세요. 올린 파일은 읽은 뒤 바로 지워요.
       </p>
       {isLargeOpen && (
         <LargeInputDialog

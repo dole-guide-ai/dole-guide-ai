@@ -38,7 +38,5 @@ export const LoginScreen = () => (
       </h2>
       <PersonaList />
     </section>
-
-    <footer className="text-muted mt-auto text-sm">개인정보를 입력하지 마세요(데모)</footer>
   </main>
 );
