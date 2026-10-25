@@ -10,9 +10,16 @@ interface PersonaCardProps {
   persona: PersonaCardRead;
   onSelect: (personaId: string) => void;
   isDisabled?: boolean;
+  /** 지금 쓰는 계정 (계정 바꾸기 창). 다시 고를 수 없습니다. */
+  isCurrent?: boolean;
 }
 
-export const PersonaCard = ({ persona, onSelect, isDisabled = false }: PersonaCardProps) => {
+export const PersonaCard = ({
+  persona,
+  onSelect,
+  isDisabled = false,
+  isCurrent = false,
+}: PersonaCardProps) => {
   const { name, age, job, quote, summary } = persona.display;
   // 버튼 이름은 "{이름} 계정으로 시작"으로 짧게 두고, 나이·직종·한마디·상태 요약·해 볼 수 있는 일은 설명으로 읽게 합니다.
   const descriptionId = `persona-${persona.persona_id}-description`;
@@ -21,11 +28,11 @@ export const PersonaCard = ({ persona, onSelect, isDisabled = false }: PersonaCa
   return (
     <button
       type="button"
-      disabled={isDisabled}
+      disabled={isDisabled || isCurrent}
       onClick={() => onSelect(persona.persona_id)}
-      aria-label={`${name} 계정으로 시작`}
+      aria-label={isCurrent ? `${name} 계정 (지금 계정)` : `${name} 계정으로 시작`}
       aria-describedby={descriptionId}
-      className="border-line bg-surface hover:border-brand focus-visible:ring-brand flex h-full w-full flex-col rounded-2xl border p-5 text-left break-keep shadow-xs transition hover:shadow-sm focus-visible:ring-3 focus-visible:outline-hidden disabled:cursor-wait disabled:opacity-60"
+      className={`bg-surface hover:border-brand focus-visible:ring-brand flex h-full w-full flex-col rounded-2xl border p-5 text-left break-keep shadow-xs transition hover:shadow-sm focus-visible:ring-3 focus-visible:outline-hidden ${isCurrent ? 'border-brand disabled:cursor-default' : 'border-line disabled:cursor-wait disabled:opacity-60'}`}
     >
       <span id={descriptionId} className="flex min-w-0 flex-col gap-3">
         <span className="flex items-center gap-3">
@@ -36,7 +43,14 @@ export const PersonaCard = ({ persona, onSelect, isDisabled = false }: PersonaCa
             {name.charAt(0)}
           </span>
           <span className="flex min-w-0 flex-col">
-            <span className="text-xl font-bold">{name}</span>
+            <span className="flex items-center gap-2 text-xl font-bold">
+              {name}
+              {isCurrent && (
+                <span className="bg-brand-soft text-brand rounded-full px-2 py-0.5 text-sm font-semibold">
+                  지금 계정
+                </span>
+              )}
+            </span>
             <span className="text-muted text-base">
               {age}세 · {job}
             </span>

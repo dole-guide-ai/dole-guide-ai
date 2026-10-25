@@ -1,9 +1,9 @@
 'use client';
 
 import { type CSSProperties, useEffect, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
 
 import { ProgressBar } from '@/components/ProgressBar';
+import { AccountSwitchDialog } from '@/features/auth/AccountSwitchDialog';
 import { useBigText } from '@/features/bigText/useBigText';
 import { ChatPanel } from '@/features/chat/ChatPanel';
 import { useChatStream } from '@/features/chat/useChatStream';
@@ -18,7 +18,6 @@ import { MyDataDialog } from '@/features/myData/MyDataDialog';
 import { CONFIRMED_MESSAGE } from '@/features/recognition/recognitionLabels';
 
 import { ApiError } from '@/lib/api';
-import { resetForms } from '@/lib/formStore';
 import { nextStepView } from '@/lib/nextStep';
 import { setSession } from '@/lib/sessionStore';
 import type { ProgressStep, SessionRead } from '@/types/demo.types';
@@ -38,13 +37,13 @@ const TOOL_LABEL: Record<string, string> = {
 
 /** 대시보드 본문 (1.5): 상단 한 줄(진행바 · 다음 할 일) · 대화 · 패널. */
 export const DashboardView = ({ session, personaName }: DashboardViewProps) => {
-  const router = useRouter();
   const { setIsBig } = useBigText();
   const chat = useChatStream(session);
   // 진행바에서 고른 완료 단계 (1.8 읽기 전용 다시 보기). 세션이 바뀌면 지금 단계로 돌아옵니다.
   const [review, setReview] = useState<{ sessionId: string; step: ProgressStep } | null>(null);
   const reviewStep = review?.sessionId === session.session_id ? review.step : null;
   const [isMyDataOpen, setIsMyDataOpen] = useState(false);
+  const [isSwitchOpen, setIsSwitchOpen] = useState(false);
   const split = useSplitRatio();
   const mainRef = useRef<HTMLElement>(null);
   const upload = useFileUpload(session.persona_id, session.state.stage);
@@ -58,12 +57,6 @@ export const DashboardView = ({ session, personaName }: DashboardViewProps) => {
 
   // F-22: 대화 응답을 기다리지 않고 바로 신청서(패널 C)를 엽니다.
   const handleOpenForm = () => setSession({ ...session, entry: { ...entry, panel: 'C' } });
-
-  const handleSwitchAccount = () => {
-    resetForms();
-    setSession(null);
-    router.push('/');
-  };
 
   /** 파일을 올린 뒤 `file_ids`를 붙여 대화로 보냅니다. 판독 결과는 스트림(`tool_call` parse_file)으로 옵니다. */
   const handleFileSelect = (file: File) => {
@@ -109,10 +102,16 @@ export const DashboardView = ({ session, personaName }: DashboardViewProps) => {
             isCompact
           />
         }
-        onSwitchAccount={handleSwitchAccount}
+        onSwitchAccount={() => setIsSwitchOpen(true)}
         onOpenMyData={() => setIsMyDataOpen(true)}
       />
       <NoticeToast key={session.session_id} notices={sessionNotices(session)} />
+      {isSwitchOpen && (
+        <AccountSwitchDialog
+          currentPersonaId={session.persona_id}
+          onClose={() => setIsSwitchOpen(false)}
+        />
+      )}
       {isMyDataOpen && (
         <MyDataDialog personaId={session.persona_id} onClose={() => setIsMyDataOpen(false)} />
       )}

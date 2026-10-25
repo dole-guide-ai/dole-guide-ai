@@ -1,4 +1,4 @@
-import { screen } from '@testing-library/react';
+import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -157,14 +157,33 @@ describe('DashboardScreen', () => {
     expect(screen.getByLabelText('메시지 입력')).toHaveValue('프레스 반장이었어요');
   });
 
-  it('계정 바꾸기를 누르면 세션을 지우고 로그인 화면으로 간다', async () => {
+  it('계정 바꾸기를 누르면 계정 고르기 창을 띄우고, 지금 계정은 고를 수 없다', async () => {
     mockApi();
     setSession(sessionFor('park'));
 
     renderWithProviders(<DashboardScreen />);
     await userEvent.click(await screen.findByRole('button', { name: '계정 바꾸기' }));
 
-    expect(push).toHaveBeenCalledWith('/');
+    const dialog = await screen.findByRole('dialog', { name: '계정 바꾸기' });
+    expect(within(dialog).getByRole('button', { name: '박진수 계정 (지금 계정)' })).toBeDisabled();
+    expect(
+      await within(dialog).findByRole('button', { name: '이정호 계정으로 시작' }),
+    ).toBeEnabled();
+    expect(push).not.toHaveBeenCalled();
+
+    await userEvent.click(within(dialog).getByRole('button', { name: '계정 바꾸기 닫기' }));
+    expect(screen.queryByRole('dialog', { name: '계정 바꾸기' })).not.toBeInTheDocument();
+  });
+
+  it('로고를 누르면 첫 화면으로 가는 링크다', async () => {
+    mockApi();
+    setSession(sessionFor('park'));
+
+    renderWithProviders(<DashboardScreen />);
+
+    expect(
+      await screen.findByRole('link', { name: '실업급여 길잡이 첫 화면으로' }),
+    ).toHaveAttribute('href', '/');
   });
 
   it('실제 서버 계정은 신청서 버튼이 대화 없이 바로 패널 C를 연다 (F-22)', async () => {
