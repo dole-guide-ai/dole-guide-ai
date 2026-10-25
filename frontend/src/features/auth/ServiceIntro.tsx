@@ -33,10 +33,11 @@ export const ServiceIntro = () => (
   <section aria-labelledby="service-heading" className="flex flex-col gap-5">
     <div className="flex flex-col gap-2">
       <h1 id="service-heading" className="text-3xl font-bold break-keep">
-        말로 이야기하면 실업급여 서류를 함께 채워 드려요
+        복잡한 실업급여 신청 과정을 도와드려요
       </h1>
       <p className="text-muted text-lg break-keep">
-        실업급여 길잡이는 고용24 실업급여 절차를 혼자서도 마칠 수 있게 돕는 AI 도우미예요.
+        실업급여 길잡이는 수급 조건에 따라 달라지는 신청 과정을 안내하고, 서류를 잘못 내지 않도록
+        함께 확인해요.
       </p>
     </div>
     <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4" aria-label="도와 드리는 일">
