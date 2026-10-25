@@ -99,7 +99,7 @@ describe('패널 E · Q · E5b (정적)', () => {
 
     renderWithProviders(<PanelFrame session={session} reviewStep={1} />);
 
-    expect(screen.getByText(/완료한 단계 · 이력서/)).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /^이력서\s*읽기 전용$/ })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '이력서 고치기' })).not.toBeInTheDocument();
     vi.restoreAllMocks();
   });
@@ -112,7 +112,7 @@ describe('패널 E · Q · E5b (정적)', () => {
     );
 
     await userEvent.click(screen.getByRole('button', { name: '이력서 고치기' }));
-    expect(screen.getByText(/\(고치는 중\)/)).toBeInTheDocument();
+    expect(screen.getByText('고치는 중')).toBeInTheDocument();
 
     rerender(
       <QueryClientProvider client={queryClient}>
@@ -128,7 +128,7 @@ describe('패널 E · Q · E5b (정적)', () => {
         </BigTextProvider>
       </QueryClientProvider>,
     );
-    expect(screen.getByText(/\(읽기 전용\)/)).toBeInTheDocument();
+    expect(screen.getByText('읽기 전용')).toBeInTheDocument();
     vi.restoreAllMocks();
   });
 
