@@ -8,27 +8,49 @@ import { ICON_SIZE, ICON_STROKE } from '@/lib/iconSize';
  * 로그인 화면 맨 위 서비스 소개: 로고와 무엇을 위해 만들었는지(제목·두 줄)를 한 행에 두고, 아래에 도와주는 일 4가지(한 줄씩).
  * 처음 온 사람이 계정을 고르기 전에 한눈에 알 수 있게 짧게 둡니다.
  */
-const CAPABILITIES: { icon: LucideIcon; title: string; description: string }[] = [
+// 글이 많은 화면이라 핵심 낱말만 진하게(본문 색·굵게) 보여 줍니다.
+const EM_CLASS = 'text-ink font-semibold';
+
+const CAPABILITIES: { icon: LucideIcon; title: string; description: ReactNode }[] = [
   {
     icon: FileText,
     title: '이력서 작성',
-    description: '에이전트와 대화하거나 파일·음성으로 고용24 이력서를 양식 그대로 채워요.',
+    description: (
+      <>
+        <strong className={EM_CLASS}>에이전트와 대화</strong>하거나 파일·음성으로{' '}
+        <strong className={EM_CLASS}>고용24 이력서를 양식 그대로</strong> 채워요.
+      </>
+    ),
   },
   {
     icon: Route,
     title: '절차 안내 및 상담',
-    description:
-      '따로 찾아볼 필요 없이 실업급여에 대해 무엇이든 묻고, 지금 할 일과 기한까지 안내받아요.',
+    description: (
+      <>
+        따로 찾아볼 필요 없이 <strong className={EM_CLASS}>실업급여에 대해 무엇이든</strong> 묻고,{' '}
+        <strong className={EM_CLASS}>지금 할 일과 기한</strong>까지 안내받아요.
+      </>
+    ),
   },
   {
     icon: ClipboardCheck,
     title: '구직활동 점검',
-    description: '회차마다 활동을 제대로 했는지 확인하고, 부족하면 추천해 함께 기록해요.',
+    description: (
+      <>
+        <strong className={EM_CLASS}>회차마다 활동을 제대로 했는지</strong> 확인하고, 부족하면{' '}
+        <strong className={EM_CLASS}>추천해 함께 기록</strong>해요.
+      </>
+    ),
   },
   {
     icon: FilePen,
     title: '신청서 검토',
-    description: '센터에 가거나 따로 알아보지 않고, 한곳에서 직접 확인하고 제출까지 해요.',
+    description: (
+      <>
+        센터에 가거나 따로 알아보지 않고,{' '}
+        <strong className={EM_CLASS}>한곳에서 직접 확인하고 제출까지</strong> 해요.
+      </>
+    ),
   },
 ];
 
@@ -48,10 +70,12 @@ export const ServiceIntro = ({ logo }: ServiceIntroProps) => (
         <p className="text-muted text-lg">
           {/* 두 문장을 한 줄씩 보여 줍니다. */}
           <span className="block">
-            어려운 이력서 작성부터 구직등록, 실업급여 신청까지 한 번에 간단하게 끝내요.
+            어려운 <strong className={EM_CLASS}>이력서 작성부터 구직등록, 실업급여 신청까지</strong>{' '}
+            한 번에 간단하게 끝내요.
           </span>
           <span className="block">
-            수급 조건에 따라 달라지는 절차를 안내하고, 서류를 잘못 내지 않도록 함께 확인해요.
+            수급 조건에 따라 달라지는 절차를 안내하고,{' '}
+            <strong className={EM_CLASS}>서류를 잘못 내지 않도록</strong> 함께 확인해요.
           </span>
         </p>
       </div>
