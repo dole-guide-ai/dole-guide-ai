@@ -133,15 +133,16 @@ html[data-theme='dark'] {
 }
 
 /*
- * 중장년층 대상이라 기본 글자를 조금 크게 두고, `글자 크게`(M4)는 루트 글자 크기 변수만 키웁니다.
- * 화면의 글자·여백은 rem이라 이 변수 하나로 함께 커집니다 (F-06).
+ * 화면의 글자·여백은 rem이라 루트 글자 크기 변수 하나로 함께 커지고 작아집니다 (F-06).
+ * 기본은 시안(17px)을 브라우저 80% 배율로 본 크기(13.6px)이고, `글자 크게`(M4)는 같은 비율로 20px → 16px입니다.
+ * px로 고정한 아이콘·로고(`lib/iconSize.ts`, 로고 이미지)도 같은 비율로 줄여 두었습니다.
  */
 :root {
-  --font-size-root: 17px;
+  --font-size-root: 13.6px;
 }
 
 html[data-big-text='true'] {
-  --font-size-root: 20px;
+  --font-size-root: 16px;
 }
 
 html {

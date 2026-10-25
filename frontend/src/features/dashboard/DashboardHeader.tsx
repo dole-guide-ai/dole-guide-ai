@@ -43,8 +43,8 @@ export const DashboardHeader = ({
         <Image
           src="/brand/logo.svg"
           alt="실업급여 길잡이"
-          width={141}
-          height={32}
+          width={115}
+          height={26}
           priority
           unoptimized
           className="in-data-[theme=dark]:hidden"
@@ -52,8 +52,8 @@ export const DashboardHeader = ({
         <Image
           src="/brand/logo-dark.svg"
           alt="실업급여 길잡이"
-          width={141}
-          height={32}
+          width={115}
+          height={26}
           priority
           unoptimized
           className="hidden in-data-[theme=dark]:block"
