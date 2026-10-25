@@ -117,7 +117,7 @@ describe('RoundPanel', () => {
       'aria-current',
       'step',
     );
-    expect(screen.getByText(/검수 전 규칙으로 계산했어요/)).toBeInTheDocument();
+    expect(screen.getByText(/회차별 필요 건수와 비교한 결과예요/)).toBeInTheDocument();
     expect(screen.queryByRole('region', { name: '추천 활동' })).not.toBeInTheDocument();
   });
 
