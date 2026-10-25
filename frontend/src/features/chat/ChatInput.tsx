@@ -145,7 +145,8 @@ export const ChatInput = ({
         </div>
       </div>
       <p id={PRIVACY_NOTE_ID} className="text-muted text-center text-sm">
-        이름·전화번호·주민등록번호는 적지 마세요. 올린 파일은 읽은 뒤 바로 지워요.
+        이름·전화번호·주민등록번호는 적지 마세요. 이력서용 서류는 읽은 뒤 바로 지우고, 구직활동
+        증빙은 신청에 쓰도록 보관해요.
       </p>
       {isLargeOpen && (
         <LargeInputDialog
