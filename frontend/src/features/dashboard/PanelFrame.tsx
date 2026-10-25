@@ -89,6 +89,12 @@ export const PanelFrame = ({
   const panel = entry.panel;
   const reviewPanel = reviewStep ? STEP_PANEL[reviewStep] : undefined;
   const [isEditingResume, setIsEditingResume] = useState(false);
+  // 다시 보던 단계를 떠나면(돌아가기 버튼이든 진행바든) 이력서 고치는 중 상태도 풉니다.
+  const [prevReviewStep, setPrevReviewStep] = useState(reviewStep);
+  if (prevReviewStep !== reviewStep) {
+    setPrevReviewStep(reviewStep);
+    setIsEditingResume(false);
+  }
   // 수급이 끝나면(F-33) 고치던 중이었어도 읽기 전용으로 돌립니다.
   const isEnded = state.stage === 'ended';
   const isResumeEditable = isEditingResume && !isEnded;

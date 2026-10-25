@@ -118,7 +118,7 @@ export const QuestionCard = ({
       </div>
 
       <div className="border-line flex flex-wrap items-center gap-2 border-t pt-3">
-        <label className="flex min-w-48 flex-1 items-center gap-2">
+        <label className="has-focus-visible:ring-brand flex min-w-48 flex-1 items-center gap-2 rounded-lg px-1 has-focus-visible:ring-3">
           <PencilLine
             aria-hidden
             size={ICON_SIZE.md}
