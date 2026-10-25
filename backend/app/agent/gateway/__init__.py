@@ -12,6 +12,7 @@ from app.core.errors import AppError, LlmUnavailableError, RateLimitedError
 from app.core.request_id import current_request_id
 
 MAX_RETRIES = 1
+RESPONSES_API_PROVIDERS = {"openai"}
 
 
 def get_chat_model(role: ModelRole = "agent") -> BaseChatModel:
@@ -23,6 +24,7 @@ def get_chat_model(role: ModelRole = "agent") -> BaseChatModel:
         base_url=PROVIDERS[provider].base_url,
         timeout=settings.llm_timeout_seconds,
         max_retries=MAX_RETRIES,
+        use_responses_api=provider in RESPONSES_API_PROVIDERS,
     )
 
 

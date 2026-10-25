@@ -22,7 +22,11 @@ os.environ["WORK24_API_KEY"] = ""
 
 from alembic.config import Config  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
+from langchain_core.language_models import BaseChatModel  # noqa: E402
 from langchain_core.language_models.fake_chat_models import FakeListChatModel  # noqa: E402
+from langchain_core.messages import AIMessage  # noqa: E402
+from langchain_core.outputs import ChatGeneration, ChatResult  # noqa: E402
+from langchain_core.runnables import RunnableLambda  # noqa: E402
 from sqlalchemy import create_engine, text  # noqa: E402
 from sqlalchemy.exc import OperationalError  # noqa: E402
 from sqlalchemy.orm import Session  # noqa: E402
@@ -101,6 +105,47 @@ def fake_llm(monkeypatch: pytest.MonkeyPatch):
 
     def _install(responses: list[str]) -> FakeListChatModel:
         model = FakeListChatModel(responses=responses)
+        monkeypatch.setattr(gateway, "get_chat_model", lambda role="agent": model)
+        return model
+
+    return _install
+
+
+class FakeAgentModel(BaseChatModel):
+    """도구 호출까지 흉내 내는 가짜 모델.
+
+    replies를 차례로 돌려주고, 분류(구조화 출력)에는 route를 답합니다.
+    """
+
+    replies: list[AIMessage]
+    route: str = "guide"
+    calls: int = 0
+
+    @property
+    def _llm_type(self) -> str:
+        return "fake-agent"
+
+    def _generate(self, messages, stop=None, run_manager=None, **kwargs) -> ChatResult:  # noqa: ANN001
+        reply = self.replies[min(self.calls, len(self.replies) - 1)]
+        self.calls += 1
+        return ChatResult(generations=[ChatGeneration(message=reply)])
+
+    def bind_tools(self, tools, **kwargs) -> FakeAgentModel:  # noqa: ANN001
+        return self
+
+    def with_structured_output(self, schema, **kwargs) -> RunnableLambda:  # noqa: ANN001
+        return RunnableLambda(lambda _: schema(panel=self.route))
+
+
+@pytest.fixture
+def fake_agent_llm(monkeypatch: pytest.MonkeyPatch):
+    """그래프 테스트용: 도구 호출이 담긴 AIMessage를 순서대로 돌려주는 모델을 주입합니다.
+
+    사용: fake_agent_llm([AIMessage("", tool_calls=[...]), AIMessage("답")], route="round")
+    """
+
+    def _install(replies: list[AIMessage], route: str = "guide") -> FakeAgentModel:
+        model = FakeAgentModel(replies=replies, route=route)
         monkeypatch.setattr(gateway, "get_chat_model", lambda role="agent": model)
         return model
 

@@ -38,7 +38,7 @@ def test_check_round_and_record_activity(ctx) -> None:
         c,
         "record_activity",
         {
-            "activity_date": TEST_TODAY.isoformat(),
+            "when": "오늘",
             "kind": "job_application",
             "route": "work24",
             "org_name": "OO물산",
@@ -63,6 +63,26 @@ def test_bad_tool_or_input(ctx) -> None:
         run_tool(ctx(), "delete_everything", {})
     with pytest.raises(ValidationError):
         run_tool(ctx(), "record_activity", {"kind": "job_application"})
+
+
+def test_record_resume_facts_saves_with_code_decided_paths(ctx) -> None:
+    """모델은 사실과 날짜 표현만 넘기고, 칸 경로·항목 id·날짜는 코드가 정합니다."""
+    facts = {
+        "careers": [{"company_name": "OO산업", "start": "2004년 3월", "end": "지금까지"}],
+        "certifications": [{"certificate_name": "지게차운전기능사", "acquired": "2011년"}],
+    }
+    result = run_tool(ctx("park"), "record_resume_facts", facts)
+
+    assert result["saved"] == 5
+    paths = {u["path"] for u in result["updates"]}
+    assert any(p.endswith("/start_date") for p in paths)
+
+
+def test_record_resume_facts_asks_instead_of_guessing_vague_date(ctx) -> None:
+    result = run_tool(ctx("park"), "record_resume_facts", {"careers": [{"start": "재작년 겨울"}]})
+
+    assert result["saved"] == 0
+    assert result["ask"]
 
 
 def test_overview_needs_no_llm(ctx) -> None:

@@ -12,19 +12,22 @@ import uuid
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field
 from datetime import date, datetime
+from typing import Any
 
-from langchain_core.messages import HumanMessage
 from langchain_core.runnables import RunnableConfig
 from langgraph.checkpoint.base import BaseCheckpointSaver
+from langgraph.graph.state import CompiledStateGraph
+from langgraph.types import Command
 from sqlalchemy.orm import Session
 
 from app.agent import checkpointer as checkpointer_module
 from app.agent import gateway
 from app.agent.events import TurnEvent
 from app.agent.graph import TOOL_CONTEXT_KEY, TURN_KEY, build_graph
+from app.agent.nodes.preprocess import BLOCKED_REPLY, gate
 from app.agent.tools.registry import ToolContext
 from app.core.clock import KST
-from app.schemas.messages import DoneEvent, InputKind
+from app.schemas.messages import DoneEvent, InputKind, TokenEvent
 from app.services.accounts import AccountContext
 
 
@@ -68,6 +71,21 @@ def run_config(turn: TurnInput) -> RunnableConfig:
     }
 
 
+def turn_input(graph: CompiledStateGraph, turn: TurnInput, config: RunnableConfig) -> Any:
+    """새 말이면 처음부터, 그래프가 질문(interrupt)에서 멈춰 있으면 그 답으로 재개합니다.
+
+    재개하는 답도 preprocess와 같은 개인정보 검사를 거쳐 가린 글만 넘깁니다.
+    0등급 번호가 있으면 재개하지 않고(None) 질문을 그대로 기다립니다.
+    """
+    if not graph.get_state(config).interrupts:
+        return {"panel": None}
+    answer, blocked = gate(turn.text)
+    if blocked:
+        return None
+    # 재개한 턴도 호출 상한은 새로 셉니다.
+    return Command(resume=answer, update={"model_calls": 0, "tool_calls": 0})
+
+
 def graph_responder(
     turn: TurnInput, checkpointer: BaseCheckpointSaver | None = None
 ) -> Iterator[TurnEvent]:
@@ -75,13 +93,18 @@ def graph_responder(
 
     `done`은 그래프가 체크포인트 저장까지 끝낸 뒤 보냅니다. 노드가 낸 `done`(근거 줄)은
     잡아 두었다가 그때 보내고, 노드가 내지 않았으면 빈 `done`을 보냅니다.
+    질문(interrupt)에서 멈춘 턴도 같은 방식으로 `done`으로 끝납니다.
     도중에 실패하면 `done` 없이 오류로 끝납니다.
     """
     graph = build_graph(checkpointer or checkpointer_module.get_checkpointer())
+    config = run_config(turn)
     done = TurnEvent(DoneEvent())
-    for event in graph.stream(
-        {"messages": [HumanMessage(turn.text)]}, run_config(turn), stream_mode="custom"
-    ):
+    payload = turn_input(graph, turn, config)
+    if payload is None:
+        yield TurnEvent(TokenEvent(text=BLOCKED_REPLY))
+        yield done
+        return
+    for event in graph.stream(payload, config, stream_mode="custom"):
         if not isinstance(event, TurnEvent):
             continue
         if isinstance(event.data, DoneEvent):

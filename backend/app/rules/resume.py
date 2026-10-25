@@ -125,13 +125,25 @@ class DateResult:
 
 _RELATIVE_YEARS = {"재작년": -2, "작년": -1, "지난해": -1, "올해": 0, "금년": 0}
 _VAGUE = re.compile(r"봄|여름|가을|겨울|초|중순|말|쯤|무렵")
+# 말로 한 월("삼월", "시월")을 숫자로. 긴 이름부터 바꿔야 "십이월"이 "십"+"이월"로 깨지지 않습니다.
+_KOREAN_MONTHS = {
+    "십이월": 12, "십일월": 11, "시월": 10, "구월": 9, "팔월": 8, "칠월": 7,
+    "유월": 6, "오월": 5, "사월": 4, "삼월": 3, "이월": 2, "일월": 1,
+}  # fmt: skip
+
+
+def _spoken_months(text: str) -> str:
+    """말로 한 월을 숫자로, 월 앞의 "올"("올 구월")을 "올해"로 바꿉니다("올렸어요"는 그대로)."""
+    for word, month in _KOREAN_MONTHS.items():
+        text = text.replace(word, f"{month}월")
+    return re.sub(r"올(?!해)\s*(?=\d{1,2}\s*월)", "올해 ", text)
 
 
 def normalize_date(
     expr: str, today: date, separation_date: date, age_at_separation: int | None = None
 ) -> DateResult:
     """사용자의 날짜 표현을 YYYY-MM으로 바꿉니다 (2-1.4 날짜 표현)."""
-    text = expr.strip()
+    text = _spoken_months(expr.strip())
     if m := re.search(r"(\d{4})\s*(?:년|[-./])\s*(\d{1,2})", text):
         if not _is_month(int(m[2])):
             return DateResult(None, ask=True)
