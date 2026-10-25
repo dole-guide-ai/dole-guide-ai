@@ -3,7 +3,10 @@ import Image from 'next/image';
 import { PersonaList } from '@/features/auth/PersonaList';
 import { ServiceIntro } from '@/features/auth/ServiceIntro';
 
-/** 시안 1-1 로그인 화면: 서비스 소개 → 가상 계정 카드(②) → 시연 고지(①, 맨 아래). */
+/** 저작권 표기 연도 (빌드 시점 기준) */
+const COPYRIGHT_YEAR = new Date().getFullYear();
+
+/** 시안 1-1 로그인 화면: 서비스 소개 → 가상 계정 카드(②) → 시연 고지(①)·저작권 표기(맨 아래). */
 export const LoginScreen = () => (
   <main className="mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-8 px-4 py-10">
     <ServiceIntro
@@ -51,6 +54,7 @@ export const LoginScreen = () => (
         신청되지는 않아요.
       </p>
       <p>아래 계정은 모두 가상 인물이고, 실제 개인정보는 쓰지 않아요.</p>
+      <p className="mt-2">© {COPYRIGHT_YEAR} 실업급여 길잡이. All rights reserved.</p>
     </footer>
   </main>
 );
