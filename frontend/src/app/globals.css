@@ -149,9 +149,19 @@ html {
   font-size: var(--font-size-root);
 }
 
+/* 한글은 낱말 중간에서 줄이 바뀌지 않게(keep-all) 하고, 긴 영문·숫자만 넘칠 때 끊습니다. 문단 끝 한 글자 줄도 피합니다. */
 body {
   background-color: var(--color-surface);
   color: var(--color-ink);
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+  text-wrap: pretty;
+}
+
+h1,
+h2,
+h3 {
+  text-wrap: balance;
 }
 
 /* Tailwind v4는 버튼 기본 커서가 default라, 누를 수 있는 요소에 손가락 커서를 다시 줍니다. 꺼진 버튼은 각자의 disabled 커서를 씁니다. */
