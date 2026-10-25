@@ -19,6 +19,7 @@ import { CONFIRMED_MESSAGE } from '@/features/recognition/recognitionLabels';
 
 import { ApiError } from '@/lib/api';
 import { resetForms } from '@/lib/formStore';
+import { nextStepView } from '@/lib/nextStep';
 import { setSession } from '@/lib/sessionStore';
 import type { ProgressStep, SessionRead } from '@/types/demo.types';
 
@@ -29,9 +30,9 @@ interface DashboardViewProps {
 
 /** 도구 이름을 사람이 읽을 상태 문구로 바꿉니다 (`tool_call` 이벤트). */
 const TOOL_LABEL: Record<string, string> = {
-  check_activity_rules: '회차 규칙을 점검하는 중…',
+  check_activity_rules: '필요한 활동 건수를 채웠는지 확인하는 중…',
   parse_file: '서류를 읽는 중…',
-  lookup_code: '직종·지역 코드를 찾는 중…',
+  lookup_code: '고용24 직종·지역 이름을 맞춰 보는 중…',
   search_guide: '근거 자료를 찾는 중…',
 };
 
@@ -93,12 +94,18 @@ export const DashboardView = ({ session, personaName }: DashboardViewProps) => {
       <DashboardHeader
         personaName={personaName}
         title={entry.title}
-        nextStepText={entry.next_step_text}
+        nextStep={nextStepView(session)}
         progress={
           <ProgressBar
             current={entry.progress.current}
             done={entry.progress.done}
-            onStepClick={(step) => setReview({ sessionId: session.session_id, step })}
+            viewing={reviewStep}
+            // 다시 보는 중에 현재 단계를 누르면 이번 단계로 돌아옵니다.
+            onStepClick={(step) =>
+              setReview(
+                step === entry.progress.current ? null : { sessionId: session.session_id, step },
+              )
+            }
             isCompact
           />
         }
