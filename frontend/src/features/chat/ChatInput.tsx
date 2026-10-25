@@ -81,7 +81,9 @@ export const ChatInput = ({
           onKeyDown={handleKeyDown}
           disabled={isDisabled}
           rows={2}
-          placeholder={isDisabled ? '답을 만드는 중이에요…' : '여기에 말씀하듯 적어 주세요'}
+          placeholder={
+            isDisabled ? '답을 만드는 중이에요…' : '실업급여에 대해 궁금한 점을 적어 주세요'
+          }
           aria-label="메시지 입력"
           aria-describedby={PRIVACY_NOTE_ID}
           className="placeholder:text-muted w-full resize-none bg-transparent px-3 pt-2 text-base leading-relaxed focus-visible:outline-hidden disabled:cursor-not-allowed"
