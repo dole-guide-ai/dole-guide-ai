@@ -36,7 +36,9 @@ describe('PersonaList', () => {
     renderWithProviders(<PersonaList />);
 
     const card = await screen.findByRole('button', { name: '박진수 계정으로 시작' });
-    expect(card).toHaveAccessibleDescription(/대화만으로 이력서를 처음부터 만들어요/);
+    expect(card).toHaveAccessibleDescription(
+      /경력증명서 사진을 올리면 회사·기간·하던 일을 읽어 이력서 칸에 넣어요/,
+    );
   });
 
   it('카드를 누르면 계정에 입장(PUT /accounts/lee)하고 대시보드로 간다', async () => {
