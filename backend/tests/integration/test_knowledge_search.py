@@ -14,6 +14,7 @@ from app.agent.graph import TOOL_CONTEXT_KEY
 from app.agent.nodes.context import attach_knowledge
 from app.agent.tools import ToolContext
 from app.core.clock import KST
+from app.core.config import get_settings
 from app.models.knowledge_chunk import EMBEDDING_DIM
 from app.rules.ranking import bigrams
 from app.schemas.knowledge import KnowledgeKind
@@ -67,8 +68,13 @@ GUIDES = [
 ]
 
 
+# 테스트 DB에 실제 색인이 있어도 모두 해시 벡터로 다시 임베딩되게 모델 이름을 따로 씁니다.
+HASH_MODEL = "test-hash-embeddings"
+
+
 @pytest.fixture
-def indexed(db_session: Session) -> Iterator[HashEmbeddings]:
+def indexed(db_session: Session, monkeypatch: pytest.MonkeyPatch) -> Iterator[HashEmbeddings]:
+    monkeypatch.setattr(get_settings(), "embedding_model", HASH_MODEL)
     embeddings = HashEmbeddings()
     docs = knowledge_service.rule_card_documents() + GUIDES
     knowledge_service.sync_index(db_session, docs, embeddings)
