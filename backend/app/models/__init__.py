@@ -6,6 +6,7 @@
 from app.models.activity import Activity
 from app.models.file import File, activity_files
 from app.models.idempotency_key import IdempotencyKey
+from app.models.knowledge_chunk import KnowledgeChunk
 from app.models.message import Message
 from app.models.persona import Persona
 from app.models.procedure_state import ProcedureState
@@ -21,6 +22,7 @@ __all__ = [
     "Activity",
     "File",
     "IdempotencyKey",
+    "KnowledgeChunk",
     "Message",
     "Persona",
     "ProcedureState",

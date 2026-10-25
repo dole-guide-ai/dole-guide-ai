@@ -26,6 +26,7 @@ from app.services import accounts as account_service
 from app.services import activities as activity_service
 from app.services import application as application_service
 from app.services import imports as import_service
+from app.services import knowledge as knowledge_service
 from app.services import recommendations as recommendation_service
 from app.services import resume as resume_service
 from app.services import rounds as round_service
@@ -105,6 +106,12 @@ class UnsureInput(BaseModel):
 
 class ImportInput(BaseModel):
     import_ids: list[str] = Field(min_length=1, max_length=20)
+
+
+class LookupRulesInput(BaseModel):
+    query: str = Field(
+        description="찾을 규칙 주제를 짧게(예: 이메일 지원 증빙, 신청 마감 시간, 일용직 자격)"
+    )
 
 
 class SearchTrainingsInput(BaseModel):
@@ -218,6 +225,15 @@ def _programs(ctx: ToolContext, args: SearchProgramsInput) -> dict[str, Any]:
     return _dump(training_service.search_programs(args.start, ctx.now))
 
 
+# 한 번에 돌려주는 규칙 카드 수. 많을수록 엉뚱한 카드가 섞여 답을 흐립니다.
+LOOKUP_LIMIT = 3
+
+
+def _lookup_rules(ctx: ToolContext, args: LookupRulesInput) -> dict[str, Any]:
+    found = knowledge_service.search(ctx.db, args.query, LOOKUP_LIMIT, guide_limit=0)
+    return {"rules": [c.for_model() for c in knowledge_service.rule_cards_of(found.rules)]}
+
+
 def _overview(ctx: ToolContext, _: NoInput) -> dict[str, Any]:
     return guide.overview()
 
@@ -295,15 +311,30 @@ TOOLS: dict[str, Tool] = {
             _programs,
         ),
         Tool("answer_overview", "전체 순서 4단계 고정 안내(LLM 없이)", NoInput, _overview),
+        Tool(
+            "lookup_rules",
+            "팀 규칙표에서 실업급여 규칙(증빙·마감·인정 여부·횟수·예외)을 찾아 "
+            "내용과 출처를 돌려줌. 규칙을 묻는 질문은 기억으로 답하지 말고 먼저 이것으로 찾음",
+            LookupRulesInput,
+            _lookup_rules,
+        ),
     )
 }
 
-# 패널(서브그래프)마다 LLM에 넘기는 도구 (AI 설계 6.3: 3~4개)
+# 패널마다 LLM에 넘기는 도구 (AI 설계 6.3: 3~4개였으나 4단계에서 규칙 찾기 lookup_rules를 더하며
+# 최대 5개로 조정. 도구가 많을수록 선택이 흔들려서(1단계 실험) 늘릴 때는 골든셋으로 다시 잽니다)
+MAX_PANEL_TOOLS = 5
 TOOLS_BY_PANEL: dict[str, tuple[str, ...]] = {
     "resume": ("record_resume_facts", "import_work24_items", "answer_overview"),
-    "round": ("check_round", "record_activity", "mark_done", "recommend_activities"),
-    "application": ("record_user_answer", "record_unsure", "check_round"),
-    "guide": ("answer_overview", "search_trainings", "search_programs"),
+    "round": (
+        "check_round",
+        "record_activity",
+        "mark_done",
+        "recommend_activities",
+        "lookup_rules",
+    ),
+    "application": ("record_user_answer", "record_unsure", "check_round", "lookup_rules"),
+    "guide": ("answer_overview", "lookup_rules", "search_trainings", "search_programs"),
 }
 
 

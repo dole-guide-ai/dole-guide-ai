@@ -8,6 +8,7 @@ from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
 from app.agent.tools import TOOLS, TOOLS_BY_PANEL, ToolContext, ToolError, run_tool
+from app.agent.tools.registry import MAX_PANEL_TOOLS
 from app.core.clock import KST
 from app.services.accounts import AccountContext
 from conftest import TEST_TODAY
@@ -27,7 +28,7 @@ def ctx(db_session: Session, entered_account: Callable[[str], AccountContext]):
 
 def test_every_panel_tool_exists_and_is_limited() -> None:
     for names in TOOLS_BY_PANEL.values():
-        assert 3 <= len(names) <= 4
+        assert 3 <= len(names) <= MAX_PANEL_TOOLS
         assert all(name in TOOLS for name in names)
 
 

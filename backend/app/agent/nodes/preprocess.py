@@ -58,6 +58,8 @@ def preprocess(state: AgentState, config: RunnableConfig) -> dict[str, Any]:
         "panel": None,
         "model_calls": 0,
         "tool_calls": 0,
+        "cited": [],
+        "cited_sources": [],
     }
 
 

@@ -3,7 +3,7 @@
 라우팅 워크플로 + 제한된 도구 루프입니다.
 경로는 코드가 정하고, LLM은 그 패널의 도구 안에서만 판단합니다.
 
-    preprocess → load_context → route_turn → call_model ⇄ run_tools → finish
+    preprocess → load_context → route_turn → attach_knowledge → call_model ⇄ run_tools → finish
                                                     ↘ ask (interrupt, 사용자 답으로 재개) ↗
 
 연결 약속:
@@ -41,6 +41,10 @@ class AgentState(TypedDict):
     tool_calls: NotRequired[int]
     # 개인정보 0등급이 있어 모델에 보내지 않은 턴
     blocked: NotRequired[bool]
+    # 이번 턴 답의 근거로 쓴 규칙 ID(규칙 카드·규칙 함수). finish가 근거 줄을 만듭니다.
+    cited: NotRequired[list[str]]
+    # 규칙 카드 밖의 근거(정책·FAQ 조각) 표시. 예: "고용24 「조기재취업수당」 · 2025-07-10"
+    cited_sources: NotRequired[list[str]]
 
 
 def turn_of(config: RunnableConfig) -> Any:
@@ -58,6 +62,7 @@ def build_graph(checkpointer: BaseCheckpointSaver | None = None) -> CompiledStat
     builder = StateGraph(AgentState)
     builder.add_node("preprocess", preprocess.preprocess)
     builder.add_node("load_context", context.load_context)
+    builder.add_node("attach_knowledge", context.attach_knowledge)
     builder.add_node("route_turn", route.route_turn)
     builder.add_node("call_model", panel.call_model)
     builder.add_node("run_tools", panel.run_tools)
@@ -66,8 +71,10 @@ def build_graph(checkpointer: BaseCheckpointSaver | None = None) -> CompiledStat
 
     builder.add_edge(START, "preprocess")
     builder.add_conditional_edges("preprocess", preprocess.after_preprocess)
+    # 패널을 먼저 골라야 정책·FAQ를 안내 패널에만 붙일 수 있습니다.
     builder.add_edge("load_context", "route_turn")
-    builder.add_edge("route_turn", "call_model")
+    builder.add_edge("route_turn", "attach_knowledge")
+    builder.add_edge("attach_knowledge", "call_model")
     builder.add_conditional_edges("call_model", panel.after_model)
     builder.add_conditional_edges("run_tools", panel.after_tools)
     builder.add_edge("ask", "call_model")

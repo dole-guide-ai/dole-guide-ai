@@ -39,6 +39,17 @@ def get_embeddings() -> Embeddings:
     return _SplitEmbeddings(documents, _embeddings(provider, query_model))
 
 
+def embed_queries(texts: list[str]) -> list[list[float]]:
+    """질문 여러 개를 묶어서 질문용 모델로 임베딩합니다.
+
+    평가처럼 질문이 많을 때 하나씩 보내면 공급자 요청 한도에 걸립니다.
+    """
+    embeddings = get_embeddings()
+    if isinstance(embeddings, _SplitEmbeddings):
+        return embeddings.query.embed_documents(texts)
+    return embeddings.embed_documents(texts)
+
+
 def trace_config() -> dict[str, dict[str, str]]:
     """그래프·모델 호출 config에 붙일 트레이스 metadata (N-09).
 

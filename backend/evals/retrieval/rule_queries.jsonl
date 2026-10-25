@@ -1,0 +1,66 @@
+{"qid": "R01", "question": "피보험 단위기간이 며칠 이상이어야 실업급여를 받아요?", "positives": ["ELIG-114", "ELIG-113"], "style": "explicit"}
+{"qid": "R02", "question": "회사 다닌 지 얼마나 돼야 받을 수 있어요?", "positives": ["ELIG-114", "ELIG-113"], "style": "colloquial"}
+{"qid": "R03", "question": "임금체불로 자진퇴사해도 수급자격이 인정되나요?", "positives": ["ELIG-155"], "style": "explicit"}
+{"qid": "R04", "question": "월급이 두 달째 안 나와서 그만뒀는데 받을 수 있나요", "positives": ["ELIG-155"], "style": "colloquial"}
+{"qid": "R05", "question": "회사가 멀리 이사 가서 출퇴근이 너무 힘들어 관뒀어요", "positives": ["ELIG-164"], "style": "colloquial"}
+{"qid": "R06", "question": "어머니 병간호 때문에 회사를 그만뒀는데요", "positives": ["ELIG-165", "ACT-084"], "style": "colloquial"}
+{"qid": "R07", "question": "정년퇴직했는데 실업급여 나오나요", "positives": ["ELIG-170"], "style": "colloquial"}
+{"qid": "R08", "question": "계약 기간 끝나서 나왔어요 받을 수 있죠?", "positives": ["ELIG-170"], "style": "colloquial"}
+{"qid": "R09", "question": "회사 사정이 어렵다고 나가 달라고 해서 나왔어요", "positives": ["ELIG-163"], "style": "colloquial"}
+{"qid": "R10", "question": "윗사람이 하도 괴롭혀서 못 견디고 나왔어요", "positives": ["ELIG-161"], "style": "colloquial"}
+{"qid": "R11", "question": "구직급여일액 상한액이 얼마예요?", "positives": ["ELIG-208", "ELIG-203"], "style": "explicit"}
+{"qid": "R12", "question": "하루에 최대 얼마까지 나와요?", "positives": ["ELIG-208"], "style": "colloquial"}
+{"qid": "R13", "question": "피보험기간 10년 이상이면 소정급여일수가 며칠이에요?", "positives": ["ELIG-189", "ELIG-190"], "style": "explicit"}
+{"qid": "R14", "question": "20년 넘게 일했는데 며칠 동안 받을 수 있어요?", "positives": ["ELIG-189", "ELIG-190"], "style": "colloquial"}
+{"qid": "R15", "question": "수급기간은 이직일 다음 날부터 언제까지예요?", "positives": ["DUE-056", "DUE-072", "DUE-042", "DUE-005"], "style": "explicit"}
+{"qid": "R16", "question": "퇴사하고 1년 지나서 신청하면 못 받나요?", "positives": ["DUE-042", "DUE-056", "DUE-072", "DUE-005"], "style": "colloquial"}
+{"qid": "R17", "question": "실업인정 인터넷 신청 마감 시간이 언제예요?", "positives": ["DUE-092"], "style": "explicit"}
+{"qid": "R18", "question": "오늘 인정일인데 저녁에 해도 돼요?", "positives": ["DUE-092", "DUE-093"], "style": "colloquial"}
+{"qid": "R19", "question": "인정일을 깜빡하고 지나쳤어요 어떡하죠", "positives": ["DUE-089", "DUE-094"], "style": "colloquial"}
+{"qid": "R20", "question": "인정일에 면접이 잡혔는데 날짜 바꿀 수 있어요?", "positives": ["DUE-087"], "style": "colloquial"}
+{"qid": "R21", "question": "재취업하면 취업사실 신고는 어떻게 해요?", "positives": ["PROC-079", "DUE-003", "DUE-045"], "style": "explicit"}
+{"qid": "R22", "question": "다음 주부터 새 회사 나가요 뭘 해야 돼요?", "positives": ["PROC-079", "DUE-003", "DUE-045"], "style": "colloquial"}
+{"qid": "R23", "question": "받는 중에 주말에 이틀 알바했는데 말해야 돼요?", "positives": ["DUE-002", "DUE-102", "DUE-018", "DUE-045"], "style": "colloquial"}
+{"qid": "R24", "question": "친척 가게 일 잠깐 도와줬는데 돈은 안 받았어요", "positives": ["DUE-030", "DUE-002", "DUE-102", "DUE-019", "DUE-052"], "style": "colloquial"}
+{"qid": "R25", "question": "부정수급하면 처벌이 어떻게 돼요?", "positives": ["DUE-106", "DUE-033", "DUE-034", "DUE-035", "DUE-105"], "style": "explicit"}
+{"qid": "R26", "question": "일한 거 안 알리고 받다가 걸리면 어떻게 돼요?", "positives": ["DUE-105", "DUE-024", "DUE-033", "DUE-106", "DUE-035"], "style": "colloquial"}
+{"qid": "R27", "question": "조기재취업수당을 받는 조건이 뭐예요?", "positives": ["SUP-052", "SUP-056"], "style": "explicit"}
+{"qid": "R28", "question": "빨리 취직하면 돈을 더 준다던데요", "positives": ["SUP-052", "SUP-029", "SUP-058"], "style": "colloquial"}
+{"qid": "R29", "question": "받는 중에 해외여행 가도 돼요?", "positives": ["DUE-097"], "style": "colloquial"}
+{"qid": "R30", "question": "몸살로 열흘 넘게 누워 있어서 구직활동을 못 했어요", "positives": ["SUP-033", "SUP-028"], "style": "colloquial"}
+{"qid": "R31", "question": "임신·출산으로 수급기간 연기를 신청할 수 있나요?", "positives": ["DUE-060", "DUE-006", "DUE-073", "PROC-068"], "style": "explicit"}
+{"qid": "R32", "question": "8차 실업인정일에 고용센터에 꼭 출석해야 하나요?", "positives": ["ACT-042", "ACT-101"], "style": "explicit"}
+{"qid": "R33", "question": "센터에 직접 가야 하는 날이 언제예요?", "positives": ["ACT-042", "ACT-101", "ACT-108"], "style": "colloquial"}
+{"qid": "R34", "question": "구직급여는 언제 지급돼요?", "positives": ["DUE-101"], "style": "explicit"}
+{"qid": "R35", "question": "인정받고 나서 돈은 며칠 뒤에 들어와요?", "positives": ["DUE-101"], "style": "colloquial"}
+{"qid": "R36", "question": "돈 받는 통장을 바꾸고 싶은데요", "positives": ["PROC-082"], "style": "colloquial"}
+{"qid": "R37", "question": "이메일로 입사지원한 경우 증빙 서류는 뭐예요?", "positives": ["ACT-134"], "style": "explicit"}
+{"qid": "R38", "question": "취업포털로 지원했으면 증빙은 뭘 내요?", "positives": ["ACT-133"], "style": "explicit"}
+{"qid": "R39", "question": "회사 홈페이지에서 지원했는데 뭘 캡처해야 돼요", "positives": ["ACT-136"], "style": "colloquial"}
+{"qid": "R40", "question": "면접 보고 왔는데 뭘 받아 와야 해요?", "positives": ["ACT-137", "ACT-142"], "style": "colloquial"}
+{"qid": "R41", "question": "영어 학원 다니는 것도 구직활동이 돼요?", "positives": ["ACT-054", "ACT-115"], "style": "colloquial"}
+{"qid": "R42", "question": "60 넘었는데 봉사활동도 쳐 줘요?", "positives": ["ACT-125", "ACT-046"], "style": "colloquial"}
+{"qid": "R43", "question": "4주에 재취업활동을 몇 건 해야 해요?", "positives": ["ACT-023", "ACT-024", "ACT-025", "ACT-026", "ACT-027", "ACT-028", "ACT-031", "ACT-032", "ACT-033", "ACT-034", "ACT-035", "ACT-036", "ACT-037", "ACT-038", "ACT-098", "ACT-099"], "style": "explicit"}
+{"qid": "R44", "question": "실업크레딧 지원 대상이 누구예요?", "positives": ["SUP-018", "SUP-065"], "style": "explicit"}
+{"qid": "R45", "question": "실업급여 받는 동안 국민연금은 어떻게 돼요?", "positives": ["SUP-018", "SUP-019", "SUP-025", "SUP-031", "SUP-032"], "style": "colloquial"}
+{"qid": "R46", "question": "수급자격 불인정 결정에 심사 청구하는 기한은요?", "positives": ["DUE-008", "DUE-099"], "style": "explicit"}
+{"qid": "R47", "question": "못 받는다고 결정 났는데 억울해요 다시 따져 볼 수 있나요", "positives": ["DUE-008", "DUE-099"], "style": "colloquial"}
+{"qid": "R48", "question": "대기기간 7일은 구직급여가 안 나오나요?", "positives": ["DUE-057", "DUE-058"], "style": "explicit"}
+{"qid": "R49", "question": "신청하고 첫 일주일은 돈이 안 나온다는데 맞아요?", "positives": ["DUE-057", "DUE-058"], "style": "colloquial"}
+{"qid": "R50", "question": "수급자격 신청 전에 교육을 받아야 하나요?", "positives": ["PROC-010"], "style": "explicit"}
+{"qid": "R51", "question": "내일배움카드로 학원 다니면 활동으로 인정돼요?", "positives": ["ACT-049", "ACT-064", "ACT-114", "ACT-050"], "style": "colloquial"}
+{"qid": "R52", "question": "면접확인서를 제가 그냥 써서 내도 돼요?", "positives": ["DUE-103", "ACT-142"], "style": "colloquial"}
+{"qid": "R53", "question": "이직확인서는 누가 제출하나요?", "positives": ["PROC-002", "PROC-059"], "style": "explicit"}
+{"qid": "R54", "question": "회사에서 서류 처리를 안 해 줘서 신청이 안 된대요", "positives": ["PROC-001", "PROC-002", "PROC-059", "SUP-042", "PROC-051"], "style": "colloquial"}
+{"qid": "N01", "question": "오늘 날씨 어때요?", "positives": [], "style": "negative"}
+{"qid": "N02", "question": "점심 메뉴 추천해 주세요", "positives": [], "style": "negative"}
+{"qid": "N03", "question": "주식 투자는 어떻게 시작해요?", "positives": [], "style": "negative"}
+{"qid": "N04", "question": "운전면허 갱신은 어디서 해요?", "positives": [], "style": "negative"}
+{"qid": "N05", "question": "자동차 보험료가 올랐어요", "positives": [], "style": "negative"}
+{"qid": "N06", "question": "손주 돌잔치 선물로 뭐가 좋을까요", "positives": [], "style": "negative"}
+{"qid": "N07", "question": "건강검진 예약하는 법 알려 주세요", "positives": [], "style": "negative"}
+{"qid": "N08", "question": "휴대폰 요금제를 바꾸고 싶어요", "positives": [], "style": "negative"}
+{"qid": "N09", "question": "아파트 관리비가 너무 많이 나와요", "positives": [], "style": "negative"}
+{"qid": "N10", "question": "고마워요 수고하셨어요", "positives": [], "style": "negative"}
+{"qid": "N11", "question": "넷플릭스 해지 방법", "positives": [], "style": "negative"}
+{"qid": "N12", "question": "등산 가기 좋은 산 추천해 주세요", "positives": [], "style": "negative"}

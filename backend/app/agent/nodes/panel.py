@@ -21,12 +21,15 @@ from app.agent.events import emit
 from app.agent.graph import AgentState, tool_context_of
 from app.agent.prompts import load_prompt
 from app.agent.tools.registry import TOOLS, TOOLS_BY_PANEL, ToolError, run_tool
+from app.core.config import get_settings
+from app.core.errors import AppError
 from app.schemas.common import FormUpdate
 from app.schemas.messages import AskUserEvent, TokenEvent, ToolCallEvent
 
 MAX_MODEL_CALLS = 4  # 분류 1 + 패널 루프 3 (노션 「에이전트 구조 설계」 8절)
 MAX_TOOL_CALLS = 6
 ASK_USER = "ask_user"
+LOOKUP_RULES = "lookup_rules"
 BASE_PROMPT = "panels/base"
 
 
@@ -45,10 +48,18 @@ def _tool_schema(name: str, description: str, model: type[BaseModel]) -> dict[st
     return schema
 
 
+def tool_names(panel: str) -> tuple[str, ...]:
+    """패널 도구. 규칙 카드를 미리 붙이는 방식(inject)이면 찾기 도구는 빼서 비교 조건을 맞춥니다."""
+    names = TOOLS_BY_PANEL[panel]
+    if get_settings().rule_cards_mode == "inject":
+        names = tuple(n for n in names if n != LOOKUP_RULES)
+    return names
+
+
 def tool_schemas(panel: str) -> list[dict[str, Any]]:
     schemas = [
         _tool_schema(t.name, t.description, t.input_model)
-        for t in (TOOLS[name] for name in TOOLS_BY_PANEL[panel])
+        for t in (TOOLS[name] for name in tool_names(panel))
     ]
     schemas.append(_tool_schema(ASK_USER, "사용자에게 하나 되묻기", AskUserInput))
     return schemas
@@ -91,40 +102,57 @@ def after_model(state: AgentState) -> str:
     return "run_tools" if _last_ai(state).tool_calls else "finish"
 
 
-def _run_one(state: AgentState, config: RunnableConfig, name: str, args: dict[str, Any]) -> str:
+def _failure(exc: Exception) -> str:
+    # 서비스 오류(AppError)의 message는 사용자에게 보여도 되는 문구라 모델에 그대로 넘깁니다.
+    if isinstance(exc, AppError):
+        return f"도구를 쓰지 못했어요: {exc.message}"
+    if isinstance(exc, ToolError):
+        return f"도구를 쓰지 못했어요: {exc}"
+    return "도구를 쓰지 못했어요: 인자가 맞지 않아요"
+
+
+def _rule_ids(result: dict[str, Any]) -> list[str]:
+    """도구 결과에서 근거로 쓸 규칙 ID(규칙 카드 id, 규칙 함수의 rule_refs)를 모읍니다."""
+    ids = [r["id"] for r in result.get("rules", [])]
+    return ids + list(result.get("rule_refs", []))
+
+
+def _run_one(
+    state: AgentState, config: RunnableConfig, name: str, args: dict[str, Any]
+) -> tuple[str, list[str]]:
+    """(모델에 돌려줄 결과 글, 근거 규칙 ID). 실패도 예외로 턴을 끝내지 않고 사유로 돌려줍니다."""
     ctx = tool_context_of(config)
-    if name not in TOOLS_BY_PANEL[state["panel"]]:
-        return "이 단계에서 쓸 수 없는 도구예요."
+    if name not in tool_names(state["panel"]):
+        return "이 단계에서 쓸 수 없는 도구예요.", []
     if ctx is None:
-        return "지금은 도구를 쓸 수 없어요."
+        return "지금은 도구를 쓸 수 없어요.", []
     emit(ToolCallEvent(name=name, status="started"))
     try:
         result = run_tool(ctx, name, args)
-    except (ToolError, ValidationError) as exc:
-        return (
-            f"도구를 쓰지 못했어요: {exc if isinstance(exc, ToolError) else '인자가 맞지 않아요'}"
-        )
+    except (ToolError, ValidationError, AppError) as exc:
+        return _failure(exc), []
     finally:
         emit(ToolCallEvent(name=name, status="finished"))
     for update in result.get("updates", []):
         emit(FormUpdate.model_validate(update))
-    return json.dumps(result, ensure_ascii=False, default=str)
+    return json.dumps(result, ensure_ascii=False, default=str), _rule_ids(result)
 
 
 def run_tools(state: AgentState, config: RunnableConfig) -> dict[str, Any]:
     """ask_user가 아닌 도구를 실행합니다. ask_user가 있으면 질문 이벤트만 내고 ask로 넘깁니다."""
     calls = _last_ai(state).tool_calls
     used = state.get("tool_calls", 0)
+    cited = list(state.get("cited", []))
     results = []
     for call in calls:
         if call["name"] == ASK_USER:
             continue
         used += 1
-        content = (
-            "이번 턴 도구 호출 상한에 걸려 실행하지 않았어요."
-            if used > MAX_TOOL_CALLS
-            else _run_one(state, config, call["name"], call["args"])
-        )
+        if used > MAX_TOOL_CALLS:
+            content = "이번 턴 도구 호출 상한에 걸려 실행하지 않았어요."
+        else:
+            content, rule_ids = _run_one(state, config, call["name"], call["args"])
+            cited.extend(i for i in rule_ids if i not in cited)
         results.append(ToolMessage(content=content, tool_call_id=call["id"]))
     asks = [c for c in calls if c["name"] == ASK_USER]
     if asks:
@@ -134,7 +162,7 @@ def run_tools(state: AgentState, config: RunnableConfig) -> dict[str, Any]:
         results.extend(
             ToolMessage(content="한 번에 하나만 물어요.", tool_call_id=c["id"]) for c in asks[1:]
         )
-    return {"messages": results, "tool_calls": used}
+    return {"messages": results, "tool_calls": used, "cited": cited}
 
 
 def after_tools(state: AgentState) -> str:

@@ -43,6 +43,7 @@ def run_case(db: Session, case: dict[str, Any]) -> AgentResult:
     # '변경금지' 칸은 대화 전 DB 값과 비교합니다(문항 입력과 서버 모양이 달라서).
     initial = _snapshot(db, account, today, now)
     replies: list[str] = []
+    next_action: str | None = None
     cites: list[str] = []
     for text in case_input["messages"]:
         turn = chat_service.start_turn(db, account, MessageCreate(text=text), None, today)
@@ -53,9 +54,11 @@ def run_case(db: Session, case: dict[str, Any]) -> AgentResult:
             "".join(e.data.text for e in events if e.name in ("token", "ask_user")).strip()
         )
         cites.extend(e.data.cite for e in events if e.name == "done" and e.data.cite)
+        next_action = next((e.data.next_action for e in events if e.name == "done"), next_action)
 
     return AgentResult(
         replies=replies,
+        next_action=next_action,
         data=_snapshot(db, account, today, now),
         initial_data=initial,
         cites=cites,
