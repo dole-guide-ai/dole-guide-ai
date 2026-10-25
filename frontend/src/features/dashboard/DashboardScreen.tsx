@@ -3,6 +3,7 @@
 import { useEffect, useSyncExternalStore } from 'react';
 import { useRouter } from 'next/navigation';
 
+import { Spinner } from '@/components/Spinner';
 import { DashboardView } from '@/features/dashboard/DashboardView';
 import { usePersonaName } from '@/features/session/usePersonaName';
 import { useSession } from '@/features/session/useSession';
@@ -31,7 +32,7 @@ export const DashboardScreen = () => {
   if (!session) {
     return (
       <main className="flex min-h-screen items-center justify-center">
-        <p className="text-muted text-lg">화면을 준비하는 중…</p>
+        <Spinner label="화면을 준비하는 중…" />
       </main>
     );
   }

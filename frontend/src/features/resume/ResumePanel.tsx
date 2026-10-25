@@ -1,6 +1,7 @@
 'use client';
 
 import { Button } from '@/components/Button';
+import { Spinner } from '@/components/Spinner';
 import { FieldRow } from '@/features/resume/FieldRow';
 import {
   CONTRACT_TYPES,
@@ -133,7 +134,7 @@ export const ResumePanel = ({
   const confirm = useConfirmResume(session.persona_id);
   const patch = usePatchResumeField(session.session_id, session.persona_id);
 
-  if (query.isPending) return <p className="text-muted text-base">이력서를 불러오는 중…</p>;
+  if (query.isPending) return <Spinner label="이력서를 불러오는 중…" isCentered />;
   if (query.isError) {
     const message =
       query.error instanceof ApiError ? query.error.message : '이력서를 불러오지 못했어요.';
