@@ -1,4 +1,9 @@
+import { Check } from 'lucide-react';
+
+import { PERSONA_HIGHLIGHTS } from '@/features/auth/personaHighlights';
 import type { PersonaCardRead } from '@/features/auth/usePersonas';
+
+import { ICON_SIZE, ICON_STROKE_BOLD } from '@/lib/iconSize';
 
 /** 가상 계정 카드 (1.4 ②). 카드 어디를 눌러도 같은 동작입니다. */
 interface PersonaCardProps {
@@ -9,8 +14,9 @@ interface PersonaCardProps {
 
 export const PersonaCard = ({ persona, onSelect, isDisabled = false }: PersonaCardProps) => {
   const { name, age, job, quote, summary } = persona.display;
-  // 버튼 이름은 "{이름} 계정으로 시작"으로 짧게 두고, 나이·직종·한마디·상태 요약은 설명으로 읽게 합니다.
+  // 버튼 이름은 "{이름} 계정으로 시작"으로 짧게 두고, 나이·직종·한마디·상태 요약·해 볼 수 있는 일은 설명으로 읽게 합니다.
   const descriptionId = `persona-${persona.persona_id}-description`;
+  const highlights = PERSONA_HIGHLIGHTS[persona.persona_id] ?? [];
 
   return (
     <button
@@ -27,7 +33,7 @@ export const PersonaCard = ({ persona, onSelect, isDisabled = false }: PersonaCa
       >
         {name.charAt(0)}
       </span>
-      <span id={descriptionId} className="flex min-w-0 flex-col gap-2">
+      <span id={descriptionId} className="flex min-w-0 flex-1 flex-col gap-2">
         <span className="text-xl font-bold">
           {name}
           <span className="text-muted ml-2 text-base font-normal">
@@ -38,6 +44,23 @@ export const PersonaCard = ({ persona, onSelect, isDisabled = false }: PersonaCa
         <span className="bg-neutral-soft text-neutral inline-flex w-fit rounded-full px-3 py-1 text-sm font-medium">
           {summary}
         </span>
+        {/* 버튼 안이라 목록 요소(ul) 대신 span으로 줄을 나눕니다. */}
+        {highlights.length > 0 && (
+          <span className="border-line flex flex-col gap-1.5 border-t pt-3">
+            <span className="text-muted text-sm font-semibold">이 계정으로 해 볼 수 있어요</span>
+            {highlights.map((highlight) => (
+              <span key={highlight} className="text-ink flex items-start gap-2 text-base">
+                <Check
+                  aria-hidden
+                  size={ICON_SIZE.sm}
+                  strokeWidth={ICON_STROKE_BOLD}
+                  className="text-brand mt-1 shrink-0"
+                />
+                {highlight}
+              </span>
+            ))}
+          </span>
+        )}
       </span>
     </button>
   );

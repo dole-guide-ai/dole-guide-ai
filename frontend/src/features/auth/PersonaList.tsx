@@ -1,5 +1,6 @@
 'use client';
 
+import { Spinner } from '@/components/Spinner';
 import { PersonaCard } from '@/features/auth/PersonaCard';
 import { useDemoLogin } from '@/features/auth/useDemoLogin';
 import { usePersonas } from '@/features/auth/usePersonas';
@@ -8,7 +9,7 @@ export const PersonaList = () => {
   const { data, isPending, isError } = usePersonas();
   const login = useDemoLogin();
 
-  if (isPending) return <p className="text-muted text-lg">계정을 불러오는 중…</p>;
+  if (isPending) return <Spinner label="계정을 불러오는 중…" isCentered />;
   if (isError)
     return (
       <p className="text-danger text-lg" role="alert">
@@ -18,7 +19,7 @@ export const PersonaList = () => {
 
   return (
     <div className="flex flex-col gap-3">
-      <ul className="flex max-h-[60vh] flex-col gap-3 overflow-y-auto" aria-busy={login.isPending}>
+      <ul className="flex flex-col gap-3" aria-busy={login.isPending}>
         {data.map((persona) => (
           <li key={persona.persona_id}>
             <PersonaCard persona={persona} onSelect={login.mutate} isDisabled={login.isPending} />

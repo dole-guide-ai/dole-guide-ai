@@ -30,6 +30,15 @@ describe('PersonaList', () => {
     expect(screen.getAllByRole('button')).toHaveLength(3);
   });
 
+  it('카드마다 이 계정으로 해 볼 수 있는 일을 설명으로 붙인다', async () => {
+    mockFetchJson(list);
+
+    renderWithProviders(<PersonaList />);
+
+    const card = await screen.findByRole('button', { name: '박진수 계정으로 시작' });
+    expect(card).toHaveAccessibleDescription(/대화만으로 이력서를 처음부터 만들어요/);
+  });
+
   it('카드를 누르면 계정에 입장(PUT /accounts/lee)하고 대시보드로 간다', async () => {
     const fetchSpy = mockFetchJson(list);
     fetchSpy
