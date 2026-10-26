@@ -80,6 +80,8 @@ class Settings(BaseSettings):
     retrieval_min_similarity: float = 0.50
     # 안내(guide) 패널에 붙이는 정책·FAQ 조각 수
     retrieval_guide_limit: int = 2
+    # 답 검사(6단계): 근거에 없는 숫자·근거를 넘는 단정이 든 문장을 뺌. 효과를 견줄 때만 끕니다.
+    answer_check: bool = True
 
     # BFF(Next)가 붙이는 X-Internal-Secret 값. local에서 비우면 확인하지 않습니다.
     internal_api_secret: str = ""

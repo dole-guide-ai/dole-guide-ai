@@ -16,8 +16,8 @@ from app.agent.input import pii
 from app.schemas.messages import TokenEvent
 
 BLOCKED_REPLY = (
-    "주민등록번호·계좌번호·카드번호 같은 민감한 번호가 있어 보내지 않았어요. "
-    "번호는 빼고 다시 말씀해 주세요. 이런 번호는 이 서비스에 적지 않으셔도 돼요."
+    "주민등록번호·계좌번호·카드번호 같은 민감한 번호는 저장하지 않아요. "
+    "그래서 이번 말은 보내지 않았어요. 번호는 빼고 다시 말씀해 주세요."
 )
 BLOCKED_PLACEHOLDER = "(민감한 번호가 있어 보내지 않은 말)"
 UNFINISHED_TOOL = "(답을 받기 전에 대화가 끊겨 끝나지 않은 호출)"
@@ -59,7 +59,7 @@ def preprocess(state: AgentState, config: RunnableConfig) -> dict[str, Any]:
         "model_calls": 0,
         "tool_calls": 0,
         "cited": [],
-        "cited_sources": [],
+        "attached": [],
     }
 
 
