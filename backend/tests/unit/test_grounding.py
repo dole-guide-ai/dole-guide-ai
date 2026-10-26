@@ -50,6 +50,7 @@ def test_evidence_accepts_facts_tool_results_and_user_words_but_not_past_answers
         ("열 번 넘게", "10번 넘게"),
         ("삼십 년 일했고", "30년 일했고"),
         ("일하는 날 오늘 사장님이", "일하는 날 오늘 사장님이"),  # 수가 아닌 말은 그대로
+        ("십일월에 그만뒀어요", "십일월에 그만뒀어요"),  # 달 이름은 일수가 아님
     ],
 )
 def test_korean_counts_become_digits(text: str, expected: str) -> None:
@@ -60,6 +61,8 @@ def test_user_number_in_korean_words_grounds_answer() -> None:
     evidence = Evidence(["보험 칠 년 부었는데 며칠 받아요?", "5년 이상 10년 미만이면 240일"])
 
     assert evidence.ungrounded("피보험기간이 7년이면 소정급여일수는 240일이에요.") == []
+    # 한글로 말한 수는 단위까지 같아야 근거입니다("칠 년"이 "7개월"을 받쳐 주지 않음).
+    assert set(evidence.ungrounded("7개월이면 120일이에요.")) == {"7개월", "120일"}
 
 
 def test_risky_sentence_is_checked_by_model_and_limited(monkeypatch: pytest.MonkeyPatch) -> None:

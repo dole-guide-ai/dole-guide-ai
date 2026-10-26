@@ -110,7 +110,8 @@ _NATIVE = {
 _KOREAN_COUNT = re.compile(
     r"(?<![가-힣])((?:[일이삼사오육칠팔구]?십)?[일이삼사오육칠팔구]?|"
     + "|".join(sorted(_NATIVE, key=len, reverse=True))
-    + r")\s*(년|개월|달|주|일|시간|번|건|회)"
+    # "십일월"처럼 뒤에 "월"이 오면 날짜라 일수로 바꾸지 않습니다.
+    + r")\s*(년|개월|달|주|일|시간|번|건|회)(?!월)"
 )
 
 
@@ -143,9 +144,9 @@ class Evidence:
     def __init__(self, texts: Iterable[str]) -> None:
         joined = "\n".join(t for t in texts if t)
         self.text = joined
-        numbered = korean_counts(joined)
-        self.claims = claims(joined) | claims(numbered)
-        self.bare = _bare_numbers(joined) | _bare_numbers(numbered)
+        # 바꾼 글은 단위가 붙은 주장만 더합니다("칠 년"의 7을 단위 없이 넣으면 "7개월"도 통과).
+        self.claims = claims(joined) | claims(korean_counts(joined))
+        self.bare = _bare_numbers(joined)
 
     @classmethod
     def of_turn(cls, facts: dict[str, Any], messages: Sequence[AnyMessage]) -> Evidence:
