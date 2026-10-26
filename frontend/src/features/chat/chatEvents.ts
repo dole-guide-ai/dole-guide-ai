@@ -29,7 +29,7 @@ export const chatActionFor = (event: BubbleEvent): ChatAction => {
         acceptsFile: event.data.accepts_file,
       };
     case SSE_EVENTS.DONE:
-      return { type: CHAT_ACTIONS.DONE, cite: event.data.cite };
+      return { type: CHAT_ACTIONS.DONE, cite: event.data.cite, citeLinks: event.data.cite_links };
   }
 };
 

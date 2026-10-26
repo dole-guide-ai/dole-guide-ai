@@ -6,7 +6,7 @@ import { apiFetch } from '@/lib/api';
 import { API_PATHS } from '@/lib/apiPaths';
 import { queryKeys } from '@/lib/queryKeys';
 import type { components } from '@/types/api.gen';
-import type { ChatInputKind } from '@/types/chat.types';
+import type { ChatInputKind, CiteLink } from '@/types/chat.types';
 import type { SessionRead } from '@/types/demo.types';
 
 type MessageList = components['schemas']['MessageList'];
@@ -22,6 +22,9 @@ export const toChatMessage = (message: MessageRead): ChatMessage => {
     role: ROLES.includes(message.role as ChatRole) ? (message.role as ChatRole) : 'assistant',
     text: message.text ?? '',
     ...(typeof payload.cite === 'string' ? { cite: payload.cite } : {}),
+    ...(Array.isArray(payload.cite_links) && payload.cite_links.length
+      ? { citeLinks: payload.cite_links as CiteLink[] }
+      : {}),
     ...(typeof payload.input_kind === 'string'
       ? { inputKind: payload.input_kind as ChatInputKind }
       : {}),

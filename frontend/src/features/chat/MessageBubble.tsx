@@ -61,7 +61,7 @@ export const MessageBubble = ({ message }: MessageBubbleProps) => {
       </div>
       {attachments}
       <p className="text-ink text-base leading-relaxed whitespace-pre-line">{message.text}</p>
-      {message.cite && <EvidenceLine cite={message.cite} />}
+      {message.cite && <EvidenceLine cite={message.cite} links={message.citeLinks} />}
     </article>
   );
 };

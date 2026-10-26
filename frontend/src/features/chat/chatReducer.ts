@@ -2,7 +2,7 @@ import type { ChatAttachment, ChatMessage } from '@/features/chat/chat.types';
 import { CHAT_ROLE } from '@/features/chat/chat.types';
 import { CHAT_ACTIONS } from '@/features/chat/chatActions';
 
-import type { ChatInputKind } from '@/types/chat.types';
+import type { ChatInputKind, CiteLink } from '@/types/chat.types';
 import type { EntryResult, SessionRead } from '@/types/demo.types';
 import type { ImportKind } from '@/types/imports.types';
 
@@ -59,7 +59,7 @@ export type ChatAction =
       importKind?: ImportKind;
       acceptsFile?: boolean;
     }
-  | { type: typeof CHAT_ACTIONS.DONE; cite?: string }
+  | { type: typeof CHAT_ACTIONS.DONE; cite?: string; citeLinks?: CiteLink[] }
   | { type: typeof CHAT_ACTIONS.SYSTEM; text: string }
   /** 같은 대화 중 진입 결과가 바뀌면(예: 이력서 저장, F-15) 새 첫 안내를 이어 붙이고 선택지를 바꿉니다. */
   | { type: typeof CHAT_ACTIONS.ENTRY; entry: EntryResult };
@@ -175,7 +175,13 @@ export const chatReducer = (state: ChatState, action: ChatAction): ChatState => 
         ? {
             ...state,
             messages: state.messages.map((message) =>
-              message.id === targetId ? { ...message, cite: action.cite } : message,
+              message.id === targetId
+                ? {
+                    ...message,
+                    cite: action.cite,
+                    ...(action.citeLinks?.length ? { citeLinks: action.citeLinks } : {}),
+                  }
+                : message,
             ),
           }
         : state;

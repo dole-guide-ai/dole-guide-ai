@@ -77,9 +77,17 @@ export interface FormUpdateEvent {
 }
 
 /** 말풍선이 끝날 때. 근거 줄(2-0.8)은 여기에 실어 보냅니다. */
+/** 근거 줄에서 열어 볼 원문 (RAG 검색 자료) */
+export interface CiteLink {
+  title: string;
+  url?: string | null;
+  updated_on?: string | null;
+}
+
 export interface DoneEvent {
   cite?: string;
   rule_refs?: string[];
+  cite_links?: CiteLink[];
 }
 
 /** PATCH /forms/{kind} 본문 (2-0.6 패널에서 직접 고치기) */
