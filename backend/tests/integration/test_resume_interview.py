@@ -120,3 +120,18 @@ def test_none_answer_with_punctuation_is_saved_and_moves_on(
     assert model.calls == 1
     careers = client.get("/accounts/park/resume", headers=headers).json()["data"]["careers"]
     assert careers[0]["position"]["value"] == "없음"
+
+
+def test_no_career_since_old_resume_moves_on(client, entered_headers, fake_agent_llm):
+    """최(예전 이력서 최신화): "그 뒤 경력 없어요"를 저장해 같은 질문이 되풀이되지 않습니다."""
+    model = fake_agent_llm([AIMessage("이력서를 최신으로 고쳐 볼게요.")], route="resume")
+    headers = entered_headers("choi")
+
+    def send_choi(text: str) -> list[tuple[str, dict]]:
+        res = client.post("/accounts/choi/messages", headers=headers, json={"text": text})
+        return sse_events(res)
+
+    assert asked(send_choi("이력서 고칠게요"))["question_id"] == "resume.career_since_old"
+    events = send_choi("없어요")
+    assert asked(events)["question_id"] != "resume.career_since_old"
+    assert model.calls == 1

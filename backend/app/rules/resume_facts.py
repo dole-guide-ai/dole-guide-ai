@@ -17,6 +17,7 @@ from app.schemas.forms.resume import Career, OccupationStatus, ResumeData
 from app.schemas.resume import FieldWrite
 
 MAX_REGIONS = 3
+CAREERS_STATUS = "/careers_status"
 CERTIFICATIONS_STATUS = "/certifications_status"
 COMPETENCIES_STATUS = "/competencies_status"
 # 고등학교·대학 졸업은 보통 2월입니다. 연도만 말하면 2월로 두고 확인 필요로 남깁니다.

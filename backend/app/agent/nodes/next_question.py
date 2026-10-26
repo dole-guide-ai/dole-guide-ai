@@ -23,7 +23,12 @@ from app.agent.graph import AgentState, tool_context_of
 from app.agent.nodes.route import Panel
 from app.rules import question_text as qt
 from app.rules.resume import ResumeQuestion, suggest_resume_title
-from app.rules.resume_facts import CERTIFICATIONS_STATUS, COMPETENCIES_STATUS, not_applicable
+from app.rules.resume_facts import (
+    CAREERS_STATUS,
+    CERTIFICATIONS_STATUS,
+    COMPETENCIES_STATUS,
+    not_applicable,
+)
 from app.schemas.common import FieldSource, FieldStatus
 from app.schemas.forms.resume import ResumeData
 from app.schemas.imports import ImportKind
@@ -117,6 +122,11 @@ FIXED_ANSWERS: dict[tuple[str, str], FixedAnswer] = {
         "더 적을 역량은 없는 것으로 적었어요.", _none_section(COMPETENCIES_STATUS)
     ),
     ("resume.career_more", "없어요"): FixedAnswer("경력은 지금 적은 회사까지로 둘게요."),
+    # 예전 이력서 이후 경력이 없으면 경력 섹션을 "확인함"으로 둬 같은 질문이 되풀이되지 않게 합니다.
+    ("resume.career_since_old", "없어요"): FixedAnswer(
+        "예전 이력서 이후 경력은 없는 것으로 적었어요.",
+        lambda data, vars_: [_said(CAREERS_STATUS, "이후 경력 없음")],
+    ),
     ("resume.career_position", "없었어요"): FixedAnswer(
         "직급·직책은 없음으로 적었어요.", _career_field("position", "없음")
     ),
