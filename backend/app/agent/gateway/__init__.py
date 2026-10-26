@@ -13,6 +13,7 @@ from app.core.request_id import current_request_id
 
 MAX_RETRIES = 1
 RESPONSES_API_PROVIDERS = {"openai"}
+STT_LANGUAGE = "ko"
 
 
 def get_chat_model(role: ModelRole = "agent") -> BaseChatModel:
@@ -48,6 +49,28 @@ def embed_queries(texts: list[str]) -> list[list[float]]:
     if isinstance(embeddings, _SplitEmbeddings):
         return embeddings.query.embed_documents(texts)
     return embeddings.embed_documents(texts)
+
+
+def transcribe_audio(content: bytes, file_name: str) -> str:
+    """녹음을 글로 바꿉니다(OpenAI 음성 인식, STT_MODEL). 원본은 저장하지 않습니다.
+
+    모델이 없거나 호출이 실패하면 LlmUnavailableError·RateLimitedError로 던집니다.
+    """
+    settings = get_settings()
+    if not settings.stt_model or not settings.openai_api_key:
+        raise LlmUnavailableError()
+    client = openai.OpenAI(
+        api_key=settings.openai_api_key,
+        timeout=settings.llm_timeout_seconds,
+        max_retries=MAX_RETRIES,
+    )
+    try:
+        result = client.audio.transcriptions.create(
+            model=settings.stt_model, file=(file_name, content), language=STT_LANGUAGE
+        )
+    except openai.OpenAIError as exc:
+        raise to_app_error(exc) from exc
+    return result.text.strip()
 
 
 def trace_config() -> dict[str, dict[str, str]]:

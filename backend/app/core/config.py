@@ -86,6 +86,8 @@ class Settings(BaseSettings):
     # · transcribe: 추출 모델이 글자만 받아써 가린 뒤 글로 넘김. 어느 방식이든 사진이 외부 모델로
     # 나갑니다. 데모는 합성 서류만 받으므로 vision이 기본이고, 실서비스 전에 로컬 OCR로 바꿉니다.
     image_mode: Literal["off", "vision", "transcribe"] = "vision"
+    # 음성 인식(말하기 버튼). OpenAI 키로 부르며, 비우면 말하기가 503 LLM_UNAVAILABLE입니다.
+    stt_model: str = ""
 
     # BFF(Next)가 붙이는 X-Internal-Secret 값. local에서 비우면 확인하지 않습니다.
     internal_api_secret: str = ""
