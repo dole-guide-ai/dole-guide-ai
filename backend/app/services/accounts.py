@@ -305,6 +305,11 @@ def situation_rules(
     return situation_rule_refs(procedure, _resume_status(db, user_id, procedure), round_, d_day)
 
 
+def resume_ready(db: Session, user_id: uuid.UUID, procedure: ProcedureRead) -> bool:
+    """이직 뒤에 저장한 이력서가 있는지. 화면 안내(entry)와 다음 할 일이 같은 기준을 씁니다."""
+    return _resume_status(db, user_id, procedure) == ResumeState.READY
+
+
 def _resume_status(db: Session, user_id: uuid.UUID, procedure: ProcedureRead) -> ResumeState | None:
     """1장 1.2 resume_status: 없음(None) / outdated / draft / ready."""
     resume = repo.get_resume(db, user_id)

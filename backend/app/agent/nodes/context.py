@@ -79,7 +79,13 @@ def load_context(state: AgentState, config: RunnableConfig) -> dict[str, Any]:
                 facts["round"] |= {"remaining": None, "remaining_job_search": None}
                 facts["round"]["count_rule"] = COUNT_RULE_NOTE
     question = resume_service.read_next_question(ctx.db, ctx.account)
-    action = next_action(facts["stage"], facts.get("round"))
+    facts["resume_ready"] = account_service.resume_ready(ctx.db, user_id, procedure)
+    action = next_action(
+        facts["stage"],
+        facts.get("round"),
+        resume_ready=facts["resume_ready"],
+        education_done=procedure.education_done,
+    )
     # 모델이 JSON을 해석하지 않아도 되게 코드가 결론을 문장으로 씁니다(rules/briefing).
     facts["briefing"] = build_briefing(
         facts["stage"],
