@@ -171,7 +171,10 @@ def _seed_resume(resume: dict[str, Any], status: str) -> dict[str, Any] | None:
         "careers": _with_ids(competencies["careers"], "career"),
         "certifications": _with_ids(competencies["certifications"], "cert"),
     }
-    # outdated = 퇴사 전에 저장한 이력서. 저장일을 아주 예전으로 둡니다.
+    # draft = 쓰다 만 이력서(저장일 없음).
+    # outdated = 퇴사 전에 저장한 이력서라 저장일을 아주 예전으로 둡니다.
+    if status == "draft":
+        return {"status": "draft", "field_status": "confirmed", "data": data}
     saved_offset = -3650 if status == "outdated" else -1
     return {
         "status": "saved",

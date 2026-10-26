@@ -49,7 +49,7 @@ AI가 바뀔 때마다 같은 문항으로 다시 채점하는 기준 문항 세
 | `pnpm golden:check` | CSV 검사만 (칸 이름·값·첨부 파일). 고칠 곳을 줄 번호와 함께 알려 줌 |
 | `pnpm golden:build` | CSV → `scenarios/golden/<영역>/<ID>.json`. 만든 JSON은 저장소에 올리지 않음 |
 | `pnpm eval:golden` | 만들기 + 실제 AI로 실행·채점 → `evals/reports/golden-<시각>.md` |
-| `pnpm eval:golden:selftest` | 만들기 + 가짜 AI로 채점 코드만 점검. 전 문항이 통과해야 정상 |
+| `pnpm eval:golden:selftest` | 만들기 + 가짜 AI로 채점 코드만 점검. `확정` 문항은 모두 통과해야 정상이고, `확인필요` 문항의 실패는 참고 실패(xfail)로 셉니다 |
 
 - 옵션은 뒤에 붙입니다: `pnpm eval:golden --golden-area=masking`(영역만), `--golden-threshold=0.8`(LLM 판정 기준, 기본 0.7)
 - GitHub에서: Actions → `golden-eval` → Run workflow. 결과 표는 실행 화면 Summary에, 보고서는 Artifacts에 남습니다. real 모드는 Secrets `OPENAI_API_KEY`·`UPSTAGE_API_KEY`, Variables `*_PROVIDER`·`AGENT_MODEL`·`EXTRACT_MODEL`·`JUDGE_MODEL`을 씁니다.
