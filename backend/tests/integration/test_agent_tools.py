@@ -10,7 +10,6 @@ from sqlalchemy.orm import Session
 from app.agent.tools import TOOLS, TOOLS_BY_PANEL, ToolContext, ToolError, run_tool
 from app.agent.tools.registry import MAX_PANEL_TOOLS
 from app.core.clock import KST
-from app.services import resume as resume_service
 from app.services.accounts import AccountContext
 from conftest import TEST_TODAY
 
@@ -51,40 +50,11 @@ def test_check_round_and_record_activity(ctx) -> None:
     assert (before["check_status"], after["check_status"]) == ("short", "satisfied")
 
 
-def test_write_tools_only_touch_allowed_paths(ctx) -> None:
-    c = ctx("park", allowed=("/resume_title",))
-
-    ok = run_tool(c, "save_resume_fields", {"fields": [{"path": "/resume_title", "value": "제목"}]})
-    assert ok["updates"]
-    with pytest.raises(ToolError):
-        run_tool(c, "save_resume_fields", {"fields": [{"path": "/careers/c1/company_name"}]})
-
-
 def test_bad_tool_or_input(ctx) -> None:
     with pytest.raises(ToolError):
         run_tool(ctx(), "delete_everything", {})
     with pytest.raises(ValidationError):
         run_tool(ctx(), "record_activity", {"kind": "job_application"})
-
-
-def test_record_resume_facts_saves_with_code_decided_paths(ctx) -> None:
-    """모델은 사실과 날짜 표현만 넘기고, 칸 경로·항목 id·날짜는 코드가 정합니다."""
-    facts = {
-        "careers": [{"company_name": "OO산업", "start": "2004년 3월", "end": "지금까지"}],
-        "certifications": [{"certificate_name": "지게차운전기능사", "acquired": "2011년"}],
-    }
-    result = run_tool(ctx("park"), "record_resume_facts", facts)
-
-    assert result["saved"] == 5
-    paths = {u["path"] for u in result["updates"]}
-    assert any(p.endswith("/start_date") for p in paths)
-
-
-def test_record_resume_facts_asks_instead_of_guessing_vague_date(ctx) -> None:
-    result = run_tool(ctx("park"), "record_resume_facts", {"careers": [{"start": "재작년 겨울"}]})
-
-    assert result["saved"] == 0
-    assert result["ask"]
 
 
 def test_allowed_path_stops_at_field_boundary(ctx) -> None:
@@ -93,52 +63,3 @@ def test_allowed_path_stops_at_field_boundary(ctx) -> None:
     c.ensure_allowed("/careers/c1/company_name")
     with pytest.raises(ToolError):
         c.ensure_allowed("/careers/c10/company_name")
-
-
-def test_save_resume_fields_reaches_every_resume_section(ctx) -> None:
-    """대화로 이력서의 어느 칸이든 쓸 수 있습니다(record_resume_facts에 없는 칸 포함)."""
-    c = ctx("park")
-    run_tool(
-        c,
-        "record_resume_facts",
-        {
-            "careers": [{"company_name": "OO물류", "start": "2012년 3월", "end": "2026년 9월"}],
-            "education": [{"school_name": "OO고등학교", "education_level": "고등학교"}],
-            "certifications": [{"certificate_name": "지게차운전기능사"}],
-        },
-    )
-    fields = [
-        {"path": "/resume_title", "value": "물류 경력 이력서"},
-        {
-            "path": "/job_preferences/desired_salary",
-            "value": {"amount": None, "unit": "monthly", "currency": "KRW", "negotiable": True},
-        },
-        {"path": "/job_preferences/employment_contract_type", "value": "관계없음"},
-        {"path": "/job_preferences/military_alternative", "value": "해당 없음"},
-        {
-            "path": "/competencies/computer_skills",
-            "value": {"selected_skills": ["엑셀"], "other_skills": None},
-        },
-        {"path": "/additional_info/can_drive", "value": True},
-        {"path": "/careers/c1/monthly_salary", "value": 2800000},
-        {"path": "/education/e1/major", "value": "기계과"},
-        {"path": "/certifications/q1/issuing_organization", "value": "한국산업인력공단"},
-    ]
-    result = run_tool(c, "save_resume_fields", {"fields": fields})
-    assert result["updates"]
-    run_tool(
-        c,
-        "save_resume_fields",
-        {"fields": [{"path": "/competencies_status", "not_applicable": True}]},
-    )
-
-    data = resume_service.read_resume(c.db, c.account).data
-    assert data.resume_title.value == "물류 경력 이력서"
-    assert data.job_preferences.desired_salary.value["negotiable"] is True
-    assert data.job_preferences.employment_contract_type.value == "관계없음"
-    assert data.competencies.computer_skills.value["selected_skills"] == ["엑셀"]
-    assert data.additional_info.can_drive.value is True
-    assert data.careers[0].monthly_salary.value == 2800000
-    assert data.education[0].major.value == "기계과"
-    assert data.certifications[0].issuing_organization.value == "한국산업인력공단"
-    assert data.competencies_status.status == "not_applicable"

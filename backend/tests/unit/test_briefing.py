@@ -9,7 +9,7 @@ from app.rules.briefing import (
     round_lines,
 )
 from app.rules.next_action import NextAction
-from app.rules.resume import ResumeQuestion
+from app.rules.resume import ResumeStep
 from app.schemas.forms.resume import ResumeData
 
 ROUND = {
@@ -49,14 +49,14 @@ def test_round_lines_satisfied_and_attendance():
 
 
 def test_resume_line_uses_question_template():
-    line = resume_line(ResumeQuestion("resume.career_duties", {"company": "한빛물류"}))
+    line = resume_line(ResumeStep("resume.career_duties", {"company": "한빛물류"}))
     assert line is not None and "한빛물류에서는 주로 어떤 일을 하셨어요?" in line
 
 
 def test_resume_line_missing_var_and_unknown_id():
-    assert "{" not in (resume_line(ResumeQuestion("resume.career_duties")) or "")
+    assert "{" not in (resume_line(ResumeStep("resume.career_duties")) or "")
     # 바꾼 값 확인은 대화에서 묻지 않으므로 템플릿이 없습니다.
-    assert resume_line(ResumeQuestion("resume.value_confirm")) is None
+    assert resume_line(ResumeStep("resume.value_confirm")) is None
     assert resume_line(None) is None
 
 
@@ -65,7 +65,7 @@ def test_briefing_job_registration_suggests_resume():
         "job_registration",
         round_=None,
         action=NextAction.WRITE_RESUME,
-        resume_question=ResumeQuestion("resume.license"),
+        resume_question=ResumeStep("resume.license"),
     )
     assert lines[0].startswith("구직등록 단계")
     assert any("자격증" in line for line in lines)

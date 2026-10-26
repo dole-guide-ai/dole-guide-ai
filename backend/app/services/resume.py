@@ -1,7 +1,8 @@
 """이력서 조회·칸 쓰기·저장 서비스입니다 (F-14·F-15).
 
 AI 도구가 뽑은 값을 칸마다 상태·출처와 함께 저장하고, 자동 값(재직여부·최종학력·경력 합계)을
-다시 계산한 뒤 바뀐 칸 목록과 다음 질문을 돌려줍니다. 계산은 모두 app/rules/resume.py가 합니다.
+다시 계산한 뒤 바뀐 칸 목록과 검사 결과를 돌려줍니다. 계산은 모두 app/rules/resume/가 합니다.
+선택 칸(학력·고용형태 등)은 스키마의 선택지(`CHOICE_FIELDS`) 밖의 값을 저장하지 않습니다.
 REST의 조회·직접 고치기·저장(상세기획 2-1.6)도 여기서 합니다.
 """
 
@@ -58,7 +59,6 @@ HINT_GPA = "· 학점은 만점 기준(4.5 등)을 먼저 고르고 넣어 주�
 @dataclass(frozen=True)
 class ResumeWriteResult:
     updates: list[FormUpdate]
-    next_question: rules.ResumeQuestion
     issues: list[rules.ResumeIssue]
 
 
@@ -85,6 +85,12 @@ def save_resume_fields(
             raise UnprocessableError(
                 "값 모양이 맞지 않아요.",
                 details=[{"field": f"writes[{index}]", "type": PatchErrorType.BAD_SHAPE}],
+            )
+        if (allowed := resume_form.choices_of(w.path)) and w.value not in (None, *allowed):
+            # 입력값은 넣지 않고, 고를 수 있는 값(스키마의 선택지)만 알려 줍니다.
+            raise UnprocessableError(
+                f"이 칸은 다음 중 하나만 넣을 수 있어요: {', '.join(allowed)}",
+                details=[{"field": f"writes[{index}]", "type": PatchErrorType.CHOICE}],
             )
         json_patch.set_field(raw, w.path, w.model_dump(mode="json", exclude={"path"}))
     try:
@@ -127,24 +133,49 @@ def save_resume_fields(
         for path, f in rules.form_fields(data)
         if old.get(path) != f
     ]
-    question = rules.next_resume_question(
-        data, entry_branch=_branch(data), separation_date=procedure.separation_date
-    )
-    return ResumeWriteResult(updates, question, issues)
+    return ResumeWriteResult(updates, issues)
 
 
-def read_next_question(db: Session, account: AccountContext) -> rules.ResumeQuestion:
-    """대화에서 다음에 물을 이력서 질문(ID·문구 변수·선택지).
+def reset_resume(db: Session, account: AccountContext) -> list[FormUpdate]:
+    """이력서를 빈 초안으로 되돌립니다("새로 쓸래요"). 지운 칸마다 remove 갱신을 돌려줍니다."""
+    resume = repo.get_resume(db, account.user_id)
+    if resume is None:
+        return []
+    before = read_resume_data(resume)
+    resume.data = resume_form.ResumeData().model_dump(mode="json")
+    resume.status = ResumeStatus.DRAFT
+    resume.saved_at = None
+    resume.lock_version += 1
+    db.commit()
+    return [
+        FormUpdate(form=FormName.RESUME, path=path, op="remove", status=FieldStatus.MISSING)
+        for path, f in rules.form_fields(before)
+        if rules.is_filled(f)
+    ]
 
-    "바꾼 값 확인"은 건너뜁니다. 확인은 패널에서 하고, 대화는 다음 빈 칸으로 갑니다.
+
+def read_steps(
+    db: Session,
+    account: AccountContext,
+    *,
+    deferred: frozenset[str] = frozenset(),
+    asked: dict[str, int] | None = None,
+    follow: str | None = None,
+) -> list[rules.ResumeStep]:
+    """대화에서 채울 이력서 단계(순서대로). 미룬 칸은 빼고, "바꾼 값 확인"은 건너뜁니다.
+
+    확인은 패널에서 하고, 대화는 다음 빈 칸으로 갑니다.
     """
     procedure = _procedure_or_404(db, account.user_id)
     data = read_resume_data(repo.get_resume(db, account.user_id))
-    return rules.next_resume_question(
+    return rules.resume_steps(
         data,
         entry_branch=_branch(data),
         separation_date=procedure.separation_date,
         skip_confirm=True,
+        deferred=deferred,
+        asked=asked,
+        follow=follow,
     )
 
 

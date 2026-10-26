@@ -5,6 +5,7 @@
 - 한 턴 호출 상한(MAX_MODEL_CALLS, MAX_TOOL_CALLS)을 넘으면 루프를 멈춥니다.
 - ask_user는 두 노드로 나눕니다. interrupt된 노드는 재개할 때 처음부터 다시 실행되므로,
   질문 이벤트는 앞 노드(run_tools)에서 한 번만 내고 ask 노드는 interrupt만 합니다.
+- 이력서 패널은 이 루프를 쓰지 않고 읽기·말하기 노드로 갑니다(nodes/resume).
 """
 
 import json
@@ -27,6 +28,7 @@ from app.agent.events import emit
 from app.agent.graph import AgentState, tool_context_of, turn_of
 from app.agent.grounding import Evidence, SentenceChecker
 from app.agent.input import images
+from app.agent.nodes.route import FORM_PANELS
 from app.agent.output import SentenceStream
 from app.agent.prompts import load_prompt
 from app.agent.tools.registry import TOOLS, TOOLS_BY_PANEL, ToolError, run_tool
@@ -122,7 +124,9 @@ def call_model(state: AgentState, config: RunnableConfig) -> dict[str, Any]:
     # 문장이 끝날 때마다 걸러서 보냅니다(agent/output.py). 다른 언어가 섞인 문장부터 버리고,
     # 근거에 없는 숫자나 근거를 넘는 단정이 든 문장은 뺍니다(agent/grounding.py).
     check = None
-    if get_settings().answer_check:
+    # 서류 패널(이력서·신청서)의 숫자는 사용자가 말한 값이라 근거 검사를 하지 않습니다.
+    # 검사는 규칙 숫자가 나오는 안내·회차 패널에서만 합니다.
+    if get_settings().answer_check and state["panel"] not in FORM_PANELS:
         check = SentenceChecker(Evidence.of_turn(state.get("facts", {}), state["messages"]))
     sentences = SentenceStream(check=check)
     # 도구를 부르기 전에 이미 말한 글이 있으면 이어지는 글과 붙지 않게 빈 줄을 둡니다.
@@ -134,10 +138,7 @@ def call_model(state: AgentState, config: RunnableConfig) -> dict[str, Any]:
         reply = chunk if reply is None else reply + chunk
     for piece in sentences.close():
         emit(TokenEvent(text=piece))
-    message = AIMessage(
-        content=sentences.text,
-        tool_calls=reply.tool_calls if reply else [],
-    )
+    message = AIMessage(content=sentences.text, tool_calls=reply.tool_calls if reply else [])
     return {"messages": [message], "model_calls": state.get("model_calls", 0) + 1}
 
 

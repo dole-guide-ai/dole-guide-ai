@@ -17,17 +17,13 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.rules.days import normalize_day
-from app.rules.resume_facts import ResumeFacts, plan_writes
 from app.schemas.activities import ActivityCreate, ActivityRoute
-from app.schemas.common import FieldSource, FieldStatus, JsonPatchOp
-from app.schemas.resume import FieldWrite
-from app.services import accounts as account_service
+from app.schemas.common import JsonPatchOp
 from app.services import activities as activity_service
 from app.services import application as application_service
 from app.services import imports as import_service
 from app.services import knowledge as knowledge_service
 from app.services import recommendations as recommendation_service
-from app.services import resume as resume_service
 from app.services import rounds as round_service
 from app.services import trainings as training_service
 from app.services.accounts import AccountContext
@@ -81,19 +77,6 @@ class MarkDoneInput(BaseModel):
     activity_id: uuid.UUID
     done_on: date
     org_name: str | None = None
-
-
-class ResumeFieldInput(BaseModel):
-    path: str = Field(pattern=r"^/", description="/careers/c1/company_name 같은 칸 경로")
-    value: Any = None
-    # 사용자가 말한 값을 그대로 넣었는지(extracted), 다시 확인받았는지(confirmed)
-    confirmed: bool = False
-    # 섹션을 "없어요"로 둘 때(예: /competencies_status). value는 비웁니다.
-    not_applicable: bool = False
-
-
-class SaveResumeInput(BaseModel):
-    fields: list[ResumeFieldInput] = Field(min_length=1, max_length=10)
 
 
 class UserAnswerInput(BaseModel):
@@ -150,54 +133,12 @@ def _record_activity(ctx: ToolContext, args: RecordActivityInput) -> dict[str, A
     return _dump(activity_service.record_answered_activity(ctx.db, ctx.account, body, ctx.today))
 
 
-def _record_resume_facts(ctx: ToolContext, args: ResumeFacts) -> dict[str, Any]:
-    procedure = account_service.read_procedure(ctx.db, ctx.account.user_id)
-    current = resume_service.read_resume(ctx.db, ctx.account).data
-    plan = plan_writes(current, args, ctx.today, procedure.separation_date)
-    result: dict[str, Any] = {"saved": 0, "ask": plan.asks}
-    if plan.writes:
-        saved = resume_service.save_resume_fields(
-            ctx.db, ctx.account.user_id, plan.writes, today=ctx.today
-        )
-        result.update(
-            saved=len(plan.writes),
-            updates=[_dump(u) for u in saved.updates],
-            issues=[_dump(i) for i in saved.issues],
-        )
-    return result
-
-
 def _mark_done(ctx: ToolContext, args: MarkDoneInput) -> dict[str, Any]:
     return _dump(
         recommendation_service.mark_done(
             ctx.db, ctx.account, args.activity_id, args.done_on, ctx.today, args.org_name
         )
     )
-
-
-def _save_resume(ctx: ToolContext, args: SaveResumeInput) -> dict[str, Any]:
-    for f in args.fields:
-        ctx.ensure_allowed(f.path)
-    writes = [
-        FieldWrite(
-            path=f.path,
-            value=f.value,
-            status=(
-                FieldStatus.NOT_APPLICABLE
-                if f.not_applicable
-                else FieldStatus.CONFIRMED
-                if f.confirmed
-                else FieldStatus.EXTRACTED
-            ),
-            source=FieldSource.USER_ANSWER,
-        )
-        for f in args.fields
-    ]
-    result = resume_service.save_resume_fields(ctx.db, ctx.account.user_id, writes, today=ctx.today)
-    return {
-        "updates": [_dump(u) for u in result.updates],
-        "issues": [_dump(i) for i in result.issues],
-    }
 
 
 def _record_answer(ctx: ToolContext, args: UserAnswerInput) -> dict[str, Any]:
@@ -278,20 +219,6 @@ TOOLS: dict[str, Tool] = {
             _mark_done,
         ),
         Tool(
-            "record_resume_facts",
-            "사용자가 말한 이력서 사실(경력·학력·자격증·희망 직종·지역)을 이력서에 저장. "
-            "말한 값과 날짜 표현만 넣으면 칸·날짜 변환은 서버가 함",
-            ResumeFacts,
-            _record_resume_facts,
-        ),
-        Tool(
-            "save_resume_fields",
-            "이력서 칸 경로로 값 쓰기. record_resume_facts에 없는 칸(제목·희망 월급·고용형태·"
-            "병역·근무시간·그 밖의 역량·운전·경력 월급 등)과 섹션 '없음'(not_applicable)",
-            SaveResumeInput,
-            _save_resume,
-        ),
-        Tool(
             "record_user_answer",
             "실업인정 신청서에서 본인만 답할 수 있는 칸(근로·소득·취업 여부 등) 하나를 저장. "
             "이력서에는 쓰지 않음",
@@ -326,8 +253,8 @@ TOOLS: dict[str, Tool] = {
 # 최대 5개로 조정. 도구가 많을수록 선택이 흔들려서(1단계 실험) 늘릴 때는 골든셋으로 다시 잽니다)
 MAX_PANEL_TOOLS = 5
 TOOLS_BY_PANEL: dict[str, tuple[str, ...]] = {
-    # 사실 추출(경력·학력 날짜 변환)은 record_resume_facts, 그 밖의 모든 칸은 save_resume_fields
-    "resume": ("record_resume_facts", "save_resume_fields", "import_work24_items"),
+    # 이력서 칸 저장은 도구가 아니라 읽기·말하기 노드가 합니다(nodes/resume)
+    "resume": ("import_work24_items",),
     "round": (
         "check_round",
         "record_activity",

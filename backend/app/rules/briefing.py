@@ -10,8 +10,7 @@ from typing import Any
 
 from app.rules.activity_table import load_rules
 from app.rules.next_action import NextAction
-from app.rules.question_text import question_text
-from app.rules.resume import ResumeQuestion
+from app.rules.resume import REQUIRED_SECTIONS, ResumeStep, question_text
 from app.schemas.forms.resume import ResumeData
 from app.schemas.procedure import Stage
 
@@ -186,10 +185,17 @@ def stage_rule_lines(
     return lines
 
 
-def resume_line(question: ResumeQuestion | None) -> str | None:
-    """이력서에서 다음에 채울 칸 한 줄. 문구는 질문 카드와 같은 템플릿(rules/question_text)."""
+def resume_line(question: ResumeStep | None, filled: int | None = None) -> str | None:
+    """이력서 진행과 다음에 채울 칸 한 줄. 문구는 질문 카드와 같은 템플릿(rules/resume/steps)."""
     text = question_text(question) if question else None
-    return f"이력서 다음 칸(화면이 질문 카드로 물음): {text}" if text else None
+    if not text:
+        return None
+    progress = (
+        f"이력서는 꼭 채울 {len(REQUIRED_SECTIONS)}개 중 {filled}개를 채웠어요. "
+        if (filled is not None)
+        else ""
+    )
+    return f"{progress}다음 칸: {text}"
 
 
 def _val(field: Any) -> Any:
@@ -247,7 +253,8 @@ def person_lines(
 
 
 def resume_items(resume: ResumeData) -> dict[str, list[dict[str, Any]]]:
-    """반복 항목의 item_id와 알아볼 이름. 모델이 save_resume_fields로 항목 칸을 고칠 때 씁니다."""
+    """반복 항목의 item_id와 알아볼 이름. 읽기 모델이 기존 항목 칸을 고칠 때
+    씁니다."""
     return {
         "careers": [
             {"item_id": c.item_id, "company": _val(c.company_name)} for c in resume.careers
@@ -270,7 +277,8 @@ def build_briefing(
     *,
     round_: dict[str, Any] | None,
     action: NextAction | None,
-    resume_question: ResumeQuestion | None = None,
+    resume_question: ResumeStep | None = None,
+    resume_filled: int | None = None,
     education_done: bool | None = None,
     person: list[str] | None = None,
     age: int | None = None,
@@ -286,7 +294,7 @@ def build_briefing(
     lines += stage_rule_lines(stage, age=age, group=group, round_no=round_no)
     if round_:
         lines += round_lines(round_)
-    resume = resume_line(resume_question)
+    resume = resume_line(resume_question, resume_filled)
     if resume and (stage == Stage.JOB_REGISTRATION or resume_question):
         lines.append(resume)
     if action:

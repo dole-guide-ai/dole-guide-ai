@@ -1,5 +1,5 @@
 {
-  "_note": "대화에서 이력서 다음 칸을 물을 때 쓰는 질문 문구. ID는 rules/resume.next_resume_question과 같고 {이름}은 문구 변수로 채웁니다. 대명사(그곳·거기·그것)는 쓰지 않습니다. 변수가 비면 unnamed 문구, 없으면 fallbacks의 이름을 씁니다. LLM은 쓰지 않습니다.",
+  "_note": "이력서 대화의 질문 문구. ID는 rules/resume/steps.py의 단계 ID와 같고 {이름}은 문구 변수로 채웁니다. 대명사(그곳·거기·그것)는 쓰지 않습니다. 변수가 비면 unnamed 문구, 없으면 fallbacks의 이름을 씁니다. proposals는 코드가 계산한 제안이 있을 때의 문구입니다. 모델이 이번 턴에 묻지 않았을 때 이 문구로 묻습니다.",
   "questions": {
     "resume.doc_retry": "올려 주신 서류를 읽지 못했어요. 다시 찍어 올리시겠어요, 아니면 말로 하시겠어요?",
     "resume.career_new": "가장 최근에 일하신 곳은 어디예요? 회사 이름과 다니신 기간을 말씀해 주세요.",
@@ -7,11 +7,12 @@
     "resume.career_period": "{company}에는 언제부터 언제까지 다니셨어요? 몇 년 몇 월인지 말씀해 주세요.",
     "resume.career_duties": "{company}에서는 주로 어떤 일을 하셨어요? 다루신 물건이나 장비도 같이 말씀해 주시면 좋아요.",
     "resume.career_position": "{company}에서 직급이나 직책이 있으셨어요? (예: 반장, 대리)",
-    "resume.career_end_check": "{company} 퇴사가 {year}년 {month}월이 맞나요?",
+    "resume.career_end_check": "실업급여 기준 이직일은 {year}년 {month}월인데, {company}은(는) 그 전에 그만두셨네요. {company} 뒤에 다니신 회사가 있으세요?",
     "resume.career_more": "{company} 전에 다니신 회사도 있으세요?",
     "resume.license": "가지고 계신 자격증이나 면허가 있으세요?",
     "resume.education_level": "마지막으로 다니신 학교는 어디까지예요?",
-    "resume.education_detail": "{level} 학교 이름과 입학·졸업 연도를 알려 주세요.",
+    "resume.education_school": "{level} 이름이 뭐예요? 졸업하셨는지도 알려 주세요.",
+    "resume.education_period": "{level} 입학 연도와 졸업 연도를 알려 주세요. 모르시면 나중에 채워도 돼요.",
     "resume.wish_job": "앞으로 어떤 일을 하고 싶으세요?",
     "resume.wish_experience": "{occupation} 일은 해 보신 경력이 있으신 거죠?",
     "resume.wish_region": "일하고 싶은 지역은 어디예요? 세 곳까지 말씀해 주셔도 돼요.",
@@ -20,13 +21,15 @@
     "resume.wish_military": "병역대체 근무는 해당이 없으시죠?",
     "resume.resume_title": "이력서 제목을 '{title}'로 정할까요?",
     "resume.optional_sections": "외국어나 컴퓨터 활용처럼 더 적어 둘 역량이 있으세요?",
-    "resume.save_ready": "꼭 채울 칸을 다 채웠어요. 오른쪽 이력서를 확인하고 저장해 주세요."
-  },
-  "choices": {
-    "resume.career_more": [
-      "네, 있어요",
-      "없어요"
-    ]
+    "resume.save_ready": "꼭 채울 칸을 다 채웠어요. 오른쪽 이력서를 확인하고 저장해 주세요.",
+    "resume.deferred_review": "미뤄 둔 칸이 {count}개 있어요. 지금 채우시겠어요, 아니면 오른쪽 이력서에서 나중에 채우시겠어요?",
+    "resume.license_name": "자격증이나 면허 이름을 말씀해 주세요. 취득 연도도 아시면 같이요.",
+    "resume.career_prev": "그 전에 다니신 회사 이름과 다니신 기간을 말씀해 주세요.",
+    "resume.career_later": "그 뒤에 다니신 회사 이름과 다니신 기간을 말씀해 주세요.",
+    "resume.optional_detail": "어떤 역량인지 말씀해 주세요. 예: 토익 800점, 엑셀 가능, 직업훈련 이수",
+    "resume.education_kind": "대학교는 2/3년제였나요, 4년제였나요?",
+    "resume.education_major": "{level} 전공은 무엇이었어요?",
+    "resume.education_gpa": "{level} 학점은 몇 점 만점에 몇 점이었어요? 모르시면 나중에 채워도 돼요."
   },
   "unnamed": {
     "resume.career_since_old": "예전 이력서를 쓰신 뒤에 다니신 회사가 있으세요?",
@@ -34,13 +37,21 @@
     "resume.career_duties": "최근에 다니신 회사에서는 주로 어떤 일을 하셨어요? 다루신 물건이나 장비도 같이 말씀해 주시면 좋아요.",
     "resume.career_position": "최근에 다니신 회사에서 직급이나 직책이 있으셨어요? (예: 반장, 대리)",
     "resume.career_more": "지금 적은 회사 전에 다니신 회사도 있으세요?",
-    "resume.education_detail": "마지막으로 다니신 학교 이름과 입학·졸업 연도를 알려 주세요.",
     "resume.wish_experience": "희망하시는 일은 해 보신 경력이 있으신 거죠?",
-    "resume.resume_title": "이력서 제목은 어떻게 할까요? 예: 물류 경력 이력서"
+    "resume.resume_title": "이력서 제목은 어떻게 할까요? 예: 물류 경력 이력서",
+    "resume.education_school": "마지막으로 다니신 학교 이름이 뭐예요? 졸업하셨는지도 알려 주세요.",
+    "resume.education_period": "마지막으로 다니신 학교의 입학 연도와 졸업 연도를 알려 주세요. 모르시면 나중에 채워도 돼요.",
+    "resume.career_end_check": "실업급여 기준 이직일보다 전에 마지막 회사를 그만두신 걸로 적혀 있어요. 그 뒤에 다니신 회사가 있으세요?",
+    "resume.education_major": "대학 전공은 무엇이었어요?",
+    "resume.education_gpa": "대학 학점은 몇 점 만점에 몇 점이었어요? 모르시면 나중에 채워도 돼요."
   },
   "fallbacks": {
     "company": "최근에 다니신 회사",
     "level": "마지막으로 다니신",
     "occupation": "희망하시는"
+  },
+  "proposals": {
+    "resume.wish_job": "{occupation} 일을 이어서 하고 싶으세요?",
+    "resume.wish_wage": "예전처럼 월 {wage}만 원으로 적을까요?"
   }
 }

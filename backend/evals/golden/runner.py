@@ -40,6 +40,9 @@ RECOGNITION_INTERVAL_DAYS = 28
 EVAL_PROFILE = {"name": "평가계정"}
 
 
+TEST_DB_SUFFIX = "_test"
+
+
 def run_case(db: Session, case: dict[str, Any]) -> AgentResult:
     case_input = case["input"]
     state = case_input["state"]
@@ -97,6 +100,10 @@ def _upload_files(db: Session, account: AccountContext, names: list[str], stage:
 def _enter(
     db: Session, case_id: str, case_input: dict[str, Any], today: date, now: datetime
 ) -> AccountContext:
+    # 평가 계정은 테스트 DB에만 만듭니다. 개발 DB에 들어가면 표시 정보가 빈 계정이 남아
+    # /personas가 실패합니다.
+    if not str(db.get_bind().engine.url.database or "").endswith(TEST_DB_SUFFIX):
+        raise RuntimeError("평가는 _test로 끝나는 DB에서만 돌릴 수 있어요(TEST_DATABASE_URL).")
     persona_id = f"eval_{case_id}"
     seed = _seed(case_input, today)
     account_repo.add_all(

@@ -70,8 +70,12 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         "--golden-shard",
         default="1/1",
         help="i/n: 문항을 n조각으로 나눈 것 중 i번째만 실행. 여러 프로세스로 동시에 돌린 뒤 "
-        "evals.golden.merge로 합칩니다",
+        "골든셋은 evals.golden.merge로, 인터뷰는 보고서 파일을 그대로 모아 봅니다",
     )
+
+
+# 조각으로 나눠 동시에 돌릴 수 있는 평가
+SHARDED_TESTS = frozenset({"test_golden", "test_interview"})
 
 
 def _shard(config: pytest.Config) -> tuple[int, int]:
@@ -82,11 +86,11 @@ def _shard(config: pytest.Config) -> tuple[int, int]:
 
 
 def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
-    """골든셋 문항 중 이 조각에 해당하는 것만 남깁니다(문항 순서의 i번째마다)."""
+    """골든셋·인터뷰 문항 중 이 조각에 해당하는 것만 남깁니다(문항 순서의 i번째마다)."""
     index, total = _shard(config)
     if total == 1:
         return
-    golden = [item for item in items if item.originalname == "test_golden"]
+    golden = [item for item in items if item.originalname in SHARDED_TESTS]
     keep = {id(item) for n, item in enumerate(golden) if n % total == index - 1}
     deselected = [item for item in golden if id(item) not in keep]
     if deselected:

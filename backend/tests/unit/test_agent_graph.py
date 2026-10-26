@@ -6,7 +6,6 @@ DB 없이(도구 문맥 None) 가짜 모델로 한 턴씩 돌립니다. 입력�
 import uuid
 from datetime import date
 
-import pytest
 from langchain_core.messages import AIMessage, ToolMessage
 from langgraph.checkpoint.memory import InMemorySaver
 
@@ -34,26 +33,12 @@ def _call(name: str, args: dict, call_id: str = "c1") -> AIMessage:
     return AIMessage("", tool_calls=[{"name": name, "args": args, "id": call_id}])
 
 
-@pytest.mark.parametrize(
-    ("text", "stage", "panel"),
-    [
-        ("실업급여 받으면서 알바해도 돼요?", "recognition", Panel.GUIDE),
-        ("작년 3월에 들어가서 올해 9월에 그만뒀어요", "job_registration", Panel.RESUME),
-        ("어제 OO기획 홈페이지에서 지원했어요", "recognition", Panel.ROUND),
-        ("이번 회차엔 몇 번 해야 돼요", "recognition", Panel.ROUND),
-        ("지난주에 이틀 일당 받고 일했어요", "recognition", Panel.APPLICATION),
-        ("교육 다 들었어요. 다음은 뭐예요", "education", Panel.GUIDE),
-        # 평서문 "~요"와 "자격증"은 제도 질문이 아닙니다(F-017 회귀)
-        ("지게차 자격증 있어요. 2011년에 땄어요", "job_registration", Panel.RESUME),
-        ("65세 넘으면 실업급여 자격이 없나요", "job_registration", Panel.GUIDE),
-    ],
-)
-def test_route_rules(text: str, stage: str, panel: Panel) -> None:
-    assert by_rules(text, stage) == panel
-
-
-def test_route_rules_leave_ambiguous_to_model() -> None:
-    assert by_rules("음 그게요", "recognition") is None
+def test_route_rules_decide_only_from_stage_and_pending_question() -> None:
+    assert by_rules("job_registration") == Panel.RESUME
+    assert by_rules("recognition", resume_pending=True) == Panel.RESUME
+    # 말의 내용으로 갈리는 것은 모델 분류에 맡깁니다.
+    assert by_rules("recognition") is None
+    assert by_rules("education") is None
 
 
 def test_blocking_pii_never_reaches_model_or_checkpoint(fake_agent_llm) -> None:
@@ -92,7 +77,7 @@ def test_tool_outside_panel_is_refused(fake_agent_llm) -> None:
 
 def test_ask_user_interrupts_then_resumes_with_answer(fake_agent_llm) -> None:
     ask = _call("ask_user", {"question": "언제부터 다니셨어요?", "choices": []})
-    model = fake_agent_llm([ask, AIMessage("고마워요, 저장할게요")], route="resume")
+    model = fake_agent_llm([ask, AIMessage("고마워요, 저장할게요")], route="round")
     saver, user = InMemorySaver(), uuid.uuid4()
 
     first = list(graph_responder(_turn(user, "음 그게요"), saver))

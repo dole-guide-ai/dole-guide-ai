@@ -1,10 +1,9 @@
 """이번 말을 어느 패널이 맡을지 정합니다(노션 「에이전트 구조 설계」 6절).
 
-절차 순서는 법규가 정하므로 경로는 코드(규칙)가 보장합니다.
-규칙이 하나로 정하지 못할 때만 작은 LLM 분류를 부릅니다.
+절차 단계와 대기 중인 이력서 질문처럼 코드가 확실히 아는 것만 규칙으로 정하고,
+말의 내용으로 갈리는 것은 LLM 분류(router/classify)에 맡깁니다.
 """
 
-import re
 from enum import StrEnum
 from typing import Any
 
@@ -24,22 +23,9 @@ class Panel(StrEnum):
     GUIDE = "guide"
 
 
-# 제도를 묻는 말: 의문형 끝 + 제도 단어, 내 서류를 다루는 단어 없음
-# 물음표나 의문 어미로 끝나는 말. "~요"만으로는 판단하지 않습니다("땄어요"는 평서문).
-_QUESTION_END = re.compile(r"(\?|나요|까요|가요|죠|는지|ㄹ까|되나|됩니까|있나|없나)\s*$")
-# "돼요"·"되나요" 같은 흔한 의문 어미는 넣지 않습니다(회차 질문 "몇 번 해야 돼요"도 걸림).
-_POLICY_WORDS = re.compile(
-    r"실업급여|구직급여|수급|자격(?!증)|받을 수|받나요|신고|연기|연장|"
-    r"내일배움|국민취업|조기재취업|실업크레딧|해외|여행|사업자"
-)
-_MY_FORM_WORDS = re.compile(r"이력서|신청서|넣어|써 ?주|적어|기록|저장|올려")
-_ROUND_WORDS = re.compile(
-    r"지원했|면접|넣었|활동|회차|몇 ?번|몇 ?건|몇개|특강|박람회|추천|채워|모자라|부족"
-)
-_APPLICATION_WORDS = re.compile(r"신청서|본인 ?답|소득|알바했|일했|취업했|취직했|일당")
-_RESUME_WORDS = re.compile(
-    r"이력서|경력|다녔|일했어요|그만뒀|들어가|입사|퇴사|학교|졸업|자격증|희망|직종|지역|불러오"
-)
+# 서류를 채우는 패널. 숫자가 규칙이 아니라 사용자 말에서 오므로 근거 검사·근거 줄을 다르게 다룹니다.
+FORM_PANELS = frozenset({Panel.RESUME, Panel.APPLICATION})
+
 
 CLASSIFY_PROMPT = "router/classify"
 
@@ -48,25 +34,15 @@ class RouteChoice(BaseModel):
     panel: Panel
 
 
-def by_rules(text: str, stage: str | None) -> Panel | None:
-    """규칙으로 정하면 패널, 못 정하면 None(LLM 분류로)."""
-    if (
-        _QUESTION_END.search(text)
-        and _POLICY_WORDS.search(text)
-        and not _MY_FORM_WORDS.search(text)
-    ):
-        return Panel.GUIDE
-    if stage == Stage.JOB_REGISTRATION or (stage is None and _RESUME_WORDS.search(text)):
+def by_rules(stage: str | None, *, resume_pending: bool = False) -> Panel | None:
+    """코드가 확실히 아는 것만 정합니다. 나머지는 None(LLM 분류로).
+
+    - 이력서 질문에 답하는 중(resume_pending)이면 이력서.
+    - 구직등록 단계면 이력서(이 단계의 할 일이 이력서 하나뿐).
+    말의 내용(단어)으로는 정하지 않습니다. 단어 목록은 예외가 끝없이 늘어나 분류를 모델에 맡깁니다.
+    """
+    if resume_pending or stage == Stage.JOB_REGISTRATION:
         return Panel.RESUME
-    if stage in (Stage.EDUCATION, Stage.ELIGIBILITY_APPLICATION, Stage.ELIGIBILITY_APPLIED):
-        return Panel.RESUME if _RESUME_WORDS.search(text) else Panel.GUIDE
-    if stage == Stage.RECOGNITION:
-        round_hit = bool(_ROUND_WORDS.search(text))
-        application_hit = bool(_APPLICATION_WORDS.search(text))
-        if round_hit != application_hit:
-            return Panel.ROUND if round_hit else Panel.APPLICATION
-        if _RESUME_WORDS.search(text) and not (round_hit or application_hit):
-            return Panel.RESUME
     return None
 
 
@@ -86,9 +62,14 @@ def by_model(text: str, facts: dict[str, Any]) -> Panel:
 def route_turn(state: AgentState) -> dict[str, Any]:
     text = str(state["messages"][-1].content)
     facts = state.get("facts", {})
-    panel = by_rules(text, facts.get("stage"))
+    pending = bool((state.get("resume") or {}).get("pending"))
+    panel = by_rules(facts.get("stage"), resume_pending=pending)
     calls = state.get("model_calls", 0)
     if panel is None:
         panel = by_model(text, facts)
         calls += 1
     return {"panel": panel.value, "model_calls": calls}
+
+
+def after_route(state: AgentState) -> str:
+    return "read_answer" if state.get("panel") == Panel.RESUME else "attach_knowledge"

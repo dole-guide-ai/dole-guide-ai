@@ -42,6 +42,11 @@ def list_messages(db: Session, user_id: uuid.UUID, cursor: int | None) -> Messag
     )
 
 
+def has_history(db: Session, user_id: uuid.UUID) -> bool:
+    """대화 기록이 있는지(다시 온 사람인지)."""
+    return repo.count(db, user_id) > 0
+
+
 def pending_ask(db: Session, user_id: uuid.UUID) -> AskUserEvent | None:
     """마지막 말풍선이 질문(ask_user)이면 아직 답하지 않은 것이므로 그 질문을 돌려줍니다.
 

@@ -113,8 +113,9 @@ class Settings(BaseSettings):
     upload_dir: str = "./uploads"
     max_upload_mb: int = 4
     turn_timeout_seconds: int = 180
-    # 모델 호출 하나의 대기 시간. 턴 타임아웃보다 짧아야 턴 안에서 실패를 알릴 수 있습니다.
-    llm_timeout_seconds: int = 60
+    # 모델 호출 하나의 대기 시간. 턴은 이 시간 × (재시도 1 + 1) × 호출 수만큼 계정을 잠그므로
+    # 턴 타임아웃(180초) 안에 들어오게 둡니다(이력서 턴은 읽기 1 + 말하기 1).
+    llm_timeout_seconds: int = 40
     # POST 재시도 방지 키(Idempotency-Key)를 보관하는 시간
     idempotency_ttl_hours: int = 24
 
