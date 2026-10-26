@@ -93,7 +93,7 @@ class Settings(BaseSettings):
     rag_rrf_k: int = 60
     rag_result_top_n: int = 5
     # '찾지 못함' 기준: 벡터 코사인 유사도 / 벡터가 없을 때 첫 자료가 질문 낱말을 덮는 비율
-    rag_min_similarity: float = 0.3
+    rag_min_similarity: float = 0.4
     rag_min_bm25_coverage: float = 0.6
     # 리랭커는 CPU에서 느려 기본 끔. 켜려면 uv sync --extra rerank
     reranker_enabled: bool = False

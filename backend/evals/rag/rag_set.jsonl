@@ -1,0 +1,164 @@
+{"id": "P-FAQ1350_1000000753_01", "question": "실업급여 받으면서 취직했다가 다시 그만두면 어떻게 해야 하나요?", "gold_chunk_ids": ["FAQ1350_1000000753_01"], "kind": "faq_paraphrase", "split": "dev", "reviewed": false}
+{"id": "P-FAQ1350_1000001137_01", "question": "최저임금보다 적게 받다가 회사를 그만둬도 실업급여를 받을 수 있나요?", "gold_chunk_ids": ["FAQ1350_1000001137_01"], "kind": "faq_paraphrase", "split": "dev", "reviewed": false}
+{"id": "P-FAQ1350_1000001213_01", "question": "실업급여로 매달 180만 원쯤 받는데, 나중에 세금 떼나요?", "gold_chunk_ids": ["FAQ1350_1000001213_01"], "kind": "faq_paraphrase", "split": "test", "reviewed": false}
+{"id": "P-FAQ1350_1000000832_01", "question": "회사를 그만둔 사실을 증명하는 서류가 뭐예요?", "gold_chunk_ids": ["FAQ1350_1000000832_01"], "kind": "faq_paraphrase", "split": "test", "reviewed": false}
+{"id": "P-FAQ1350_1000001173_01", "question": "처음에 정규직으로 일하다가 스스로 회사를 그만두고 나중에 단기간 일하면서 실업급여 받을 수 있나요?", "gold_chunk_ids": ["FAQ1350_1000001173_01"], "kind": "faq_paraphrase", "split": "dev", "reviewed": false}
+{"id": "P-FAQ1350_1000001160_01", "question": "회사를 그만둬서 실업급여를 받으려면 어떤 조건을 갖춰야 하나요?", "gold_chunk_ids": ["FAQ1350_1000001160_01"], "kind": "faq_paraphrase", "split": "dev", "reviewed": false}
+{"id": "P-FAQ1350_1000001192_01", "question": "실업급여 받으면서 다시 일하게 되면 어떻게 알려야 하고, 꼭 직접 가야 하나요?", "gold_chunk_ids": ["FAQ1350_1000001192_01"], "kind": "faq_paraphrase", "split": "dev", "reviewed": false}
+{"id": "P-FAQ1350_1000000748_01", "question": "실업인정 받는 날에 꼭 가야 하나요?", "gold_chunk_ids": ["FAQ1350_1000000748_01"], "kind": "faq_paraphrase", "split": "dev", "reviewed": false}
+{"id": "P-FAQ1350_1000000734_01", "question": "실업급여를 받으려면 어떤 조건을 갖춰야 하나요?", "gold_chunk_ids": ["FAQ1350_1000000734_01"], "kind": "faq_paraphrase", "split": "dev", "reviewed": false}
+{"id": "P-FAQ1350_1000001216_01", "question": "실업급여 받으려면 먼저 신청을 해야 하는데, 면접 보고 채용된 회사에서 일하게 되면 빨리 다시 일자리 찾은 보너스 같은 돈을 받을 수 있나요?", "gold_chunk_ids": ["FAQ1350_1000001216_01"], "kind": "faq_paraphrase", "split": "test", "reviewed": false}
+{"id": "P-FAQ1350_1000001198_01", "question": "실업급여 받으면서 해외에서 일을 하게 되면 어떻게 되는지 알려주세요.", "gold_chunk_ids": ["FAQ1350_1000001198_01"], "kind": "faq_paraphrase", "split": "dev", "reviewed": false}
+{"id": "P-FAQ1350_1000001154_01", "question": "혼자서 하는 가게 문 닫는 이유로 어떤 경우가 인정되나요?", "gold_chunk_ids": ["FAQ1350_1000001154_01"], "kind": "faq_paraphrase", "split": "test", "reviewed": false}
+{"id": "P-FAQ1350_1000001150_01", "question": "실업급여 신청하면 바로 돈을 주나요? 기다려야 하는 기간이 며칠인지 알고 싶어요.", "gold_chunk_ids": ["FAQ1350_1000001150_01"], "kind": "faq_paraphrase", "split": "test", "reviewed": false}
+{"id": "P-FAQ1350_1000001152_01", "question": "가게 문 닫은 사람도 실업급여 받을 자격이 있나요?", "gold_chunk_ids": ["FAQ1350_1000001152_01"], "kind": "faq_paraphrase", "split": "dev", "reviewed": false}
+{"id": "P-FAQ1350_1000001130_01", "question": "회사에서 월급을 제때 안 주거나 늦게 주면, 내가 일부러 그만둘 때 실업급여 받을 수 있나요?", "gold_chunk_ids": ["FAQ1350_1000001130_01"], "kind": "faq_paraphrase", "split": "dev", "reviewed": false}
+{"id": "P-FAQ1350_1000001201_01", "question": "남이 제 이름을 빌려주고 실제로 일한 적이 없으면 실업급여를 받을 수 있나요?", "gold_chunk_ids": ["FAQ1350_1000001201_01"], "kind": "faq_paraphrase", "split": "test", "reviewed": false}
+{"id": "P-FAQ1350_1000001142_01", "question": "아이가 어려서 그만두려고 하는데, 회사에서 육아휴직을 더 안 준다고 해서 일을 쉬다가 실업급여를 받을 수 있나요?", "gold_chunk_ids": ["FAQ1350_1000001142_01"], "kind": "faq_paraphrase", "split": "dev", "reviewed": false}
+{"id": "P-FAQ1350_1000001174_01", "question": "실업급여 신청했는데 2주 뒤에 오라던데, 그동안 뭘 하거나 일자리를 찾아야 하나요?", "gold_chunk_ids": ["FAQ1350_1000001174_01"], "kind": "faq_paraphrase", "split": "dev", "reviewed": false}
+{"id": "P-FAQ1350_1000001204_01", "question": "실업급여 받는 중에 병원에 입원해서 정해진 실업 인정일에 못 갔는데, 어떻게 하면 되나요?", "gold_chunk_ids": ["FAQ1350_1000001204_01"], "kind": "faq_paraphrase", "split": "dev", "reviewed": false}
+{"id": "P-FAQ1350_1000001156_01", "question": "저는 하루하루 일하는 사람인데, 저도 실업급여를 받을 수 있나요?", "gold_chunk_ids": ["FAQ1350_1000001156_01"], "kind": "faq_paraphrase", "split": "dev", "reviewed": false}
+{"id": "P-FAQ1350_1000000742_01", "question": "회사를 스스로 그만둬서 실업급여를 못 받으면, 그동안 일한 기간이 없던 걸로 되는 건가요?", "gold_chunk_ids": ["FAQ1350_1000000742_01"], "kind": "faq_paraphrase", "split": "dev", "reviewed": false}
+{"id": "P-FAQ1350_1000001135_01", "question": "사업장이 다른 곳으로 옮기는데 출퇴근 시간이 하루에 세 시간 넘으면 실업급여를 받을 수 있나요?", "gold_chunk_ids": ["FAQ1350_1000001135_01"], "kind": "faq_paraphrase", "split": "test", "reviewed": false}
+{"id": "P-FAQ1350_1000001210_01", "question": "친구 회사에서 돈 안 받고 도와준 거면 실업급여 신청 안 해도 되나요?", "gold_chunk_ids": ["FAQ1350_1000001210_01"], "kind": "faq_paraphrase", "split": "test", "reviewed": false}
+{"id": "P-FAQ1350_1000001200_01", "question": "실업급여 받으면서 사업자등록 안 하고 장사하면 부정하게 돈 받는 걸로 돼요?", "gold_chunk_ids": ["FAQ1350_1000001200_01"], "kind": "faq_paraphrase", "split": "test", "reviewed": false}
+{"id": "P-FAQ1350_1000001134_01", "question": "혼자 사는 아버지 보려고 이사 가야 하는데 실업급여를 받을 수 있나요?", "gold_chunk_ids": ["FAQ1350_1000001134_01"], "kind": "faq_paraphrase", "split": "dev", "reviewed": false}
+{"id": "P-FAQ1350_1000001193_01", "question": "실업급여 받으면서 다른 동네로 이사 가면, 원래 다니던 일자리 센터에 계속 가야 하는지 알려 주세요.", "gold_chunk_ids": ["FAQ1350_1000001193_01"], "kind": "faq_paraphrase", "split": "dev", "reviewed": false}
+{"id": "P-FAQ1350_1000000831_01", "question": "실업급여 같은 일자리 관련 일은 어디서 맡아서 해 주나요?", "gold_chunk_ids": ["FAQ1350_1000000831_01"], "kind": "faq_paraphrase", "split": "dev", "reviewed": false}
+{"id": "P-FAQ1350_1000001158_01", "question": "2018년 1월 1일 전에 65살 넘었는데 계속 일하다가 다른 회사에 바로 취직했으면 실업급여를 받을 수 있나요?", "gold_chunk_ids": ["FAQ1350_1000001158_01"], "kind": "faq_paraphrase", "split": "dev", "reviewed": false}
+{"id": "P-FAQ1350_1000001161_01", "question": "일하는 데 돈이 줄어서 스스로 회사를 그만둘 때도 실업급여를 받을 수 있나요?", "gold_chunk_ids": ["FAQ1350_1000001161_01"], "kind": "faq_paraphrase", "split": "dev", "reviewed": false}
+{"id": "P-FAQ1350_1000001147_01", "question": "회사를 그만두고 병 치료로 6개월 넘게 걸리는데, 실업급여는 언제 신청해야 손해 안 보나요?", "gold_chunk_ids": ["FAQ1350_1000001147_01"], "kind": "faq_paraphrase", "split": "dev", "reviewed": false}
+{"id": "P-FAQ1350_1000001195_01", "question": "실업급여가 들어오는 통장이 돈을 못 쓰게 묶였을 때는 어떻게 해야 하나요?", "gold_chunk_ids": ["FAQ1350_1000001195_01"], "kind": "faq_paraphrase", "split": "dev", "reviewed": false}
+{"id": "P-FAQ1350_1000001157_01", "question": "65살 넘으면 실업급여를 못 받나요?", "gold_chunk_ids": ["FAQ1350_1000001157_01"], "kind": "faq_paraphrase", "split": "dev", "reviewed": false}
+{"id": "P-FAQ1350_1000001141_01", "question": "부모님 병간호 때문에 회사를 그만둬야 하는데, 이런 경우에도 실업급여를 받을 수 있나요?", "gold_chunk_ids": ["FAQ1350_1000001141_01"], "kind": "faq_paraphrase", "split": "dev", "reviewed": false}
+{"id": "P-FAQ1350_1000001131_01", "question": "결혼 때문에 이사하느라 회사를 그만두면 실업급여를 받을 수 있나요?", "gold_chunk_ids": ["FAQ1350_1000001131_01"], "kind": "faq_paraphrase", "split": "dev", "reviewed": false}
+{"id": "P-FAQ1350_1000001191_01", "question": "정해진 실업 인정하는 날에 일이 생겨서 센터에 못 가면 어떻게 해야 하나요?", "gold_chunk_ids": ["FAQ1350_1000001191_01"], "kind": "faq_paraphrase", "split": "dev", "reviewed": false}
+{"id": "P-FAQ1350_1000001125_01", "question": "실업급여는 보통 몇 달 동안 받을 수 있어요?", "gold_chunk_ids": ["FAQ1350_1000001125_01"], "kind": "faq_paraphrase", "split": "dev", "reviewed": false}
+{"id": "P-FAQ1350_1000000833_01", "question": "회사를 그만둔 사실을 증명하는 서류를 어떻게 쓰면 되는지 알려주세요.", "gold_chunk_ids": ["FAQ1350_1000000833_01"], "kind": "faq_paraphrase", "split": "dev", "reviewed": false}
+{"id": "P-FAQ1350_1000000738_01", "question": "실업급여는 보통 며칠 동안 받을 수 있는 거예요?", "gold_chunk_ids": ["FAQ1350_1000000738_01"], "kind": "faq_paraphrase", "split": "dev", "reviewed": false}
+{"id": "P-FAQ1350_1000001126_01", "question": "일을 그만둔 후에 받는 돈은 보통 얼마나 되나요?", "gold_chunk_ids": ["FAQ1350_1000001126_01"], "kind": "faq_paraphrase", "split": "dev", "reviewed": false}
+{"id": "P-FAQ1350_1000001159_01", "question": "65세 넘은 일용직인데 일 하는 날도 있고 안 하는 날도 많아서 쉬는 날이 자주 있는데, 이런 경우 실업급여를 받을 수 있나요?", "gold_chunk_ids": ["FAQ1350_1000001159_01"], "kind": "faq_paraphrase", "split": "dev", "reviewed": false}
+{"id": "P-FAQ1350_1000001220_01", "question": "실업급여 받으려면 전에 다니던 회사(A)로 다시 들어가기 전에 다른 회사(B)에 잠깐 다니다가 바로 A 회사로 가도 조기취업수당을 받을 수 있나요?", "gold_chunk_ids": ["FAQ1350_1000001220_01"], "kind": "faq_paraphrase", "split": "dev", "reviewed": false}
+{"id": "P-FAQ1350_1000001129_01", "question": "몸이 아파서 회사를 그만둬도 실업급여를 받을 수 있을까요?", "gold_chunk_ids": ["FAQ1350_1000001129_01"], "kind": "faq_paraphrase", "split": "dev", "reviewed": false}
+{"id": "P-FAQ1350_1000000745_01", "question": "병 때문에 회사를 그만둘 때 실업급여를 받을 수 있나요?", "gold_chunk_ids": ["FAQ1350_1000000745_01"], "kind": "faq_paraphrase", "split": "dev", "reviewed": false}
+{"id": "P-FAQ1350_1000001170_01", "question": "다른 분들은 하루에 6만 원쯤 받는다는데, 저는 왜 3만 원밖에 못 받는 거예요?", "gold_chunk_ids": ["FAQ1350_1000001170_01"], "kind": "faq_paraphrase", "split": "dev", "reviewed": false}
+{"id": "P-FAQ1350_1000001169_01", "question": "월급 많이 받으면 실업급여도 더 많이 주나요?", "gold_chunk_ids": ["FAQ1350_1000001169_01"], "kind": "faq_paraphrase", "split": "dev", "reviewed": false}
+{"id": "P-FAQ1350_1000001124_01", "question": "6개월 일하고 나오면 실업급여를 받을 수 있나요?", "gold_chunk_ids": ["FAQ1350_1000001124_01"], "kind": "faq_paraphrase", "split": "dev", "reviewed": false}
+{"id": "P-FAQ1350_1000001145_01", "question": "지금 임신했는데 병원에서 쉬라고 해서요, 계속 일을 하면 아기에게 위험하대요, 제가 회사를 그만두면 실업급여를 받을 수 있나요?", "gold_chunk_ids": ["FAQ1350_1000001145_01"], "kind": "faq_paraphrase", "split": "dev", "reviewed": false}
+{"id": "P-FAQ1350_1000001209_01", "question": "고용센터에서 직접 가서 확인하래도 인터넷으로만 해도 되나요?", "gold_chunk_ids": ["FAQ1350_1000001209_01"], "kind": "faq_paraphrase", "split": "dev", "reviewed": false}
+{"id": "P-FAQ1350_1000001138_01", "question": "회사에서 주 52시간 넘게 일하게 해서 너무 힘든데, 그만두면 실업급여 받을 수 있나요?", "gold_chunk_ids": ["FAQ1350_1000001138_01"], "kind": "faq_paraphrase", "split": "dev", "reviewed": false}
+{"id": "P-FAQ1350_1000001176_01", "question": "다른 분들은 하루에 6만원쯤 받는데, 저는 왜 3만원밖에 안 되는 거예요?", "gold_chunk_ids": ["FAQ1350_1000001176_01"], "kind": "faq_paraphrase", "split": "dev", "reviewed": false}
+{"id": "P-FAQ1350_1000001224_01", "question": "실업급여 신청을 꼭 직접 가서 해야 하나요, 아니면 인터넷으로도 할 수 있나요?", "gold_chunk_ids": ["FAQ1350_1000001224_01"], "kind": "faq_paraphrase", "split": "test", "reviewed": false}
+{"id": "P-FAQ1350_1000001164_01", "question": "회사 두 곳 다 다니는데 한 군데서 나가라고 하면 실업급여 받을 수 있나요?", "gold_chunk_ids": ["FAQ1350_1000001164_01"], "kind": "faq_paraphrase", "split": "test", "reviewed": false}
+{"id": "P-FAQ1350_1000000749_01", "question": "온라인으로 실업인정 신청하고 진행하는 방법이 어떻게 되나요?", "gold_chunk_ids": ["FAQ1350_1000000749_01"], "kind": "faq_paraphrase", "split": "dev", "reviewed": false}
+{"id": "P-FAQ1350_1000000737_01", "question": "실업급여로 제가 한 달에 얼마나 받을 수 있을까요?", "gold_chunk_ids": ["FAQ1350_1000000737_01"], "kind": "faq_paraphrase", "split": "dev", "reviewed": false}
+{"id": "P-FAQ1350_1000001211_01", "question": "실업급여 받는 동안 주말에 잠깐 일하거나 아르바이트해도 괜찮나요?", "gold_chunk_ids": ["FAQ1350_1000001211_01"], "kind": "faq_paraphrase", "split": "dev", "reviewed": false}
+{"id": "P-FAQ1350_1000001143_01", "question": "연말에 정년퇴직하는데, 그만두고 난 다음에 실업급여를 받을 수 있나요?", "gold_chunk_ids": ["FAQ1350_1000001143_01"], "kind": "faq_paraphrase", "split": "dev", "reviewed": false}
+{"id": "P-FAQ1350_1000000752_01", "question": "실업급여 받는 중에 일자리를 구하면 더 이상 못 받나요?", "gold_chunk_ids": ["FAQ1350_1000000752_01"], "kind": "faq_paraphrase", "split": "dev", "reviewed": false}
+{"id": "P-FAQ1350_1000001144_01", "question": "군대 가려고 회사에 잠시 쉬게 해달라 했는데 회사가 안 된대서 그만두게 됐는데, 실업급여 받을 수 있나요?", "gold_chunk_ids": ["FAQ1350_1000001144_01"], "kind": "faq_paraphrase", "split": "dev", "reviewed": false}
+{"id": "P-FAQ1350_1000001175_01", "question": "월급을 많이 받으면 실업급여도 더 많이 나오나요?", "gold_chunk_ids": ["FAQ1350_1000001175_01"], "kind": "faq_paraphrase", "split": "dev", "reviewed": false}
+{"id": "P-FAQ1350_1000001227_01", "question": "실업급여 받는 동안이나 마지막까지도 계속 일을 구한다고 인터넷에 등록해야 하나요?", "gold_chunk_ids": ["FAQ1350_1000001227_01"], "kind": "faq_paraphrase", "split": "dev", "reviewed": false}
+{"id": "P-FAQ1350_1000001155_01", "question": "요양보호사로 일하다가 일을 그만두면 실업급여를 받을 수 있나요?", "gold_chunk_ids": ["FAQ1350_1000001155_01"], "kind": "faq_paraphrase", "split": "dev", "reviewed": false}
+{"id": "P-FAQ1350_1000000756_01", "question": "실업급여 받기 전에 새 회사에 빨리 들어가도 실업급여 받을 수 있나요?", "gold_chunk_ids": ["FAQ1350_1000000756_01"], "kind": "faq_paraphrase", "split": "test", "reviewed": false}
+{"id": "P-FAQ1350_1000001148_01", "question": "2년 전에 실업급여를 받고 바로 일해서 1년 계약직으로 일했는데, 이번에 계약 끝나서 그만둘 때 실업급여를 1년 일한 기간만큼 받을 수 있는 건가요, 아니면 2년 전에 일한 것도 합쳐서 받는 건가요?", "gold_chunk_ids": ["FAQ1350_1000001148_01"], "kind": "faq_paraphrase", "split": "dev", "reviewed": false}
+{"id": "P-FAQ1350_1000001163_01", "question": "사업자등록증이 있어도 실업급여를 받을 수 있나요?", "gold_chunk_ids": ["FAQ1350_1000001163_01"], "kind": "faq_paraphrase", "split": "dev", "reviewed": false}
+{"id": "P-FAQ1350_1000001194_01", "question": "실업급여 받으면서 쓰던 통장을 다른 걸로 바꾸려면 어떻게 하면 되나요?", "gold_chunk_ids": ["FAQ1350_1000001194_01"], "kind": "faq_paraphrase", "split": "dev", "reviewed": false}
+{"id": "P-FAQ1350_1000001127_01", "question": "회사에서 나가야만 실업급여를 받을 수 있는 거예요?", "gold_chunk_ids": ["FAQ1350_1000001127_01"], "kind": "faq_paraphrase", "split": "dev", "reviewed": false}
+{"id": "P-FAQ1350_1000001149_01", "question": "회사를 그만두고 실업급여 신청하려고 했는데 갑자기 다시 취직했는데, 전에 일했던 기간도 합쳐서 계산되나요?", "gold_chunk_ids": ["FAQ1350_1000001149_01"], "kind": "faq_paraphrase", "split": "dev", "reviewed": false}
+{"id": "P-FAQ1350_1000001139_01", "question": "회사가 쉬는 동안 받아야 할 돈을 덜 주는데, 그래서 생활이 힘들어서 그만두면 실업급여를 받을 수 있나요?", "gold_chunk_ids": ["FAQ1350_1000001139_01"], "kind": "faq_paraphrase", "split": "dev", "reviewed": false}
+{"id": "P-FAQ1350_1000001172_01", "question": "실업급여 신청 전에 며칠 동안 아르바이트를 좀 해도 실업급여를 받을 수 있나요?", "gold_chunk_ids": ["FAQ1350_1000001172_01"], "kind": "faq_paraphrase", "split": "dev", "reviewed": false}
+{"id": "P-FAQ1350_1000001146_01", "question": "내가 개인 사정으로 회사를 그만두는데, 회사에서 일부러 권고사직으로 해 준다 하는데 그럼 실업급여 받는 데 아무 문제 없나요?", "gold_chunk_ids": ["FAQ1350_1000001146_01"], "kind": "faq_paraphrase", "split": "dev", "reviewed": false}
+{"id": "P-FAQ1350_1000001187_01", "question": "실업급여 받으면서 직업훈련 같이 받고 싶으면 어떻게 해야 돼요?", "gold_chunk_ids": ["FAQ1350_1000001187_01"], "kind": "faq_paraphrase", "split": "test", "reviewed": false}
+{"id": "P-FAQ1350_1000001221_01", "question": "저는 외국인 근로자인데, 실업급여 받으면서 다시 취직하면 조기취직수당 같은 걸 받을 수 있나요?", "gold_chunk_ids": ["FAQ1350_1000001221_01"], "kind": "faq_paraphrase", "split": "dev", "reviewed": false}
+{"id": "P-FAQ1350_1000000733_01", "question": "일을 그만두고 당분간 일 못할 때 돕는 돈 받는 제도예요?", "gold_chunk_ids": ["FAQ1350_1000000733_01"], "kind": "faq_paraphrase", "split": "test", "reviewed": false}
+{"id": "P-FAQ1350_1000001190_01", "question": "실업자 신고서를 냈는데, 실업 수당은 언제 받을 수 있나요?", "gold_chunk_ids": ["FAQ1350_1000001190_01"], "kind": "faq_paraphrase", "split": "dev", "reviewed": false}
+{"id": "P-FAQ1350_1000000743_01", "question": "계약 기간 6개월짜리 일 끝나서 퇴직했는데 실업급여 받을 수 있나요?", "gold_chunk_ids": ["FAQ1350_1000000743_01"], "kind": "faq_paraphrase", "split": "dev", "reviewed": false}
+{"id": "P-FAQ1350_1000000735_01", "question": "실업급여를 받으려면 어떻게 신청해야 하나요?", "gold_chunk_ids": ["FAQ1350_1000000735_01"], "kind": "faq_paraphrase", "split": "dev", "reviewed": false}
+{"id": "P-FAQ1350_1000001202_01", "question": "서울에서 실업급여 받으면서 부산으로 여행 갔는데, 그 기간에 실업 상태 확인받는 날이 있어요, 부산에 있는 일자리 센터에 가서 확인 신청해도 될까요?", "gold_chunk_ids": ["FAQ1350_1000001202_01"], "kind": "faq_paraphrase", "split": "dev", "reviewed": false}
+{"id": "P-FAQ1350_1000001165_01", "question": "실업급여 받으려면 어떤 서류를 준비해야 하나요?", "gold_chunk_ids": ["FAQ1350_1000001165_01"], "kind": "faq_paraphrase", "split": "dev", "reviewed": false}
+{"id": "P-FAQ1350_1000001171_01", "question": "실업급여를 3년에 한 번씩 받았는데 조건만 맞으면 계속 받을 수 있나요?", "gold_chunk_ids": ["FAQ1350_1000001171_01"], "kind": "faq_paraphrase", "split": "dev", "reviewed": false}
+{"id": "P-FAQ1350_1000001166_01", "question": "회사를 그만둔 걸 회사에서 확인서도 안 주고 신고도 안 해주면 어떻게 해야 하나요?", "gold_chunk_ids": ["FAQ1350_1000001166_01"], "kind": "faq_paraphrase", "split": "dev", "reviewed": false}
+{"id": "P-FAQ1350_1000001206_01", "question": "실업급여 다 받고 나서 다시 일 시작하면 그거 알리는 절차를 해야 하나요?", "gold_chunk_ids": ["FAQ1350_1000001206_01"], "kind": "faq_paraphrase", "split": "dev", "reviewed": false}
+{"id": "P-FAQ1350_1000001153_01", "question": "자영업자가 실업급여 받을 자격이 되려면 어떤 조건들이 있나요?", "gold_chunk_ids": ["FAQ1350_1000001153_01"], "kind": "faq_paraphrase", "split": "dev", "reviewed": false}
+{"id": "P-FAQ1350_1000001223_01", "question": "실업급여 받으려면 사는 동네 관할 고용센터에만 가야 해요?", "gold_chunk_ids": ["FAQ1350_1000001223_01"], "kind": "faq_paraphrase", "split": "dev", "reviewed": false}
+{"id": "P-FAQ1350_1000001140_01", "question": "회사랑 정해진 기간 일 다 끝나서 나올 때, 무조건 실업급여를 받을 수 있나요?", "gold_chunk_ids": ["FAQ1350_1000001140_01"], "kind": "faq_paraphrase", "split": "dev", "reviewed": false}
+{"id": "P-FAQ1350_1000001203_01", "question": "실업급여 받으면서 새로 일하다가 또 그만두면 남은 돈도 받을 수 있나요?", "gold_chunk_ids": ["FAQ1350_1000001203_01"], "kind": "faq_paraphrase", "split": "dev", "reviewed": false}
+{"id": "P-FAQ1350_1000001212_01", "question": "생활이 어려우면 실업급여를 좀 더 오래 받을 수 있는 추가 지원이 있다고 알려주세요.", "gold_chunk_ids": ["FAQ1350_1000001212_01"], "kind": "faq_paraphrase", "split": "dev", "reviewed": false}
+{"id": "P-FAQ1350_1000000740_01", "question": "일을 그만두고 나서 실업급여 받으려면 며칠 안에 신청해야 하나요?", "gold_chunk_ids": ["FAQ1350_1000000740_01"], "kind": "faq_paraphrase", "split": "dev", "reviewed": false}
+{"id": "P-FAQ1350_1000001162_01", "question": "예술인으로 고용보험에 들어가 있는데 회사를 그만두면 실업급여를 받을 수 있나요?", "gold_chunk_ids": ["FAQ1350_1000001162_01"], "kind": "faq_paraphrase", "split": "dev", "reviewed": false}
+{"id": "P-FAQ1350_1000001199_01", "question": "실업급여 받으면서 개인사업자 등록해도 실업급여 받는데 지장 없나요?", "gold_chunk_ids": ["FAQ1350_1000001199_01"], "kind": "faq_paraphrase", "split": "dev", "reviewed": false}
+{"id": "P-FAQ1350_1000000746_01", "question": "사장님이 고용보험 안 들면 실업급여를 못 받나요?", "gold_chunk_ids": ["FAQ1350_1000000746_01"], "kind": "faq_paraphrase", "split": "test", "reviewed": false}
+{"id": "P-FAQ1350_1000001136_01", "question": "회사 들어갈 때 약속한 일과 지금 하는 일이 많이 다르면, 자기가 그만둘 때 실업급여 받을 수 있어요?", "gold_chunk_ids": ["FAQ1350_1000001136_01"], "kind": "faq_paraphrase", "split": "dev", "reviewed": false}
+{"id": "P-FAQ1350_1000000744_01", "question": "아기가 태어나서 회사를 그만뒀을 때 실업급여를 받을 수 있나요?", "gold_chunk_ids": ["FAQ1350_1000000744_01"], "kind": "faq_paraphrase", "split": "dev", "reviewed": false}
+{"id": "P-FAQ1350_1000001214_01", "question": "실업급여로 받은 돈 전체를 연말정산할 때 소득에 포함해서 신고해야 하나요?", "gold_chunk_ids": ["FAQ1350_1000001214_01"], "kind": "faq_paraphrase", "split": "dev", "reviewed": false}
+{"id": "P-FAQ1350_1000001196_01", "question": "실업급여 받으면서 해외여행 가면 돈을 계속 받을 수 있나요?", "gold_chunk_ids": ["FAQ1350_1000001196_01"], "kind": "faq_paraphrase", "split": "dev", "reviewed": false}
+{"id": "G-SI00000368_SC00000199_s03_section01", "question": "일학습병행 사업에 참여하려면 얼마나 다니고 있어야 하나요?", "gold_chunk_ids": ["SI00000368_SC00000199_s03_section01"], "kind": "generated", "split": "dev", "reviewed": false}
+{"id": "G-SI00000316_SC00000206_s02_section02", "question": "저는 70세인데 국민취업지원제도 1유형에 신청할 수 있나요?", "gold_chunk_ids": ["SI00000316_SC00000206_s02_section02"], "kind": "generated", "split": "dev", "reviewed": false}
+{"id": "G-SI00000355_SC00000051_s04_step04", "question": "훈련 하루라도 80% 출석 못 하면 훈련장려금 못 받나요?", "gold_chunk_ids": ["SI00000355_SC00000051_s04_step04"], "kind": "generated", "split": "dev", "reviewed": false}
+{"id": "G-SI00000307_SC00000257_s02_section03", "question": "저 구직급여 신청하면 1년 지난 뒤에도 받을 수 있나요?", "gold_chunk_ids": ["SI00000307_SC00000257_s02_section03"], "kind": "generated", "split": "dev", "reviewed": false}
+{"id": "G-SI00000355_SC00000051_s05_section01", "question": "내일배움카드를 거짓으로 쓰면 무슨 불이익 있나요?", "gold_chunk_ids": ["SI00000355_SC00000051_s05_section01"], "kind": "generated", "split": "test", "reviewed": false}
+{"id": "G-SI00000387_SC00000255_s04_step06", "question": "온라인으로 사전 교육을 못 들었으면 고용복지센터에 가서 직접 들어도 됩니까?", "gold_chunk_ids": ["SI00000387_SC00000255_s04_step06"], "kind": "generated", "split": "dev", "reviewed": false}
+{"id": "G-SI00000356_SC00000047_s04_step03", "question": "국민내일배움카드는 어디서 어떻게 신청하고 실물카드는 언제 받나요?", "gold_chunk_ids": ["SI00000356_SC00000047_s04_step03"], "kind": "generated", "split": "test", "reviewed": false}
+{"id": "G-SI00000316_SC00000206_s03_section01", "question": "취업 못하면 지원 기간을 더 연장해 주나요?", "gold_chunk_ids": ["SI00000316_SC00000206_s03_section01"], "kind": "generated", "split": "dev", "reviewed": false}
+{"id": "G-SI00000391_SC00000248_s03_section01", "question": "저 기간제 근로자인데 출산전후휴가 기간에 계약 끝나면 급여 받을 수 있나요?", "gold_chunk_ids": ["SI00000391_SC00000248_s03_section01"], "kind": "generated", "split": "dev", "reviewed": false}
+{"id": "G-SI00000351_SC00000004_s03_section01", "question": "저 국민내일배움카드 75세 넘으면 못 하나요?", "gold_chunk_ids": ["SI00000351_SC00000004_s03_section01"], "kind": "generated", "split": "dev", "reviewed": false}
+{"id": "G-SI00000391_SC00000248_s05_section01", "question": "출산휴가 급여 받으려면 회사에서 출산휴가 확인서 꼭 내야 하나요?", "gold_chunk_ids": ["SI00000391_SC00000248_s05_section01"], "kind": "generated", "split": "dev", "reviewed": false}
+{"id": "G-SI00000454_SC00000378_s04_section01", "question": "실업급여를 부정하게 탔으면 자진신고하면 벌금 같은 처벌을 안 받을 수 있어요?", "gold_chunk_ids": ["SI00000454_SC00000378_s04_section01"], "kind": "generated", "split": "dev", "reviewed": false}
+{"id": "G-SI00000423_SC00000197_s05_section01", "question": "훈련 도중에 한 번 수강을 그만두면 훈련비 말고도 20만원을 더 내야 합니까?", "gold_chunk_ids": ["SI00000423_SC00000197_s05_section01"], "kind": "generated", "split": "dev", "reviewed": false}
+{"id": "G-SI00000452_SC00000375_s05_section01", "question": "청년카페는 누구나 이용할 수 있나요?", "gold_chunk_ids": ["SI00000452_SC00000375_s05_section01"], "kind": "generated", "split": "dev", "reviewed": false}
+{"id": "G-SI00000311_SC00000262_s02_section03", "question": "내가 일한 날보다 퇴직공제에 적힌 날이 적으면 어디에 어떻게 신고해야 되요?", "gold_chunk_ids": ["SI00000311_SC00000262_s02_section03"], "kind": "generated", "split": "dev", "reviewed": false}
+{"id": "G-SI00000307_SC00000257_s02_section04", "question": "저 직업능력개발훈련 받으면 하루에 얼마씩 수당 준다고요?", "gold_chunk_ids": ["SI00000307_SC00000257_s02_section04"], "kind": "generated", "split": "dev", "reviewed": false}
+{"id": "G-SI00000384_SC00000281_s05_section01", "question": "중증장애인 지원고용 하면서 장애 등급 바뀌면 수당은 어떻게 되나요?", "gold_chunk_ids": ["SI00000384_SC00000281_s05_section01"], "kind": "generated", "split": "dev", "reviewed": false}
+{"id": "G-SI00000435_SC00000204_s02_section01", "question": "이 지원 정책은 70대인 나도 신청할 수 있나요?", "gold_chunk_ids": ["SI00000435_SC00000204_s02_section01"], "kind": "generated", "split": "dev", "reviewed": false}
+{"id": "G-SI00000311_SC00000262_s03_section04", "question": "퇴직공제금 받을려면 유족 중에 꼭 우선 순위에 들어야 합니까?", "gold_chunk_ids": ["SI00000311_SC00000262_s03_section04"], "kind": "generated", "split": "dev", "reviewed": false}
+{"id": "G-SI00000319_SC00000189_s04_step01", "question": "청년도전지원사업 신청은 고용24 말고 어디로 가야 돼요?", "gold_chunk_ids": ["SI00000319_SC00000189_s04_step01"], "kind": "generated", "split": "test", "reviewed": false}
+{"id": "G-SI00000360_SC00000048_s04_section01", "question": "실업자인데 국가기간·전략산업직종 훈련 들으려면 어떻게 해야 하나요?", "gold_chunk_ids": ["SI00000360_SC00000048_s04_section01"], "kind": "generated", "split": "dev", "reviewed": false}
+{"id": "G-SI00000421_SC00000198_s04_step05", "question": "훈련 출석을 잘 안 하면 교육을 계속 못 받나요?", "gold_chunk_ids": ["SI00000421_SC00000198_s04_step05"], "kind": "generated", "split": "test", "reviewed": false}
+{"id": "G-SI00000402_SC00000251_s05_section01", "question": "육아휴직급여 신청할 때 취업하거나 수입 있으면 꼭 알려야 돼요?", "gold_chunk_ids": ["SI00000402_SC00000251_s05_section01"], "kind": "generated", "split": "dev", "reviewed": false}
+{"id": "G-SI00000440_SC00000269_s03_section01", "question": "경력단절여성도 이 지원 받을 수 있나요?", "gold_chunk_ids": ["SI00000440_SC00000269_s03_section01"], "kind": "generated", "split": "dev", "reviewed": false}
+{"id": "G-SI00000327_SC00000185_s03_section01", "question": "직업심리검사 받으려면 몇 살부터 신청할 수 있어요?", "gold_chunk_ids": ["SI00000327_SC00000185_s03_section01"], "kind": "generated", "split": "dev", "reviewed": false}
+{"id": "G-SI00000369_SC00000278_s04_step08", "question": "훈련받고 나서 일자리 찾아주고 1년 동안 일하는 거 도와주나요?", "gold_chunk_ids": ["SI00000369_SC00000278_s04_step08"], "kind": "generated", "split": "dev", "reviewed": false}
+{"id": "G-SI00000366_SC00000058_s04_section01", "question": "훈련받으려고 하는데 생계비 대출은 어디에서 어떻게 신청해야 하나요?", "gold_chunk_ids": ["SI00000366_SC00000058_s04_section01"], "kind": "generated", "split": "dev", "reviewed": false}
+{"id": "G-SI00000384_SC00000281_s04_step03", "question": "직무지도원은 언제 배치가 되나요?", "gold_chunk_ids": ["SI00000384_SC00000281_s04_step03"], "kind": "generated", "split": "test", "reviewed": false}
+{"id": "G-SI00000307_SC00000257_s04_step09", "question": "실업인정은 꼭 내가 직접 온라인이나 고용센터에 가서 해야 하나요?", "gold_chunk_ids": ["SI00000307_SC00000257_s04_step09"], "kind": "generated", "split": "dev", "reviewed": false}
+{"id": "G-SI00000347_SC00000258_s02_section02", "question": "가입기간이랑 상관없이 실업급여는 얼마나 받을 수 있나요?", "gold_chunk_ids": ["SI00000347_SC00000258_s02_section02"], "kind": "generated", "split": "dev", "reviewed": false}
+{"id": "G-SI00000316_SC00000206_s03_section02", "question": "국민취업지원제도에서는 취업 준비하는 데 어떤 상담을 받을 수 있나요?", "gold_chunk_ids": ["SI00000316_SC00000206_s03_section02"], "kind": "generated", "split": "dev", "reviewed": false}
+{"id": "G-SI00000369_SC00000278_s04_step06", "question": "입학선발평가에 떨어지면 몇 달 뒤에 다시 볼 수 있나요?", "gold_chunk_ids": ["SI00000369_SC00000278_s04_step06"], "kind": "generated", "split": "dev", "reviewed": false}
+{"id": "G-SI00000355_SC00000051_s02_section02", "question": "훈련장려금은 출석률 80% 이상이면 받을 수 있나요?", "gold_chunk_ids": ["SI00000355_SC00000051_s02_section02"], "kind": "generated", "split": "dev", "reviewed": false}
+{"id": "G-SI00000388_SC00000282_s05_section01", "question": "중증장애인 출퇴근비용 지원 받다가 자기가 지원 취소하면 어떻게 돼요?", "gold_chunk_ids": ["SI00000388_SC00000282_s05_section01"], "kind": "generated", "split": "dev", "reviewed": false}
+{"id": "G-SI00000356_SC00000047_s04_step04", "question": "나도 고용24에서 디지털 기초역량훈련 수강 신청할 수 있나요?", "gold_chunk_ids": ["SI00000356_SC00000047_s04_step04"], "kind": "generated", "split": "dev", "reviewed": false}
+{"id": "G-SI00000402_SC00000251_s04_step03", "question": "내가 내 마이페이지에서 육아휴직급여 받을 자격 있는지 어떻게 확인해요?", "gold_chunk_ids": ["SI00000402_SC00000251_s04_step03"], "kind": "generated", "split": "dev", "reviewed": false}
+{"id": "G-SI00000384_SC00000281_s04_step02", "question": "중증장애인 지원고용에 누가 참여할 수 있나요?", "gold_chunk_ids": ["SI00000384_SC00000281_s04_step02"], "kind": "generated", "split": "dev", "reviewed": false}
+{"id": "G-SI00000432_SC00000279_s02_section02", "question": "장애인 취업성공패키지 참여하려면 구직 활동을 몇 번 이상 해야 하나요?", "gold_chunk_ids": ["SI00000432_SC00000279_s02_section02"], "kind": "generated", "split": "test", "reviewed": false}
+{"id": "G-SI00000369_SC00000278_s04_step02", "question": "입학신청은 언제 해야 하나요?", "gold_chunk_ids": ["SI00000369_SC00000278_s04_step02"], "kind": "generated", "split": "test", "reviewed": false}
+{"id": "G-SI00000326_SC00000192_s03_section03", "question": "경력전환 상담도 저처럼 나이 많은 사람도 받을 수 있나요?", "gold_chunk_ids": ["SI00000326_SC00000192_s03_section03"], "kind": "generated", "split": "test", "reviewed": false}
+{"id": "G-SI00000360_SC00000048_s04_step06", "question": "훈련 끝나고 만족도 조사 꼭 언제까지 해야 하나요?", "gold_chunk_ids": ["SI00000360_SC00000048_s04_step06"], "kind": "generated", "split": "test", "reviewed": false}
+{"id": "G-SI00000411_SC00000254_s04_step05", "question": "고용24에 어떻게 구직 등록을 하나요?", "gold_chunk_ids": ["SI00000411_SC00000254_s04_step05"], "kind": "generated", "split": "test", "reviewed": false}
+{"id": "G-SI00000361_SC00000050_s04_step06", "question": "교육 끝나면 어디에서 평가를 해야 하나요?", "gold_chunk_ids": ["SI00000361_SC00000050_s04_step06"], "kind": "generated", "split": "dev", "reviewed": false}
+{"id": "G-SI00000369_SC00000278_s05_section01", "question": "훈련기관에서 밥 주면 식비는 안 주는 거 맞아요?", "gold_chunk_ids": ["SI00000369_SC00000278_s05_section01"], "kind": "generated", "split": "dev", "reviewed": false}
+{"id": "G-SI00000462_SC00000380_s01_section01", "question": "저 일경험하면서 한 달에 최대 얼마 받을 수 있어요?", "gold_chunk_ids": ["SI00000462_SC00000380_s01_section01"], "kind": "generated", "split": "dev", "reviewed": false}
+{"id": "G-SI00000369_SC00000278_s02_section04", "question": "디지털훈련센터가 우리 동네 근처 어느 곳에 있나요?", "gold_chunk_ids": ["SI00000369_SC00000278_s02_section04"], "kind": "generated", "split": "dev", "reviewed": false}
+{"id": "G-SI00000369_SC00000278_s02_section02", "question": "훈련 받으려면 돈은 내야 하나요?", "gold_chunk_ids": ["SI00000369_SC00000278_s02_section02"], "kind": "generated", "split": "test", "reviewed": false}
+{"id": "G-SI00000387_SC00000255_s04_section02", "question": "실업급여 받으려면 고용센터에 어떻게 가서 신청해야 돼요?", "gold_chunk_ids": ["SI00000387_SC00000255_s04_section02"], "kind": "generated", "split": "dev", "reviewed": false}
+{"id": "G-SI00000373_SC00000243_s02_section01", "question": "고등학교에 직접 찾아와서 취업 상담도 해 주나요?", "gold_chunk_ids": ["SI00000373_SC00000243_s02_section01"], "kind": "generated", "split": "test", "reviewed": false}
+{"id": "G-SI00000421_SC00000198_s03_section01", "question": "국민내일배움카드 있으면 돌봄서비스 특화훈련 받을 수 있나요?", "gold_chunk_ids": ["SI00000421_SC00000198_s03_section01"], "kind": "generated", "split": "dev", "reviewed": false}
+{"id": "U-001", "question": "주식 투자해도 돼요?", "gold_chunk_ids": [], "kind": "unanswerable", "split": "dev", "reviewed": false}
+{"id": "U-002", "question": "비트코인 지금 사도 될까요?", "gold_chunk_ids": [], "kind": "unanswerable", "split": "test", "reviewed": false}
+{"id": "U-003", "question": "오늘 서울 날씨 어때요?", "gold_chunk_ids": [], "kind": "unanswerable", "split": "dev", "reviewed": false}
+{"id": "U-004", "question": "점심 메뉴 추천해 주세요", "gold_chunk_ids": [], "kind": "unanswerable", "split": "dev", "reviewed": false}
+{"id": "U-005", "question": "로또 번호 좀 골라 주세요", "gold_chunk_ids": [], "kind": "unanswerable", "split": "dev", "reviewed": false}
+{"id": "U-006", "question": "아파트 청약은 어떻게 넣어요?", "gold_chunk_ids": [], "kind": "unanswerable", "split": "dev", "reviewed": false}
+{"id": "U-007", "question": "자동차 보험 갱신은 어디서 해요?", "gold_chunk_ids": [], "kind": "unanswerable", "split": "dev", "reviewed": false}
+{"id": "U-008", "question": "해외여행 가려면 여권은 어디서 만들어요?", "gold_chunk_ids": [], "kind": "unanswerable", "split": "dev", "reviewed": false}
+{"id": "U-009", "question": "감기에 걸렸는데 무슨 약 먹어야 해요?", "gold_chunk_ids": [], "kind": "unanswerable", "split": "test", "reviewed": false}
+{"id": "U-010", "question": "강아지 예방접종은 언제 해요?", "gold_chunk_ids": [], "kind": "unanswerable", "split": "dev", "reviewed": false}
+{"id": "U-011", "question": "부동산 양도세는 얼마나 나와요?", "gold_chunk_ids": [], "kind": "unanswerable", "split": "dev", "reviewed": false}
+{"id": "U-012", "question": "스마트폰 요금제 추천해 주세요", "gold_chunk_ids": [], "kind": "unanswerable", "split": "dev", "reviewed": false}
+{"id": "U-013", "question": "김치찌개 맛있게 끓이는 법 알려 주세요", "gold_chunk_ids": [], "kind": "unanswerable", "split": "dev", "reviewed": false}
+{"id": "U-014", "question": "프로야구 오늘 누가 이겼어요?", "gold_chunk_ids": [], "kind": "unanswerable", "split": "dev", "reviewed": false}
+{"id": "U-015", "question": "운전면허 갱신 기간이 어떻게 돼요?", "gold_chunk_ids": [], "kind": "unanswerable", "split": "dev", "reviewed": false}
+{"id": "U-016", "question": "전기요금 할인 받는 방법 있어요?", "gold_chunk_ids": [], "kind": "unanswerable", "split": "dev", "reviewed": false}
+{"id": "U-017", "question": "손주 돌잔치 선물 뭐가 좋아요?", "gold_chunk_ids": [], "kind": "unanswerable", "split": "test", "reviewed": false}
+{"id": "U-018", "question": "등산하기 좋은 산 추천해 주세요", "gold_chunk_ids": [], "kind": "unanswerable", "split": "dev", "reviewed": false}
+{"id": "U-019", "question": "치과 임플란트 보험 되나요?", "gold_chunk_ids": [], "kind": "unanswerable", "split": "test", "reviewed": false}
+{"id": "U-020", "question": "중고차 살 때 뭘 봐야 해요?", "gold_chunk_ids": [], "kind": "unanswerable", "split": "dev", "reviewed": false}

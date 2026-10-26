@@ -40,8 +40,32 @@ def eval_tracing() -> None:
     tests/ 쪽에는 트레이스가 켜지지 않습니다.
     """
     os.environ.pop("LANGSMITH_TRACING", None)
+    # 루트 conftest가 테스트용으로 비운 임베딩 모델도 .env 값으로 되돌립니다(RAG 벡터 검색).
+    os.environ.pop("EMBEDDING_MODEL", None)
     get_settings.cache_clear()
     gateway.configure_tracing()
+
+
+@pytest.fixture(scope="session", autouse=True)
+def knowledge_chunks(eval_tracing) -> None:
+    """평가 DB(dole_test)에 RAG 근거 자료가 없으면 한 번 적재합니다.
+
+    data/knowledge/chunks가 없으면(팀원에게 받기 전) 적재하지 않고,
+    search_guide는 '찾지 못함'이 됩니다.
+    임베딩은 설정(EMBEDDING_MODEL)이 있을 때만 만들고, 이미 있는 청크는 다시 만들지 않습니다.
+    """
+    from app.core.db import SessionLocal
+    from app.repositories import knowledge as knowledge_repo
+    from scripts.ingest import load_chunks
+
+    if not all(path.is_file() for path in load_chunks.CHUNK_FILES):
+        return
+    with SessionLocal() as db:
+        model = get_settings().embedding_model
+        loaded = bool(knowledge_repo.all_chunks(db))
+        embedded = not model or bool(knowledge_repo.embedding_hashes(db, model))
+    if not (loaded and embedded):
+        load_chunks.load(model or None, embed=bool(model))
 
 
 # ── 골든셋 (evals/test_golden.py) ──
