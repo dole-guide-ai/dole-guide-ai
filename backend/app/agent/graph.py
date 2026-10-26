@@ -54,6 +54,9 @@ class AgentState(TypedDict):
     profile: NotRequired[dict[str, Any]]
     # 이력서 작업 기억(물은 횟수·미룬 칸·대기 질문·버튼으로 저장한 칸). nodes/resume가 씁니다.
     resume: NotRequired[dict[str, Any]]
+    # 이번 턴에 답하는 모델에 사진째 보내도 되는 첨부 파일 ID(받아쓴 글에 등급 0 개인정보가
+    # 없는 사진만). preprocess가 턴마다 다시 정합니다. 파일 ID라 개인정보가 아닙니다.
+    vision_files: NotRequired[list[str]]
 
 
 def turn_of(config: RunnableConfig) -> Any:

@@ -9,7 +9,7 @@ import dataclasses
 import json
 import uuid
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date, datetime
 from typing import Any
 
@@ -45,6 +45,13 @@ class ToolContext:
     now: datetime
     # 지금 질문이 다루는 칸 경로(앞부분). None이면 제한 없음(테스트·관리용)
     allowed_paths: tuple[str, ...] | None = None
+    # 이번 턴에 올린 구직활동 증빙 파일. 이 턴에 처음 기록하는 활동에 붙입니다(take_evidence).
+    evidence_file_ids: list[str] = field(default_factory=list)
+
+    def take_evidence(self) -> list[str]:
+        """증빙을 한 번만 내줍니다. 사진 한 장은 보통 활동 하나의 증빙이라 두 번째부터는 빈 목록."""
+        taken, self.evidence_file_ids = self.evidence_file_ids, []
+        return taken
 
     def ensure_allowed(self, path: str) -> None:
         if self.allowed_paths is not None and not any(
@@ -68,8 +75,14 @@ class RecordActivityInput(BaseModel):
     )
     kind: str = Field(description="job_application·interview·lecture 등 활동 종류")
     route: ActivityRoute | None = None
-    org_name: str | None = None
-    job_title: str | None = None
+    org_name: str | None = Field(
+        None,
+        description=(
+            "회사·기관 이름만(예: OO기획). 공고 제목의 '채용'·'모집'·'공고'·직무명은 빼고, "
+            "직무는 job_title에"
+        ),
+    )
+    job_title: str | None = Field(None, description="지원한 직무(예: 경리, 지게차 운전)")
     hours: float | None = None
 
 
@@ -129,8 +142,15 @@ def _record_activity(ctx: ToolContext, args: RecordActivityInput) -> dict[str, A
     day = normalize_day(args.when, ctx.today)
     if day is None:
         raise ToolError(f"'{args.when}'이(가) 며칠인지 정하지 못했어요. 날짜를 다시 물어 주세요.")
-    body = ActivityCreate(activity_date=day, **args.model_dump(exclude={"when"}))
-    return _dump(activity_service.record_answered_activity(ctx.db, ctx.account, body, ctx.today))
+    body = ActivityCreate(
+        activity_date=day,
+        file_ids=list(ctx.evidence_file_ids),
+        **args.model_dump(exclude={"when"}),
+    )
+    recorded = activity_service.record_answered_activity(ctx.db, ctx.account, body, ctx.today)
+    # 기록이 실패하면 증빙을 남겨 두어 모델이 다시 부를 때 그대로 붙습니다.
+    ctx.take_evidence()
+    return _dump(recorded)
 
 
 def _mark_done(ctx: ToolContext, args: MarkDoneInput) -> dict[str, Any]:

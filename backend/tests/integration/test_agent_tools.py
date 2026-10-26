@@ -1,5 +1,6 @@
 """에이전트 도구를 그래프 없이 바로 불러 서비스와 같은 결과가 나오는지 확인합니다 (AI 설계 6.3)."""
 
+import io
 from collections.abc import Callable
 from datetime import datetime, time
 
@@ -10,6 +11,11 @@ from sqlalchemy.orm import Session
 from app.agent.tools import TOOLS, TOOLS_BY_PANEL, ToolContext, ToolError, run_tool
 from app.agent.tools.registry import MAX_PANEL_TOOLS
 from app.core.clock import KST
+from app.core.config import get_settings
+from app.core.errors import ConflictError
+from app.schemas.files import FilePurpose
+from app.services import activities as activity_service
+from app.services import files as files_service
 from app.services.accounts import AccountContext
 from conftest import TEST_TODAY
 
@@ -48,6 +54,49 @@ def test_check_round_and_record_activity(ctx) -> None:
 
     after = next(u["value"] for u in added["updates"] if u["path"] == "/round_check")
     assert (before["check_status"], after["check_status"]) == ("short", "satisfied")
+
+
+def test_uploaded_evidence_is_attached_to_first_recorded_activity(
+    ctx, db_session: Session, tmp_path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # 대화로 올린 지원 완료 사진이 기록한 활동의 증빙으로 붙어야 함 (#246)
+    monkeypatch.setattr(get_settings(), "upload_dir", str(tmp_path))
+    c = ctx()
+    png = b"\x89PNG\r\n\x1a\n" + b"\x00" * 32
+    photo = files_service.upload(
+        db_session, c.account, "지원완료.png", io.BytesIO(png), FilePurpose.EVIDENCE, None
+    )
+    c.evidence_file_ids = files_service.evidence_ids(db_session, c.account, [photo.file_id])
+    first = {"when": "오늘", "kind": "job_application", "route": "work24", "org_name": "OO물산"}
+
+    run_tool(c, "record_activity", first)
+    run_tool(c, "record_activity", first | {"when": "어제", "org_name": "OO상사"})
+
+    activities = activity_service.list_activities(db_session, c.account, None, TEST_TODAY).items
+    by_org = {a.org_name: a.file_ids for a in activities}
+    assert by_org["OO물산"] == [photo.file_id]
+    assert by_org["OO상사"] == []
+
+
+def test_evidence_stays_when_recording_fails(
+    ctx, db_session: Session, tmp_path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(get_settings(), "upload_dir", str(tmp_path))
+    c = ctx()
+    png = b"\x89PNG\r\n\x1a\n" + b"\x00" * 32
+    photo = files_service.upload(
+        db_session, c.account, "지원완료.png", io.BytesIO(png), FilePurpose.EVIDENCE, None
+    )
+    c.evidence_file_ids = files_service.evidence_ids(db_session, c.account, [photo.file_id])
+
+    def fail(*args, **kwargs):
+        raise ConflictError()
+
+    monkeypatch.setattr(activity_service, "record_answered_activity", fail)
+    with pytest.raises(ConflictError):
+        run_tool(c, "record_activity", {"when": "오늘", "kind": "job_application"})
+
+    assert c.evidence_file_ids == [photo.file_id]
 
 
 def test_bad_tool_or_input(ctx) -> None:

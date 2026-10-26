@@ -57,11 +57,22 @@ _EMAIL = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
 _EMAIL_UNICODE = re.compile(r"[\w.%+-]+@[\w-]+(?:\.[\w-]+)+")
 # 뒷자리만 따로 말한 주민번호. 아무 7자리 숫자(금액 등)를 가리지 않도록 앞에 단서가 있을 때만.
 _RRN_BACK = re.compile(r"(?:뒷자리|뒷번호|뒤\s*7자리|주민(?:등록)?번호)\D{0,10}?([1-8]\d{6})(?!\d)")
-# 붙여 쓰거나 공백·점·밑줄·슬래시로 나눈 긴 번호(계좌·카드). 숫자 사이 구분자는 3글자까지.
+# 붙여 쓰거나 공백·점·밑줄·슬래시로 나눈 긴 번호(계좌·카드). 시각의 ":"·"시"도 이어 봐야
+# "2026.12.10 10:99"처럼 분이 틀린 숫자를 날짜로 빼지 않습니다. 숫자 사이 구분자는 3글자까지.
 # 숫자 10~19자리만 보고, 통째로 날짜(+시각)인 것("2026-12-08 10")만 뺍니다(_is_date_time).
-_LONG_NUMBER = re.compile(r"(?<![\d-])\d(?:[\s.\-–—_/]{0,3}\d){9,}(?!\d)")
+_LONG_NUMBER = re.compile(r"(?<![\d-])\d(?:[\s.\-–—_/:시]{0,3}\d){9,}(?!\d)")
 _LONG_DIGITS = range(10, 20)
-_DATE_TIME = re.compile(r"(\d{4})[-./](\d{1,2})[-./](\d{1,2})(?:\s+\d{1,2})?")
+# 서류의 날짜는 "2026. 12. 10." "2026.12.10 10:00"처럼 점 뒤 띄어쓰기·끝 점·시각이 붙기도 합니다.
+# 시각은 날짜 뒤에 띄어쓰기가 있어야 붙습니다("1002.12.1234" 같은 계좌를 날짜로 보지 않게).
+_DATE_TIME = re.compile(
+    r"(\d{4})\s*[-./]\s*(\d{1,2})\s*[-./]\s*(\d{1,2})\.?"
+    r"(?:\s+(\d{1,2})(?:\s*[:시]\s*(\d{1,2})?)?)?"
+)
+# 날짜·시각이 띄어쓰기로 나뉘는 최대 조각 수: "2026." "12." "10." "10시" "30"
+DATE_TIME_MAX_PIECES = 5
+_DATE_YEARS = range(1900, 2100)
+_HOURS = range(24)
+_MINUTES = range(60)
 # 같은 말 안에 유효한 생년월일 6자리가 먼저 나오면, 뒤에 따로 말한 7자리도 뒷자리로 봅니다.
 _BIRTH6 = re.compile(r"(?<!\d)(\d{6})(?!\d)")
 _BACK7 = re.compile(r"(?<!\d)([1-8])\d{6}(?!\d)")
@@ -184,7 +195,11 @@ def _add_secrets(text: str, found: list[Finding]) -> None:
 def _is_date_time(text: str) -> bool:
     """통째로 날짜(+시각 숫자)인지. 앞부분만 날짜인 계좌("3333-01-1234567")는 날짜가 아닙니다."""
     m = _DATE_TIME.fullmatch(text.strip())
-    if not m:
+    if not m or int(m[1]) not in _DATE_YEARS:
+        return False
+    if m[4] is not None and int(m[4]) not in _HOURS:
+        return False
+    if m[5] is not None and int(m[5]) not in _MINUTES:
         return False
     try:
         date(int(m[1]), int(m[2]), int(m[3]))
@@ -202,6 +217,24 @@ def _is_number(text: str) -> bool:
     return len(digits) in _LONG_DIGITS and not _is_date_time(text)
 
 
+def _date_time_pieces(text: str, pieces: list[tuple[int, int]]) -> list[tuple[int, int]]:
+    """띄어쓰기 조각 중 날짜(+시·분)를 이루는 조각 범위들 [시작, 끝)."""
+    found, i = [], 0
+    while i < len(pieces):
+        size = next(
+            (
+                k
+                for k in range(DATE_TIME_MAX_PIECES, 0, -1)
+                if i + k <= len(pieces) and _is_date_time(text[pieces[i][0] : pieces[i + k - 1][1]])
+            ),
+            0,
+        )
+        if size:
+            found.append((i, i + size))
+        i += size or 1
+    return found
+
+
 def _number_groups(m: re.Match[str]) -> list[tuple[int, int]]:
     """긴 숫자 덩어리에서 가릴 번호 자리들.
 
@@ -210,21 +243,27 @@ def _number_groups(m: re.Match[str]) -> list[tuple[int, int]]:
     """
     pieces = [p.span() for p in re.finditer(r"\S+", m[0]) if re.search(r"\d", p[0])]
     counts = [sum(ch.isdigit() for ch in m[0][s:e]) for s, e in pieces]
+    # 날짜(+시각) 조각의 숫자는 덮어도 점수에 넣지 않아, "2026.12.10 1234567890"에서 날짜까지
+    # 계좌로 묶지 않습니다. 날짜 모양 계좌("2026.12.10 99")는 뒤 숫자 때문에 그대로 묶입니다.
+    weights = list(counts)
+    for start, end in _date_time_pieces(m[0], pieces):
+        weights[start:end] = [0] * (end - start)
     longest = max(_LONG_DIGITS)
     # covered[i]: 앞 조각 i개로 덮은 숫자 수, back[i]: 그때 마지막 묶음의 첫 조각(None이면 건너뜀)
     covered, back = [0], [None]
     for i in range(1, len(pieces) + 1):
         covered.append(covered[i - 1])
         back.append(None)
-        digits = 0
+        digits = weight = 0
         # 묶음은 번호 길이(최대 19자리)를 넘을 수 없으니 그 안에서만 찾습니다(긴 입력에도 선형).
         for j in range(i - 1, -1, -1):
             digits += counts[j]
+            weight += weights[j]
             if digits > longest:
                 break
             span = m[0][pieces[j][0] : pieces[i - 1][1]]
-            if _is_number(span) and covered[j] + digits > covered[i]:
-                covered[i], back[i] = covered[j] + digits, j
+            if _is_number(span) and covered[j] + weight > covered[i]:
+                covered[i], back[i] = covered[j] + weight, j
     groups = []
     i = len(pieces)
     while i > 0:

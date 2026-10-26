@@ -7,6 +7,7 @@ from langchain_core.embeddings import Embeddings
 from langchain_core.language_models import BaseChatModel
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 
+from app.agent.prompts import load_prompt
 from app.core.config import PROVIDERS, ModelRole, Provider, Settings, get_settings
 from app.core.errors import AppError, LlmUnavailableError, RateLimitedError
 from app.core.request_id import current_request_id
@@ -14,6 +15,7 @@ from app.core.request_id import current_request_id
 MAX_RETRIES = 1
 RESPONSES_API_PROVIDERS = {"openai"}
 STT_LANGUAGE = "ko"
+STT_VOCABULARY = "turn/stt_vocabulary"
 
 
 def get_chat_model(role: ModelRole = "agent") -> BaseChatModel:
@@ -65,8 +67,12 @@ def transcribe_audio(content: bytes, file_name: str) -> str:
         max_retries=MAX_RETRIES,
     )
     try:
+        # 행정 용어 힌트("실업인정일"을 "실업 임금일"로, "워크넷"을 "워크앤"으로 듣던 것을 줄임)
         result = client.audio.transcriptions.create(
-            model=settings.stt_model, file=(file_name, content), language=STT_LANGUAGE
+            model=settings.stt_model,
+            file=(file_name, content),
+            language=STT_LANGUAGE,
+            prompt=load_prompt(STT_VOCABULARY),
         )
     except openai.OpenAIError as exc:
         raise to_app_error(exc) from exc

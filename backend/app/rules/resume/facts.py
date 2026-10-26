@@ -58,7 +58,10 @@ class EducationFact(BaseModel):
 
 class CertificationFact(BaseModel):
     certificate_name: str
-    acquired: str | None = Field(None, description="취득 시점 표현 그대로(예: 2011년)")
+    acquired: str | None = Field(None, description="취득 시점 표현 그대로(예: 2011년, 2011.05.20)")
+    issuing_organization: str | None = Field(
+        None, description="발급 기관(예: 한국산업인력공단). 말하거나 서류에 있을 때만"
+    )
 
 
 class ResumeFacts(BaseModel):
@@ -195,13 +198,38 @@ def _education(
     plan.writes.extend(writes)
 
 
+# 자격증 취득일 "2011년", "2011.05", "2011.05.20"
+ACQUIRED = re.compile(r"(\d{4})(?:\s*[-./년]\s*(\d{1,2})(?:\s*[-./월]\s*(\d{1,2}))?)?")
+
+
+def _acquired_value(m: re.Match[str]) -> str | None:
+    """취득일 값. 말한(서류에 있는) 만큼만 씁니다: 연도, 연-월, 일까지 있으면 연-월-일.
+
+    안 말한 "1일"을 지어 넣지 않습니다. 없는 달·날("2011.13", "2011.02.30")이나
+    숫자가 더 붙으면("2011.05.201") None(다시 물음).
+    """
+    year, month, day = m[1], m[2], m[3]
+    if m.string[m.end() :].lstrip()[:1].isdigit():
+        return None
+    if not month:
+        return year
+    try:
+        value = date(int(year), int(month), int(day or 1))
+    except ValueError:
+        return None
+    return value.isoformat() if day else value.isoformat()[:7]
+
+
 def _certification(plan: FactPlan, item_id: str, fact: CertificationFact) -> None:
     base = f"/certifications/{item_id}"
     plan.writes.append(said(f"{base}/certificate_name", fact.certificate_name))
-    if fact.acquired and (m := re.search(r"(\d{4})(?:\s*[-./년]\s*(\d{1,2}))?", fact.acquired)):
-        # 취득일은 월까지만 둡니다(연-월, 연도만 말했으면 연도). 안 말한 "1일"을 지어 넣지 않습니다.
-        value = f"{m[1]}-{int(m[2]):02d}" if m[2] else m[1]
-        plan.writes.append(said(f"{base}/acquired_date", value))
+    if fact.issuing_organization:
+        plan.writes.append(said(f"{base}/issuing_organization", fact.issuing_organization))
+    if fact.acquired and (m := ACQUIRED.search(fact.acquired)):
+        if (value := _acquired_value(m)) is None:
+            plan.asks.append(f"자격증 취득일 '{fact.acquired}'은(는) 없는 날짜라 다시 물어야 해요")
+        else:
+            plan.writes.append(said(f"{base}/acquired_date", value))
 
 
 def _new_id(items: list[Any], prefix: str) -> str:

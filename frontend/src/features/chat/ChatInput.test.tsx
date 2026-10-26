@@ -104,4 +104,26 @@ describe('ChatInput', () => {
     render(<ChatInput value="" onChange={vi.fn()} onSend={vi.fn()} />);
     expect(screen.getByRole('button', { name: '눌러서 말하기' })).toBeDisabled();
   });
+
+  it('실업인정 단계에서는 AI 요청이 없어도 증빙을 올릴 수 있고, 강조·안내 문구는 띄우지 않는다', async () => {
+    const onFileSelect = vi.fn();
+    render(
+      <ChatInput
+        value=""
+        onChange={vi.fn()}
+        onSend={vi.fn()}
+        onFileSelect={onFileSelect}
+        canAttachEvidence
+      />,
+    );
+
+    const button = screen.getByRole('button', { name: '파일 올리기' });
+    expect(button).toBeEnabled();
+    expect(button).toHaveAttribute('title', expect.stringContaining('구직활동 증빙'));
+    expect(screen.queryByText(/서류를 올릴 수 있어요/)).not.toBeInTheDocument();
+
+    const file = new File(['png'], '지원완료.png', { type: 'image/png' });
+    await userEvent.upload(screen.getByLabelText('올릴 파일 선택'), file);
+    expect(onFileSelect).toHaveBeenCalledWith(file);
+  });
 });
