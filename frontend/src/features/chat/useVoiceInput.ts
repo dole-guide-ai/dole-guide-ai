@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { apiUpload } from '@/lib/api';
+import { ApiError, apiUpload } from '@/lib/api';
 import { API_PATHS } from '@/lib/apiPaths';
 import type { components } from '@/types/api.gen';
 
@@ -40,6 +40,11 @@ export const useVoiceInput = (personaId: string, onText: (text: string) => void)
   const recorderRef = useRef<MediaRecorder | null>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const onTextRef = useRef(onText);
+  // 마이크 권한을 묻는 동안(아직 녹음 전) 다시 눌러 녹음이 둘 생기지 않게 막습니다.
+  const isStartingRef = useRef(false);
+  // 화면을 떠난 뒤에는 녹음을 올리지 않고 상태도 바꾸지 않습니다.
+  const isMountedRef = useRef(true);
+  const uploadRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     onTextRef.current = onText;
@@ -48,18 +53,26 @@ export const useVoiceInput = (personaId: string, onText: (text: string) => void)
   const transcribe = useCallback(
     async (blob: Blob) => {
       setStatus(VOICE_STATUS.TRANSCRIBING);
+      const controller = new AbortController();
+      uploadRef.current = controller;
       try {
         const file = new File([blob], 'voice', { type: blob.type });
         const { text } = await apiUpload<TranscriptionRead>(
           API_PATHS.transcriptions(personaId),
           file,
+          {},
+          controller.signal,
         );
+        if (!isMountedRef.current) return;
         if (text.trim()) onTextRef.current(text.trim());
         else setError(VOICE_ERRORS.EMPTY);
-      } catch {
-        setError(VOICE_ERRORS.FAILED);
+      } catch (error) {
+        if (isMountedRef.current) {
+          setError(error instanceof ApiError ? error.message : VOICE_ERRORS.FAILED);
+        }
       } finally {
-        setStatus(VOICE_STATUS.IDLE);
+        uploadRef.current = null;
+        if (isMountedRef.current) setStatus(VOICE_STATUS.IDLE);
       }
     },
     [personaId],
@@ -72,16 +85,24 @@ export const useVoiceInput = (personaId: string, onText: (text: string) => void)
   }, []);
 
   const start = useCallback(async () => {
+    if (isStartingRef.current || recorderRef.current) return;
     setError(null);
     if (!isSupported()) {
       setError(VOICE_ERRORS.UNSUPPORTED);
       return;
     }
+    isStartingRef.current = true;
     let stream: MediaStream;
     try {
       stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     } catch {
-      setError(VOICE_ERRORS.DENIED);
+      if (isMountedRef.current) setError(VOICE_ERRORS.DENIED);
+      return;
+    } finally {
+      isStartingRef.current = false;
+    }
+    if (!isMountedRef.current) {
+      stream.getTracks().forEach((track) => track.stop());
       return;
     }
     const recorder = new MediaRecorder(stream);
@@ -92,6 +113,7 @@ export const useVoiceInput = (personaId: string, onText: (text: string) => void)
     recorder.onstop = () => {
       stream.getTracks().forEach((track) => track.stop());
       recorderRef.current = null;
+      if (!isMountedRef.current) return;
       const blob = new Blob(chunks, { type: recorder.mimeType });
       if (blob.size > 0) void transcribe(blob);
       else {
@@ -110,18 +132,16 @@ export const useVoiceInput = (personaId: string, onText: (text: string) => void)
     else if (status === VOICE_STATUS.IDLE) void start();
   }, [start, status, stop]);
 
-  // 화면을 떠나면 마이크를 놓습니다(받아쓴 글은 버림).
-  useEffect(
-    () => () => {
+  // 화면을 떠나면 마이크를 놓고, 녹음은 올리지 않으며 올리는 중이면 취소합니다.
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
       if (timerRef.current) clearTimeout(timerRef.current);
-      const recorder = recorderRef.current;
-      if (recorder?.state === 'recording') {
-        recorder.onstop = () => recorder.stream.getTracks().forEach((track) => track.stop());
-        recorder.stop();
-      }
-    },
-    [],
-  );
+      if (recorderRef.current?.state === 'recording') recorderRef.current.stop();
+      uploadRef.current?.abort();
+    };
+  }, []);
 
   return { status, error, toggle };
 };

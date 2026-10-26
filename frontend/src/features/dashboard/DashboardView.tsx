@@ -81,6 +81,11 @@ export const DashboardView = ({ session, personaName }: DashboardViewProps) => {
     chat.setInputText(chat.inputText.trim() ? `${chat.inputText.trim()} ${text}` : text);
     setIsVoiceDraft(true);
   });
+  // 받아쓴 글을 다 지우고 새로 적으면 직접 쓴 글이므로 음성 표시를 지웁니다.
+  const handleInputChange = (text: string) => {
+    chat.setInputText(text);
+    if (!text.trim()) setIsVoiceDraft(false);
+  };
   const handleSend = (text: string) => {
     void chat.send(text, isVoiceDraft ? { inputKind: INPUT_KIND.VOICE } : undefined);
     setIsVoiceDraft(false);
@@ -149,7 +154,7 @@ export const DashboardView = ({ session, personaName }: DashboardViewProps) => {
             })
           }
           inputText={chat.inputText}
-          onInputChange={chat.setInputText}
+          onInputChange={handleInputChange}
           onChoice={(choice) => chat.send(choice, { inputKind: 'choice' })}
           onSend={handleSend}
           onFileSelect={handleFileSelect}
