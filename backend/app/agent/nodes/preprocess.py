@@ -75,6 +75,8 @@ def _read_photo(path: Path) -> tuple[str, bool]:
         transcript = images.transcribe(str(path))
     except Exception:  # 깨진 사진·모델 실패는 턴을 막지 않고 다시 찍어 달라고 합니다.
         return UNREADABLE_PHOTO, False
+    if not transcript.strip():
+        return UNREADABLE_PHOTO, False
     masked, findings = pii.mask(transcript)
     safe = not any(f.blocking for f in findings)
     return masked, safe and get_settings().image_mode == "vision"
