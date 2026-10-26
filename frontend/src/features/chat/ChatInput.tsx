@@ -31,7 +31,8 @@ const VOICE_LABEL: Record<VoiceStatus, string> = {
 
 /**
  * 입력창 (2-0.4·2-0.5): 글을 쓰는 칸 아래에 도구(파일·말하기·크게 쓰기)와 보내기를 한 상자 안에 둡니다.
- * 파일 올리기는 AI가 서류를 요청한 질문(`accepts_file`)에서만 켜지고 강조됩니다 (시연 개선 2번).
+ * 파일 올리기는 AI가 서류를 요청한 질문(`accepts_file`)에서 켜지고 강조됩니다 (시연 개선 2번).
+ * 실업인정 단계처럼 증빙을 언제든 올리는 단계(`canAttachEvidence`)에서는 강조 없이 늘 켜집니다.
  * 포커스가 들어오면 상자 테두리가 AI 그라데이션으로 바뀝니다. 개인정보 안내는 상자 아래에 늘 보입니다.
  */
 interface ChatInputProps {
@@ -41,6 +42,8 @@ interface ChatInputProps {
   onFileSelect?: (file: File) => void;
   /** 지금 질문이 서류·사진을 요청했는지 */
   isFileRequested?: boolean;
+  /** 구직활동 증빙을 언제든 올릴 수 있는 단계인지 (실업인정) */
+  canAttachEvidence?: boolean;
   isDisabled?: boolean;
   isUploading?: boolean;
   /** 말하기 버튼을 누를 때. 없으면 버튼이 꺼집니다 */
@@ -56,6 +59,7 @@ export const ChatInput = ({
   onSend,
   onFileSelect,
   isFileRequested = false,
+  canAttachEvidence = false,
   isDisabled = false,
   isUploading = false,
   onVoiceToggle,
@@ -67,7 +71,10 @@ export const ChatInput = ({
   const isTranscribing = voiceStatus === VOICE_STATUS.TRANSCRIBING;
   const [isLargeOpen, setIsLargeOpen] = useState(false);
   const canSend = !isDisabled && value.trim().length > 0;
-  const canUpload = !!onFileSelect && isFileRequested && !isDisabled && !isUploading;
+  const canUpload =
+    !!onFileSelect && (isFileRequested || canAttachEvidence) && !isDisabled && !isUploading;
+  // 강조와 안내 문구는 AI가 서류를 요청했을 때만 (늘 켜진 증빙 버튼은 조용히)
+  const isHighlighted = canUpload && isFileRequested;
 
   const handleSend = () => {
     if (canSend) onSend(value);
@@ -88,7 +95,7 @@ export const ChatInput = ({
 
   return (
     <div className="flex flex-col gap-2 px-4 pt-2 pb-3 lg:px-6">
-      {canUpload && (
+      {isHighlighted && (
         <p id={FILE_HINT_ID} className="text-brand text-sm font-semibold">
           서류를 올릴 수 있어요. 사진이나 문서(pdf·hwp·docx) 모두 돼요.
         </p>
@@ -121,13 +128,15 @@ export const ChatInput = ({
             disabled={!canUpload}
             onClick={() => fileInputRef.current?.click()}
             title={
-              canUpload
-                ? '경력증명서·자격증·예전 이력서·지원 완료 화면 등 사진이나 문서(pdf·hwp·docx)'
-                : 'AI가 서류를 요청하면 올릴 수 있어요'
+              canAttachEvidence
+                ? '입사지원 완료 화면·면접확인서 같은 구직활동 증빙 사진이나 문서'
+                : isFileRequested
+                  ? '경력증명서·자격증·예전 이력서·지원 완료 화면 등 사진이나 문서(pdf·hwp·docx)'
+                  : 'AI가 서류를 요청하면 올릴 수 있어요'
             }
             aria-label="파일 올리기"
-            aria-describedby={canUpload ? FILE_HINT_ID : undefined}
-            className={`${TOOL_CLASS} ${canUpload ? TOOL_HIGHLIGHT : TOOL_NORMAL}`}
+            aria-describedby={isHighlighted ? FILE_HINT_ID : undefined}
+            className={`${TOOL_CLASS} ${isHighlighted ? TOOL_HIGHLIGHT : TOOL_NORMAL}`}
           >
             <Paperclip aria-hidden size={ICON_SIZE.md} strokeWidth={ICON_STROKE} />
             {isUploading ? '올리는 중…' : '파일'}

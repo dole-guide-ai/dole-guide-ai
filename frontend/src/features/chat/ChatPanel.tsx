@@ -32,6 +32,8 @@ interface ChatPanelProps {
   onFileSelect?: (file: File) => void;
   /** 지금 질문이 서류·사진을 요청했는지 (2-0.4 accepts_file) */
   isFileRequested?: boolean;
+  /** 구직활동 증빙을 언제든 올릴 수 있는 단계인지 (실업인정) */
+  canAttachEvidence?: boolean;
   isStreaming?: boolean;
   isUploading?: boolean;
   statusText?: string | null;
@@ -54,6 +56,7 @@ export const ChatPanel = ({
   onSend,
   onFileSelect,
   isFileRequested = false,
+  canAttachEvidence = false,
   isStreaming = false,
   isUploading = false,
   statusText,
@@ -130,6 +133,7 @@ export const ChatPanel = ({
         onSend={onSend}
         onFileSelect={onFileSelect}
         isFileRequested={isFileRequested}
+        canAttachEvidence={canAttachEvidence}
         isDisabled={isStreaming}
         isUploading={isUploading}
         onVoiceToggle={onVoiceToggle}
