@@ -68,6 +68,14 @@ def test_route_ignores_words_inside_attachment() -> None:
     assert by_rules(career, "job_registration") == Panel.RESUME
 
 
+def test_recognition_attachment_keeps_explicit_intent() -> None:
+    # 실업인정 단계 첨부라도 제도 질문·이력서 요청이면 회차로 보내지 않습니다.
+    policy = "이 서류 있으면 실업급여 받을 수 있나요?\n\n<첨부>\n급여명세서\n</첨부>"
+    assert by_rules(policy, "recognition") == Panel.GUIDE
+    resume = "이 자격증 이력서에 넣어 주세요\n\n<첨부>\n지게차운전기능사\n</첨부>"
+    assert by_rules(resume, "recognition") == Panel.RESUME
+
+
 def test_blocking_pii_never_reaches_model_or_checkpoint(fake_agent_llm) -> None:
     model = fake_agent_llm([AIMessage("합성 답")])
     saver, user = InMemorySaver(), uuid.uuid4()

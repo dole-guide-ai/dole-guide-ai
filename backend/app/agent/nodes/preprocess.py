@@ -123,7 +123,8 @@ def read_attachments(config: RunnableConfig) -> Attachments:
 
 
 def preprocess(state: AgentState, config: RunnableConfig) -> dict[str, Any]:
-    text, blocked = gate(turn_of(config).text)
+    # 사용자가 직접 친 첨부 표시는 지웁니다(첨부 경계를 흉내 내 라우팅·규칙을 속이지 못하게).
+    text, blocked = gate(_ATTACHMENT_TAG.sub("", turn_of(config).text))
     attachments = Attachments()
     if blocked:
         emit(TokenEvent(text=BLOCKED_REPLY))
