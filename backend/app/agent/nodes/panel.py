@@ -35,6 +35,7 @@ from app.core.config import get_settings
 from app.core.errors import AppError
 from app.schemas.common import FormUpdate
 from app.schemas.messages import ToolCallEvent
+from app.services import accounts as account_service
 
 # 답을 만드는 동안 보여 줄 진행 표시 이름 (2-6 F, 프론트 TOOL_LABEL)
 COMPOSE_REPLY = "compose_reply"
@@ -47,10 +48,18 @@ def system_prompt(panel: Panel) -> str:
     return load_prompt("common/system") + "\n\n" + load_prompt(prompt_name(panel))
 
 
-def context_message(state: AgentState) -> str:
-    """이번 질문과 단계. 질문 문구는 화면이 따로 보여 주므로 답에 다시 쓰지 않게 알립니다."""
+def context_message(state: AgentState, config: RunnableConfig | None = None) -> str:
+    """이번 질문과 단계. 질문 문구는 화면이 따로 보여 주므로 답에 다시 쓰지 않게 알립니다.
+
+    "작년 3월" 같은 말을 바꾸려면 기준일이 있어야 해서 오늘 날짜(KST)와 이직일을 넣습니다.
+    """
     question = state.get("question") or {}
     lines = [f"지금 패널: {state.get('panel')}"]
+    ctx = tool_context_of(config) if config else None
+    if ctx is not None:
+        lines.append(f"오늘 날짜: {ctx.today.isoformat()}")
+        procedure = account_service.read_procedure(ctx.db, ctx.account.user_id)
+        lines.append(f"이직일(그만둔 날): {procedure.separation_date.isoformat()}")
     if question:
         lines.append(f"지금 질문 ID: {question.get('id')} (칸: {question.get('path') or '-'})")
         lines.append(f"화면이 보여 줄 질문: {question.get('text')}")
@@ -97,7 +106,7 @@ def make_agent(panel: Panel) -> Callable[[AgentState, RunnableConfig], dict[str,
             emit(ToolCallEvent(name=COMPOSE_REPLY, status=STARTED))
         messages: list[BaseMessage] = [
             SystemMessage(system_prompt(panel)),
-            SystemMessage(context_message(state)),
+            SystemMessage(context_message(state, config)),
             *_history(state),
             user_message(state),
             *scratch,

@@ -27,6 +27,8 @@ class AgentResult:
     stored: list[str] = field(default_factory=list)  # DB 등에 저장된 값(데이터 밖에 저장한 것)
     # 모델에 보낸 글. 비우면 테스트가 gateway 호출을 자동으로 기록합니다.
     model_inputs: list[str] = field(default_factory=list)
+    # 대화 전 데이터(변경금지 비교용). 실제 계정으로 돌리면 프리셋 시작 데이터와 달라 여기 담습니다.
+    initial_data: dict[str, Any] | None = None
 
 
 # 시연 seed에 있는 계정만 실제 그래프로 돌립니다. 가상 프리셋(general2 등)·상태값 덮어쓰기·활동 지정

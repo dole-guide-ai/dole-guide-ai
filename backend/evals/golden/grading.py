@@ -88,7 +88,9 @@ def _show(value: Any) -> str:
 
 
 def check(case: dict[str, Any], result: AgentResult) -> list[str]:
-    expected, initial = case["expected"], case["input"]["data"]
+    expected = case["expected"]
+    # 실제 계정으로 돌린 결과는 대화 전 데이터를 함께 줍니다(프리셋 시작 데이터와 달라서).
+    initial = result.initial_data if result.initial_data is not None else case["input"]["data"]
     failures = []
     if expected["next_action"] and result.next_action != expected["next_action"]:
         failures.append(f"다음할일: {result.next_action!r} (기대 {expected['next_action']!r})")

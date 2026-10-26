@@ -7,6 +7,7 @@ import pytest
 from langchain_core.embeddings import Embeddings
 from langchain_core.messages import AIMessage
 from langgraph.checkpoint.memory import InMemorySaver
+from sqlalchemy import delete
 from sqlalchemy.orm import Session
 
 from app.agent import gateway
@@ -66,6 +67,8 @@ ROWS = [
 @pytest.fixture
 def chunks(db_session: Session, monkeypatch: pytest.MonkeyPatch) -> None:
     embedder = HashEmbeddings()
+    # 평가가 테스트 DB에 적재한 실제 자료가 있어도 이 테스트는 합성 자료만 봅니다(롤백됨).
+    db_session.execute(delete(repo.KnowledgeChunk))
     for chunk_id, source, doc, priority, text in ROWS:
         repo.upsert_chunk(
             db_session,

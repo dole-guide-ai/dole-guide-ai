@@ -25,6 +25,7 @@ from app.services import resume as resume_service
 from app.services import rounds as round_service
 from app.services.seed import load_personas
 from app.services.visitors import authenticate, create_visitor
+from evals.golden import mapping
 from evals.golden.adapter import APPLICATION_PANEL_ACTION, NEXT_ACTION_BY_STAGE, AgentResult
 from evals.golden.schema import FILES_DIR
 
@@ -52,6 +53,7 @@ def run_real(case: dict[str, Any]) -> AgentResult:
         db.commit()
         try:
             replies, cites, last_ask = [], [], None
+            initial = _data(db, account, today, now)
             file_ids = _upload(db, account, case["input"]["files"])
             for index, text in enumerate(case["input"]["messages"]):
                 body = MessageCreate(
@@ -76,7 +78,9 @@ def run_real(case: dict[str, Any]) -> AgentResult:
     action = NEXT_ACTION_BY_STAGE.get(stage)
     if last_ask and last_ask.startswith(APPLICATION_PREFIX):
         action = APPLICATION_PANEL_ACTION
-    return AgentResult(replies=replies, next_action=action, data=data, cites=cites)
+    return AgentResult(
+        replies=replies, next_action=action, data=data, cites=cites, initial_data=initial
+    )
 
 
 def _upload(db: Any, account: Any, names: list[str]) -> list[str]:
@@ -92,20 +96,22 @@ def _upload(db: Any, account: Any, names: list[str]) -> list[str]:
 
 
 def _data(db: Any, account: Any, today: date, now: datetime) -> dict[str, Any]:
-    """결과 데이터. 경로 이름은 골든셋 기대값(derived · round · resume · recognition)을 따릅니다."""
-    procedure = account_service.read_procedure(db, account.user_id)
-    data: dict[str, Any] = {"derived": procedure.model_dump(mode="json")}
+    """결과 데이터. 이름은 골든셋 기대값(derived · round · resume · activities · recognition)."""
+    procedure = account_service.read_procedure(db, account.user_id).model_dump(mode="json")
     try:
-        data["resume"] = resume_service.read_resume(db, account).model_dump(mode="json")["data"]
+        raw_resume = resume_service.read_resume(db, account).model_dump(mode="json")["data"]
     except Exception:  # noqa: BLE001 - 이력서가 아직 없음(박진수 처음)
-        data["resume"] = {}
+        raw_resume = {}
     try:
-        data["round"] = round_service.read_current(db, account.user_id, today).model_dump(
-            mode="json"
-        )
+        round_check = round_service.read_current(db, account.user_id, today).model_dump(mode="json")
         application = application_service.read_application(db, account, "current", now)
-        data["recognition"] = application.model_dump(mode="json")
-        data["activities"] = data["round"].get("activities", [])
+        raw_application = application.model_dump(mode="json")
     except Exception:  # noqa: BLE001 - 회차가 없는 단계(구직등록 등)
-        data |= {"round": {}, "recognition": {}, "activities": []}
-    return data
+        round_check, raw_application = {}, {}
+    return {
+        "derived": mapping.derived(procedure, round_check),
+        "round": mapping.round_values(round_check),
+        "activities": mapping.activities(round_check),
+        "resume": mapping.resume(raw_resume),
+        "recognition": mapping.recognition(raw_application),
+    }
