@@ -168,3 +168,13 @@ def test_scanned_pdf_has_no_text_but_page_images(tmp_path):
     assert documents.extract_text(str(path)) == ""
     pages = documents.pdf_page_images(str(path))
     assert len(pages) == 1 and pages[0].startswith(b"\x89PNG")
+
+
+def test_huge_pdf_page_is_rendered_within_pixel_limit(tmp_path):
+    # 해상도를 1dpi로 저장하면 쪽 크기가 수 미터가 됨 → 그림 긴 변은 상한 안으로 (보안 검토)
+    path = tmp_path / "huge.pdf"
+    Image.new("RGB", (400, 200), "white").save(path, "PDF", resolution=1)
+
+    (png,) = documents.pdf_page_images(str(path))
+
+    assert max(Image.open(io.BytesIO(png)).size) <= documents.MAX_RENDER_SIDE

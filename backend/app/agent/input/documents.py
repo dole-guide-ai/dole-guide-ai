@@ -30,6 +30,10 @@ OLE_SIGNATURE = b"\xd0\xcf\x11\xe0"
 # 스캔 pdf에서 그림으로 바꿔 받아쓸 최대 쪽수와 배율(약 150dpi). 이력서·증명서는 보통 1~2쪽입니다.
 MAX_SCANNED_PAGES = 3
 PDF_RENDER_SCALE = 2
+# 쪽 그림의 긴 변 상한(픽셀). 받아쓰기에서 어차피 1600px로 줄이므로 넉넉합니다.
+MAX_RENDER_SIDE = 2400
+# hwp 본문 영역(Section) 최대 개수. 이력서·증명서는 보통 1개입니다.
+MAX_HWP_SECTIONS = 10
 
 # 한글(HWP 5) 문서 구조: FileHeader의 속성 비트, 본문 레코드의 문단 글자 태그(HWPTAG_BEGIN+51)
 HWP_HEADER_PROPERTIES = 36
@@ -68,10 +72,10 @@ def _hwpx_text(archive: zipfile.ZipFile) -> str:
     return "\n".join(texts)
 
 
-def _inflate(data: bytes) -> bytes:
-    """압축된 본문을 풉니다. 풀린 크기가 상한을 넘으면 거기서 멈춥니다(압축 폭탄)."""
+def _inflate(data: bytes, budget: int) -> bytes:
+    """압축된 본문을 풉니다. 남은 상한(budget)까지만 풀어 압축 폭탄을 막습니다."""
     inflater = zlib.decompressobj(-zlib.MAX_WBITS)
-    return inflater.decompress(data, MAX_UNZIPPED_BYTES)
+    return inflater.decompress(data, max(budget, 0))
 
 
 def _hwp_records(data: bytes):
@@ -115,12 +119,19 @@ def _hwp_text(path: Path) -> str:
             (e for e in ole.listdir() if len(e) == 2 and e[0] == "BodyText"),
             key=lambda e: int(e[1].removeprefix("Section") or 0),
         )
-        texts = []
-        for entry in sections:
-            data = ole.openstream(entry).read()
+        # 풀린 크기는 파일 전체 합으로 제한하고, 넘길 글자가 다 모이면 멈춥니다.
+        texts, budget, chars = [], MAX_UNZIPPED_BYTES, 0
+        for entry in sections[:MAX_HWP_SECTIONS]:
+            data = ole.openstream(entry).read(budget)
             if properties & HWP_COMPRESSED:
-                data = _inflate(data)
-            texts += [_hwp_paragraph(p) for tag, p in _hwp_records(data) if tag == HWP_PARA_TEXT]
+                data = _inflate(data, budget)
+            budget -= len(data)
+            for tag, payload in _hwp_records(data):
+                if tag == HWP_PARA_TEXT:
+                    texts.append(_hwp_paragraph(payload))
+                    chars += len(texts[-1])
+            if budget <= 0 or chars >= MAX_DOCUMENT_CHARS:
+                break
     return "\n".join(texts)
 
 
@@ -133,10 +144,15 @@ def pdf_page_images(path: str) -> list[bytes]:
     pages = []
     try:
         for index in range(min(len(pdf), MAX_SCANNED_PAGES)):
-            image = pdf[index].render(scale=PDF_RENDER_SCALE).to_pil()
+            page = pdf[index]
+            # 쪽 크기(포인트)가 아주 커도 긴 변이 MAX_RENDER_SIDE 픽셀을 넘지 않게 배율을 줄입니다.
+            scale = min(PDF_RENDER_SCALE, MAX_RENDER_SIDE / max(*page.get_size(), 1))
+            image = page.render(scale=scale).to_pil()
             buffer = io.BytesIO()
             image.save(buffer, "PNG")
             pages.append(buffer.getvalue())
+    except Exception:  # 그리다 실패한 쪽부터는 버리고 그린 쪽까지만 씁니다.
+        pass
     finally:
         pdf.close()
     return pages
