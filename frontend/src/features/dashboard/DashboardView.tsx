@@ -7,10 +7,12 @@ import { AccountSwitchDialog } from '@/features/auth/AccountSwitchDialog';
 import { useBigText } from '@/features/bigText/useBigText';
 import { ChatPanel } from '@/features/chat/ChatPanel';
 import { useChatStream } from '@/features/chat/useChatStream';
-import { useFileUpload } from '@/features/chat/useFileUpload';
+import { canAttachEvidenceAt, useFileUpload } from '@/features/chat/useFileUpload';
+import { useVoiceInput } from '@/features/chat/useVoiceInput';
 import { DashboardHeader } from '@/features/dashboard/DashboardHeader';
 import { NoticeToast } from '@/features/dashboard/NoticeToast';
 import { PanelFrame } from '@/features/dashboard/PanelFrame';
+import { ResetAccountButton } from '@/features/dashboard/ResetAccountButton';
 import { sessionNotices } from '@/features/dashboard/sessionNotices';
 import { SplitHandle } from '@/features/dashboard/SplitHandle';
 import { useSplitRatio } from '@/features/dashboard/useSplitRatio';
@@ -20,6 +22,7 @@ import { CONFIRMED_MESSAGE } from '@/features/recognition/recognitionLabels';
 import { ApiError } from '@/lib/api';
 import { nextStepView } from '@/lib/nextStep';
 import { setSession } from '@/lib/sessionStore';
+import { INPUT_KIND } from '@/types/chat.types';
 import type { ProgressStep, SessionRead } from '@/types/demo.types';
 
 interface DashboardViewProps {
@@ -73,6 +76,22 @@ export const DashboardView = ({ session, personaName }: DashboardViewProps) => {
     });
   };
 
+  // 말하기로 받아쓴 글은 입력창에 이어 붙이고, 그 글을 보낼 때 입력 방식을 voice로 남깁니다.
+  const [isVoiceDraft, setIsVoiceDraft] = useState(false);
+  const voice = useVoiceInput(session.persona_id, (text) => {
+    chat.setInputText(chat.inputText.trim() ? `${chat.inputText.trim()} ${text}` : text);
+    setIsVoiceDraft(true);
+  });
+  // 받아쓴 글을 다 지우고 새로 적으면 직접 쓴 글이므로 음성 표시를 지웁니다.
+  const handleInputChange = (text: string) => {
+    chat.setInputText(text);
+    if (!text.trim()) setIsVoiceDraft(false);
+  };
+  const handleSend = (text: string) => {
+    void chat.send(text, isVoiceDraft ? { inputKind: INPUT_KIND.VOICE } : undefined);
+    setIsVoiceDraft(false);
+  };
+
   const statusText = chat.activeTool
     ? (TOOL_LABEL[chat.activeTool] ?? '처리하는 중…')
     : chat.isStreaming
@@ -103,6 +122,7 @@ export const DashboardView = ({ session, personaName }: DashboardViewProps) => {
           />
         }
         onSwitchAccount={() => setIsSwitchOpen(true)}
+        devActions={<ResetAccountButton personaId={session.persona_id} />}
         onOpenMyData={() => setIsMyDataOpen(true)}
       />
       <NoticeToast key={session.session_id} notices={sessionNotices(session)} />
@@ -136,11 +156,15 @@ export const DashboardView = ({ session, personaName }: DashboardViewProps) => {
             })
           }
           inputText={chat.inputText}
-          onInputChange={chat.setInputText}
+          onInputChange={handleInputChange}
           onChoice={(choice) => chat.send(choice, { inputKind: 'choice' })}
-          onSend={(text) => chat.send(text)}
+          onSend={handleSend}
           onFileSelect={handleFileSelect}
+          onVoiceToggle={voice.toggle}
+          voiceStatus={voice.status}
+          voiceError={voice.error}
           isFileRequested={chat.acceptsFile}
+          canAttachEvidence={canAttachEvidenceAt(session.state.stage)}
           isStreaming={chat.isStreaming}
           isUploading={upload.isPending}
           statusText={statusText}

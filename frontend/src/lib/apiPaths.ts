@@ -8,6 +8,8 @@ export const API_PATHS = {
   messages: (personaId: string) => `${account(personaId)}/messages`,
   activities: (personaId: string) => `${account(personaId)}/activities`,
   files: (personaId: string) => `${account(personaId)}/files`,
+  /** 말하기 녹음 → 글 */
+  transcriptions: (personaId: string) => `${account(personaId)}/transcriptions`,
   imports: (personaId: string, path: string) => `${account(personaId)}/imports/${path}`,
   activity: (personaId: string, activityId: string) =>
     `${account(personaId)}/activities/${activityId}`,

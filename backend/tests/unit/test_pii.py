@@ -147,3 +147,95 @@ def test_very_long_spaced_digits_stay_fast() -> None:
     mask(text)
 
     assert time.perf_counter() - started < 2
+
+
+def test_name_after_birth_year_is_masked():
+    # 골든셋 M-027: "1965년생 박말순이에요"의 이름이 모델 입력에 남던 문제
+    assert mask("1965년생 박말순이에요")[0] == "1965년생 [이름]이에요"
+    assert mask("61년생 김철수입니다. 반가워요")[0] == "61년생 [이름]입니다. 반가워요"
+    assert mask("1965년생이에요")[0] == "1965년생이에요"
+
+
+def test_password_is_masked_but_korean_words_are_kept():
+    # 골든셋 M-031: 로그인해 달라며 알려 준 비밀번호
+    masked, findings = mask("고용24 비밀번호가 bokja123!인데 로그인 좀 해줘요")
+    assert masked == "고용24 비밀번호가 [비밀번호]인데 로그인 좀 해줘요"
+    assert not any(f.blocking for f in findings)
+    assert mask("제 비번은 abcd1234 입니다")[0] == "제 비번은 [비밀번호] 입니다"
+    assert mask("비밀번호를 잊어버렸어요")[0] == "비밀번호를 잊어버렸어요"
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        ("PW: Qwer!2345", "PW: [비밀번호]"),
+        ("pwd='abc12345'", "pwd='[비밀번호]"),
+        ("암호 = zxcv9876 이에요", "암호 = [비밀번호] 이에요"),
+        # 긴 숫자·이메일 모양이 섞여도 일부만 가려지지 않고 통째로 가림.
+        # 계좌번호 모양(등급 0)이면 차단이 풀리지 않게 그 종류가 이김
+        ("비번 12345678901234 이에요", "비번 [계좌번호] 이에요"),
+        ("비밀번호는 me@x.co12 입니다", "비밀번호는 [비밀번호] 입니다"),
+    ],
+)
+def test_password_variants_are_masked_whole(text: str, expected: str):
+    assert mask(text)[0] == expected
+
+
+def test_rrn_given_as_password_still_blocks():
+    # 비밀번호 자리에 주민번호를 넣어도 등급 0 차단이 풀리지 않아야 함 (보안 검토)
+    text = "비밀번호 900101-1234567 이에요"
+    assert has_blocking(text)
+    assert mask(text)[0] == "비밀번호 [주민번호] 이에요"
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        ("mypassword: Abcd1234", "mypassword: [비밀번호]"),
+        ("newpassword=Abcd1234", "newpassword=[비밀번호]"),
+        ("passwords: xyz12345", "passwords: [비밀번호]"),
+        ("userpw=abc12345", "userpw=[비밀번호]"),
+        # 짧은 pw가 다른 단어 속에 있으면 건드리지 않음
+        ("upward1234 방향", "upward1234 방향"),
+    ],
+)
+def test_password_cues_in_longer_words(text: str, expected: str):
+    assert mask(text)[0] == expected
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "면접 일시 2026. 12. 10. 10:00",
+        "2026.12.10 10:00 면접",
+        "신청일 2026. 09. 15.",
+        "2026.12.10 10시 30분",
+    ],
+)
+def test_document_dates_are_not_numbers(text: str):
+    # 골든셋 F-025: 면접확인서 날짜가 [계좌번호]로 가려져 면접일을 저장하지 못하던 문제
+    assert mask(text)[0] == text
+    assert not has_blocking(text)
+
+
+@pytest.mark.parametrize(
+    "text",
+    ["1002.12.1234", "2026.12.1099", "2026.12.10 99", "3026.12.10 1234", "2026.12.10 10:99"],
+)
+def test_account_shaped_like_date_is_still_masked(text: str):
+    # 날짜 판정을 넓히면서 계좌번호가 날짜로 빠져나가지 않게 (보안 검토)
+    assert mask(text)[0] != text
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        ("면접 2026.12.10 10:00 1234567890", "면접 2026.12.10 10:00 [계좌번호]"),
+        ("2026.12.10 1234567890", "2026.12.10 [계좌번호]"),
+        ("2026.12.10 10시 1234567890", "2026.12.10 10시 [계좌번호]"),
+        ("2026. 12. 10. 10:00 1234567890", "2026. 12. 10. 10:00 [계좌번호]"),
+        ("2026. 12. 10. 10시 30분 1234567890", "2026. 12. 10. 10시 30분 [계좌번호]"),
+    ],
+)
+def test_account_after_date_keeps_the_date(text: str, expected: str):
+    assert mask(text)[0] == expected

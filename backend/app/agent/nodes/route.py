@@ -13,6 +13,7 @@ from pydantic import BaseModel
 
 from app.agent import gateway
 from app.agent.graph import AgentState
+from app.agent.nodes.preprocess import ATTACHMENT_OPEN
 from app.agent.prompts import load_prompt
 from app.schemas.procedure import Stage
 
@@ -34,7 +35,8 @@ _POLICY_WORDS = re.compile(
 )
 _MY_FORM_WORDS = re.compile(r"이력서|신청서|넣어|써 ?주|적어|기록|저장|올려")
 _ROUND_WORDS = re.compile(
-    r"지원했|면접|넣었|활동|회차|몇 ?번|몇 ?건|몇개|특강|박람회|추천|채워|모자라|부족"
+    r"지원했|입사 ?지원|지원 ?완료|지원서|면접|넣었|활동|회차|몇 ?번|몇 ?건|몇개|특강|박람회|"
+    r"추천|채워|모자라|부족"
 )
 _APPLICATION_WORDS = re.compile(r"신청서|본인 ?답|소득|알바했|일했|취업했|취직했|일당")
 _RESUME_WORDS = re.compile(
@@ -42,6 +44,8 @@ _RESUME_WORDS = re.compile(
 )
 
 CLASSIFY_PROMPT = "router/classify"
+# 사용자 말 없이 첨부만 올린 턴을 모델 분류에 넘길 때 쓰는 문구
+ATTACHMENT_ONLY = "(말 없이 파일만 올렸어요)"
 
 
 class RouteChoice(BaseModel):
@@ -49,13 +53,25 @@ class RouteChoice(BaseModel):
 
 
 def by_rules(text: str, stage: str | None) -> Panel | None:
-    """규칙으로 정하면 패널, 못 정하면 None(LLM 분류로)."""
+    """규칙으로 정하면 패널, 못 정하면 None(LLM 분류로).
+
+    첨부에서 읽은 글(서류 속 "입사"·"경력" 같은 단어)은 단어 규칙에 쓰지 않습니다. 실업인정
+    단계에서 올린 첨부는 구직활동 증빙이므로, 제도 질문·신청서·이력서 쪽 말이 아니면 회차 패널로
+    보냅니다.
+    """
+    text, attached, _ = text.partition(ATTACHMENT_OPEN)
     if (
         _QUESTION_END.search(text)
         and _POLICY_WORDS.search(text)
         and not _MY_FORM_WORDS.search(text)
     ):
         return Panel.GUIDE
+    if (
+        stage == Stage.RECOGNITION
+        and attached
+        and not (_APPLICATION_WORDS.search(text) or _RESUME_WORDS.search(text))
+    ):
+        return Panel.ROUND
     if stage == Stage.JOB_REGISTRATION or (stage is None and _RESUME_WORDS.search(text)):
         return Panel.RESUME
     if stage in (Stage.EDUCATION, Stage.ELIGIBILITY_APPLICATION, Stage.ELIGIBILITY_APPLIED):
@@ -89,6 +105,8 @@ def route_turn(state: AgentState) -> dict[str, Any]:
     panel = by_rules(text, facts.get("stage"))
     calls = state.get("model_calls", 0)
     if panel is None:
-        panel = by_model(text, facts)
+        # 모델 분류에도 첨부 속 글은 넣지 않습니다(서류 단어·문서 속 지시가 분류를 흔들지 않게).
+        said = text.partition(ATTACHMENT_OPEN)[0].strip()
+        panel = by_model(said or ATTACHMENT_ONLY, facts)
         calls += 1
     return {"panel": panel.value, "model_calls": calls}

@@ -22,6 +22,21 @@ def test_next_action_by_stage(stage: str, expected: NextAction) -> None:
     assert next_action(stage, None) == expected
 
 
+def test_saved_resume_after_separation_points_to_education() -> None:
+    # 골든셋 P-042: 이력서를 다 썼으면 이력서 쓰기가 아니라 교육 (화면 안내 E6과 같은 기준)
+    assert next_action("job_registration", None, resume_ready=True) == (
+        NextAction.COMPLETE_EDUCATION
+    )
+    # 이직 전에 저장한 예전 이력서(최영수)는 고쳐야 하므로 그대로 이력서 쓰기
+    assert next_action("job_registration", None, resume_ready=False) == NextAction.WRITE_RESUME
+
+
+def test_finished_education_points_to_eligibility() -> None:
+    # 골든셋 P-044: 교육을 이수했으면 수급자격 신청 준비
+    assert next_action("education", None, education_done=True) == NextAction.PREPARE_ELIGIBILITY
+    assert next_action("education", None, education_done=False) == NextAction.COMPLETE_EDUCATION
+
+
 @pytest.mark.parametrize(
     ("round_facts", "expected"),
     [

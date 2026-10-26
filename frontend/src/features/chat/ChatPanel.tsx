@@ -8,6 +8,7 @@ import type { ChatMessage } from '@/features/chat/chat.types';
 import { ChatInput } from '@/features/chat/ChatInput';
 import { MessageBubble } from '@/features/chat/MessageBubble';
 import { QuestionCard } from '@/features/chat/QuestionCard';
+import type { VoiceStatus } from '@/features/chat/useVoiceInput';
 import { ImportPicker } from '@/features/imports/ImportPicker';
 
 import { ICON_SIZE, ICON_STROKE } from '@/lib/iconSize';
@@ -31,9 +32,14 @@ interface ChatPanelProps {
   onFileSelect?: (file: File) => void;
   /** 지금 질문이 서류·사진을 요청했는지 (2-0.4 accepts_file) */
   isFileRequested?: boolean;
+  /** 구직활동 증빙을 언제든 올릴 수 있는 단계인지 (실업인정) */
+  canAttachEvidence?: boolean;
   isStreaming?: boolean;
   isUploading?: boolean;
   statusText?: string | null;
+  onVoiceToggle?: () => void;
+  voiceStatus?: VoiceStatus;
+  voiceError?: string | null;
 }
 
 export const ChatPanel = ({
@@ -50,9 +56,13 @@ export const ChatPanel = ({
   onSend,
   onFileSelect,
   isFileRequested = false,
+  canAttachEvidence = false,
   isStreaming = false,
   isUploading = false,
   statusText,
+  onVoiceToggle,
+  voiceStatus,
+  voiceError,
 }: ChatPanelProps) => {
   const logRef = useRef<HTMLDivElement>(null);
   const lastText = messages[messages.length - 1]?.text;
@@ -123,8 +133,12 @@ export const ChatPanel = ({
         onSend={onSend}
         onFileSelect={onFileSelect}
         isFileRequested={isFileRequested}
+        canAttachEvidence={canAttachEvidence}
         isDisabled={isStreaming}
         isUploading={isUploading}
+        onVoiceToggle={onVoiceToggle}
+        voiceStatus={voiceStatus}
+        voiceError={voiceError}
       />
     </section>
   );

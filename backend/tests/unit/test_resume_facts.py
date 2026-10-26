@@ -2,6 +2,8 @@
 
 from datetime import date
 
+import pytest
+
 from app.rules.resume import normalize_date
 from app.rules.resume_facts import (
     CareerFact,
@@ -114,3 +116,27 @@ def test_none_answers_are_saved_so_the_question_does_not_repeat() -> None:
     by_path = {w.path: w for w in plan.writes}
     assert by_path["/careers/c1/position"].value == "없음"
     assert by_path["/certifications_status"].status == "not_applicable"
+
+
+def test_certification_issuer_and_full_date_from_document() -> None:
+    # 골든셋 F-020: 자격증 사진의 발급 기관과 취득일(일까지)
+    fact = CertificationFact(
+        certificate_name="지게차운전기능사",
+        acquired="2011. 05. 20.",
+        issuing_organization="한국산업인력공단",
+    )
+
+    values = _values(_plan(ResumeFacts(certifications=[fact])))
+
+    assert values["/certifications/q1/issuing_organization"] == "한국산업인력공단"
+    assert values["/certifications/q1/acquired_date"] == "2011-05-20"
+
+
+@pytest.mark.parametrize("acquired", ["2011. 02. 30.", "2011.13", "2011.05.201"])
+def test_impossible_acquired_date_is_asked_again(acquired: str) -> None:
+    fact = CertificationFact(certificate_name="지게차운전기능사", acquired=acquired)
+
+    plan = _plan(ResumeFacts(certifications=[fact]))
+
+    assert "/certifications/q1/acquired_date" not in _values(plan)
+    assert any(acquired in ask for ask in plan.asks)

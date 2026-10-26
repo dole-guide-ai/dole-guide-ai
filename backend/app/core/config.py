@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import field_validator, model_validator
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 logger = logging.getLogger(__name__)
@@ -92,6 +92,14 @@ class Settings(BaseSettings):
     retrieval_rerank_candidates: int = 20
     # 답 검사(6단계): 근거에 없는 숫자·근거를 넘는 단정이 든 문장을 뺌. 효과를 견줄 때만 끕니다.
     answer_check: bool = True
+    # 첨부 사진 처리. off: 무시 · vision: 답하는 모델에 사진째(#222 실험 사진 문항 6/9로 최고)
+    # · transcribe: 추출 모델이 글자만 받아써 가린 뒤 글로 넘김. 어느 방식이든 사진이 외부 모델로
+    # 나갑니다. 데모는 합성 서류만 받으므로 vision이 기본이고, 실서비스 전에 로컬 OCR로 바꿉니다.
+    image_mode: Literal["off", "vision", "transcribe"] = "vision"
+    # 음성 인식(말하기 버튼). OpenAI 키로 부르며, 비우면 말하기가 503 LLM_UNAVAILABLE입니다.
+    stt_model: str = ""
+    # 계정마다 1분에 음성 인식을 부를 수 있는 횟수. 넘으면 429 RATE_LIMITED(비용 남용 방지)
+    stt_rate_limit_per_minute: int = Field(default=10, gt=0)
 
     # BFF(Next)가 붙이는 X-Internal-Secret 값. local에서 비우면 확인하지 않습니다.
     internal_api_secret: str = ""

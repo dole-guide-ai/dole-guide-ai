@@ -101,7 +101,12 @@ def done_event(state: AgentState) -> DoneEvent:
     action = (
         NextAction(facts["next_action"])
         if facts.get("next_action")
-        else next_action(facts.get("stage"), facts.get("round"))
+        else next_action(
+            facts.get("stage"),
+            facts.get("round"),
+            resume_ready=bool(facts.get("resume_ready")),
+            education_done=facts.get("education_done"),
+        )
     )
     return DoneEvent(
         cite=cite_line(cited, used_guides(facts.get("guides", []), answer)),

@@ -58,6 +58,9 @@ class AgentState(TypedDict):
     pending_question: NotRequired[dict[str, Any] | None]
     # 이번 대화에서 "그 전 경력"을 이미 물었는지(한 번만 묻습니다)
     asked_more_careers: NotRequired[bool]
+    # 이번 턴에 답하는 모델에 사진째 보내도 되는 첨부 파일 ID(받아쓴 글에 등급 0 개인정보가
+    # 없는 사진만). preprocess가 턴마다 다시 정합니다. 파일 ID라 개인정보가 아닙니다.
+    vision_files: NotRequired[list[str]]
 
 
 def turn_of(config: RunnableConfig) -> Any:

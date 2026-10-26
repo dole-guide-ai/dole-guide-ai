@@ -11,6 +11,8 @@ from pydantic import BaseModel, Field
 
 # 메시지 하나의 최대 글자 수
 MESSAGE_MAX_CHARS = 2000
+# 메시지 하나에 붙일 수 있는 파일 수. 파일마다 판독(모델 호출)이 붙어 비용이 늘기 때문입니다.
+MESSAGE_MAX_FILES = 5
 
 
 class InputKind(StrEnum):
@@ -37,7 +39,7 @@ class MessageKind(StrEnum):
 class MessageCreate(BaseModel):
     text: str = Field(min_length=1, max_length=MESSAGE_MAX_CHARS)
     input_kind: InputKind = InputKind.TEXT
-    file_ids: list[str] = []
+    file_ids: list[str] = Field(default=[], max_length=MESSAGE_MAX_FILES)
     import_ids: list[str] = []
 
 

@@ -612,6 +612,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/accounts/{persona_id}/transcriptions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 말하기 녹음을 글로 바꾸기
+         * @description 녹음(webm·ogg·m4a·mp3·wav, 4MB까지)을 받아 글로 돌려줍니다. 녹음은 저장하지 않습니다.
+         *
+         *     대화로 바로 보내지 않습니다. 화면이 글을 입력창에 넣고, 사용자가 확인·수정한 뒤
+         *     `input_kind=voice`로 메시지를 보냅니다.
+         *     형식이 아니면 415 UNSUPPORTED_FILE, 너무 크면 413 FILE_TOO_LARGE,
+         *     음성 인식 모델이 없거나 실패하면 503 LLM_UNAVAILABLE입니다.
+         */
+        post: operations["create_transcription"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/accounts/{persona_id}/trainings": {
         parameters: {
             query?: never;
@@ -887,6 +912,11 @@ export interface components {
              * @default false
              */
             accepts_file: boolean;
+        };
+        /** Body_create_transcription */
+        Body_create_transcription: {
+            /** File */
+            file: string;
         };
         /** Body_upload_file */
         Body_upload_file: {
@@ -2357,6 +2387,14 @@ export interface components {
              * Format: date-time
              */
             fetched_at: string;
+        };
+        /**
+         * TranscriptionRead
+         * @description 녹음을 받아쓴 글. 화면은 이 글을 입력창에 넣고, 사용자가 고친 뒤 보냅니다.
+         */
+        TranscriptionRead: {
+            /** Text */
+            text: string;
         };
         /**
          * UpdatesRead
@@ -4277,6 +4315,105 @@ export interface operations {
             };
             /** @description Internal Server Error */
             500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    create_transcription: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 시연 계정 ID */
+                persona_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_create_transcription"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TranscriptionRead"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Content Too Large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unsupported Media Type */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };

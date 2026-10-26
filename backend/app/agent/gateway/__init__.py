@@ -7,12 +7,15 @@ from langchain_core.embeddings import Embeddings
 from langchain_core.language_models import BaseChatModel
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 
+from app.agent.prompts import load_prompt
 from app.core.config import PROVIDERS, ModelRole, Provider, Settings, get_settings
 from app.core.errors import AppError, LlmUnavailableError, RateLimitedError
 from app.core.request_id import current_request_id
 
 MAX_RETRIES = 1
 RESPONSES_API_PROVIDERS = {"openai"}
+STT_LANGUAGE = "ko"
+STT_VOCABULARY = "turn/stt_vocabulary"
 
 
 def get_chat_model(role: ModelRole = "agent") -> BaseChatModel:
@@ -58,6 +61,32 @@ def embed_queries(texts: list[str]) -> list[list[float]]:
     if isinstance(embeddings, _SplitEmbeddings):
         return embeddings.query.embed_documents(texts)
     return embeddings.embed_documents(texts)
+
+
+def transcribe_audio(content: bytes, file_name: str) -> str:
+    """녹음을 글로 바꿉니다(OpenAI 음성 인식, STT_MODEL). 원본은 저장하지 않습니다.
+
+    모델이 없거나 호출이 실패하면 LlmUnavailableError·RateLimitedError로 던집니다.
+    """
+    settings = get_settings()
+    if not settings.stt_model or not settings.openai_api_key:
+        raise LlmUnavailableError()
+    client = openai.OpenAI(
+        api_key=settings.openai_api_key,
+        timeout=settings.llm_timeout_seconds,
+        max_retries=MAX_RETRIES,
+    )
+    try:
+        # 행정 용어 힌트("실업인정일"을 "실업 임금일"로, "워크넷"을 "워크앤"으로 듣던 것을 줄임)
+        result = client.audio.transcriptions.create(
+            model=settings.stt_model,
+            file=(file_name, content),
+            language=STT_LANGUAGE,
+            prompt=load_prompt(STT_VOCABULARY),
+        )
+    except openai.OpenAIError as exc:
+        raise to_app_error(exc) from exc
+    return result.text.strip()
 
 
 def trace_config() -> dict[str, dict[str, str]]:
