@@ -8,6 +8,7 @@ import { useBigText } from '@/features/bigText/useBigText';
 import { ChatPanel } from '@/features/chat/ChatPanel';
 import { useChatStream } from '@/features/chat/useChatStream';
 import { useFileUpload } from '@/features/chat/useFileUpload';
+import { useVoiceInput } from '@/features/chat/useVoiceInput';
 import { DashboardHeader } from '@/features/dashboard/DashboardHeader';
 import { NoticeToast } from '@/features/dashboard/NoticeToast';
 import { PanelFrame } from '@/features/dashboard/PanelFrame';
@@ -20,6 +21,7 @@ import { CONFIRMED_MESSAGE } from '@/features/recognition/recognitionLabels';
 import { ApiError } from '@/lib/api';
 import { nextStepView } from '@/lib/nextStep';
 import { setSession } from '@/lib/sessionStore';
+import { INPUT_KIND } from '@/types/chat.types';
 import type { ProgressStep, SessionRead } from '@/types/demo.types';
 
 interface DashboardViewProps {
@@ -71,6 +73,22 @@ export const DashboardView = ({ session, personaName }: DashboardViewProps) => {
           error instanceof ApiError ? error.message : '파일을 올리지 못했어요. 다시 시도해 주세요.',
         ),
     });
+  };
+
+  // 말하기로 받아쓴 글은 입력창에 이어 붙이고, 그 글을 보낼 때 입력 방식을 voice로 남깁니다.
+  const [isVoiceDraft, setIsVoiceDraft] = useState(false);
+  const voice = useVoiceInput(session.persona_id, (text) => {
+    chat.setInputText(chat.inputText.trim() ? `${chat.inputText.trim()} ${text}` : text);
+    setIsVoiceDraft(true);
+  });
+  // 받아쓴 글을 다 지우고 새로 적으면 직접 쓴 글이므로 음성 표시를 지웁니다.
+  const handleInputChange = (text: string) => {
+    chat.setInputText(text);
+    if (!text.trim()) setIsVoiceDraft(false);
+  };
+  const handleSend = (text: string) => {
+    void chat.send(text, isVoiceDraft ? { inputKind: INPUT_KIND.VOICE } : undefined);
+    setIsVoiceDraft(false);
   };
 
   const statusText = chat.activeTool
@@ -136,10 +154,13 @@ export const DashboardView = ({ session, personaName }: DashboardViewProps) => {
             })
           }
           inputText={chat.inputText}
-          onInputChange={chat.setInputText}
+          onInputChange={handleInputChange}
           onChoice={(choice) => chat.send(choice, { inputKind: 'choice' })}
-          onSend={(text) => chat.send(text)}
+          onSend={handleSend}
           onFileSelect={handleFileSelect}
+          onVoiceToggle={voice.toggle}
+          voiceStatus={voice.status}
+          voiceError={voice.error}
           isFileRequested={chat.acceptsFile}
           isStreaming={chat.isStreaming}
           isUploading={upload.isPending}
