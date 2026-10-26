@@ -1,11 +1,12 @@
 import type { OccupationRef, ResumeEducation } from '@/types/resume.types';
 
-/** `next_question` ID → 패널에 보여 줄 "AI가 물어볼 것" 문구 (상세기획 2-1.3 질문 19개). */
+/** `next_question` ID → 패널에 보여 줄 "AI가 물어볼 것" 문구 (상세기획 2-1.3 질문 19개 + 근무 기간). */
 export const QUESTION_LABEL: Record<string, string> = {
   'resume.doc_retry': '서류 다시 올리기',
   'resume.value_confirm': '바꾼 값 확인',
   'resume.career_new': '가장 최근에 일하신 곳',
   'resume.career_since_old': '예전 이력서 이후 경력',
+  'resume.career_period': '근무 기간',
   'resume.career_duties': '주로 하신 일',
   'resume.career_position': '직급·직책',
   'resume.career_end_check': '그만두신 시기 확인',

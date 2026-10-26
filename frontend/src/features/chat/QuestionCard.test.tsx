@@ -64,4 +64,17 @@ describe('QuestionCard', () => {
     expect(screen.getByRole('radio', { name: '사진부터 올릴게요' })).toBeDisabled();
     expect(screen.getByRole('button', { name: '고른 답 보내기' })).toBeDisabled();
   });
+
+  it('질문 문장을 제목으로 보이고, 선택지가 없어도 직접 답을 보낼 수 있다', async () => {
+    const handlers = { onChoice: vi.fn(), onAnswer: vi.fn(), onDismiss: vi.fn() };
+    renderWithProviders(
+      <QuestionCard choices={[]} question="희망 직종은 무엇인가요?" {...handlers} />,
+    );
+
+    expect(screen.getByRole('group', { name: '희망 직종은 무엇인가요?' })).toBeInTheDocument();
+    expect(screen.queryByRole('radiogroup')).not.toBeInTheDocument();
+
+    await userEvent.type(screen.getByRole('textbox', { name: '직접 답변' }), '창고 관리{Enter}');
+    expect(handlers.onAnswer).toHaveBeenCalledWith('창고 관리');
+  });
 });

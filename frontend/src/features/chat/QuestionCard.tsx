@@ -15,8 +15,13 @@ import { ICON_SIZE, ICON_STROKE } from '@/lib/iconSize';
  * - 직접 답을 적으면 고른 선택지가 풀리고, 글이 그대로 보내집니다.
  * - `건너뛰기`·닫기는 카드만 닫고, 아래 입력창에 자유롭게 적을 수 있습니다.
  */
+/** 질문 문장이 없을 때(진입 선택지) 카드 제목 */
+const DEFAULT_TITLE = '알맞은 답을 골라 주세요';
+
 interface QuestionCardProps {
   choices: string[];
+  /** 카드 제목으로 보일 질문 문장. 없으면(진입 선택지) 기본 문구 */
+  question?: string | null;
   onChoice: (choice: string) => void;
   onAnswer: (text: string) => void;
   onDismiss: () => void;
@@ -25,6 +30,7 @@ interface QuestionCardProps {
 
 export const QuestionCard = ({
   choices,
+  question,
   onChoice,
   onAnswer,
   onDismiss,
@@ -82,40 +88,44 @@ export const QuestionCard = ({
       </div>
 
       <p id={titleId} className="text-base font-semibold">
-        알맞은 답을 골라 주세요
+        {question ?? DEFAULT_TITLE}
       </p>
 
       {/* 선택지는 실제 라디오(화살표키로 이동)이고, 화면에는 번호 상자와 글만 보입니다. */}
-      <div role="radiogroup" aria-labelledby={titleId} className="flex flex-col gap-1">
-        {choices.map((choice, index) => {
-          const isSelected = choice === selected;
-          return (
-            <label
-              key={choice}
-              className={`has-focus-visible:ring-brand flex min-h-11 items-center gap-3 rounded-xl px-2 py-1.5 transition has-focus-visible:ring-3 ${isDisabled ? 'cursor-not-allowed' : 'cursor-pointer'} ${isSelected ? 'bg-brand-soft' : 'hover:bg-neutral-soft'}`}
-            >
-              <input
-                type="radio"
-                name={titleId}
-                value={choice}
-                checked={isSelected}
-                disabled={isDisabled}
-                onChange={() => select(choice)}
-                className="sr-only"
-              />
-              <span
-                aria-hidden
-                className={`flex size-7 shrink-0 items-center justify-center rounded-md border text-sm font-semibold ${isSelected ? 'border-brand-fill bg-brand-fill text-white' : 'border-line text-muted'}`}
+      {choices.length > 0 && (
+        <div role="radiogroup" aria-labelledby={titleId} className="flex flex-col gap-1">
+          {choices.map((choice, index) => {
+            const isSelected = choice === selected;
+            return (
+              <label
+                key={choice}
+                className={`has-focus-visible:ring-brand flex min-h-11 items-center gap-3 rounded-xl px-2 py-1.5 transition has-focus-visible:ring-3 ${isDisabled ? 'cursor-not-allowed' : 'cursor-pointer'} ${isSelected ? 'bg-brand-soft' : 'hover:bg-neutral-soft'}`}
               >
-                {index + 1}
-              </span>
-              <span className={`text-base ${isSelected ? 'text-brand font-semibold' : 'text-ink'}`}>
-                {choice}
-              </span>
-            </label>
-          );
-        })}
-      </div>
+                <input
+                  type="radio"
+                  name={titleId}
+                  value={choice}
+                  checked={isSelected}
+                  disabled={isDisabled}
+                  onChange={() => select(choice)}
+                  className="sr-only"
+                />
+                <span
+                  aria-hidden
+                  className={`flex size-7 shrink-0 items-center justify-center rounded-md border text-sm font-semibold ${isSelected ? 'border-brand-fill bg-brand-fill text-white' : 'border-line text-muted'}`}
+                >
+                  {index + 1}
+                </span>
+                <span
+                  className={`text-base ${isSelected ? 'text-brand font-semibold' : 'text-ink'}`}
+                >
+                  {choice}
+                </span>
+              </label>
+            );
+          })}
+        </div>
+      )}
 
       <div className="border-line flex flex-wrap items-center gap-2 border-t pt-3">
         <label className="has-focus-visible:ring-brand flex min-w-48 flex-1 items-center gap-2 rounded-lg px-1 has-focus-visible:ring-3">
@@ -136,7 +146,7 @@ export const QuestionCard = ({
             onKeyDown={(event) => {
               if (event.key === 'Enter' && !event.nativeEvent.isComposing) handleSend();
             }}
-            placeholder="또는 직접 답변을 작성하세요"
+            placeholder={choices.length > 0 ? '또는 직접 답변을 작성하세요' : '답변을 작성하세요'}
             aria-label="직접 답변"
             className="placeholder:text-muted min-w-0 flex-1 bg-transparent py-2 text-base focus-visible:outline-hidden"
           />

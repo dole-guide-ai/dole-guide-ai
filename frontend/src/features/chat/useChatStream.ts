@@ -57,11 +57,15 @@ export const useChatStream = (session: SessionRead) => {
 
   // F-03: 새로고침 뒤에는 서버에 저장된 대화로 말풍선을 되살립니다. 저장된 대화가 없으면 진입 안내를 둡니다.
   const history = useChatHistory(session);
-  const pendingAsk = session.entry.pending_ask;
   useEffect(() => {
-    if (history.data?.length)
-      dispatch({ type: CHAT_ACTIONS.RESTORE, messages: history.data, pendingAsk });
-  }, [history.data, pendingAsk]);
+    // 답을 기다리던 질문은 기록의 마지막 말풍선으로 정합니다(로그인 때 세션 값은 그 뒤 대화를 모름).
+    if (history.data?.messages.length)
+      dispatch({
+        type: CHAT_ACTIONS.RESTORE,
+        messages: history.data.messages,
+        pendingAsk: history.data.pendingAsk,
+      });
+  }, [history.data]);
   // 이전 대화를 못 받으면 대화가 없던 것처럼 보이지 않게 서버 문구를 말풍선으로 알립니다.
   useEffect(() => {
     if (!history.error) return;
@@ -148,6 +152,7 @@ export const useChatStream = (session: SessionRead) => {
   return {
     messages: state.messages,
     choices: state.choices,
+    question: state.question,
     importKind: state.importKind,
     acceptsFile: state.acceptsFile,
     isStreaming,
