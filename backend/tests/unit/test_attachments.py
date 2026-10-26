@@ -72,6 +72,15 @@ def test_unreadable_photo_asks_retake(attach, monkeypatch: pytest.MonkeyPatch) -
     assert result.vision_files == []
 
 
+def test_blank_transcript_asks_retake(attach) -> None:
+    attach.photo("p1", "  \n ")
+
+    result = preprocess.read_attachments({})
+
+    assert result.text == preprocess.UNREADABLE_PHOTO
+    assert result.vision_files == []
+
+
 @pytest.mark.parametrize(("mode", "sent"), [("transcribe", []), ("off", [])])
 def test_modes(attach, monkeypatch: pytest.MonkeyPatch, mode: str, sent: list) -> None:
     attach.photo("p1", "자격증명 지게차운전기능사")
