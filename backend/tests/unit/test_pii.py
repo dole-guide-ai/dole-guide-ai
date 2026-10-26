@@ -163,3 +163,18 @@ def test_password_is_masked_but_korean_words_are_kept():
     assert not any(f.blocking for f in findings)
     assert mask("제 비번은 abcd1234 입니다")[0] == "제 비번은 [비밀번호] 입니다"
     assert mask("비밀번호를 잊어버렸어요")[0] == "비밀번호를 잊어버렸어요"
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        ("PW: Qwer!2345", "PW: [비밀번호]"),
+        ("pwd='abc12345'", "pwd='[비밀번호]"),
+        ("암호 = zxcv9876 이에요", "암호 = [비밀번호] 이에요"),
+        # 긴 숫자·이메일 모양이 섞여도 일부만 가려지지 않고 통째로 가림
+        ("비번 12345678901234 이에요", "비번 [비밀번호] 이에요"),
+        ("비밀번호는 me@x.co12 입니다", "비밀번호는 [비밀번호] 입니다"),
+    ],
+)
+def test_password_variants_are_masked_whole(text: str, expected: str):
+    assert mask(text)[0] == expected

@@ -75,7 +75,11 @@ _NAME_AFTER_BIRTH = re.compile(
     r"\d{2,4}\s*년생\s*([가-힣]{2,4})(?<![요다죠까네])(?=\s*(?:이에요|예요|입니다|이고|이요|[.,!]|$))"
 )
 # 비밀번호 단서 뒤의 영문·숫자·기호 덩어리("비밀번호가 bokja123!인데"). 한글 말은 건드리지 않습니다.
-_SECRET = re.compile(r"(?:비밀\s*번호|비번|패스워드|password)\s*(?:은|는|가|이|:)?\s*([!-~]{4,})")
+_SECRET = re.compile(
+    r"(?:비밀\s*번호|비번|암호|패스워드|password|passwd|pwd|pw)\s*(?:은|는|가|이|[:=：])?\s*['\"]?"
+    r"([!-~]{4,})",
+    re.IGNORECASE,
+)
 _ACCOUNT_DIGITS = range(10, 15)
 
 
@@ -132,6 +136,9 @@ def _add_accounts(text: str, found: list[Finding], groups: int | None = None) ->
 def detect(text: str) -> list[Finding]:
     """찾은 개인정보의 종류·위치. 먼저 찾은 등급 0이 이기고, 같은 자리는 한 번만 셉니다."""
     found: list[Finding] = []
+    # 비밀번호는 맨 먼저 찾습니다. 숫자·이메일 모양이 섞여 있어도 다른 패턴이 일부만 가리지 않고
+    # 통째로 가립니다.
+    found += [Finding(PiiKind.SECRET, m.start(1), m.end(1)) for m in _SECRET.finditer(text)]
     # 이메일을 먼저 찾아야 주소 안의 숫자만 가려지고 주소 일부가 남는 일이 없습니다.
     # 두 패턴이 겹치면 긴 쪽("홍길동foo@ex.com" 전체)을 골라 한글 부분이 남지 않게 합니다.
     emails = [m.span() for p in (_EMAIL, _EMAIL_UNICODE) for m in p.finditer(text)]
@@ -230,11 +237,7 @@ def _add_extra(text: str, found: list[Finding]) -> None:
             shaped = _RRN.fullmatch(text[start:end]) or _CARD.fullmatch(text[start:end])
             kind = PiiKind.NUMBER if shaped else PiiKind.ACCOUNT
             found.append(Finding(kind, start, end))
-    for pattern, kind in (
-        (_NAME, PiiKind.NAME),
-        (_NAME_AFTER_BIRTH, PiiKind.NAME),
-        (_SECRET, PiiKind.SECRET),
-    ):
+    for pattern, kind in ((_NAME, PiiKind.NAME), (_NAME_AFTER_BIRTH, PiiKind.NAME)):
         for m in pattern.finditer(text):
             if not _overlaps(found, m.start(1), m.end(1)):
                 found.append(Finding(kind, m.start(1), m.end(1)))
