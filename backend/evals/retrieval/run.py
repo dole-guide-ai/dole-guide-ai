@@ -3,6 +3,8 @@
 질문 세트
 - 규칙 카드: evals/retrieval/rule_queries.jsonl (저장소에 있음). style이 explicit(행정 용어)·
   colloquial(구어)·negative(관련 규칙 없음, 거절해야 함)
+- 골든셋 카드: evals/golden/golden_set.csv에서 근거 칸에 규칙 카드 ID가 적힌 문항(마지막 말로 찾음).
+  고용 형태만 다르고 내용이 같은 카드도 정답으로 봅니다. 영역(근거·절차·서류)별로도 냅니다.
 - 정책·FAQ: data/knowledge/eval/*.jsonl (저장소에 없음). 사람 질문 41개, LLM 생성 80개.
   파일이 없으면 건너뜁니다.
 
@@ -16,7 +18,9 @@
 """
 
 import argparse
+import csv
 import json
+import re
 import uuid
 from collections.abc import Iterable
 from concurrent.futures import ThreadPoolExecutor
@@ -30,7 +34,7 @@ from app.agent.retrieval import rewrite_query
 from app.core.config import get_settings
 from app.core.db import SessionLocal
 from app.repositories import knowledge as knowledge_repo
-from app.rules.rule_cards import Profile, RuleCard, cards_for
+from app.rules.rule_cards import Profile, RuleCard, cards_by_id, cards_for
 from app.schemas.knowledge import KnowledgeHit, KnowledgeKind
 from app.services.knowledge import (
     GUIDE_KINDS,
@@ -39,6 +43,7 @@ from app.services.knowledge import (
     SearchOptions,
     search,
 )
+from evals.golden.schema import CSV_PATH, TURN_SEP, split_list
 
 HERE = Path(__file__).parent
 REPORT_DIR = HERE.parent / "reports"
@@ -52,6 +57,8 @@ TOP = 10
 ATTACH = 3  # 대화에 붙이는 수(INJECT_LIMIT)
 THRESHOLDS = [round(0.30 + 0.05 * i, 2) for i in range(9)]
 WORKERS = 8
+GOLDEN_SET = "골든셋 카드"
+RULE_ID = re.compile(r"\b(?:PROC|ELIG|ACT|DUE|SUP)-\d+\b")
 
 # 이름 → (검색 조합, 질의 재작성, 사용자 조건 쓰기)
 # 사용자 조건(수급자 유형·회차)은 profile 칸이 있는 질문에만 있습니다.
@@ -75,6 +82,7 @@ class Query:
     group: str  # rule | guide
     style: str
     profile: Profile | None = None
+    area: str = ""  # 골든셋 영역(근거·절차·서류)
 
 
 @dataclass
@@ -92,6 +100,29 @@ def _jsonl(path: Path) -> list[dict[str, Any]]:
         return [json.loads(line) for line in f if line.strip()]
 
 
+def golden_queries() -> list[Query]:
+    """골든셋 문항 중 근거 칸에 규칙 카드 ID가 적힌 것. 대화처럼 마지막 말로 찾습니다.
+
+    골든셋 정답 카드가 3장 안에 붙는지를 LLM 없이 봅니다. 규칙표에 없는 ID는 뺍니다.
+    """
+    known = cards_by_id()
+    # 고용 형태만 다르고 내용이 같은 카드(PROC-011 상용직 · PROC-027 노무제공자)는 같은 정답입니다.
+    same_body: dict[str, set[str]] = {}
+    for card in known.values():
+        same_body.setdefault(card.body, set()).add(card.rule_id)
+    with CSV_PATH.open(encoding="utf-8-sig") as f:
+        rows = list(csv.DictReader(f))
+    queries = []
+    for row in rows:
+        ids = [i for i in RULE_ID.findall(row["근거"]) if i in known]
+        positives = {RULE_ID_PREFIX + j for i in ids for j in same_body[known[i].body]}
+        if not positives:
+            continue
+        last = split_list(row["입력"], TURN_SEP)[-1]
+        queries.append(Query(row["ID"], last, positives, "rule", row["방법"], area=row["영역"]))
+    return queries
+
+
 def load_queries() -> dict[str, list[Query]]:
     sets = {
         "규칙 카드": [
@@ -106,6 +137,7 @@ def load_queries() -> dict[str, list[Query]]:
             for r in _jsonl(RULE_QUERIES)
         ]
     }
+    sets[GOLDEN_SET] = golden_queries()
     if not KNOWLEDGE_EVAL.exists():
         return sets
     with SessionLocal() as db:
@@ -263,6 +295,14 @@ def render(out: dict[str, Any], threshold_config: str | None) -> str:
             m = metrics([r for r in ranked if r.query.style == style])
             lines.append(f"| {name} | " + " | ".join(_fmt(m.get(k, 0)) for k in keys) + " |")
         lines.append("")
+    golden_sets = {name: by_set[GOLDEN_SET] for name, by_set in results.items()}
+    for area in ("근거", "절차", "서류"):
+        lines += [f"## {GOLDEN_SET} · {area}", "", "| 방식 | " + " | ".join(keys) + " |",
+                  "| --- " * (len(keys) + 1) + "|"]  # fmt: skip
+        for name, ranked in golden_sets.items():
+            m = metrics([r for r in ranked if r.query.area == area])
+            lines.append(f"| {name} | " + " | ".join(_fmt(m.get(k, 0)) for k in keys) + " |")
+        lines.append("")
     if threshold_config:
         lines += [f"## 거절 임계값 ({threshold_config}, 규칙 카드 상위 {ATTACH}장)", "",
                   "| t | 정답 hit@3 | 오첨부율 | 질문당 붙는 수 |",
@@ -277,9 +317,10 @@ def render(out: dict[str, Any], threshold_config: str | None) -> str:
 
 
 def misses(out: dict[str, Any], config: str) -> list[dict[str, Any]]:
-    """3등 안에 정답이 없는 규칙 카드 질문(실패 분석용)."""
+    """3등 안에 정답이 없는 규칙 카드 질문(실패 분석용). 골든셋 문항도 함께 봅니다."""
     rows = []
-    for r in out["results"][config]["규칙 카드"]:
+    by_set = out["results"][config]
+    for r in by_set["규칙 카드"] + by_set[GOLDEN_SET]:
         if r.query.positives and not (r.rank() or 99) <= ATTACH:
             rows.append({"qid": r.query.qid, "question": r.query.question, "rank": r.rank(),
                          "top3": r.ids[:ATTACH]})  # fmt: skip
