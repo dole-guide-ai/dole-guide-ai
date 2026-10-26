@@ -74,3 +74,14 @@ AI가 바뀔 때마다 같은 문항으로 다시 채점하는 기준 문항 세
 ### AI 연결
 
 `golden/adapter.py`의 `run_agent()`만 채우면 됩니다. 문항 입력(상태·시작 데이터·말·첨부)을 받아 `AgentResult`(답 문장, 다음할일, 결과 데이터, 근거 줄)를 돌려주세요. 모델에 보낸 글은 테스트가 gateway 호출을 자동으로 기록해 개인정보 검사에 씁니다. LLM 판정은 `gateway.get_chat_model(role="judge")`를 쓰고(`JUDGE_PROVIDER`·`JUDGE_MODEL`, 비우면 AGENT 설정), 그 공급자 키가 없으면 판정만 건너뜁니다.
+
+## 말하기 평가 (`voice/`)
+
+말하기 버튼의 음성 인식(`STT_MODEL`)을 합성 음성으로 잽니다. 문장 15개(`voice/sentences.csv`: 기본·사투리·군말·느린 말·숫자·날짜)를 TTS로 60대 말투 음성으로 만들고, 같은 음성에 잡음(10dB)을 섞은 버전도 받아써 글자 오류율(CER)과 핵심어 정확도를 냅니다.
+
+```bash
+uv run python -m evals.voice.run --tts-model gpt-4o-mini-tts   # 결과: evals/reports/voice-<시각>.md
+```
+
+- 합성 음성은 `backend/.cache/voice_eval/`에 두고 다시 써서 두 번째부터는 받아쓰기(30번)만 부릅니다(`--refresh`로 다시 만듦).
+- 소리 내는 글(`spoken`, 숫자를 한글로)과 정답(`reference`, 받아쓴 모양)이 따로 있고, 핵심어는 `a|b`로 같은 뜻의 표기를 함께 받습니다.

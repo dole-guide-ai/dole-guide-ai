@@ -212,8 +212,10 @@ ACQUIRED = re.compile(r"(\d{4})(?:\s*[-./년]\s*(\d{1,2})(?:\s*[-./월]\s*(\d{1,
 
 
 def _acquired_value(m: re.Match[str]) -> str | None:
-    """취득일 값. 없는 달·날("2011.13", "2011.02.30")이면 None(다시 물음)."""
+    """취득일 값. 없는 달·날("2011.13", "2011.02.30")이나 숫자가 남으면 None(다시 물음)."""
     year, month, day = m[1], m[2], m[3]
+    if m.string[m.end() :].lstrip()[:1].isdigit():  # "2011.05.201"처럼 숫자가 더 붙음
+        return None
     if not month:
         return year
     try:

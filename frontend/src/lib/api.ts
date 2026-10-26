@@ -51,6 +51,8 @@ export const toApiError = async (res: Response): Promise<ApiError> => {
   return new ApiError(ERROR_CODES.INTERNAL_ERROR, FALLBACK_MESSAGE, res.status, null, requestId);
 };
 
+const NO_CONTENT = 204;
+
 export const apiFetch = async <T>(path: string, init?: RequestInit): Promise<T> => {
   let res: Response;
   try {
@@ -62,6 +64,8 @@ export const apiFetch = async <T>(path: string, init?: RequestInit): Promise<T> 
     throw networkError();
   }
   if (!res.ok) throw await toApiError(res);
+  // 본문 없는 성공(204, 예: 계정 삭제)
+  if (res.status === NO_CONTENT) return undefined as T;
   return res.json() as Promise<T>;
 };
 
