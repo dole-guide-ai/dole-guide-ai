@@ -9,7 +9,7 @@ import dataclasses
 import json
 import uuid
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date, datetime
 from typing import Any
 
@@ -49,6 +49,13 @@ class ToolContext:
     now: datetime
     # 지금 질문이 다루는 칸 경로(앞부분). None이면 제한 없음(테스트·관리용)
     allowed_paths: tuple[str, ...] | None = None
+    # 이번 턴에 올린 구직활동 증빙 파일. 이 턴에 처음 기록하는 활동에 붙입니다(take_evidence).
+    evidence_file_ids: list[str] = field(default_factory=list)
+
+    def take_evidence(self) -> list[str]:
+        """증빙을 한 번만 내줍니다. 사진 한 장은 보통 활동 하나의 증빙이라 두 번째부터는 빈 목록."""
+        taken, self.evidence_file_ids = self.evidence_file_ids, []
+        return taken
 
     def ensure_allowed(self, path: str) -> None:
         if self.allowed_paths is not None and not any(
@@ -152,7 +159,9 @@ def _record_activity(ctx: ToolContext, args: RecordActivityInput) -> dict[str, A
     day = normalize_day(args.when, ctx.today)
     if day is None:
         raise ToolError(f"'{args.when}'이(가) 며칠인지 정하지 못했어요. 날짜를 다시 물어 주세요.")
-    body = ActivityCreate(activity_date=day, **args.model_dump(exclude={"when"}))
+    body = ActivityCreate(
+        activity_date=day, file_ids=ctx.take_evidence(), **args.model_dump(exclude={"when"})
+    )
     return _dump(activity_service.record_answered_activity(ctx.db, ctx.account, body, ctx.today))
 
 
