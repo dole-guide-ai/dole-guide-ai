@@ -205,7 +205,12 @@ def test_password_cues_in_longer_words(text: str, expected: str):
 
 @pytest.mark.parametrize(
     "text",
-    ["면접 일시 2026. 12. 10. 10:00", "2026.12.10 10:00 면접", "신청일 2026. 09. 15."],
+    [
+        "면접 일시 2026. 12. 10. 10:00",
+        "2026.12.10 10:00 면접",
+        "신청일 2026. 09. 15.",
+        "2026.12.10 10시 30분",
+    ],
 )
 def test_document_dates_are_not_numbers(text: str):
     # 골든셋 F-025: 면접확인서 날짜가 [계좌번호]로 가려져 면접일을 저장하지 못하던 문제
@@ -215,7 +220,7 @@ def test_document_dates_are_not_numbers(text: str):
 
 @pytest.mark.parametrize(
     "text",
-    ["1002.12.1234", "2026.12.1099", "2026.12.10 99", "3026.12.10 1234"],
+    ["1002.12.1234", "2026.12.1099", "2026.12.10 99", "3026.12.10 1234", "2026.12.10 10:99"],
 )
 def test_account_shaped_like_date_is_still_masked(text: str):
     # 날짜 판정을 넓히면서 계좌번호가 날짜로 빠져나가지 않게 (보안 검토)

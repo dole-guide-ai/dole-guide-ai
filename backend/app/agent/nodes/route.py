@@ -55,17 +55,22 @@ def by_rules(text: str, stage: str | None) -> Panel | None:
     """규칙으로 정하면 패널, 못 정하면 None(LLM 분류로).
 
     첨부에서 읽은 글(서류 속 "입사"·"경력" 같은 단어)은 단어 규칙에 쓰지 않습니다. 실업인정
-    단계에서 올린 첨부는 구직활동 증빙이므로, 신청서 쪽 말이 아니면 회차 패널로 보냅니다.
+    단계에서 올린 첨부는 구직활동 증빙이므로, 제도 질문·신청서·이력서 쪽 말이 아니면 회차 패널로
+    보냅니다.
     """
     text, attached, _ = text.partition(_ATTACHMENT_START)
-    if stage == Stage.RECOGNITION and attached and not _APPLICATION_WORDS.search(text):
-        return Panel.ROUND
     if (
         _QUESTION_END.search(text)
         and _POLICY_WORDS.search(text)
         and not _MY_FORM_WORDS.search(text)
     ):
         return Panel.GUIDE
+    if (
+        stage == Stage.RECOGNITION
+        and attached
+        and not (_APPLICATION_WORDS.search(text) or _RESUME_WORDS.search(text))
+    ):
+        return Panel.ROUND
     if stage == Stage.JOB_REGISTRATION or (stage is None and _RESUME_WORDS.search(text)):
         return Panel.RESUME
     if stage in (Stage.EDUCATION, Stage.ELIGIBILITY_APPLICATION, Stage.ELIGIBILITY_APPLIED):
