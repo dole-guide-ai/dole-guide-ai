@@ -7,11 +7,12 @@ import { AccountSwitchDialog } from '@/features/auth/AccountSwitchDialog';
 import { useBigText } from '@/features/bigText/useBigText';
 import { ChatPanel } from '@/features/chat/ChatPanel';
 import { useChatStream } from '@/features/chat/useChatStream';
-import { useFileUpload } from '@/features/chat/useFileUpload';
+import { canAttachEvidenceAt, useFileUpload } from '@/features/chat/useFileUpload';
 import { useVoiceInput } from '@/features/chat/useVoiceInput';
 import { DashboardHeader } from '@/features/dashboard/DashboardHeader';
 import { NoticeToast } from '@/features/dashboard/NoticeToast';
 import { PanelFrame } from '@/features/dashboard/PanelFrame';
+import { ResetAccountButton } from '@/features/dashboard/ResetAccountButton';
 import { sessionNotices } from '@/features/dashboard/sessionNotices';
 import { SplitHandle } from '@/features/dashboard/SplitHandle';
 import { useSplitRatio } from '@/features/dashboard/useSplitRatio';
@@ -121,6 +122,7 @@ export const DashboardView = ({ session, personaName }: DashboardViewProps) => {
           />
         }
         onSwitchAccount={() => setIsSwitchOpen(true)}
+        devActions={<ResetAccountButton personaId={session.persona_id} />}
         onOpenMyData={() => setIsMyDataOpen(true)}
       />
       <NoticeToast key={session.session_id} notices={sessionNotices(session)} />
@@ -162,6 +164,7 @@ export const DashboardView = ({ session, personaName }: DashboardViewProps) => {
           voiceStatus={voice.status}
           voiceError={voice.error}
           isFileRequested={chat.acceptsFile}
+          canAttachEvidence={canAttachEvidenceAt(session.state.stage)}
           isStreaming={chat.isStreaming}
           isUploading={upload.isPending}
           statusText={statusText}

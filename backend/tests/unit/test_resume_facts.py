@@ -132,7 +132,7 @@ def test_certification_issuer_and_full_date_from_document() -> None:
     assert values["/certifications/q1/acquired_date"] == "2011-05-20"
 
 
-@pytest.mark.parametrize("acquired", ["2011. 02. 30.", "2011.13"])
+@pytest.mark.parametrize("acquired", ["2011. 02. 30.", "2011.13", "2011.05.201"])
 def test_impossible_acquired_date_is_asked_again(acquired: str) -> None:
     fact = CertificationFact(certificate_name="지게차운전기능사", acquired=acquired)
 
