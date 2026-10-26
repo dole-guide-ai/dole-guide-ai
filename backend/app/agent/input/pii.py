@@ -62,9 +62,14 @@ _RRN_BACK = re.compile(r"(?:뒷자리|뒷번호|뒤\s*7자리|주민(?:등록)?�
 _LONG_NUMBER = re.compile(r"(?<![\d-])\d(?:[\s.\-–—_/]{0,3}\d){9,}(?!\d)")
 _LONG_DIGITS = range(10, 20)
 # 서류의 날짜는 "2026. 12. 10." "2026.12.10 10:00"처럼 점 뒤 띄어쓰기·끝 점·시각이 붙기도 합니다.
+# 시각은 날짜 뒤에 띄어쓰기가 있어야 붙습니다("1002.12.1234" 같은 계좌를 날짜로 보지 않게).
 _DATE_TIME = re.compile(
-    r"(\d{4})\s*[-./]\s*(\d{1,2})\s*[-./]\s*(\d{1,2})\.?(?:\s*\d{1,2}(?:\s*[:시]\s*\d{1,2})?)?"
+    r"(\d{4})\s*[-./]\s*(\d{1,2})\s*[-./]\s*(\d{1,2})\.?"
+    r"(?:\s+(\d{1,2})(?:\s*[:시]\s*(\d{1,2}))?)?"
 )
+_DATE_YEARS = range(1900, 2100)
+_HOURS = range(24)
+_MINUTES = range(60)
 # 같은 말 안에 유효한 생년월일 6자리가 먼저 나오면, 뒤에 따로 말한 7자리도 뒷자리로 봅니다.
 _BIRTH6 = re.compile(r"(?<!\d)(\d{6})(?!\d)")
 _BACK7 = re.compile(r"(?<!\d)([1-8])\d{6}(?!\d)")
@@ -187,7 +192,11 @@ def _add_secrets(text: str, found: list[Finding]) -> None:
 def _is_date_time(text: str) -> bool:
     """통째로 날짜(+시각 숫자)인지. 앞부분만 날짜인 계좌("3333-01-1234567")는 날짜가 아닙니다."""
     m = _DATE_TIME.fullmatch(text.strip())
-    if not m:
+    if not m or int(m[1]) not in _DATE_YEARS:
+        return False
+    if m[4] is not None and int(m[4]) not in _HOURS:
+        return False
+    if m[5] is not None and int(m[5]) not in _MINUTES:
         return False
     try:
         date(int(m[1]), int(m[2]), int(m[3]))

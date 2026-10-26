@@ -211,3 +211,12 @@ def test_document_dates_are_not_numbers(text: str):
     # 골든셋 F-025: 면접확인서 날짜가 [계좌번호]로 가려져 면접일을 저장하지 못하던 문제
     assert mask(text)[0] == text
     assert not has_blocking(text)
+
+
+@pytest.mark.parametrize(
+    "text",
+    ["1002.12.1234", "2026.12.1099", "2026.12.10 99", "3026.12.10 1234"],
+)
+def test_account_shaped_like_date_is_still_masked(text: str):
+    # 날짜 판정을 넓히면서 계좌번호가 날짜로 빠져나가지 않게 (보안 검토)
+    assert mask(text)[0] != text
