@@ -225,3 +225,15 @@ def test_document_dates_are_not_numbers(text: str):
 def test_account_shaped_like_date_is_still_masked(text: str):
     # 날짜 판정을 넓히면서 계좌번호가 날짜로 빠져나가지 않게 (보안 검토)
     assert mask(text)[0] != text
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        ("면접 2026.12.10 10:00 1234567890", "면접 2026.12.10 10:00 [계좌번호]"),
+        ("2026.12.10 1234567890", "2026.12.10 [계좌번호]"),
+        ("2026.12.10 10시 1234567890", "2026.12.10 10시 [계좌번호]"),
+    ],
+)
+def test_account_after_date_keeps_the_date(text: str, expected: str):
+    assert mask(text)[0] == expected
