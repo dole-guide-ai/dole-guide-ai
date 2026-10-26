@@ -2,11 +2,18 @@
 
 판정 모델도 gateway를 거칩니다(JUDGE_MODEL, 비우면 AGENT_MODEL).
 
-판정 모델 공급자 키가 없으면 판정을 건너뛰고 '판정 건너뜀'으로 기록합니다.
+판정 모델 공급자 키가 없거나 `--golden-judge=off`면 판정을 건너뛰고 '판정 건너뜀'으로 기록합니다.
+
+G-Eval은 채점기준마다 '채점 단계'를 먼저 모델로 만든 뒤 점수를 매깁니다(호출 2번). 같은 기준이면
+단계도 같으므로 `backend/.cache/golden_judge_steps.json`에 두고 다시 쓰면 호출이 1번으로 줍니다.
 """
 
+import hashlib
+import json
 import os
+import tempfile
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 from app.agent import gateway
@@ -16,6 +23,7 @@ from app.core.config import get_settings
 os.environ["DEEPEVAL_TELEMETRY_OPT_OUT"] = "1"
 
 DEFAULT_THRESHOLD = 0.7
+STEPS_CACHE = Path(__file__).resolve().parents[2] / ".cache" / "golden_judge_steps.json"
 
 
 @dataclass
@@ -25,12 +33,16 @@ class Verdict:
     reason: str = ""
 
 
-def judge(case: dict[str, Any], replies: list[str], mode: str, threshold: float) -> Verdict:
+def judge(
+    case: dict[str, Any], replies: list[str], mode: str, threshold: float, enabled: bool = True
+) -> Verdict:
     criteria = case["expected"]["judge"]
     if not criteria:
         return Verdict(passed=True)
     if mode != "real":
         return Verdict(passed=mode == "selftest", score=1.0 if mode == "selftest" else 0.0)
+    if not enabled:
+        return Verdict(passed=None, reason="--golden-judge=off라 LLM 판정 건너뜀")
     if not get_settings().has_llm_key("judge"):
         return Verdict(passed=None, reason="판정 모델 공급자 키가 없어 LLM 판정 건너뜀")
 
@@ -42,13 +54,52 @@ def judge(case: dict[str, Any], replies: list[str], mode: str, threshold: float)
         criteria=criteria,
         evaluation_params=[SingleTurnParams.INPUT, SingleTurnParams.ACTUAL_OUTPUT],
         model=_gateway_judge(),
+        evaluation_steps=_cached_steps(criteria),
         threshold=threshold,
         async_mode=False,
         verbose_mode=False,
     )
     situation = f"상황: {case['description']}\n사용자: " + " / ".join(case["input"]["messages"])
+    if not metric.evaluation_steps:
+        # 처음 보는 기준: 단계를 한 번 만들어 저장하고 이번 채점에도 씁니다.
+        metric.evaluation_steps = metric._generate_evaluation_steps(False)
+        _save_steps(criteria, metric.evaluation_steps)
     metric.measure(LLMTestCase(input=situation, actual_output="\n".join(replies)))
     return Verdict(passed=bool(metric.success), score=metric.score, reason=metric.reason or "")
+
+
+def _steps_key(criteria: str) -> str:
+    """판정 모델이 바뀌면 단계도 새로 만듭니다."""
+    model = get_settings().chat_target("judge")[1]
+    return hashlib.sha256(f"{model}\n{criteria}".encode()).hexdigest()
+
+
+def _load_steps() -> dict[str, list[str]]:
+    if not STEPS_CACHE.exists():
+        return {}
+    try:
+        return json.loads(STEPS_CACHE.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        # 실행이 끊겨 캐시가 깨졌으면 비운 것으로 보고 단계를 다시 만듭니다.
+        return {}
+
+
+def _cached_steps(criteria: str) -> list[str] | None:
+    return _load_steps().get(_steps_key(criteria))
+
+
+def _save_steps(criteria: str, steps: list[str]) -> None:
+    saved = _load_steps()
+    saved[_steps_key(criteria)] = steps
+    STEPS_CACHE.parent.mkdir(parents=True, exist_ok=True)
+    # 임시 파일에 다 쓴 뒤 바꿔 끼워, 도중에 끊기거나 동시에 돌아도 캐시가 깨지지 않게 합니다.
+    fd, tmp = tempfile.mkstemp(dir=STEPS_CACHE.parent, prefix=STEPS_CACHE.name, suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            json.dump(saved, f, ensure_ascii=False, indent=1)
+        os.replace(tmp, STEPS_CACHE)
+    finally:
+        Path(tmp).unlink(missing_ok=True)
 
 
 def _gateway_judge() -> Any:

@@ -27,6 +27,7 @@ class Record:
     case: dict[str, Any]
     status: str = "건너뜀"
     reasons: list[str] = field(default_factory=list)
+    seconds: float | None = None  # AI 실행 시간 (판정 제외)
 
     def skip(self, reason: str) -> None:
         self.status, self.reasons = "건너뜀", [reason]
@@ -43,6 +44,9 @@ class Record:
 class Report:
     mode: str
     records: list[Record] = field(default_factory=list)
+    # 에이전트가 모델을 부른 횟수와 토큰 (판정 모델 제외). 비용 비교용
+    usage: Counter[str] = field(default_factory=Counter)
+    model: str = ""
 
     def start(self, case: dict[str, Any]) -> Record:
         self.records.append(record := Record(case))
@@ -89,10 +93,33 @@ class Report:
                     + " |"
                     for r in rows
                 ]
+        lines += self._cost_lines()
         skipped = Counter(r.reasons[0] for r in self.records if r.status == "건너뜀" and r.reasons)
         if skipped:
             lines += ["", "## 건너뛴 이유", ""] + [f"- {why}: {n}개" for why, n in skipped.items()]
         return "\n".join(lines) + "\n"
+
+    def _cost_lines(self) -> list[str]:
+        times = sorted(r.seconds for r in self.records if r.seconds is not None)
+        if not times:
+            return []
+        n = len(times)
+        p95 = times[min(n - 1, round(n * 0.95) - 1)]
+        u = self.usage
+        return [
+            "",
+            "## 비용·속도 (에이전트만, 판정 제외)",
+            "",
+            "| 모델 | 실행 문항 | 모델 호출 | 입력 토큰 | 그중 캐시 | 출력 토큰 | 문항당 토큰 "
+            "| 평균 시간 | p95 시간 |",
+            "| --- " * 9 + "|",
+            f"| {_cell(self.model)} | {n} | {u['calls']} | {u['input']} | {u['cached']} | "
+            f"{u['output']} | {(u['input'] + u['output']) / n:.0f} | {sum(times) / n:.1f}초 "
+            f"| {p95:.1f}초 |",
+            "",
+            f"LLM 판정: 호출 {u['judge_calls']} · 입력 {u['judge_input']} "
+            f"(캐시 {u['judge_cached']}) · 출력 {u['judge_output']}",
+        ]
 
     def write(self) -> Path:
         text = self.render()
