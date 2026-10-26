@@ -14,6 +14,7 @@ dependencies = [
     "langgraph-checkpoint-postgres>=3.2.0",
     "langsmith>=0.14.9",
     "pgvector>=0.5.1",
+    "pillow>=13.0.0",
     "psycopg[binary]>=3.3.6",
     "pydantic-settings>=2.16.0",
     "pypdf>=6.21.2",

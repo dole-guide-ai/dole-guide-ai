@@ -8,6 +8,7 @@
 사용자 말 뒤에 붙입니다. vision 모드의 사진은 call_model이 모델 입력에만 붙입니다(panel.py).
 """
 
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -18,7 +19,7 @@ from app.agent.events import emit
 from app.agent.graph import AgentState, tool_context_of, turn_of
 from app.agent.input import documents, images, pii
 from app.core.config import get_settings
-from app.schemas.messages import TokenEvent
+from app.schemas.messages import TokenEvent, ToolCallEvent
 from app.services import files as files_service
 
 BLOCKED_REPLY = (
@@ -55,37 +56,70 @@ def close_dangling_tool_calls(messages: list[AnyMessage]) -> list[ToolMessage]:
 
 DOCUMENT_HEADER = "[올린 파일에서 읽은 글]"
 UNREADABLE_DOCUMENT = "(글자를 읽지 못한 파일. 사진으로 찍어 다시 올려 달라고 안내할 것)"
+UNREADABLE_PHOTO = "(글자를 읽지 못한 사진. 밝은 곳에서 다시 찍어 올려 달라고 안내할 것)"
+# 판독 중 화면 진행 표시(tool_call 이벤트 이름, 프론트 TOOL_LABEL과 같음)
+PARSE_FILE = "parse_file"
 
 
-def _read_attachment(path: Path) -> str | None:
-    """첨부 하나의 글(가리기 전). 사진을 모델에 그대로 보내는 경우(vision·off)는 None."""
-    if images.image_mime(path.read_bytes()) is not None:
-        if get_settings().image_mode != "transcribe":
-            return None
-        return images.transcribe(str(path))
-    return documents.extract_text(str(path)) or UNREADABLE_DOCUMENT
+@dataclass
+class Attachments:
+    """이번 턴 첨부에서 읽은 글(가림)과 답하는 모델에 사진째 보낼 파일."""
+
+    text: str = ""
+    vision_files: list[str] = field(default_factory=list)
 
 
-def attachment_text(config: RunnableConfig) -> str:
-    """이번 턴 첨부에서 읽은 글. 열 수 없는 파일은 건너뜁니다."""
+def _read_photo(path: Path) -> tuple[str, bool]:
+    """사진을 받아써 가린 글과, 사진째 보내도 되는지(등급 0이 없고 vision 모드)."""
+    try:
+        transcript = images.transcribe(str(path))
+    except Exception:  # 깨진 사진·모델 실패는 턴을 막지 않고 다시 찍어 달라고 합니다.
+        return UNREADABLE_PHOTO, False
+    if not transcript.strip():
+        return UNREADABLE_PHOTO, False
+    masked, findings = pii.mask(transcript)
+    safe = not any(f.blocking for f in findings)
+    return masked, safe and get_settings().image_mode == "vision"
+
+
+def read_attachments(config: RunnableConfig) -> Attachments:
+    """이번 턴 첨부를 읽습니다. 사진도 먼저 받아써 가린 글로 대화 기록에 남겨 다음 턴에도 씁니다.
+
+    사진째 보내기(vision)는 받아쓴 글에 주민번호 같은 등급 0이 없을 때만 합니다. 글로 쓴 등급 0은
+    보내지 않는데(gateway) 사진은 그 검사를 거치지 않기 때문입니다. 열 수 없는 파일은 건너뜁니다.
+    """
     ctx = tool_context_of(config)
-    if ctx is None:
-        return ""
+    file_ids = dict.fromkeys(getattr(turn_of(config), "file_ids", None) or [])
+    result = Attachments()
+    if ctx is None or not file_ids:
+        return result
+    emit(ToolCallEvent(name=PARSE_FILE, status="started"))
     texts = []
-    for file_id in dict.fromkeys(getattr(turn_of(config), "file_ids", None) or []):
+    for file_id in file_ids:
         path = files_service.open_attachment(ctx.db, ctx.account, file_id)
-        if path is not None and (text := _read_attachment(path)):
+        if path is None:
+            continue
+        if not images.is_image(str(path)):
+            texts.append(pii.mask(documents.extract_text(str(path)) or UNREADABLE_DOCUMENT)[0])
+        elif get_settings().image_mode != "off":
+            text, send_photo = _read_photo(path)
             texts.append(text)
-    return "\n\n".join(texts)
+            if send_photo:
+                result.vision_files.append(file_id)
+    emit(ToolCallEvent(name=PARSE_FILE, status="finished"))
+    result.text = "\n\n".join(texts)
+    return result
 
 
 def preprocess(state: AgentState, config: RunnableConfig) -> dict[str, Any]:
     text, blocked = gate(turn_of(config).text)
+    attachments = Attachments()
     if blocked:
         emit(TokenEvent(text=BLOCKED_REPLY))
-    elif attached := attachment_text(config):
-        masked, _ = pii.mask(attached)
-        text = f"{text}\n\n{DOCUMENT_HEADER}\n{masked}"
+    else:
+        attachments = read_attachments(config)
+        if attachments.text:
+            text = f"{text}\n\n{DOCUMENT_HEADER}\n{attachments.text}"
     repairs = close_dangling_tool_calls(state.get("messages", []))
     return {
         "messages": [*repairs, HumanMessage(text)],
@@ -95,6 +129,7 @@ def preprocess(state: AgentState, config: RunnableConfig) -> dict[str, Any]:
         "tool_calls": 0,
         "cited": [],
         "attached": [],
+        "vision_files": attachments.vision_files,
     }
 
 
