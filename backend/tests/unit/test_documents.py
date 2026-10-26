@@ -61,6 +61,16 @@ def test_hwpx_section_text(tmp_path):
     assert documents.extract_text(str(path)) == "자격증명: 지게차운전기능사"
 
 
+def test_hwpx_entities_are_decoded(tmp_path):
+    path = tmp_path / "career.hwpx"
+    with zipfile.ZipFile(path, "w") as archive:
+        archive.writestr(
+            "Contents/section0.xml", "<hs:sec><hp:t>OO&amp;OO 물류 &lt;본사&gt;</hp:t></hs:sec>"
+        )
+
+    assert documents.extract_text(str(path)) == "OO&OO 물류 <본사>"
+
+
 def test_unknown_or_broken_file_is_empty(tmp_path):
     hwp = tmp_path / "old.hwp"
     hwp.write_bytes(b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1" + b"\x00" * 16)

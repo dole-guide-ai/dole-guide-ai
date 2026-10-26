@@ -2,6 +2,12 @@
 {$DOMAIN} {
 	encode zstd gzip
 
+	# 업로드(파일·녹음)는 앱이 4MB(MAX_UPLOAD_MB)에서 거절하지만, 그 전에 큰 본문을 다 받아
+	# 임시 저장하지 않도록 앞단에서 막습니다. multipart 머리글 여유를 둔 값입니다.
+	request_body {
+		max_size 5MB
+	}
+
 	reverse_proxy backend:8000 {
 		# SSE 스트리밍이 모아서 전송되지 않도록 바로 흘려보냅니다.
 		flush_interval -1
