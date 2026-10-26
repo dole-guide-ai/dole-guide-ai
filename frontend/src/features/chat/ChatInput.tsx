@@ -128,10 +128,10 @@ export const ChatInput = ({
             disabled={!canUpload}
             onClick={() => fileInputRef.current?.click()}
             title={
-              isFileRequested
-                ? '경력증명서·자격증·예전 이력서·지원 완료 화면 등 사진이나 문서(pdf·hwp·docx)'
-                : canAttachEvidence
-                  ? '입사지원 완료 화면·면접확인서 같은 구직활동 증빙 사진이나 문서'
+              canAttachEvidence
+                ? '입사지원 완료 화면·면접확인서 같은 구직활동 증빙 사진이나 문서'
+                : isFileRequested
+                  ? '경력증명서·자격증·예전 이력서·지원 완료 화면 등 사진이나 문서(pdf·hwp·docx)'
                   : 'AI가 서류를 요청하면 올릴 수 있어요'
             }
             aria-label="파일 올리기"
