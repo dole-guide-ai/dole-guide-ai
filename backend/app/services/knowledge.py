@@ -19,7 +19,10 @@ from app.models import KnowledgeChunk
 from app.repositories import knowledge as knowledge_repo
 from app.rules.ranking import Bm25Index, rrf
 from app.rules.rule_cards import (
+    PROFILE_OVERFETCH,
+    Profile,
     RuleCard,
+    applies_to,
     card_questions,
     cards_by_id,
     is_other_employment,
@@ -156,6 +159,8 @@ class SearchOptions:
     synonyms: bool = False  # 구어 사전으로 단어 검색 질문 넓히기
     min_similarity: float | None = None  # 거절 임계값: 코사인 유사도가 이보다 낮으면 버림
     candidates: int = CANDIDATES
+    # 사용자 조건(수급자 유형·회차)을 규칙 카드 단어 검색 질문에 덧붙이기(맞지 않는 카드는 늘 뺌)
+    profile_query: bool = True
 
     @property
     def needs_vector(self) -> bool:
@@ -184,7 +189,9 @@ _SOURCE_NAMES = {"work24": "고용24", "moel_1350": "1350 FAQ"}
 
 
 def guide_for_model(hit: KnowledgeHit) -> dict[str, str]:
-    return {"id": hit.chunk_id, "제목": hit.title, "내용": hit.text}
+    # 출처는 근거 줄을 만들 때 씁니다(모델은 출처를 쓰지 않음, base.md).
+    label = guide_source_label(hit)
+    return {"id": hit.chunk_id, "제목": hit.title, "내용": hit.text, "출처": label}
 
 
 def guide_source_label(hit: KnowledgeHit) -> str:
@@ -222,8 +229,12 @@ def _guide_bm25(db: Session) -> Bm25Index:
     return _guide_index
 
 
-def _rule_bm25(query: str, limit: int) -> list[str]:
-    return [rule_card_id(rule_id) for rule_id in search_card_ids(query, limit)]
+def _rule_bm25(profile: Profile | None, add_terms: bool) -> Callable[[str, int], list[str]]:
+    def find(query: str, limit: int) -> list[str]:
+        ids = search_card_ids(query, limit, profile, add_terms)
+        return [rule_card_id(rule_id) for rule_id in ids]
+
+    return find
 
 
 def _search_group(
@@ -243,8 +254,8 @@ def _search_group(
         words = expand_query(query) if options.synonyms else query
         rankings.append(bm25(words, options.candidates))
     if options.vector and vector is not None:
-        # 다른 고용 형태를 거른 뒤에도 후보 수가 남게 넉넉히 받습니다.
-        near = knowledge_repo.nearest(db, vector, kinds, options.candidates * 2)
+        # 다른 고용 형태·수급자 유형을 거른 뒤에도 후보 수가 남게 넉넉히 받습니다.
+        near = knowledge_repo.nearest(db, vector, kinds, options.candidates * PROFILE_OVERFETCH)
         rankings.append([c.chunk_id for c, _ in near if allowed(c)][: options.candidates])
     top = [chunk_id for chunk_id, _ in rrf(rankings)][:limit]
     found = knowledge_repo.get_many(db, top, vector)
@@ -276,10 +287,13 @@ def search(
     guide_limit: int = 3,
     options: SearchOptions | None = None,
     query_vector: list[float] | None = None,
+    profile: Profile | None = None,
 ) -> SearchResult:
     """규칙 카드와 정책·FAQ를 따로 찾습니다. 규칙 카드를 먼저 쓰고 정책·FAQ는 보충으로 씁니다.
 
     query_vector를 주면 질문을 다시 임베딩하지 않습니다(평가에서 같은 질문을 여러 방식으로 잴 때).
+    profile(수급자 유형·회차)을 주면 그 사용자에게 맞지 않는 규칙 카드는 빼고, 단어 검색 질문에
+    "반복수급자 3차" 같은 말을 덧붙입니다. 질문에 "4차"가 있으면 그 회차로 고릅니다.
     """
     options = options or options_from_settings()
     vector = query_vector
@@ -290,11 +304,18 @@ def search(
             logger.warning("query_embedding_failed", extra={"code": gateway.to_app_error(exc).code})
             options = replace(options, vector=False, min_similarity=None)
 
-    def rule_allowed(chunk: KnowledgeChunk) -> bool:
-        return not is_other_employment(chunk.meta.get("target", ""))
+    profile = profile.for_query(query) if profile else None
+    cards = cards_by_id()
 
+    def rule_allowed(chunk: KnowledgeChunk) -> bool:
+        if is_other_employment(chunk.meta.get("target", "")):
+            return False
+        card = cards.get(chunk.meta.get("rule_id", ""))
+        return profile is None or card is None or applies_to(card, profile)
+
+    rule_bm25 = _rule_bm25(profile, options.profile_query)
     rules = _search_group(
-        db, query, vector, (KnowledgeKind.RULE_CARD,), _rule_bm25, rule_allowed, rule_limit,
+        db, query, vector, (KnowledgeKind.RULE_CARD,), rule_bm25, rule_allowed, rule_limit,
         options,
     )  # fmt: skip
     guides = _search_group(

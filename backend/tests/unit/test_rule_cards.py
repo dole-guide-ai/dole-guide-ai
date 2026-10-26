@@ -7,7 +7,16 @@ import re
 
 import pytest
 
-from app.rules.rule_cards import cards_by_id, cite_line, load_cards, load_sources, search_cards
+from app.rules.rule_cards import (
+    Profile,
+    applies_to,
+    cards_by_id,
+    cards_for,
+    cite_line,
+    load_cards,
+    load_sources,
+    search_cards,
+)
 
 # 서비스 데이터에 남으면 안 되는 작업 흔적: 검수 표시, 규칙·출처 ID, 주소, 전달자 말투, 공백 표시
 WORK_NOTE = re.compile(
@@ -84,3 +93,52 @@ def test_cite_line_appends_guide_sources_without_duplicates() -> None:
 
     assert cite_line(["NO-SUCH-RULE"], [guide, guide]) == guide
     assert cite_line(["DUE-093"], [guide]) == f"취업드림수첩(2025년판 PDF) / {guide}"
+
+
+@pytest.mark.parametrize(
+    ("rule_id", "group", "round_no", "expected"),
+    [
+        ("ACT-104", "repeat", 3, True),  # 반복수급자 2~3차
+        ("ACT-104", "general", 3, False),  # 다른 수급자 유형
+        ("ACT-023", "general", 2, True),  # 일반수급자 2차
+        ("ACT-023", "general", 5, False),  # 다른 회차
+        ("ACT-100", "general", 9, True),  # 8차~만료
+        ("ACT-101", "general", 4, True),  # 1·4·8차
+        ("ACT-107", "age_60_64", 3, True),  # 만60세 이상·장애인
+        ("ACT-110", "repeat", 3, True),  # 전체 유형
+    ],
+)
+def test_card_applies_only_to_matching_group_and_round(
+    rule_id: str, group: str, round_no: int, expected: bool
+) -> None:
+    assert applies_to(cards_by_id()[rule_id], Profile(group, round_no)) is expected
+
+
+def test_round_in_question_overrides_current_round() -> None:
+    assert Profile("general", 3).for_query("4차 때 고용센터 가면 뭘 가져가요?").round_no == 4
+    assert Profile("general", 3).for_query("이번에 뭐 해요?").round_no == 3
+
+
+def test_search_with_profile_returns_only_cards_for_that_user() -> None:
+    query = "이번 회차에 몇 번 해야 돼요?"
+
+    repeat = {c.rule_id for c in search_cards(query, 5, Profile("repeat", 3))}
+    general = {c.rule_id for c in search_cards(query, 5, Profile("general", 2))}
+
+    assert "ACT-104" in repeat and "ACT-023" not in repeat
+    assert "ACT-104" not in general
+
+
+@pytest.mark.parametrize(
+    ("group", "round_no", "expected"),
+    [
+        ("repeat", 3, {"ACT-102", "ACT-104", "ACT-112"}),
+        ("general", 4, {"ACT-025", "ACT-026", "ACT-099", "ACT-101"}),
+        ("age65_or_disabled", 4, {"ACT-037", "ACT-107", "ACT-108"}),
+    ],
+)
+def test_cards_for_picks_rules_fixed_by_group_and_round(
+    group: str, round_no: int, expected: set[str]
+) -> None:
+    assert {c.rule_id for c in cards_for(Profile(group, round_no))} == expected
+    assert cards_for(Profile(group, None)) == []

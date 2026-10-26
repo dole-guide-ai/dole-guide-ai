@@ -30,6 +30,8 @@ from app.agent.retrieval import rewrite_query
 from app.core.config import get_settings
 from app.core.db import SessionLocal
 from app.repositories import knowledge as knowledge_repo
+from app.rules.rule_cards import Profile, RuleCard, cards_for
+from app.schemas.knowledge import KnowledgeHit, KnowledgeKind
 from app.services.knowledge import (
     GUIDE_KINDS,
     OTHER_EMPLOYMENT_TYPES,
@@ -51,14 +53,17 @@ ATTACH = 3  # 대화에 붙이는 수(INJECT_LIMIT)
 THRESHOLDS = [round(0.30 + 0.05 * i, 2) for i in range(9)]
 WORKERS = 8
 
-# 이름 → (검색 조합, 질의 재작성)
-CONFIGS: dict[str, tuple[SearchOptions, bool]] = {
-    "bm25": (SearchOptions(vector=False), False),
-    "vector": (SearchOptions(bm25=False), False),
-    "hybrid": (SearchOptions(), False),
-    "hybrid+syn": (SearchOptions(synonyms=True), False),
-    "hybrid+rewrite": (SearchOptions(), True),
-    "hybrid+syn+rewrite": (SearchOptions(synonyms=True), True),
+# 이름 → (검색 조합, 질의 재작성, 사용자 조건 쓰기)
+# 사용자 조건(수급자 유형·회차)은 profile 칸이 있는 질문에만 있습니다.
+CONFIGS: dict[str, tuple[SearchOptions, bool, bool]] = {
+    "bm25": (SearchOptions(vector=False), False, False),
+    "vector": (SearchOptions(bm25=False), False, False),
+    "hybrid": (SearchOptions(), False, False),
+    "hybrid+syn": (SearchOptions(synonyms=True), False, False),
+    "hybrid+rewrite": (SearchOptions(), True, False),
+    "hybrid+syn+rewrite": (SearchOptions(synonyms=True), True, False),
+    "hybrid+syn+filter": (SearchOptions(synonyms=True, profile_query=False), False, True),
+    "hybrid+syn+profile": (SearchOptions(synonyms=True), False, True),
 }
 
 
@@ -69,6 +74,7 @@ class Query:
     positives: set[str]
     group: str  # rule | guide
     style: str
+    profile: Profile | None = None
 
 
 @dataclass
@@ -95,6 +101,7 @@ def load_queries() -> dict[str, list[Query]]:
                 {RULE_ID_PREFIX + p for p in r["positives"]},
                 "rule",
                 r["style"],
+                Profile(**r["profile"]) if r.get("profile") else None,
             )  # fmt: skip
             for r in _jsonl(RULE_QUERIES)
         ]
@@ -143,6 +150,27 @@ def _vectors(texts: Iterable[str]) -> dict[str, list[float]]:
     return cache
 
 
+def _fixed_hits(cards: list[RuleCard]) -> list[KnowledgeHit]:
+    """정해진 카드를 검색 결과 모양으로(유사도는 1로 두어 임계값에 걸리지 않게)."""
+    return [
+        KnowledgeHit(
+            RULE_ID_PREFIX + c.rule_id,
+            KnowledgeKind.RULE_CARD,
+            c.name,
+            c.body,
+            {"rule_id": c.rule_id},
+            1.0,
+        )  # fmt: skip
+        for c in cards
+    ]
+
+
+def _with_fixed(hits: list[KnowledgeHit], fixed: list[RuleCard]) -> list[KnowledgeHit]:
+    """대화(attach_knowledge)처럼 유형·회차에 정해진 카드를 검색 결과 앞에 둡니다."""
+    fixed_ids = {c.rule_id for c in fixed}
+    return _fixed_hits(fixed) + [h for h in hits if h.meta.get("rule_id") not in fixed_ids]
+
+
 def run(configs: list[str]) -> dict[str, Any]:
     sets = load_queries()
     all_queries = [q for qs in sets.values() for q in qs]
@@ -154,7 +182,7 @@ def run(configs: list[str]) -> dict[str, Any]:
     results: dict[str, dict[str, list[Ranked]]] = {}
     with SessionLocal() as db:
         for name in configs:
-            options, rewrite = CONFIGS[name]
+            options, rewrite, use_profile = CONFIGS[name]
             results[name] = {}
             for set_name, queries in sets.items():
                 ranked = []
@@ -163,9 +191,11 @@ def run(configs: list[str]) -> dict[str, Any]:
                     found = search(
                         db, text, rule_limit=TOP if q.group == "rule" else 0,
                         guide_limit=TOP if q.group == "guide" else 0, options=options,
-                        query_vector=vectors[text],
+                        query_vector=vectors[text], profile=q.profile if use_profile else None,
                     )  # fmt: skip
                     hits = found.rules if q.group == "rule" else found.guides
+                    if use_profile and q.profile and q.group == "rule":
+                        hits = _with_fixed(hits, cards_for(q.profile.for_query(text)))
                     ranked.append(
                         Ranked(q, [h.chunk_id for h in hits], [h.similarity for h in hits])
                     )
@@ -226,7 +256,7 @@ def render(out: dict[str, Any], threshold_config: str | None) -> str:
             lines.append(f"| {name} | " + " | ".join(_fmt(m.get(k, 0)) for k in keys) + " |")
         lines.append("")
     rule_sets = {name: by_set["규칙 카드"] for name, by_set in results.items()}
-    for style in ("explicit", "colloquial"):
+    for style in ("explicit", "colloquial", "profile"):
         lines += [f"## 규칙 카드 · {style}", "", "| 방식 | " + " | ".join(keys) + " |",
                   "| --- " * (len(keys) + 1) + "|"]  # fmt: skip
         for name, ranked in rule_sets.items():

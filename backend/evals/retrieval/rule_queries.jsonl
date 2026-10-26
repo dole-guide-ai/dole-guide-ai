@@ -64,3 +64,15 @@
 {"qid": "N10", "question": "고마워요 수고하셨어요", "positives": [], "style": "negative"}
 {"qid": "N11", "question": "넷플릭스 해지 방법", "positives": [], "style": "negative"}
 {"qid": "N12", "question": "등산 가기 좋은 산 추천해 주세요", "positives": [], "style": "negative"}
+{"qid": "S01", "question": "저는 이번 회차에 몇 번 해야 돼요?", "positives": ["ACT-104"], "style": "profile", "profile": {"group": "repeat", "round_no": 2}}
+{"qid": "S02", "question": "취업특강 들은 것도 넣어 주세요", "positives": ["ACT-104", "ACT-112"], "style": "profile", "profile": {"group": "repeat", "round_no": 3}}
+{"qid": "S03", "question": "취업특강만 들어도 인정돼요?", "positives": ["ACT-107"], "style": "profile", "profile": {"group": "age65_or_disabled", "round_no": 3}}
+{"qid": "S04", "question": "취업특강만 세 번 들어도 되죠?", "positives": ["ACT-043", "ACT-117"], "style": "profile", "profile": {"group": "age_60_64", "round_no": 3}}
+{"qid": "S05", "question": "4차도 인터넷으로 보내면 되죠?", "positives": ["ACT-040", "ACT-109", "ACT-101"], "style": "profile", "profile": {"group": "general", "round_no": 3}}
+{"qid": "S06", "question": "1차 실업인정도 인터넷으로 하면 돼요?", "positives": ["ACT-020", "ACT-101"], "style": "profile", "profile": {"group": "general", "round_no": 1}}
+{"qid": "S07", "question": "1차 실업인정도 인터넷으로 하면 돼요?", "positives": ["ACT-021"], "style": "profile", "profile": {"group": "age_60_64", "round_no": 1}}
+{"qid": "S08", "question": "이번 회차에 몇 번 해야 돼요?", "positives": ["ACT-023", "ACT-098"], "style": "profile", "profile": {"group": "general", "round_no": 2}}
+{"qid": "S09", "question": "이번 회차에 몇 번 해야 돼요?", "positives": ["ACT-027", "ACT-028", "ACT-099"], "style": "profile", "profile": {"group": "general", "round_no": 5}}
+{"qid": "S10", "question": "이번엔 몇 건 해야 돼요?", "positives": ["ACT-029", "ACT-030", "ACT-100"], "style": "profile", "profile": {"group": "general", "round_no": 9}}
+{"qid": "S11", "question": "4차는 꼭 센터 가야 돼요?", "positives": ["ACT-108", "ACT-040", "ACT-109"], "style": "profile", "profile": {"group": "age65_or_disabled", "round_no": 4}}
+{"qid": "S12", "question": "센터에 매번 가야 돼요?", "positives": ["ACT-102"], "style": "profile", "profile": {"group": "repeat", "round_no": 5}}

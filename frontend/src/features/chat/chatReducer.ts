@@ -15,6 +15,8 @@ export interface ChatState {
   sessionId: string;
   messages: ChatMessage[];
   choices: string[];
+  /** 답을 기다리는 질문 문장(`ask_user`). 질문 카드 제목으로 보이고, 답을 보내면 비웁니다. */
+  question: string | null;
   /** 마지막 질문이 고용24 불러오기 목록을 열었으면 그 종류 (2-0.4) */
   importKind: ImportKind | null;
   /** 마지막 질문이 서류·사진을 요청했는지 (2-0.4 `accepts_file`). 이때만 파일 올리기를 켭니다. */
@@ -22,7 +24,9 @@ export interface ChatState {
   streamingId: string | null;
   nextId: number;
   /** 마지막으로 보낸 말풍선과 보내기 전 선택지. 턴 시작 전에 거절되면 이 상태로 되돌립니다. */
-  lastSent?: Pick<ChatState, 'choices' | 'importKind' | 'acceptsFile'> & { messageId: string };
+  lastSent?: Pick<ChatState, 'choices' | 'question' | 'importKind' | 'acceptsFile'> & {
+    messageId: string;
+  };
 }
 
 export type ChatAction =
@@ -73,6 +77,7 @@ export const initChatState = (session: SessionRead): ChatState => ({
     cite: message.cite,
   })),
   choices: session.entry.choices,
+  question: null,
   importKind: session.entry.pending_ask?.import_kind ?? null,
   acceptsFile: session.entry.pending_ask?.accepts_file ?? session.entry.accepts_file ?? false,
   streamingId: null,
@@ -108,6 +113,8 @@ export const chatReducer = (state: ChatState, action: ChatAction): ChatState => 
         ...state,
         messages: action.messages,
         choices: action.pendingAsk?.choices ?? [],
+        // 멈춘 질문이 있으면 마지막 말풍선이 그 질문입니다.
+        question: action.pendingAsk ? (action.messages.at(-1)?.text ?? null) : null,
         importKind: action.pendingAsk?.import_kind ?? null,
         acceptsFile: action.pendingAsk?.accepts_file ?? false,
       };
@@ -122,11 +129,13 @@ export const chatReducer = (state: ChatState, action: ChatAction): ChatState => 
           attachments: action.attachments,
         }),
         choices: [],
+        question: null,
         importKind: null,
         acceptsFile: false,
         lastSent: {
           messageId: `m-${closed.nextId}`,
           choices: state.choices,
+          question: state.question,
           importKind: state.importKind,
           acceptsFile: state.acceptsFile,
         },
@@ -163,6 +172,7 @@ export const chatReducer = (state: ChatState, action: ChatAction): ChatState => 
       return {
         ...push(closeStreaming(state), { role: CHAT_ROLE.ASSISTANT, text: action.text }),
         choices: action.choices,
+        question: action.text,
         importKind: action.importKind ?? null,
         acceptsFile: action.acceptsFile ?? false,
       };
@@ -188,7 +198,7 @@ export const chatReducer = (state: ChatState, action: ChatAction): ChatState => 
           push(acc, { role: CHAT_ROLE.ASSISTANT, text: message.text, cite: message.cite }),
         closeStreaming(state),
       );
-      return { ...next, choices: action.entry.choices };
+      return { ...next, choices: action.entry.choices, question: null };
     }
 
     case CHAT_ACTIONS.SYSTEM:

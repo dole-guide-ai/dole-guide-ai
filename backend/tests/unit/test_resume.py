@@ -260,3 +260,20 @@ def test_outdated_resume_does_not_count_old_careers_until_asked() -> None:
 
     data.careers_status = FormField(status=FieldStatus.CONFIRMED)  # "없어요"로 답함
     assert resume_completeness(data, outdated=True).filled == 5
+
+
+def test_chat_skips_value_confirm_and_asks_period_before_duties() -> None:
+    data = complete_resume()
+    data.careers[0].main_duties = f(
+        "신입 안전교육(2025-03~)", "extracted", "user_answer", transformed=True
+    )
+    # 대화에서는 확인 질문을 건너뛰고 다음 빈 칸으로 갑니다(확인은 패널에서).
+    chat = next_resume_question(
+        data, entry_branch="E7a", separation_date=PARK_SEPARATION, skip_confirm=True
+    )
+    assert chat.id != "resume.value_confirm"
+
+    data = complete_resume()
+    data.careers[0].end_date = f(None)
+    data.careers[0].main_duties = f(None)
+    assert ask(data) == "resume.career_period"

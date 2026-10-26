@@ -25,7 +25,9 @@ from pydantic import BaseModel, Field, ValidationError
 from app.agent import gateway
 from app.agent.events import emit
 from app.agent.graph import AgentState, tool_context_of, turn_of
+from app.agent.grounding import Evidence, SentenceChecker
 from app.agent.input import images
+from app.agent.output import SentenceStream
 from app.agent.prompts import load_prompt
 from app.agent.tools.registry import TOOLS, TOOLS_BY_PANEL, ToolError, run_tool
 from app.core.config import get_settings
@@ -38,6 +40,7 @@ MAX_MODEL_CALLS = 4  # 분류 1 + 패널 루프 3 (노션 「에이전트 구조
 MAX_TOOL_CALLS = 6
 ASK_USER = "ask_user"
 LOOKUP_RULES = "lookup_rules"
+PARAGRAPH_GAP = "\n\n"
 BASE_PROMPT = "panels/base"
 
 
@@ -74,13 +77,15 @@ def tool_schemas(panel: str) -> list[dict[str, Any]]:
 
 
 def system_prompt(state: AgentState) -> str:
-    facts = json.dumps(state.get("facts", {}), ensure_ascii=False)
+    facts = dict(state.get("facts", {}))
+    briefing = "\n".join(f"- {line}" for line in facts.pop("briefing", []))
     panel = state["panel"]
     return "\n\n".join(
         [
             load_prompt(BASE_PROMPT),
             load_prompt(f"panels/{panel}"),
-            f"## 지금 상황 (DB 기준, 그대로 옮기고 계산하지 않음)\n{facts}",
+            f"## 지금 상황 (코드가 계산한 사실. 그대로 옮기고 계산하지 않음)\n{briefing}",
+            f"## 세부 값·규칙 카드 (DB 기준)\n{json.dumps(facts, ensure_ascii=False)}",
         ]
     )
 
@@ -115,15 +120,36 @@ def call_model(state: AgentState, config: RunnableConfig) -> dict[str, Any]:
     model = gateway.get_chat_model("agent").bind_tools(tool_schemas(state["panel"]))
     messages = _with_images([SystemMessage(system_prompt(state)), *state["messages"]], config)
     reply: AIMessageChunk | None = None
+    # 문장이 끝날 때마다 걸러서 보냅니다(agent/output.py). 다른 언어가 섞인 문장부터 버리고,
+    # 근거에 없는 숫자나 근거를 넘는 단정이 든 문장은 뺍니다(agent/grounding.py).
+    check = None
+    if get_settings().answer_check:
+        check = SentenceChecker(Evidence.of_turn(state.get("facts", {}), state["messages"]))
+    sentences = SentenceStream(check=check)
+    # 도구를 부르기 전에 이미 말한 글이 있으면 이어지는 글과 붙지 않게 빈 줄을 둡니다.
+    gap = PARAGRAPH_GAP if _said_this_turn(state["messages"]) else ""
     for chunk in model.stream(messages):
-        if chunk.text:
-            emit(TokenEvent(text=chunk.text))
+        for piece in sentences.feed(chunk.text):
+            emit(TokenEvent(text=gap + piece))
+            gap = ""
         reply = chunk if reply is None else reply + chunk
+    for piece in sentences.close():
+        emit(TokenEvent(text=piece))
     message = AIMessage(
-        content=reply.text if reply else "",
+        content=sentences.text,
         tool_calls=reply.tool_calls if reply else [],
     )
     return {"messages": [message], "model_calls": state.get("model_calls", 0) + 1}
+
+
+def _said_this_turn(messages: list[Any]) -> bool:
+    """이번 턴(마지막 사용자 말 뒤)에 모델이 이미 글을 냈는지."""
+    for message in reversed(messages):
+        if isinstance(message, HumanMessage):
+            return False
+        if isinstance(message, AIMessage) and message.text:
+            return True
+    return False
 
 
 def _last_ai(state: AgentState) -> AIMessage:

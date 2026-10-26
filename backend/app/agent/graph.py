@@ -3,8 +3,12 @@
 라우팅 워크플로 + 제한된 도구 루프입니다.
 경로는 코드가 정하고, LLM은 그 패널의 도구 안에서만 판단합니다.
 
-    preprocess → load_context → route_turn → attach_knowledge → call_model ⇄ run_tools → finish
-                                                    ↘ ask (interrupt, 사용자 답으로 재개) ↗
+    preprocess → load_context ─┬→ route_turn → attach_knowledge → call_model ⇄ run_tools ─┐
+                               │                     ↘ ask (interrupt, 재개) ↗            │
+                               └→ answer_fixed (정해진 선택지 답, LLM 0회) ─────────────┤
+                                                                            finish → ask_next
+
+- ask_next: 이력서 패널이면 턴 끝에 코드가 다음 질문을 템플릿 문구로 냅니다(nodes/next_question).
 
 연결 약속:
 - 화면으로 나갈 이벤트는 노드 안에서 `events.emit(...)`으로 냅니다(응답기가 SSE로 흘려보냄).
@@ -43,8 +47,17 @@ class AgentState(TypedDict):
     blocked: NotRequired[bool]
     # 이번 턴 답의 근거로 쓴 규칙 ID(규칙 카드·규칙 함수). finish가 근거 줄을 만듭니다.
     cited: NotRequired[list[str]]
-    # 규칙 카드 밖의 근거(정책·FAQ 조각) 표시. 예: "고용24 「조기재취업수당」 · 2025-07-10"
-    cited_sources: NotRequired[list[str]]
+    # 이번 턴에 미리 붙인 규칙 카드 ID. 답에 내용이 나온 카드만 근거 줄에 남깁니다(finish).
+    attached: NotRequired[list[str]]
+    # 지금 단계·회차의 근거 규칙 카드 ID와 카드를 고를 사용자 조건(수급자 유형·회차).
+    # load_context가 매 턴 채웁니다.
+    situation_rules: NotRequired[list[str]]
+    profile: NotRequired[dict[str, Any]]
+    # 지난 턴 끝에 코드가 낸 이력서 질문 {id, choices}. 다음 턴의 선택지 답을 고정 경로로
+    # 처리할 때 씁니다(nodes/next_question). 턴마다 ask_next가 다시 씁니다.
+    pending_question: NotRequired[dict[str, Any] | None]
+    # 이번 대화에서 "그 전 경력"을 이미 물었는지(한 번만 묻습니다)
+    asked_more_careers: NotRequired[bool]
 
 
 def turn_of(config: RunnableConfig) -> Any:
@@ -57,7 +70,14 @@ def tool_context_of(config: RunnableConfig) -> ToolContext | None:
 
 def build_graph(checkpointer: BaseCheckpointSaver | None = None) -> CompiledStateGraph:
     # 노드가 graph 모듈의 상태·키를 쓰므로 여기서 import합니다(순환 import 피하기).
-    from app.agent.nodes import context, finish, panel, preprocess, route  # noqa: PLC0415
+    from app.agent.nodes import (  # noqa: PLC0415
+        context,
+        finish,
+        next_question,
+        panel,
+        preprocess,
+        route,
+    )
 
     builder = StateGraph(AgentState)
     builder.add_node("preprocess", preprocess.preprocess)
@@ -68,15 +88,21 @@ def build_graph(checkpointer: BaseCheckpointSaver | None = None) -> CompiledStat
     builder.add_node("run_tools", panel.run_tools)
     builder.add_node("ask", panel.ask)
     builder.add_node("finish", finish.finish)
+    builder.add_node("answer_fixed", next_question.answer_fixed)
+    builder.add_node("ask_next", next_question.ask_next)
 
     builder.add_edge(START, "preprocess")
     builder.add_conditional_edges("preprocess", preprocess.after_preprocess)
     # 패널을 먼저 골라야 정책·FAQ를 안내 패널에만 붙일 수 있습니다.
-    builder.add_edge("load_context", "route_turn")
+    # 지난 질문의 정해진 선택지 답은 모델(라우팅 분류 포함) 없이 처리합니다.
+    builder.add_conditional_edges("load_context", next_question.after_context)
     builder.add_edge("route_turn", "attach_knowledge")
+    builder.add_edge("answer_fixed", "finish")
     builder.add_edge("attach_knowledge", "call_model")
     builder.add_conditional_edges("call_model", panel.after_model)
     builder.add_conditional_edges("run_tools", panel.after_tools)
     builder.add_edge("ask", "call_model")
-    builder.add_edge("finish", END)
+    # 이력서 패널이면 턴 끝에 코드가 다음 질문을 냅니다.
+    builder.add_edge("finish", "ask_next")
+    builder.add_edge("ask_next", END)
     return builder.compile(checkpointer=checkpointer)

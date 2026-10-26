@@ -133,6 +133,21 @@ def save_resume_fields(
     return ResumeWriteResult(updates, question, issues)
 
 
+def read_next_question(db: Session, account: AccountContext) -> rules.ResumeQuestion:
+    """대화에서 다음에 물을 이력서 질문(ID·문구 변수·선택지).
+
+    "바꾼 값 확인"은 건너뜁니다. 확인은 패널에서 하고, 대화는 다음 빈 칸으로 갑니다.
+    """
+    procedure = _procedure_or_404(db, account.user_id)
+    data = read_resume_data(repo.get_resume(db, account.user_id))
+    return rules.next_resume_question(
+        data,
+        entry_branch=_branch(data),
+        separation_date=procedure.separation_date,
+        skip_confirm=True,
+    )
+
+
 def read_resume(db: Session, account: AccountContext) -> ResumeRead:
     """이력서가 아직 없으면(박진수) 빈 초안을 lock_version 0으로 돌려줍니다."""
     procedure = _procedure_or_404(db, account.user_id)

@@ -124,7 +124,7 @@ def test_blocked_answer_keeps_question_waiting(fake_agent_llm) -> None:
 
 
 def test_tool_loop_stops_at_model_call_limit(fake_agent_llm) -> None:
-    model = fake_agent_llm([_call("answer_overview", {})])  # 끝없이 도구만 부르는 모델
+    model = fake_agent_llm([_call("no_such_tool", {})])  # 끝없이 도구만 부르는 모델
     saver, user = InMemorySaver(), uuid.uuid4()
 
     out = list(graph_responder(_turn(user, "음 그게요"), saver))

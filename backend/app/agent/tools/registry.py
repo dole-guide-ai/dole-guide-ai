@@ -16,7 +16,6 @@ from typing import Any
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from app.agent.tools import guide
 from app.rules.dates import normalize_day
 from app.rules.resume_facts import ResumeFacts, plan_writes
 from app.schemas.activities import ActivityCreate, ActivityRoute
@@ -89,6 +88,8 @@ class ResumeFieldInput(BaseModel):
     value: Any = None
     # 사용자가 말한 값을 그대로 넣었는지(extracted), 다시 확인받았는지(confirmed)
     confirmed: bool = False
+    # 섹션을 "없어요"로 둘 때(예: /competencies_status). value는 비웁니다.
+    not_applicable: bool = False
 
 
 class SaveResumeInput(BaseModel):
@@ -167,7 +168,6 @@ def _record_resume_facts(ctx: ToolContext, args: ResumeFacts) -> dict[str, Any]:
         result.update(
             saved=len(plan.writes),
             updates=[_dump(u) for u in saved.updates],
-            next_question=_dump(saved.next_question),
             issues=[_dump(i) for i in saved.issues],
         )
     return result
@@ -188,7 +188,13 @@ def _save_resume(ctx: ToolContext, args: SaveResumeInput) -> dict[str, Any]:
         FieldWrite(
             path=f.path,
             value=f.value,
-            status=FieldStatus.CONFIRMED if f.confirmed else FieldStatus.EXTRACTED,
+            status=(
+                FieldStatus.NOT_APPLICABLE
+                if f.not_applicable
+                else FieldStatus.CONFIRMED
+                if f.confirmed
+                else FieldStatus.EXTRACTED
+            ),
             source=FieldSource.USER_ANSWER,
         )
         for f in args.fields
@@ -196,7 +202,6 @@ def _save_resume(ctx: ToolContext, args: SaveResumeInput) -> dict[str, Any]:
     result = resume_service.save_resume_fields(ctx.db, ctx.account.user_id, writes, today=ctx.today)
     return {
         "updates": [_dump(u) for u in result.updates],
-        "next_question": _dump(result.next_question),
         "issues": [_dump(i) for i in result.issues],
     }
 
@@ -238,10 +243,6 @@ LOOKUP_LIMIT = 3
 def _lookup_rules(ctx: ToolContext, args: LookupRulesInput) -> dict[str, Any]:
     found = knowledge_service.search(ctx.db, args.query, LOOKUP_LIMIT, guide_limit=0)
     return {"rules": [c.for_model() for c in knowledge_service.rule_cards_of(found.rules)]}
-
-
-def _overview(ctx: ToolContext, _: NoInput) -> dict[str, Any]:
-    return guide.overview()
 
 
 # ── 목록 ─────────────────────────────────────────────
@@ -291,7 +292,8 @@ TOOLS: dict[str, Tool] = {
         ),
         Tool(
             "save_resume_fields",
-            "이력서 칸 쓰기",
+            "이력서 칸 경로로 값 쓰기. record_resume_facts에 없는 칸(제목·희망 월급·고용형태·"
+            "병역·근무시간·그 밖의 역량·운전·경력 월급 등)과 섹션 '없음'(not_applicable)",
             SaveResumeInput,
             _save_resume,
         ),
@@ -316,11 +318,10 @@ TOOLS: dict[str, Tool] = {
             SearchProgramsInput,
             _programs,
         ),
-        Tool("answer_overview", "전체 순서 4단계 고정 안내(LLM 없이)", NoInput, _overview),
         Tool(
             "lookup_rules",
             "팀 규칙표에서 실업급여 규칙(증빙·마감·인정 여부·횟수·예외)을 찾아 "
-            "내용과 출처를 돌려줌. 규칙을 묻는 질문은 기억으로 답하지 말고 먼저 이것으로 찾음",
+            "내용과 출처를 돌려줌. 규칙 질문은 기억으로 답하지 말고 먼저 이 도구로 찾음",
             LookupRulesInput,
             _lookup_rules,
         ),
@@ -331,7 +332,8 @@ TOOLS: dict[str, Tool] = {
 # 최대 5개로 조정. 도구가 많을수록 선택이 흔들려서(1단계 실험) 늘릴 때는 골든셋으로 다시 잽니다)
 MAX_PANEL_TOOLS = 5
 TOOLS_BY_PANEL: dict[str, tuple[str, ...]] = {
-    "resume": ("record_resume_facts", "import_work24_items", "answer_overview"),
+    # 사실 추출(경력·학력 날짜 변환)은 record_resume_facts, 그 밖의 모든 칸은 save_resume_fields
+    "resume": ("record_resume_facts", "save_resume_fields", "import_work24_items"),
     "round": (
         "check_round",
         "record_activity",
@@ -340,7 +342,7 @@ TOOLS_BY_PANEL: dict[str, tuple[str, ...]] = {
         "lookup_rules",
     ),
     "application": ("record_user_answer", "record_unsure", "check_round", "lookup_rules"),
-    "guide": ("answer_overview", "lookup_rules", "search_trainings", "search_programs"),
+    "guide": ("lookup_rules", "search_trainings", "search_programs"),
 }
 
 

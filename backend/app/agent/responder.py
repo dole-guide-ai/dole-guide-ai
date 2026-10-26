@@ -24,6 +24,7 @@ from app.agent import checkpointer as checkpointer_module
 from app.agent import gateway
 from app.agent.events import TurnEvent
 from app.agent.graph import TOOL_CONTEXT_KEY, TURN_KEY, build_graph
+from app.agent.nodes.finish import done_event
 from app.agent.nodes.preprocess import BLOCKED_REPLY, gate
 from app.agent.tools.registry import ToolContext
 from app.core.clock import KST
@@ -111,6 +112,11 @@ def graph_responder(
             done = event
         else:
             yield event
+    snapshot = graph.get_state(config)
+    if snapshot.next and snapshot.values:
+        # 질문에서 멈춘 턴은 finish를 거치지 않습니다. 질문 앞에 안내한 내용의 근거 줄과
+        # 다음 할 일이 빠지지 않게 지금 상태로 만듭니다.
+        done = TurnEvent(done_event(snapshot.values))
     yield done
 
 

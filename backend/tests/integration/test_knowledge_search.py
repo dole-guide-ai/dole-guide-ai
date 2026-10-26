@@ -136,6 +136,25 @@ def test_attach_knowledge_adds_guides_only_on_guide_panel(
 
     update = attach_knowledge(state, {"configurable": {TOOL_CONTEXT_KEY: ctx}})
 
-    assert update["cited"]  # 규칙 카드는 패널과 관계없이 붙음
+    assert update["attached"]  # 규칙 카드는 패널과 관계없이 붙음
     assert ("guides" in update["facts"]) is has_guides
-    assert bool(update["cited_sources"]) is has_guides
+    if has_guides:
+        assert update["facts"]["guides"][0]["출처"] == "고용24 「조기재취업수당」 · 2025-07-10"
+
+
+def test_attach_knowledge_puts_situation_and_round_rules_first(
+    db_session: Session, indexed: HashEmbeddings, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(knowledge_service, "embed_query", indexed.embed_query)
+    state = {
+        "messages": [HumanMessage("취업특강 들은 것도 넣어 주세요")],
+        "panel": "round",
+        "facts": {},
+        "situation_rules": ["DUE-092"],
+        "profile": {"group": "repeat", "round_no": 3},
+    }
+
+    update = attach_knowledge(state, {"configurable": {}})
+
+    assert update["attached"][:4] == ["DUE-092", "ACT-102", "ACT-104", "ACT-112"]
+    assert "ACT-023" not in update["attached"]  # 일반수급자 카드는 붙지 않음

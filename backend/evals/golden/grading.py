@@ -7,6 +7,8 @@ import json
 import re
 from typing import TYPE_CHECKING, Any
 
+from app.agent.output import FOREIGN_SCRIPT
+
 if TYPE_CHECKING:
     from evals.golden.adapter import AgentResult
 
@@ -111,6 +113,9 @@ def check(case: dict[str, Any], result: AgentResult) -> list[str]:
     patterns = expected["forbidden_patterns"]
     failures += [f"금지패턴: /{pattern}/에 맞는 글이 답에 있음"
                  for pattern in patterns if re.search(pattern, all_replies)]  # fmt: skip
+    # 모든 문항 공통: 다른 언어 문자가 답에 섞이면 출력 관문(agent/output.py)이 놓친 것입니다.
+    if FOREIGN_SCRIPT.search(all_replies):
+        failures.append("외국문자: 답에 다른 언어 문자가 섞임")
     if expected["cite_required"] and not result.cites:
         failures.append("근거표시: 답에 근거 줄이 없음")
     stored = "\n".join([*result.stored, json.dumps(result.data, ensure_ascii=False)])

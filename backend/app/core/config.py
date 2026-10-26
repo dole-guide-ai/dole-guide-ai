@@ -85,6 +85,8 @@ class Settings(BaseSettings):
     # vision이 가장 좋았지만(사진 문항 6/9) 어느 방식이든 사진 속 개인정보가 외부 모델로
     # 나가므로 기본은 off이고, 쓰는 환경에서 명시적으로 켭니다.
     image_mode: Literal["off", "vision", "transcribe"] = "off"
+    # 답 검사(6단계): 근거에 없는 숫자·근거를 넘는 단정이 든 문장을 뺌. 효과를 견줄 때만 끕니다.
+    answer_check: bool = True
 
     # BFF(Next)가 붙이는 X-Internal-Secret 값. local에서 비우면 확인하지 않습니다.
     internal_api_secret: str = ""

@@ -13,6 +13,7 @@
 import csv
 import hashlib
 import re
+from collections.abc import Callable
 from dataclasses import asdict, dataclass
 from functools import lru_cache
 from pathlib import Path
@@ -141,14 +142,125 @@ def _index() -> Bm25Index:
     )
 
 
-def search_card_ids(query: str, limit: int) -> list[str]:
-    """질문과 겹치는 글자 묶음이 많은 카드 ID 순(BM25). 겹치는 게 없으면 빈 목록."""
-    return [rule_id for rule_id, _ in _index().search(query, limit)]
+def search_card_ids(
+    query: str, limit: int, profile: Profile | None = None, add_terms: bool = True
+) -> list[str]:
+    """질문과 겹치는 글자 묶음이 많은 카드 ID 순(BM25). 겹치는 게 없으면 빈 목록.
 
-
-def search_cards(query: str, limit: int = 3) -> list[RuleCard]:
+    profile을 주면 그 사용자에게 맞지 않는 카드(다른 수급자 유형·회차)는 빼고, 질문에
+    "반복수급자 3차" 같은 말을 덧붙여 찾습니다(빼기만 하면 맞는 카드를 못 찾음).
+    """
     cards = cards_by_id()
-    return [cards[i] for i in search_card_ids(query, limit)]
+    if profile and add_terms and profile.terms:
+        query = f"{query} {profile.terms}"
+    found = _index().search(query, limit * PROFILE_OVERFETCH if profile else limit)
+    ids = [i for i, _ in found if profile is None or applies_to(cards[i], profile)]
+    return ids[:limit]
+
+
+def search_cards(query: str, limit: int = 3, profile: Profile | None = None) -> list[RuleCard]:
+    cards = cards_by_id()
+    return [cards[i] for i in search_card_ids(query, limit, profile)]
+
+
+# ── 사용자에게 맞는 카드 ─────────────────────────────────
+
+# 규칙표의 수급자 유형(적용 대상 칸)과 절차 상태의 수급자 그룹(procedure.recipient_group)
+GROUP_LABELS = {
+    "general": "일반수급자",
+    "age_60_64": "만 60~64세 수급자",
+    "age65_or_disabled": "만 65세 이상·장애인 수급자",
+    "repeat": "반복수급자",
+}
+# 맞지 않는 카드를 거른 뒤에도 limit만큼 남게 넉넉히 찾습니다.
+PROFILE_OVERFETCH = 4
+_ROUND_IN_QUERY = re.compile(r"(\d{1,2})\s*차")
+
+
+@dataclass(frozen=True)
+class Profile:
+    """규칙 카드를 고를 때 쓰는 사용자 조건. 값이 없으면 그 조건으로 거르지 않습니다."""
+
+    group: str | None = None
+    round_no: int | None = None
+
+    def for_query(self, query: str) -> Profile:
+        """질문에 "4차"처럼 회차가 있으면 지금 회차 대신 그 회차로 고릅니다."""
+        if m := _ROUND_IN_QUERY.search(query):
+            return Profile(self.group, int(m.group(1)))
+        return self
+
+    @property
+    def terms(self) -> str:
+        """검색 질문에 덧붙이는 말. 예: "반복수급자 3차"."""
+        label = GROUP_LABELS.get(self.group or "", "")
+        round_ = f"{self.round_no}차" if self.round_no else ""
+        return " ".join(p for p in (label, round_) if p)
+
+
+def _target_groups(target: str) -> set[str] | None:
+    """카드 적용 대상 칸에 수급자 유형이 적혀 있으면 그 그룹들. 없으면 모두에게 적용(None)."""
+    t = target.replace(" ", "")
+    if "반복수급자" in t:
+        return {"repeat"}
+    if "일반수급자" in t:
+        return {"general"}
+    if "60~64세" in t:
+        return {"age_60_64"}
+    if "65세이상" in t:
+        return {"age65_or_disabled"}
+    if "60세이상" in t:
+        return {"age_60_64", "age65_or_disabled"}
+    return None
+
+
+def _rounds(stage: str) -> Callable[[int], bool] | None:
+    """카드 단계 칸의 회차 범위("2~3차", "8차~만료", "1·4·8차", "3차 이후"). 회차가 아니면 None."""
+    s = stage.replace(" ", "")
+    if m := re.fullmatch(r"(\d+)~(\d+)차", s):
+        low, high = int(m.group(1)), int(m.group(2))
+        return lambda n: low <= n <= high
+    if m := re.fullmatch(r"(\d+)차(?:~만료일?|이후)", s):
+        low = int(m.group(1))
+        return lambda n: n >= low
+    if re.fullmatch(r"\d+(?:·\d+)*차", s):
+        rounds = {int(x) for x in s[:-1].split("·")}
+        return lambda n: n in rounds
+    return None
+
+
+# 회차 범위 대신 "모든 회차"로 적힌 단계 칸
+_EVERY_ROUND = {"매회차", "전체", "전회차"}
+
+
+def cards_for(profile: Profile) -> list[RuleCard]:
+    """이 수급자 유형·회차에 정해진 카드(활동 횟수·출석·인정 범위). 검색하지 않고 바로 고릅니다.
+
+    예: 반복수급자 3차 → ACT-102(매 회차 출석)·ACT-104(2주1회, 3차부터 구직활동만)·ACT-112.
+    유형별 카드는 글이 짧아("2주1회;3차부터 구직활동만 인정") 질문으로 찾으면 일반 카드에 밀립니다.
+    """
+    if not profile.group or not profile.round_no:
+        return []
+    picked = []
+    for card in load_cards():
+        groups = _target_groups(card.target)
+        if is_other_employment(card.target) or not groups or profile.group not in groups:
+            continue
+        rounds = _rounds(card.stage)
+        if rounds is None and card.stage.replace(" ", "") not in _EVERY_ROUND:
+            continue
+        if rounds is None or rounds(profile.round_no):
+            picked.append(card)
+    return picked
+
+
+def applies_to(card: RuleCard, profile: Profile) -> bool:
+    """이 사용자에게 맞는 카드인지. 다른 유형·회차의 규칙을 알려 주면 틀린 안내가 됩니다."""
+    groups = _target_groups(card.target)
+    if groups and profile.group and profile.group not in groups:
+        return False
+    rounds = _rounds(card.stage)
+    return not (rounds and profile.round_no and not rounds(profile.round_no))
 
 
 # ── 근거 줄 ─────────────────────────────────────────────
