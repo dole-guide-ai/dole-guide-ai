@@ -38,6 +38,9 @@ GENERAL = {
     2: _round(1, "2026-09-29", "2026-10-27", "2026-10-21"),
     3: _round(2, "2026-10-27", "2026-11-24", "2026-11-18"),
     4: _round(3, "2026-11-24", "2026-12-22", "2026-12-16"),
+    # 5~7차는 지금 문항에 없어 비워 두고, 8차는 "7일마다 1건" 규칙(일반 8차부터)용입니다.
+    5: _round(4, "2026-12-22", "2027-01-19", "2027-01-13"),
+    8: _round(7, "2027-03-16", "2027-04-13", "2027-04-07"),
 }
 PARK = {"separation_date": "2026-09-30", "age_at_separation": 61}
 CHOI = {"separation_date": "2026-09-30", "age_at_separation": 67, "resume_status": "outdated"}
@@ -49,8 +52,20 @@ PERSONAS: dict[str, dict[str, Any]] = {
     "choi": CHOI,
     "lee": LEE,
     **{f"general{n}": GENERAL[n] for n in GENERAL},
+    # 이력서는 끝났고 온라인 교육을 들어야 하는 단계
+    "edu": {"stage": "education", "resume_status": "ready"},
+    # 수급자격 신청서를 내고 1차 실업인정을 기다리는 단계
+    "applied": {
+        "stage": "eligibility_applied",
+        "resume_status": "ready",
+        "education_done": True,
+        "eligibility_applied_date": "2026-09-15",
+        "demo_today": "2026-09-18",
+    },
     "repeat2": {**GENERAL[2], "recipient_type": "repeat"},
     "repeat3": {**GENERAL[3], "recipient_type": "repeat"},
+    "repeat5": {**GENERAL[5], "recipient_type": "repeat"},
+    "senior1": {**GENERAL[1], "age_at_separation": 67},
     "senior2": {**GENERAL[2], "age_at_separation": 67},
     "park2": {
         **PARK,
