@@ -5,6 +5,7 @@
 """
 
 import json
+import time
 
 import pytest
 from langchain_core.callbacks import BaseCallbackHandler
@@ -13,7 +14,7 @@ from langsmith import testing as ls
 from app.agent import gateway
 from evals.golden import grading
 from evals.golden.adapter import AgentNotReadyError, run_agent, run_selftest
-from evals.golden.judge import Verdict, judge
+from evals.golden.judge import judge
 from evals.golden.schema import OUT_DIR
 from evals.golden.tracking import LANGSMITH_SUITE, experiment_metadata
 
@@ -28,23 +29,46 @@ CASES = sorted(
 
 
 @pytest.fixture
-def model_inputs(monkeypatch: pytest.MonkeyPatch) -> list[str]:
+def model_inputs(monkeypatch: pytest.MonkeyPatch, golden_report) -> list[str]:
     """에이전트가 gateway로 모델에 보낸 글을 모읍니다(개인정보 '모델' 검사용).
 
-    판정 모델(judge)은 빼고 모읍니다.
+    판정 모델(judge)은 빼고 모읍니다. 호출 횟수와 토큰도 보고서에 더합니다(비용 비교).
     """
     texts: list[str] = []
+    usage = golden_report.usage
 
     class Recorder(BaseCallbackHandler):
         def on_chat_model_start(self, serialized, messages, **kwargs) -> None:
             texts.extend(str(message.content) for batch in messages for message in batch)
 
+        prefix = ""
+
+        def on_llm_end(self, response, **kwargs) -> None:
+            for generation in (g for batch in response.generations for g in batch):
+                meta = getattr(getattr(generation, "message", None), "usage_metadata", None)
+                usage[self.prefix + "calls"] += 1
+                if meta:
+                    usage[self.prefix + "input"] += meta.get("input_tokens", 0)
+                    usage[self.prefix + "output"] += meta.get("output_tokens", 0)
+                    details = meta.get("input_token_details") or {}
+                    usage[self.prefix + "cached"] += details.get("cache_read", 0) or 0
+
+    class JudgeUsage(Recorder):
+        """판정 모델은 입력을 모으지 않고 사용량만 셉니다."""
+
+        prefix = "judge_"
+
+        def on_chat_model_start(self, serialized, messages, **kwargs) -> None:
+            pass
+
     original = gateway.get_chat_model
 
     def recording(role: str = "agent"):
         model = original(role=role)
-        if role != "judge":
-            model.callbacks = [*(model.callbacks or []), Recorder()]
+        if role != "judge" and hasattr(model, "model_name"):
+            golden_report.model = model.model_name
+        recorder = JudgeUsage() if role == "judge" else Recorder()
+        model.callbacks = [*(model.callbacks or []), recorder]
         return model
 
     monkeypatch.setattr(gateway, "get_chat_model", recording)
@@ -74,10 +98,12 @@ def test_golden(case, golden_options, golden_report, model_inputs, golden_db) ->
     # 예상 못 한 예외는 보고서에 '건너뜀'이 아니라 오류로 남깁니다.
     # 예외 메시지에는 입력값이 섞일 수 있어 종류 이름만 적습니다.
     try:
+        started = time.perf_counter()
         if mode == "real":
             result = run_agent(case, golden_db)
         else:
             result = run_selftest(case, broken=mode == "broken")
+        record.seconds = time.perf_counter() - started
         if not result.model_inputs:
             result.model_inputs = list(model_inputs)
         failures = grading.check(case, result)
@@ -93,11 +119,7 @@ def test_golden(case, golden_options, golden_report, model_inputs, golden_db) ->
         record.finish([f"실행 오류: {type(error).__name__}"], None)
         raise
     try:
-        verdict = (
-            judge(case, result.replies, mode, golden_options.threshold)
-            if golden_options.judge
-            else Verdict(passed=None, reason="--golden-judge off")
-        )
+        verdict = judge(case, result.replies, mode, golden_options.threshold, golden_options.judge)
     except Exception as error:
         record.finish([*failures, f"LLM 판정 오류: {type(error).__name__}"], None)
         raise

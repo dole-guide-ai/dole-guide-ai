@@ -17,7 +17,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.agent.tools import guide
-from app.rules.days import normalize_day
+from app.rules.dates import normalize_day
 from app.rules.resume_facts import ResumeFacts, plan_writes
 from app.schemas.activities import ActivityCreate, ActivityRoute
 from app.schemas.common import FieldSource, FieldStatus, JsonPatchOp
@@ -146,7 +146,13 @@ def _record_activity(ctx: ToolContext, args: RecordActivityInput) -> dict[str, A
     if day is None:
         raise ToolError(f"'{args.when}'이(가) 며칠인지 정하지 못했어요. 날짜를 다시 물어 주세요.")
     body = ActivityCreate(activity_date=day, **args.model_dump(exclude={"when"}))
-    return _dump(activity_service.record_answered_activity(ctx.db, ctx.account, body, ctx.today))
+    result = _dump(activity_service.record_answered_activity(ctx.db, ctx.account, body, ctx.today))
+    # 기록 뒤의 인정·남은 건수를 함께 돌려줍니다. 지금 상황(facts)의 건수는 기록 전 숫자라
+    # 그대로 말하면 틀립니다(이민수 골든셋: 같은 턴 활동 건수 문항).
+    result["round_after"] = _dump(
+        round_service.read_current(ctx.db, ctx.account.user_id, ctx.today)
+    )
+    return result
 
 
 def _record_resume_facts(ctx: ToolContext, args: ResumeFacts) -> dict[str, Any]:

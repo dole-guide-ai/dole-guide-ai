@@ -68,6 +68,8 @@ class RequiredRow(_Row):
     job_search: int = 0
     first_education: bool = False
     weekly_job_search: bool = False
+    # N일마다 재취업활동 1건 (반복수급자 2주에 1회). 회차 대상기간을 N일씩 나눠 셉니다.
+    every_days: int | None = None
 
     def matches(self, group: str, round_no: int) -> bool:
         first, last = self.rounds
@@ -92,7 +94,8 @@ class ActivityRules(_Row):
     kinds: tuple[KindRule, ...]
     limits: tuple[LimitRule, ...]
     training_hours: TrainingRule
-    job_search_only_from_round: JobSearchOnlyRule
+    # 이 회차부터 구직활동만 인정 (일반 8차, 반복수급자 3차)
+    job_search_only_from_round: tuple[JobSearchOnlyRule, ...]
     routes: tuple[RouteRule, ...]
     required: RequiredRule
     same_day_rule_refs: tuple[str, ...]

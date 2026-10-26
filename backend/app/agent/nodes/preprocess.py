@@ -11,9 +11,11 @@ from langchain_core.messages import AIMessage, AnyMessage, HumanMessage, ToolMes
 from langchain_core.runnables import RunnableConfig
 
 from app.agent.events import emit
-from app.agent.graph import AgentState, turn_of
-from app.agent.input import pii
+from app.agent.graph import AgentState, tool_context_of, turn_of
+from app.agent.input import images, pii
+from app.core.config import get_settings
 from app.schemas.messages import TokenEvent
+from app.services import files as files_service
 
 BLOCKED_REPLY = (
     "주민등록번호·계좌번호·카드번호 같은 민감한 번호가 있어 보내지 않았어요. "
@@ -47,10 +49,35 @@ def close_dangling_tool_calls(messages: list[AnyMessage]) -> list[ToolMessage]:
     ]
 
 
+TRANSCRIPT_HEADER = "[사진에서 읽은 글]"
+
+
+def _transcripts(config: RunnableConfig) -> str:
+    """IMAGE_MODE=transcribe일 때 첨부 사진 속 글자를 받아쓴 글(가리기 전).
+
+    사진이 아닌 파일·열 수 없는 파일은 건너뜁니다. vision과 달리 글만 남아 상태에 넣을 수 있고,
+    넣기 전에 preprocess가 개인정보를 가립니다.
+    """
+    ctx = tool_context_of(config)
+    if get_settings().image_mode != "transcribe" or ctx is None:
+        return ""
+    texts = []
+    for file_id in getattr(turn_of(config), "file_ids", None) or []:
+        if path := files_service.open_attachment(ctx.db, ctx.account, file_id):
+            try:
+                texts.append(images.transcribe(str(path)))
+            except ValueError:  # 사진이 아닌 파일
+                continue
+    return "\n".join(texts)
+
+
 def preprocess(state: AgentState, config: RunnableConfig) -> dict[str, Any]:
     text, blocked = gate(turn_of(config).text)
     if blocked:
         emit(TokenEvent(text=BLOCKED_REPLY))
+    elif transcript := _transcripts(config):
+        masked, _ = pii.mask(transcript)
+        text = f"{text}\n\n{TRANSCRIPT_HEADER}\n{masked}"
     repairs = close_dangling_tool_calls(state.get("messages", []))
     return {
         "messages": [*repairs, HumanMessage(text)],

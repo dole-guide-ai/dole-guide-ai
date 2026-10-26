@@ -80,6 +80,11 @@ class Settings(BaseSettings):
     retrieval_min_similarity: float = 0.50
     # 안내(guide) 패널에 붙이는 정책·FAQ 조각 수
     retrieval_guide_limit: int = 2
+    # 첨부 사진 처리(이민수 실험 ⑤). off: 무시 · vision: 답하는 모델에 사진째
+    # · transcribe: 글자만 받아써(추출 모델) 가린 뒤 글로 넘김
+    # vision이 가장 좋았지만(사진 문항 6/9) 어느 방식이든 사진 속 개인정보가 외부 모델로
+    # 나가므로 기본은 off이고, 쓰는 환경에서 명시적으로 켭니다.
+    image_mode: Literal["off", "vision", "transcribe"] = "off"
 
     # BFF(Next)가 붙이는 X-Internal-Secret 값. local에서 비우면 확인하지 않습니다.
     internal_api_secret: str = ""
