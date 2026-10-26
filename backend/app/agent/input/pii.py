@@ -76,7 +76,10 @@ _NAME_AFTER_BIRTH = re.compile(
 )
 # 비밀번호 단서 뒤의 영문·숫자·기호 덩어리("비밀번호가 bokja123!인데"). 한글 말은 건드리지 않습니다.
 _SECRET = re.compile(
-    r"(?:비밀\s*번호|비번|암호|패스워드|(?<![A-Za-z])(?:password|passwd|pwd|pw)(?![A-Za-z]))"
+    # 긴 영어 단서(mypassword·passwords 등)는 앞뒤 글자와 상관없이, 짧은 pw는 단어 전체이거나
+    # 바로 뒤에 :·=가 올 때만 봅니다("upward1234" 같은 말은 건드리지 않음).
+    r"(?:비밀\s*번호|비번|암호|패스워드|(?:password|passwd|pwd)s?"
+    r"|(?<![A-Za-z])pw(?![A-Za-z])|pw(?=\s*[:=：]))"
     r"\s*(?:은|는|가|이|[:=：])?\s*['\"]?"
     r"([!-~]{4,})",
     re.IGNORECASE,

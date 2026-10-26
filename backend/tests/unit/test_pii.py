@@ -188,5 +188,16 @@ def test_rrn_given_as_password_still_blocks():
     assert mask(text)[0] == "비밀번호 [주민번호] 이에요"
 
 
-def test_pw_cue_only_as_whole_word():
-    assert mask("upward1234 방향")[0] == "upward1234 방향"
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        ("mypassword: Abcd1234", "mypassword: [비밀번호]"),
+        ("newpassword=Abcd1234", "newpassword=[비밀번호]"),
+        ("passwords: xyz12345", "passwords: [비밀번호]"),
+        ("userpw=abc12345", "userpw=[비밀번호]"),
+        # 짧은 pw가 다른 단어 속에 있으면 건드리지 않음
+        ("upward1234 방향", "upward1234 방향"),
+    ],
+)
+def test_password_cues_in_longer_words(text: str, expected: str):
+    assert mask(text)[0] == expected
