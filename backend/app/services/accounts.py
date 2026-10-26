@@ -131,8 +131,10 @@ def enter(
 def delete_account(db: Session, account: AccountContext) -> None:
     """계정 행과 함께 대화 그래프 상태(체크포인트, thread_id=user_id)와 업로드 파일을 지웁니다.
 
-    체크포인트를 먼저 지웁니다. 여기서 실패하면 계정 행이 남아 있어 DELETE를 다시 보내면 되고,
-    계정만 지워진 채 대화 상태·파일이 남는 일이 없습니다.
+    체크포인트를 먼저 지웁니다. 여기서 실패하면 계정 행이 그대로 남아 DELETE를 다시 보내면 됩니다.
+    체크포인트는 별도 연결(autocommit)에서 지워지므로, 그 뒤 `db.commit()`이 실패하면 체크포인트만
+    지워지고 계정 행·업로드 폴더는 남을 수 있습니다. 이때도 계정이 남아 있어 DELETE를 다시 보내면
+    정리됩니다(없는 thread를 지워도 오류가 나지 않습니다).
     """
     checkpointer.get_checkpointer().delete_thread(str(account.user_id))
     user = repo.get_user_by_id(db, account.user_id)
