@@ -9,6 +9,7 @@
 """
 
 import re
+import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -80,6 +81,26 @@ class Attachments:
     vision_files: list[str] = field(default_factory=list)
 
 
+def _read_document(path: Path) -> str:
+    """문서 글자(가림). 글자가 없는 스캔 pdf는 쪽을 그림으로 바꿔 사진처럼 받아씁니다.
+
+    스캔 pdf 쪽은 받아쓴 글만 쓰고 사진째 보내지는 않습니다(쪽 그림은 첨부 파일이 아니라서).
+    """
+    if text := documents.extract_text(str(path)):
+        return pii.mask(text)[0]
+    if get_settings().image_mode == "off" or not documents.is_pdf(str(path)):
+        return UNREADABLE_DOCUMENT
+    pages = []
+    with tempfile.TemporaryDirectory() as folder:
+        for index, png in enumerate(documents.pdf_page_images(str(path))):
+            page = Path(folder) / f"page{index}.png"
+            page.write_bytes(png)
+            text, _ = _read_photo(page)
+            pages.append(text)
+    readable = [p for p in pages if p != UNREADABLE_PHOTO]
+    return "\n\n".join(readable) or UNREADABLE_DOCUMENT
+
+
 def _read_photo(path: Path) -> tuple[str, bool]:
     """사진을 받아써 가린 글과, 사진째 보내도 되는지(등급 0이 없고 vision 모드)."""
     try:
@@ -111,7 +132,7 @@ def read_attachments(config: RunnableConfig) -> Attachments:
         if path is None:
             continue
         if not images.is_image(str(path)):
-            texts.append(pii.mask(documents.extract_text(str(path)) or UNREADABLE_DOCUMENT)[0])
+            texts.append(_read_document(path))
         elif get_settings().image_mode != "off":
             text, send_photo = _read_photo(path)
             texts.append(text)

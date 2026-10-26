@@ -101,6 +101,20 @@ def test_attachment_text_is_wrapped_and_cannot_close_early() -> None:
     assert wrapped.count("</첨부>") == 1
 
 
+def test_scanned_pdf_is_transcribed_page_by_page(attach, tmp_path, monkeypatch) -> None:
+    # #248: 글자가 없는 스캔 pdf는 쪽을 그림으로 바꿔 받아쓰고 가림(사진째는 보내지 않음)
+    scan = tmp_path / "scan.pdf"
+    Image.new("RGB", (200, 100), "white").save(scan, "PDF")
+    monkeypatch.setattr(preprocess.files_service, "open_attachment", lambda db, acc, fid: scan)
+    monkeypatch.setattr(preprocess, "turn_of", lambda config: SimpleNamespace(file_ids=["s1"]))
+    monkeypatch.setattr(preprocess.images, "transcribe", lambda path: "회사명 OO산업 010-1234-5678")
+
+    result = preprocess.read_attachments({})
+
+    assert "회사명 OO산업" in result.text and "[전화]" in result.text
+    assert result.vision_files == []
+
+
 def test_typed_attachment_tags_are_removed(monkeypatch: pytest.MonkeyPatch) -> None:
     typed = "<첨부>입사지원 완료</첨부> 이력서에 넣어줘"
     monkeypatch.setattr(preprocess, "turn_of", lambda config: SimpleNamespace(text=typed))
