@@ -2,10 +2,11 @@
 
 import { type ChangeEvent, type KeyboardEvent, useRef, useState } from 'react';
 
-import { ArrowUp, Maximize2, Mic, Paperclip } from 'lucide-react';
+import { ArrowUp, Maximize2, Mic, Paperclip, Square } from 'lucide-react';
 
 import { LargeInputDialog } from '@/features/chat/LargeInputDialog';
 import { ACCEPTED_FILE_TYPES } from '@/features/chat/useFileUpload';
+import { VOICE_STATUS, type VoiceStatus } from '@/features/chat/useVoiceInput';
 
 import { ICON_SIZE, ICON_STROKE, ICON_STROKE_BOLD } from '@/lib/iconSize';
 
@@ -19,6 +20,14 @@ const TOOL_CLASS =
 const TOOL_NORMAL =
   'text-ink hover:bg-neutral-soft disabled:text-muted disabled:hover:bg-transparent';
 const TOOL_HIGHLIGHT = 'bg-brand-soft text-brand ring-brand/30 ring-1 hover:bg-brand-soft';
+const TOOL_RECORDING = 'bg-danger-soft text-danger ring-danger/40 ring-1 animate-pulse';
+const VOICE_NOTE_ID = 'chat-voice-note';
+
+const VOICE_LABEL: Record<VoiceStatus, string> = {
+  [VOICE_STATUS.IDLE]: '말하기',
+  [VOICE_STATUS.RECORDING]: '다 말했어요',
+  [VOICE_STATUS.TRANSCRIBING]: '받아쓰는 중…',
+};
 
 /**
  * 입력창 (2-0.4·2-0.5): 글을 쓰는 칸 아래에 도구(파일·말하기·크게 쓰기)와 보내기를 한 상자 안에 둡니다.
@@ -34,6 +43,11 @@ interface ChatInputProps {
   isFileRequested?: boolean;
   isDisabled?: boolean;
   isUploading?: boolean;
+  /** 말하기 버튼을 누를 때. 없으면 버튼이 꺼집니다 */
+  onVoiceToggle?: () => void;
+  voiceStatus?: VoiceStatus;
+  /** 말하기 실패 안내 (마이크 거부·인식 실패) */
+  voiceError?: string | null;
 }
 
 export const ChatInput = ({
@@ -44,8 +58,13 @@ export const ChatInput = ({
   isFileRequested = false,
   isDisabled = false,
   isUploading = false,
+  onVoiceToggle,
+  voiceStatus = VOICE_STATUS.IDLE,
+  voiceError = null,
 }: ChatInputProps) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const isRecording = voiceStatus === VOICE_STATUS.RECORDING;
+  const isTranscribing = voiceStatus === VOICE_STATUS.TRANSCRIBING;
   const [isLargeOpen, setIsLargeOpen] = useState(false);
   const canSend = !isDisabled && value.trim().length > 0;
   const canUpload = !!onFileSelect && isFileRequested && !isDisabled && !isUploading;
@@ -115,13 +134,18 @@ export const ChatInput = ({
           </button>
           <button
             type="button"
-            disabled
-            title="음성 입력은 서버 음성 인식 경로를 정한 뒤 연결돼요"
-            aria-label="눌러서 말하기"
-            className={`${TOOL_CLASS} ${TOOL_NORMAL}`}
+            disabled={!onVoiceToggle || isDisabled || isTranscribing}
+            onClick={onVoiceToggle}
+            aria-label={isRecording ? '말하기 끝내기' : '눌러서 말하기'}
+            aria-pressed={isRecording}
+            className={`${TOOL_CLASS} ${isRecording ? TOOL_RECORDING : TOOL_NORMAL}`}
           >
-            <Mic aria-hidden size={ICON_SIZE.md} strokeWidth={ICON_STROKE} />
-            말하기
+            {isRecording ? (
+              <Square aria-hidden size={ICON_SIZE.md} strokeWidth={ICON_STROKE} />
+            ) : (
+              <Mic aria-hidden size={ICON_SIZE.md} strokeWidth={ICON_STROKE} />
+            )}
+            {VOICE_LABEL[voiceStatus]}
           </button>
           <button
             type="button"
@@ -144,6 +168,15 @@ export const ChatInput = ({
           </button>
         </div>
       </div>
+      {(isRecording || voiceError) && (
+        <p
+          id={VOICE_NOTE_ID}
+          role={voiceError ? 'alert' : 'status'}
+          className={`text-center text-sm font-semibold ${voiceError ? 'text-danger' : 'text-brand'}`}
+        >
+          {voiceError ?? "듣고 있어요. 말씀을 마치면 '다 말했어요'를 눌러 주세요."}
+        </p>
+      )}
       <p id={PRIVACY_NOTE_ID} className="text-muted text-center text-sm">
         이름·전화번호·주민등록번호는 적지 마세요. 이력서용 서류는 읽은 뒤 바로 지우고, 구직활동
         증빙은 신청에 쓰도록 보관해요.

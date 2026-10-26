@@ -8,6 +8,7 @@ import type { ChatMessage } from '@/features/chat/chat.types';
 import { ChatInput } from '@/features/chat/ChatInput';
 import { MessageBubble } from '@/features/chat/MessageBubble';
 import { QuestionCard } from '@/features/chat/QuestionCard';
+import type { VoiceStatus } from '@/features/chat/useVoiceInput';
 import { ImportPicker } from '@/features/imports/ImportPicker';
 
 import { ICON_SIZE, ICON_STROKE } from '@/lib/iconSize';
@@ -34,6 +35,9 @@ interface ChatPanelProps {
   isStreaming?: boolean;
   isUploading?: boolean;
   statusText?: string | null;
+  onVoiceToggle?: () => void;
+  voiceStatus?: VoiceStatus;
+  voiceError?: string | null;
 }
 
 export const ChatPanel = ({
@@ -53,6 +57,9 @@ export const ChatPanel = ({
   isStreaming = false,
   isUploading = false,
   statusText,
+  onVoiceToggle,
+  voiceStatus,
+  voiceError,
 }: ChatPanelProps) => {
   const logRef = useRef<HTMLDivElement>(null);
   const lastText = messages[messages.length - 1]?.text;
@@ -125,6 +132,9 @@ export const ChatPanel = ({
         isFileRequested={isFileRequested}
         isDisabled={isStreaming}
         isUploading={isUploading}
+        onVoiceToggle={onVoiceToggle}
+        voiceStatus={voiceStatus}
+        voiceError={voiceError}
       />
     </section>
   );
