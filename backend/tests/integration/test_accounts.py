@@ -123,3 +123,18 @@ def test_account_endpoint_needs_token_first(client: TestClient) -> None:
 
     assert client.get("/accounts/park/trainings").status_code == 401
     assert client.get("/accounts/park/trainings", headers=headers).status_code == 200
+
+
+def test_delete_also_clears_conversation_state(client: TestClient, monkeypatch) -> None:
+    """처음부터 다시(DELETE): 대화 그래프 상태(체크포인트)도 지워 지난 질문을 잇지 않습니다."""
+    from app.agent.checkpointer import get_checkpointer
+
+    saver = get_checkpointer()
+    deleted: list[str] = []
+    monkeypatch.setattr(saver, "delete_thread", lambda tid: deleted.append(tid))
+    token = client.post("/visitors").json()["visitor_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+    client.put("/accounts/park", headers=headers)
+
+    assert client.delete("/accounts/park", headers=headers).status_code == 204
+    assert len(deleted) == 1
