@@ -114,6 +114,27 @@ def test_card_applies_only_to_matching_group_and_round(
     assert applies_to(cards_by_id()[rule_id], Profile(group, round_no)) is expected
 
 
+@pytest.mark.parametrize(
+    ("rule_id", "over_50", "expected"),
+    [
+        ("ELIG-183", False, True),  # 근로자 / 50세 미만
+        ("ELIG-183", True, False),
+        ("ELIG-184", True, True),  # 근로자 / 50세 이상 또는 장애인
+        ("ELIG-184", False, False),
+        ("ELIG-184", None, True),  # 나이를 모르면 거르지 않음
+        ("ACT-110", True, True),  # 나이 구분 없는 카드
+    ],
+)
+def test_card_applies_only_to_matching_age_band(
+    rule_id: str, over_50: bool | None, expected: bool
+) -> None:
+    assert applies_to(cards_by_id()[rule_id], Profile(over_50=over_50)) is expected
+
+
+def test_round_in_question_keeps_age_band() -> None:
+    assert Profile("general", 3, over_50=True).for_query("4차 때 뭐 해요?").over_50 is True
+
+
 def test_round_in_question_overrides_current_round() -> None:
     assert Profile("general", 3).for_query("4차 때 고용센터 가면 뭘 가져가요?").round_no == 4
     assert Profile("general", 3).for_query("이번에 뭐 해요?").round_no == 3

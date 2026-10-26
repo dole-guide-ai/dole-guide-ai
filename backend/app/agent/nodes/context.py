@@ -5,10 +5,12 @@ LLM은 이 숫자를 계산하지 않고 그대로 옮깁니다. 개인정보(us
 
 from typing import Any
 
+from langchain_core.messages import HumanMessage
 from langchain_core.runnables import RunnableConfig
 
 from app.agent.graph import AgentState, tool_context_of
 from app.agent.nodes.route import Panel
+from app.agent.retrieval import rewrite_query
 from app.agent.tools import guide
 from app.core.config import get_settings
 from app.core.errors import AppError
@@ -23,6 +25,10 @@ from app.services import rounds as round_service
 
 # 미리 붙이는 카드 수(lookup_rules가 돌려주는 수와 같게 해 두 방식을 같은 조건으로 비교)
 INJECT_LIMIT = 3
+# 소정급여일수 표가 나뉘는 나이(이직 당시)
+OVER_50_AGE = 50
+# 검색 문장을 바꿀 때 넣는 앞선 사용자 말 수
+REWRITE_HISTORY = 2
 COUNT_RULE_NOTE = "필요 건수는 rules의 이 수급자 유형·회차 카드를 따른다"
 
 
@@ -99,7 +105,11 @@ def load_context(state: AgentState, config: RunnableConfig) -> dict[str, Any]:
     situation = account_service.situation_rules(
         ctx.db, user_id, procedure, check, check.d_day if check else None
     )
-    profile = {"group": procedure.recipient_group, "round_no": check.round if check else None}
+    profile = {
+        "group": procedure.recipient_group,
+        "round_no": check.round if check else None,
+        "over_50": procedure.age_at_separation >= OVER_50_AGE or procedure.has_disability,
+    }
     return {"facts": facts, "situation_rules": situation, "profile": profile}
 
 
@@ -125,21 +135,35 @@ def attach_knowledge(state: AgentState, config: RunnableConfig) -> dict[str, Any
         cards += cards_for(profile.for_query(text))
     cards = list({c.rule_id: c for c in cards}.values())
     guides = []
+    calls = state.get("model_calls", 0)
     if settings.rule_cards_mode == "inject":
         ctx = tool_context_of(config)
         if ctx is None:  # DB 없이 그래프만 도는 단위 테스트: 단어 검색만
             found_cards = search_cards(text, INJECT_LIMIT, profile)
         else:
             guide_limit = settings.retrieval_guide_limit if state.get("panel") == Panel.GUIDE else 0
+            query, calls = search_text(state, text)
             found = knowledge_service.search(
-                ctx.db, text, INJECT_LIMIT, guide_limit, profile=profile
+                ctx.db, query, INJECT_LIMIT, guide_limit, profile=profile
             )
             found_cards, guides = knowledge_service.rule_cards_of(found.rules), found.guides
         cards += [c for c in found_cards if c.rule_id not in {x.rule_id for x in cards}]
     if not cards and not guides:
-        return {"attached": []}
+        return {"attached": [], "model_calls": calls}
     facts = {**state.get("facts", {}), "rules": [c.for_model() for c in cards]}
     if guides:
         facts["guides"] = [knowledge_service.guide_for_model(g) for g in guides]
     # 붙인 근거 중 답에 실제로 쓴 것만 finish가 근거 줄에 남깁니다(agent/grounding.used_in_answer).
-    return {"facts": facts, "attached": [c.rule_id for c in cards]}
+    return {"facts": facts, "attached": [c.rule_id for c in cards], "model_calls": calls}
+
+
+def search_text(state: AgentState, text: str) -> tuple[str, int]:
+    """검색할 문장과 이번 턴 모델 호출 수. 이어지는 말만 앞선 사용자 말을 넣어 바꿉니다.
+
+    앞선 말은 preprocess가 가린 뒤 저장한 글이라 개인정보가 없습니다.
+    """
+    calls = state.get("model_calls", 0)
+    earlier = [str(m.content) for m in state["messages"][:-1] if isinstance(m, HumanMessage)]
+    if not get_settings().retrieval_rewrite or not earlier:
+        return text, calls
+    return rewrite_query(text, earlier[-REWRITE_HISTORY:]), calls + 1

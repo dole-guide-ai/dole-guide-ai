@@ -80,6 +80,9 @@ class Settings(BaseSettings):
     retrieval_min_similarity: float = 0.50
     # 안내(guide) 패널에 붙이는 정책·FAQ 조각 수
     retrieval_guide_limit: int = 2
+    # 이어지는 말("그럼 그건요?")은 앞선 사용자 말을 넣어 검색 문장으로 바꿈(extract 호출 +1).
+    # 첫 말은 바꾸지 않습니다(혼자 쓴 구어 질문은 바꾸면 오히려 덜 찾았음).
+    retrieval_rewrite: bool = False
     # 답 검사(6단계): 근거에 없는 숫자·근거를 넘는 단정이 든 문장을 뺌. 효과를 견줄 때만 끕니다.
     answer_check: bool = True
 
