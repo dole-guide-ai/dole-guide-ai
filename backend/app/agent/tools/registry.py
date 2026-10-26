@@ -19,8 +19,9 @@ from sqlalchemy.orm import Session
 from app.agent.guard import check_input
 from app.agent.tools import guide
 from app.core.db import deferred_commit
+from app.core.errors import ConflictError
 from app.schemas.activities import ActivityCreate, ActivityRoute
-from app.schemas.common import FieldSource, FieldStatus, JsonPatchOp
+from app.schemas.common import ErrorCode, FieldSource, FieldStatus, JsonPatchOp
 from app.schemas.resume import FieldWrite
 from app.services import activities as activity_service
 from app.services import application as application_service
@@ -71,11 +72,19 @@ class NoInput(BaseModel):
 class RecordActivityInput(BaseModel):
     """활동 하나 기록. 구분은 종류로 코드가 정합니다."""
 
-    activity_date: date
-    kind: str = Field(description="job_application·interview·lecture 등 활동 종류")
-    route: ActivityRoute | None = None
-    org_name: str | None = None
-    job_title: str | None = None
+    activity_date: date = Field(description="활동한 날 YYYY-MM-DD (오늘 날짜 기준으로 바꿈)")
+    kind: str = Field(
+        description="활동 종류: job_application(입사지원) · interview(면접) · lecture(취업특강) · "
+        "training(직업훈련) · aptitude_test(직업심리검사) · counseling · volunteer 등"
+    )
+    route: ActivityRoute | None = Field(
+        default=None,
+        description="경로: work24(고용24·워크넷) · portal(사람인 같은 취업포털) · "
+        "company_site(회사 홈페이지) · email · interview(면접) · visit · mail · fax · "
+        "referral(지인 소개) · job_fair(채용행사) · newspaper · step_online · training",
+    )
+    org_name: str | None = Field(default=None, description="회사·기관 이름(사람 이름 아님)")
+    job_title: str | None = Field(default=None, description="지원한 직무(예: 사무보조)")
     hours: float | None = None
 
 
@@ -151,9 +160,26 @@ def _recommend(ctx: ToolContext, _: NoInput) -> dict[str, Any]:
     return _dump(recommendation_service.list_recommendations(ctx.db, ctx.account, ctx.today))
 
 
+# 경로를 말하지 않아도 종류로 정해지는 경우 (면접은 경로도 면접)
+_ROUTE_BY_KIND = {"interview": ActivityRoute.INTERVIEW, "training": ActivityRoute.TRAINING}
+
+
 def _record_activity(ctx: ToolContext, args: RecordActivityInput) -> dict[str, Any]:
-    body = ActivityCreate(**args.model_dump())
-    return _dump(activity_service.record_answered_activity(ctx.db, ctx.account, body, ctx.today))
+    values = args.model_dump()
+    if values["route"] is None:
+        values["route"] = _ROUTE_BY_KIND.get(args.kind)
+    body = ActivityCreate(**values)
+    try:
+        updates = activity_service.record_answered_activity(ctx.db, ctx.account, body, ctx.today)
+    except ConflictError as exc:
+        if exc.code != ErrorCode.ROUND_CLOSED:
+            raise
+        check = round_service.read_current(ctx.db, ctx.account.user_id, ctx.today)
+        raise ToolError(
+            f"이번 회차 대상기간({check.period_start} ~ {check.period_end}) 밖 날짜라 이번 회차 "
+            "활동으로 기록하지 않았어요."
+        ) from None
+    return _dump(updates)
 
 
 def _mark_done(ctx: ToolContext, args: MarkDoneInput) -> dict[str, Any]:
