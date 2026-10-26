@@ -88,6 +88,8 @@ class Settings(BaseSettings):
     image_mode: Literal["off", "vision", "transcribe"] = "vision"
     # 음성 인식(말하기 버튼). OpenAI 키로 부르며, 비우면 말하기가 503 LLM_UNAVAILABLE입니다.
     stt_model: str = ""
+    # 계정마다 1분에 음성 인식을 부를 수 있는 횟수. 넘으면 429 RATE_LIMITED(비용 남용 방지)
+    stt_rate_limit_per_minute: int = 10
 
     # BFF(Next)가 붙이는 X-Internal-Secret 값. local에서 비우면 확인하지 않습니다.
     internal_api_secret: str = ""

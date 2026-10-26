@@ -16,7 +16,7 @@ router = APIRouter(prefix="/accounts/{persona_id}", tags=["messages"])
     responses=error_responses(401, 404, 413, 415, 429, 503),
 )
 def create_transcription(
-    _: CurrentAccount, file: Annotated[UploadFile, File()]
+    account: CurrentAccount, file: Annotated[UploadFile, File()]
 ) -> TranscriptionRead:
     """녹음(webm·ogg·m4a·mp3·wav, 4MB까지)을 받아 글로 돌려줍니다. 녹음은 저장하지 않습니다.
 
@@ -25,4 +25,4 @@ def create_transcription(
     형식이 아니면 415 UNSUPPORTED_FILE, 너무 크면 413 FILE_TOO_LARGE,
     음성 인식 모델이 없거나 실패하면 503 LLM_UNAVAILABLE입니다.
     """
-    return transcription_service.transcribe(file.file)
+    return transcription_service.transcribe(account.user_id, file.file)
