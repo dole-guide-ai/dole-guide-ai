@@ -1,6 +1,6 @@
 'use client';
 
-import { type ReactNode, useState } from 'react';
+import { type ReactNode, useEffect, useRef, useState } from 'react';
 
 import { MessageSquareText, PencilLine } from 'lucide-react';
 
@@ -50,6 +50,9 @@ const evidenceText = (meta?: FieldMeta) => {
   return parts.join(' · ');
 };
 
+// 대화로 방금 바뀐 칸은 화면에 보이도록 스크롤하고 이 시간 동안 밝게 표시합니다.
+const HIGHLIGHT_MS = 2_000;
+
 const INPUT_CLASS =
   'border-line focus-visible:border-accent focus-visible:ring-brand min-w-40 flex-1 rounded-lg border px-3 py-1.5 text-base focus-visible:ring-3 focus-visible:outline-hidden';
 
@@ -72,6 +75,20 @@ export const FieldRow = ({
   const [draft, setDraft] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  // 대화·직접 입력으로 방금 바뀐 값(updatedAt이 있음)이면 그 칸으로 스크롤하고 잠깐 표시합니다.
+  // 처음 불러온 값에는 updatedAt이 없습니다. 표시는 시간이 지나면 끕니다(fadedAt).
+  const [fadedAt, setFadedAt] = useState<number | null>(null);
+  const rowRef = useRef<HTMLDivElement>(null);
+  const updatedAt = meta?.updatedAt;
+  const isHighlighted = !!updatedAt && fadedAt !== updatedAt;
+
+  useEffect(() => {
+    if (!updatedAt) return;
+    // 테스트 환경(jsdom)에는 scrollIntoView가 없습니다.
+    rowRef.current?.scrollIntoView?.({ block: 'center', behavior: 'smooth' });
+    const timer = window.setTimeout(() => setFadedAt(updatedAt), HIGHLIGHT_MS);
+    return () => window.clearTimeout(timer);
+  }, [updatedAt]);
 
   const isEmpty = value === null || value === undefined || value === '';
   // 값은 있는데 저장 상태가 없는 칸(예: 직종 이름)은 '아직 없음' 칩을 달지 않습니다 (PPT 점검 N1).
@@ -106,7 +123,8 @@ export const FieldRow = ({
 
   return (
     <div
-      className={`flex flex-col gap-1 py-2.5 ${isMissingRequired ? 'border-warn -ml-3 border-l-3 pl-2.5' : ''}`}
+      ref={rowRef}
+      className={`flex flex-col gap-1 rounded-lg py-2.5 transition-colors duration-700 ${isMissingRequired ? 'border-warn -ml-3 border-l-3 pl-2.5' : ''} ${isHighlighted ? 'bg-brand-soft' : ''}`}
     >
       <div className="flex min-h-9 flex-wrap items-center gap-x-3 gap-y-1">
         <dt className="text-neutral w-28 shrink-0 text-sm font-medium">

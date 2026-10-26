@@ -71,11 +71,15 @@ const toList = (text: string) =>
 
 const toYesNo = (text: string) => text === '예';
 
+// 희망임금은 원 단위로 저장합니다(대화·seed와 같음). 화면과 직접 입력은 만원으로 보여 주고 받습니다.
+const WON_PER_MANWON = 10_000;
 const toMonthlyWage = (text: string) => ({
-  amount: Number(text),
+  amount: Number(text) * WON_PER_MANWON,
   unit: 'monthly',
+  currency: 'KRW',
   negotiable: false,
 });
+const toManwon = (amount: number) => Math.round(amount / WON_PER_MANWON);
 
 const firstEducation = (level: string): ResumeEducation[] => [
   {
@@ -175,7 +179,7 @@ export const ResumePanel = ({
   const salaryText = salary?.negotiable
     ? '면접 후 결정'
     : salary?.amount
-      ? `월 ${salary.amount}만원 이상`
+      ? `월 ${toManwon(salary.amount).toLocaleString('ko-KR')}만원`
       : null;
 
   const done = {
@@ -382,7 +386,7 @@ export const ResumePanel = ({
         <FieldRow
           label="희망임금"
           value={salaryText}
-          rawValue={salary?.amount ? String(salary.amount) : null}
+          rawValue={salary?.amount ? String(toManwon(salary.amount)) : null}
           meta={fields['job_preferences.desired_salary']}
           isRequired
           onEdit={edit('희망 임금')}

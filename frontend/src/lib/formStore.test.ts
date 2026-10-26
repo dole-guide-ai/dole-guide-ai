@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { applyFormUpdate, getFormDrafts, resetForms, toStoreUpdate } from '@/lib/formStore';
+import type { Completeness } from '@/types/chat.types';
 
 describe('formStore', () => {
   beforeEach(() => resetForms());
@@ -48,7 +49,7 @@ describe('formStore', () => {
     applyFormUpdate({ form: 'resume', path: 'resume_title', op: 'set', status: 'confirmed' });
 
     expect(getFormDrafts().resume.values).toEqual({ resume_title: '제목' });
-    expect(getFormDrafts().resume.fields.resume_title).toEqual({ status: 'confirmed' });
+    expect(getFormDrafts().resume.fields.resume_title).toMatchObject({ status: 'confirmed' });
   });
 
   it('remove는 값과 칸 상태를 같이 지우고 다른 양식은 건드리지 않는다', () => {
@@ -82,4 +83,17 @@ describe('toStoreUpdate', () => {
     expect(toStoreUpdate('careers', 'append')).toEqual({ path: 'careers', op: 'append' });
     expect(toStoreUpdate('hope_wage', 'set')).toEqual({ path: 'hope_wage', op: 'set' });
   });
+});
+
+it('이벤트의 완성도 {filled, total}을 패널 모양 {done, total}로 바꿔 둔다', () => {
+  resetForms();
+  applyFormUpdate({
+    form: 'resume',
+    path: '/resume_title',
+    op: 'replace',
+    value: '물류 경력 이력서',
+    status: 'confirmed',
+    completeness: { filled: 2, total: 5 } as unknown as Completeness,
+  });
+  expect(getFormDrafts().resume.completeness).toEqual({ done: 2, total: 5 });
 });

@@ -99,6 +99,15 @@ const push = (state: ChatState, message: Omit<ChatMessage, 'id'>): ChatState => 
   nextId: state.nextId + 1,
 });
 
+const restoredMessages = (
+  history: ChatMessage[],
+  entry: ChatMessage[],
+  pending: boolean,
+): ChatMessage[] => {
+  const question = pending ? history.at(-1) : undefined;
+  return [...history, ...entry, ...(question ? [{ ...question, id: `${question.id}-again` }] : [])];
+};
+
 export const chatReducer = (state: ChatState, action: ChatAction): ChatState => {
   switch (action.type) {
     case CHAT_ACTIONS.RESET:
@@ -111,8 +120,10 @@ export const chatReducer = (state: ChatState, action: ChatAction): ChatState => 
       }
       return {
         ...state,
-        messages: action.messages,
-        choices: action.pendingAsk?.choices ?? [],
+        // 지난 대화 뒤에 지금 상황 안내(다시 오셨네요 + 브리핑)를 붙이고, 답을 기다리던 질문이
+        // 있으면 그 질문을 마지막에 한 번 더 보여 줍니다.
+        messages: restoredMessages(action.messages, state.messages, !!action.pendingAsk),
+        choices: action.pendingAsk?.choices ?? state.choices,
         // 멈춘 질문이 있으면 마지막 말풍선이 그 질문입니다.
         question: action.pendingAsk ? (action.messages.at(-1)?.text ?? null) : null,
         importKind: action.pendingAsk?.import_kind ?? null,

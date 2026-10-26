@@ -81,16 +81,17 @@ describe('chatReducer', () => {
     expect(state.messages.map((m) => m.role)).toEqual(['assistant', 'assistant', 'user', 'system']);
   });
 
-  it('restore는 저장된 대화로 말풍선을 바꾸되, 이미 이어 간 대화는 덮지 않는다 (F-03)', () => {
+  it('restore는 저장된 대화 뒤에 지금 상황 안내를 붙이되, 이미 이어 간 대화는 덮지 않는다 (F-03)', () => {
     const saved = [
       { id: 'h-1', role: 'user' as const, text: '오늘 면접 봤어요' },
       { id: 'h-2', role: 'assistant' as const, text: '어떤 활동이었어요?' },
     ];
+    const entry = initChatState(sessionFor('lee'));
 
     const answered = run([{ type: 'restore', messages: saved, pendingAsk: null }]);
-    expect(answered.messages).toEqual(saved);
-    // 답을 마친 대화면 진입 선택지를 지웁니다
-    expect(answered.choices).toEqual([]);
+    // 지난 대화 → 다시 들어온 지금 상황(첫 안내)
+    expect(answered.messages).toEqual([...saved, ...entry.messages]);
+    expect(answered.choices).toEqual(entry.choices);
     const waiting = run([
       {
         type: 'restore',
@@ -103,6 +104,9 @@ describe('chatReducer', () => {
       },
     ]);
     expect(waiting.choices).toEqual(['고를게요']);
+    // 답을 기다리던 질문은 안내 뒤에 한 번 더 보여 줍니다.
+    expect(waiting.messages.at(-1)?.text).toBe('어떤 활동이었어요?');
+    expect(waiting.question).toBe('어떤 활동이었어요?');
     expect(waiting.importKind).toBe('work24-activities');
     expect(waiting.acceptsFile).toBe(true);
     expect(answered.acceptsFile).toBe(false);
