@@ -87,7 +87,8 @@ class Settings(BaseSettings):
     # 첫 말은 바꾸지 않습니다(혼자 쓴 구어 질문은 바꾸면 오히려 덜 찾았음).
     retrieval_rewrite: bool = False
     # 재정렬: 후보를 넉넉히 찾아 extract 모델이 질문에 필요한 카드를 고름(extract 호출 +1).
-    retrieval_rerank: bool = False
+    # 골든셋 근거 영역 4회 평균 96.25 → 98.75(같은 회차끼리 비교해 4번 모두 같거나 높음).
+    retrieval_rerank: bool = True
     retrieval_rerank_candidates: int = 20
     # 답 검사(6단계): 근거에 없는 숫자·근거를 넘는 단정이 든 문장을 뺌. 효과를 견줄 때만 끕니다.
     answer_check: bool = True
