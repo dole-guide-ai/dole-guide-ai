@@ -23,7 +23,7 @@ class AgentResult:
     next_action: str | None = None  # schema.NEXT_ACTIONS 중 하나
     # 결과 데이터. 경로 이름은 프론트 타입과 같습니다: derived(DerivedState)
     # · round(RoundCheckRead) · resume(ResumeValues) · activities(RoundActivity[])
-    # · recognition(RecognitionFormRead)
+    # · recognition(RecognitionFormRead) · procedure(stage·education_done)
     data: dict[str, Any] = field(default_factory=dict)
     # 대화 전 데이터('변경금지' 비교 기준). 비우면 문항 입력의 data와 비교합니다.
     initial_data: dict[str, Any] | None = None

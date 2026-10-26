@@ -19,9 +19,11 @@ from app.repositories import accounts as account_repo
 from app.rules import periods
 from app.rules.activity_table import load_rules, required_evidence
 from app.rules.entry_text import ONLINE_PRESUBMIT_MAX_AGE
+from app.schemas.common import FieldStatus
 from app.schemas.files import FilePurpose
 from app.schemas.messages import MessageCreate
 from app.schemas.procedure import Stage
+from app.schemas.resume import ResumeStatus
 from app.services import accounts as account_service
 from app.services import activities as activity_service
 from app.services import application as application_service
@@ -30,6 +32,7 @@ from app.services import files as files_service
 from app.services import resume as resume_service
 from app.services import rounds as round_service
 from app.services.accounts import AccountContext
+from app.services.entry import ResumeState
 from app.services.visitors import authenticate, create_visitor
 from evals.golden.adapter import AgentResult
 from evals.golden.schema import FILES_DIR
@@ -37,7 +40,12 @@ from evals.golden.schema import FILES_DIR
 # 문항 상태값에 없는 값. 결과에 영향이 없도록 시연 계정과 비슷한 값으로 둡니다.
 INSURED_YEARS = 10.0
 RECOGNITION_INTERVAL_DAYS = 28
-EVAL_PROFILE = {"name": "평가계정"}
+# 계정 이름. 시연 계정은 합성 서류(경력증명서 등)에 적힌 이름과 같게 두어, 서류의 이름이
+# 본인과 다른지 확인하는 동작을 평가할 수 있게 합니다. 나머지는 서류와 겹치지 않는 이름입니다.
+PERSONA_NAMES = {"park": "박진수", "park2": "박진수", "choi": "최영수", "lee": "이정호"}
+DEFAULT_NAME = "평가계정"
+# 골든셋 상태값 resume_status에서 이력서가 없다는 값(나머지는 ResumeState와 같음)
+NO_RESUME = "none"
 
 
 def run_case(db: Session, case: dict[str, Any]) -> AgentResult:
@@ -126,7 +134,7 @@ def _seed(case_input: dict[str, Any], today: date) -> dict[str, Any]:
         state["age_at_separation"], state["has_disability"], state["recipient_type"] == "repeat"
     )
     seed: dict[str, Any] = {
-        "profile": EVAL_PROFILE,
+        "profile": {"name": PERSONA_NAMES.get(case_input["persona"], DEFAULT_NAME)},
         "procedure": {
             "stage": state["stage"],
             "recipient_group": group,
@@ -158,7 +166,7 @@ def _seed(case_input: dict[str, Any], today: date) -> dict[str, Any]:
 
 def _seed_resume(resume: dict[str, Any], status: str) -> dict[str, Any] | None:
     """프론트 모양(competencies.careers) → seed 모양(careers). 이력서가 없으면 None."""
-    if status == "none":
+    if status == NO_RESUME:
         return None
     competencies = resume["competencies"]
     data = {
@@ -168,12 +176,19 @@ def _seed_resume(resume: dict[str, Any], status: str) -> dict[str, Any] | None:
         "careers": _with_ids(competencies["careers"], "career"),
         "certifications": _with_ids(competencies["certifications"], "cert"),
     }
-    # outdated = 퇴사 전에 저장한 이력서. 저장일을 아주 예전으로 둡니다.
-    saved_offset = -3650 if status == "outdated" else -1
+    # draft = 쓰다 만 이력서(저장일 없음).
+    # outdated = 퇴사 전에 저장한 이력서라 저장일을 아주 예전으로 둡니다.
+    if status == ResumeState.DRAFT:
+        return {
+            "status": ResumeStatus.DRAFT.value,
+            "field_status": FieldStatus.CONFIRMED.value,
+            "data": data,
+        }
+    saved_offset = -3650 if status == ResumeState.OUTDATED else -1
     return {
-        "status": "saved",
+        "status": ResumeStatus.SAVED.value,
         "saved_offset": saved_offset,
-        "field_status": "confirmed",
+        "field_status": FieldStatus.CONFIRMED.value,
         "data": data,
     }
 
@@ -204,6 +219,8 @@ def _snapshot(db: Session, account: AccountContext, today: date, now: datetime) 
     procedure = account_service.read_procedure(db, account.user_id, today)
     data: dict[str, Any] = {
         "resume": values,
+        # 절차 상태: 대화로 교육 이수 등을 알렸을 때 단계가 넘어가는지 봅니다.
+        "procedure": {"stage": str(procedure.stage), "education_done": procedure.education_done},
         "activities": [_activity(a.model_dump(mode="json")) for a in activities.items],
         "derived": {
             "rule_group": procedure.recipient_group,
