@@ -40,13 +40,23 @@ def get_guard_model() -> BaseChatModel | None:
     )
 
 
-def get_embeddings() -> Embeddings:
-    """문서·질문 임베딩. 질문용 모델이 따로 지정되면 질문만 그 모델로 보냅니다."""
+def get_embeddings(
+    provider: Provider | None = None, model: str | None = None, query_model: str | None = None
+) -> Embeddings:
+    """문서·질문 임베딩. 질문용 모델이 따로 지정되면 질문만 그 모델로 보냅니다.
+
+    인자를 비우면 설정(EMBEDDING_*)을 씁니다. 비교 실험(RAG 7.2)은 인자로 다른 모델을 넘깁니다.
+    """
     settings = get_settings()
-    provider = settings.embedding_provider
-    documents = _embeddings(provider, settings.embedding_model)
-    query_model = settings.embedding_query_model
-    if not query_model or query_model == settings.embedding_model:
+    provider = provider or settings.embedding_provider
+    model = model or settings.embedding_model
+    query_model = (
+        query_model
+        if model != settings.embedding_model
+        else (query_model or settings.embedding_query_model)
+    )
+    documents = _embeddings(provider, model)
+    if not query_model or query_model == model:
         return documents
     return _SplitEmbeddings(documents, _embeddings(provider, query_model))
 

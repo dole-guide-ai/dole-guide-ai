@@ -121,7 +121,11 @@ def _stream(text: str) -> None:
 def verify(state: AgentState, config: RunnableConfig) -> dict[str, Any]:
     notes = state.get("notes", [])
     reply = state.get("reply") or ""
-    if not state.get("fixed"):
+    if state.get("guide_not_found") and not state.get("sources"):
+        # 근거 자료를 찾지 못했으면 규칙 설명을 지어내지 않고 고정 답으로 (RAG 7.7)
+        reply = replies.reply("not_found")
+        emit(ToolCallEvent(name=COMPOSE_REPLY, status=FINISHED))
+    elif not state.get("fixed"):
         issues = problems(reply, state)
         if issues:
             reply = _regenerate(state, issues)

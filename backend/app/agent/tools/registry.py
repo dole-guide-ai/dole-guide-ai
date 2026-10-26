@@ -16,6 +16,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
+from app.agent.guard import check_input
 from app.agent.tools import guide
 from app.core.db import deferred_commit
 from app.schemas.activities import ActivityCreate, ActivityRoute
@@ -24,6 +25,7 @@ from app.schemas.resume import FieldWrite
 from app.services import activities as activity_service
 from app.services import application as application_service
 from app.services import imports as import_service
+from app.services import knowledge as knowledge_service
 from app.services import recommendations as recommendation_service
 from app.services import resume as resume_service
 from app.services import rounds as round_service
@@ -120,6 +122,10 @@ class SearchTrainingsInput(BaseModel):
 
 class SearchProgramsInput(BaseModel):
     start: date | None = None
+
+
+class SearchGuideInput(BaseModel):
+    query: str = Field(min_length=2, max_length=200, description="규칙·절차·제도 질문")
 
 
 class LookupCodeInput(BaseModel):
@@ -223,6 +229,16 @@ def _programs(ctx: ToolContext, args: SearchProgramsInput) -> dict[str, Any]:
     return _dump(training_service.search_programs(args.start, ctx.now))
 
 
+def _search_guide(ctx: ToolContext, args: SearchGuideInput) -> dict[str, Any]:
+    """RAG 근거 검색. 지시가 숨어 있는 자료는 빼고(간접 주입 방지), 없으면 not_found."""
+    chunks = [
+        c
+        for c in knowledge_service.search(ctx.db, args.query)
+        if not check_input(c["text"]).blocked
+    ]
+    return {"chunks": chunks, "not_found": not chunks}
+
+
 def _lookup_code(ctx: ToolContext, args: LookupCodeInput) -> dict[str, Any]:
     """고용24 공통코드 후보 3개. 저장된 기준표(JSON)에서 찾고 API는 부르지 않습니다."""
     candidates = work24_codes.lookup_code(args.kind, args.text)
@@ -283,6 +299,12 @@ TOOLS: dict[str, Tool] = {
             _programs,
         ),
         Tool("answer_overview", "전체 순서 4단계 고정 안내(LLM 없이)", NoInput, _overview),
+        Tool(
+            "search_guide",
+            "실업급여 규칙·절차·제도를 고용24 정책·1350 FAQ에서 찾기 (근거 줄)",
+            SearchGuideInput,
+            _search_guide,
+        ),
         Tool(
             "lookup_code",
             "말한 직종·지역 이름으로 고용24 공통코드 후보 3개 찾기",

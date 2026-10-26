@@ -87,6 +87,18 @@ class Settings(BaseSettings):
     # 대화 에이전트 (노션 「AI 설계」 2-4: agent ⇄ tools 왕복 상한, 2-3: 기억할 최근 대화 수)
     agent_max_tool_rounds: int = 4
     agent_history_messages: int = 12
+    # RAG 근거 검색 (노션 「RAG 설계 (복사본)」 4.2 · 7.4 · 7.7). 값은 평가로 조정합니다.
+    rag_bm25_top_k: int = 20
+    rag_vector_top_k: int = 20
+    rag_rrf_k: int = 60
+    rag_result_top_n: int = 5
+    # '찾지 못함' 기준: 벡터 코사인 유사도 / 벡터가 없을 때 첫 자료가 질문 낱말을 덮는 비율
+    rag_min_similarity: float = 0.3
+    rag_min_bm25_coverage: float = 0.6
+    # 리랭커는 CPU에서 느려 기본 끔. 켜려면 uv sync --extra rerank
+    reranker_enabled: bool = False
+    reranker_model: str = "BAAI/bge-reranker-v2-m3"
+    reranker_top_n: int = 20
     # 보안 가드 백엔드 (쉼표 목록, rules는 늘 켜짐): prompt_guard, llama_guard
     guard_backends: str = "rules"
     guard_block_threshold: float = 0.8

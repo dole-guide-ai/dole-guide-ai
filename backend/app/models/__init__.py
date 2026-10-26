@@ -6,6 +6,7 @@
 from app.models.activity import Activity
 from app.models.file import File, activity_files
 from app.models.idempotency_key import IdempotencyKey
+from app.models.knowledge import ChunkEmbedding, KnowledgeChunk
 from app.models.message import Message
 from app.models.persona import Persona
 from app.models.procedure_state import ProcedureState
@@ -19,8 +20,10 @@ from app.models.work24_import import Work24Import
 
 __all__ = [
     "Activity",
+    "ChunkEmbedding",
     "File",
     "IdempotencyKey",
+    "KnowledgeChunk",
     "Message",
     "Persona",
     "ProcedureState",

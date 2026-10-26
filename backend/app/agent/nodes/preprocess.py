@@ -48,6 +48,7 @@ def preprocess(state: AgentState, config: RunnableConfig) -> dict[str, Any]:
         "rounds": 0,
         "facts": [],
         "sources": [],
+        "guide_not_found": False,
         "reply": replies.reply("blocked") if blocked else None,
         "fixed": blocked,
         "cite": [],

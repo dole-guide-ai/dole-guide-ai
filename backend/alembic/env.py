@@ -7,6 +7,7 @@ from app import models  # noqa: F401
 from app.agent.checkpointer import CHECKPOINT_TABLES
 from app.core.config import get_settings
 from app.core.db import Base
+from app.models.knowledge import KNOWLEDGE_SCHEMA
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -30,6 +31,14 @@ def include_object(obj, name, type_, reflected, compare_to) -> bool:
     """모델에 없는 LangGraph 체크포인트 테이블을 autogenerate가 지우지 않게 뺍니다."""
     table = name if type_ == "table" else getattr(getattr(obj, "table", None), "name", None)
     return table not in CHECKPOINT_TABLES
+
+
+# 모델이 쓰는 스키마만 비교합니다 (기본 public + RAG 자료 knowledge).
+MODEL_SCHEMAS = {None, "public", KNOWLEDGE_SCHEMA}
+
+
+def include_name(name, type_, parent_names) -> bool:
+    return name in MODEL_SCHEMAS if type_ == "schema" else True
 
 
 # other values from the config, defined by the needs of env.py,
@@ -80,6 +89,8 @@ def run_migrations_online() -> None:
             connection=connection,
             target_metadata=target_metadata,
             include_object=include_object,
+            include_schemas=True,
+            include_name=include_name,
         )
 
         with context.begin_transaction():

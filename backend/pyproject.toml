@@ -5,9 +5,11 @@ description = "실업급여 도우미 AI 백엔드"
 requires-python = ">=3.14,<3.15"
 dependencies = [
     "alembic>=1.20.0",
+    "bm25s>=0.3.15",
     "cryptography>=50.0.2",
     "fastapi>=0.143.2",
     "holidays>=0.107",
+    "kiwipiepy>=0.24.1",
     "langchain>=1.4.6",
     "langchain-openai>=1.7.2",
     "langgraph>=1.2.15",
@@ -24,6 +26,15 @@ dependencies = [
     "sqlalchemy>=2.0,<2.1",
     "sse-starlette>=3.5.0",
     "uvicorn[standard]>=0.54.0",
+]
+
+[project.optional-dependencies]
+guard = [
+    "torch>=2.14.1",
+    "transformers>=5.17.0",
+]
+rerank = [
+    "sentence-transformers>=6.2.0",
 ]
 
 [dependency-groups]

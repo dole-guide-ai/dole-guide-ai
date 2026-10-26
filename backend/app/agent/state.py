@@ -42,6 +42,7 @@ class AgentState(TypedDict, total=False):
     rounds: int  # 이번 턴 도구 바퀴 수
     facts: list[str]  # 도구 결과 글 (verify가 숫자·날짜를 대조)
     sources: list[dict[str, Any]]  # search_guide 결과 청크
+    guide_not_found: bool  # search_guide가 찾지 못함 (지어낸 답 대신 고정 답)
     reply: str | None  # verify 전 답 문장
     fixed: bool  # 고정 경로(LLM 없이 만든 답) — verify를 건너뜀
     cite: list[dict[str, Any]]

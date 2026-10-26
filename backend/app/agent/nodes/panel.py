@@ -125,6 +125,7 @@ def make_tools(panel: Panel) -> Callable[[AgentState, RunnableConfig], dict[str,
         facts = list(state.get("facts", []))
         sources = list(state.get("sources", []))
         answer = scratch[-1]
+        not_found = state.get("guide_not_found", False)
         for call in getattr(answer, "tool_calls", []):
             name = call["name"]
             emit(ToolCallEvent(name=name, status=STARTED))
@@ -139,6 +140,8 @@ def make_tools(panel: Panel) -> Callable[[AgentState, RunnableConfig], dict[str,
             else:
                 for update in result.get("updates", []):
                     emit(FormUpdate.model_validate(update))
+                if name == SEARCH_GUIDE and result.get("not_found"):
+                    not_found = True
                 if name == SEARCH_GUIDE:
                     # 자료 번호 [n]은 턴 안에서 이어 붙입니다(여러 번 검색해도 겹치지 않게).
                     for chunk in result.get("chunks", []):
@@ -155,6 +158,7 @@ def make_tools(panel: Panel) -> Callable[[AgentState, RunnableConfig], dict[str,
             "rounds": state.get("rounds", 0) + 1,
             "facts": facts,
             "sources": sources,
+            "guide_not_found": not_found,
         }
 
     tools.__name__ = f"{panel}_tools"
