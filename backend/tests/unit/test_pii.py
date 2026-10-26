@@ -171,10 +171,22 @@ def test_password_is_masked_but_korean_words_are_kept():
         ("PW: Qwer!2345", "PW: [비밀번호]"),
         ("pwd='abc12345'", "pwd='[비밀번호]"),
         ("암호 = zxcv9876 이에요", "암호 = [비밀번호] 이에요"),
-        # 긴 숫자·이메일 모양이 섞여도 일부만 가려지지 않고 통째로 가림
-        ("비번 12345678901234 이에요", "비번 [비밀번호] 이에요"),
+        # 긴 숫자·이메일 모양이 섞여도 일부만 가려지지 않고 통째로 가림.
+        # 계좌번호 모양(등급 0)이면 차단이 풀리지 않게 그 종류가 이김
+        ("비번 12345678901234 이에요", "비번 [계좌번호] 이에요"),
         ("비밀번호는 me@x.co12 입니다", "비밀번호는 [비밀번호] 입니다"),
     ],
 )
 def test_password_variants_are_masked_whole(text: str, expected: str):
     assert mask(text)[0] == expected
+
+
+def test_rrn_given_as_password_still_blocks():
+    # 비밀번호 자리에 주민번호를 넣어도 등급 0 차단이 풀리지 않아야 함 (보안 검토)
+    text = "비밀번호 900101-1234567 이에요"
+    assert has_blocking(text)
+    assert mask(text)[0] == "비밀번호 [주민번호] 이에요"
+
+
+def test_pw_cue_only_as_whole_word():
+    assert mask("upward1234 방향")[0] == "upward1234 방향"

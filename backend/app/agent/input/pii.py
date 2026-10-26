@@ -76,7 +76,8 @@ _NAME_AFTER_BIRTH = re.compile(
 )
 # 비밀번호 단서 뒤의 영문·숫자·기호 덩어리("비밀번호가 bokja123!인데"). 한글 말은 건드리지 않습니다.
 _SECRET = re.compile(
-    r"(?:비밀\s*번호|비번|암호|패스워드|password|passwd|pwd|pw)\s*(?:은|는|가|이|[:=：])?\s*['\"]?"
+    r"(?:비밀\s*번호|비번|암호|패스워드|(?<![A-Za-z])(?:password|passwd|pwd|pw)(?![A-Za-z]))"
+    r"\s*(?:은|는|가|이|[:=：])?\s*['\"]?"
     r"([!-~]{4,})",
     re.IGNORECASE,
 )
@@ -136,9 +137,6 @@ def _add_accounts(text: str, found: list[Finding], groups: int | None = None) ->
 def detect(text: str) -> list[Finding]:
     """찾은 개인정보의 종류·위치. 먼저 찾은 등급 0이 이기고, 같은 자리는 한 번만 셉니다."""
     found: list[Finding] = []
-    # 비밀번호는 맨 먼저 찾습니다. 숫자·이메일 모양이 섞여 있어도 다른 패턴이 일부만 가리지 않고
-    # 통째로 가립니다.
-    found += [Finding(PiiKind.SECRET, m.start(1), m.end(1)) for m in _SECRET.finditer(text)]
     # 이메일을 먼저 찾아야 주소 안의 숫자만 가려지고 주소 일부가 남는 일이 없습니다.
     # 두 패턴이 겹치면 긴 쪽("홍길동foo@ex.com" 전체)을 골라 한글 부분이 남지 않게 합니다.
     emails = [m.span() for p in (_EMAIL, _EMAIL_UNICODE) for m in p.finditer(text)]
@@ -161,7 +159,23 @@ def detect(text: str) -> list[Finding]:
             found.append(Finding(PiiKind.PHONE, m.start(), m.end()))
     _add_accounts(text, found)
     _add_extra(text, found)
+    _add_secrets(text, found)
     return sorted(found, key=lambda f: f.start)
+
+
+def _add_secrets(text: str, found: list[Finding]) -> None:
+    """비밀번호 자리를 가립니다. 다른 패턴이 그 안의 일부(숫자·이메일 모양)만 찾았으면 두 자리를
+    합쳐 통째로 가리고, 겹친 것 중 등급 0(주민번호 등)이 있으면 그 종류를 남겨 차단이 풀리지 않게
+    합니다."""
+    for m in _SECRET.finditer(text):
+        start, end = m.span(1)
+        inside = [f for f in found if f.start < end and start < f.end]
+        for f in inside:
+            found.remove(f)
+        blocking = next((f.kind for f in inside if f.blocking), None)
+        start = min([start, *(f.start for f in inside)])
+        end = max([end, *(f.end for f in inside)])
+        found.append(Finding(blocking or PiiKind.SECRET, start, end))
 
 
 def _is_date_time(text: str) -> bool:
