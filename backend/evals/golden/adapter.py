@@ -38,10 +38,8 @@ def run_agent(case: dict[str, Any], db: Session) -> AgentResult:
 
     case["input"]: persona, state(합친 상태값), data(시작 데이터),
     messages(턴별 말), files(첨부 이름).
-    첨부 파일 경로는 schema.FILES_DIR / 이름. 그래프 호출은 서비스 함수를 거쳐 주세요.
+    첨부 파일 경로는 schema.FILES_DIR / 이름. 러너가 계정에 올려 첫 말에 붙입니다.
     """
-    if case["input"]["files"]:
-        raise AgentNotReadyError("첨부 파일 입력은 아직 연결 전이라 건너뜀")
     from evals.golden.runner import run_case  # noqa: PLC0415 - runner가 AgentResult를 import
 
     return run_case(db, case)
