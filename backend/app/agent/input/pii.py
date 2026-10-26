@@ -28,6 +28,7 @@ class PiiKind(StrEnum):
     PHONE = "phone"
     EMAIL = "email"
     NAME = "name"  # 자기소개 말투의 이름만
+    SECRET = "secret"  # 비밀번호(로그인을 대신 해 달라는 말 등)
     NUMBER = "number"  # 주민번호·카드 모양인데 검증에 떨어진 긴 숫자 (가리되 차단 등급은 아님)
 
 
@@ -40,6 +41,7 @@ TOKENS = {
     PiiKind.PHONE: "[전화]",
     PiiKind.EMAIL: "[이메일]",
     PiiKind.NAME: "[이름]",
+    PiiKind.SECRET: "[비밀번호]",
     PiiKind.NUMBER: "[번호]",
 }
 
@@ -67,6 +69,20 @@ _BACK7 = re.compile(r"(?<!\d)([1-8])\d{6}(?!\d)")
 # "몰라요"처럼 요·다로 끝나는 말은 이름이 아니라서 뺍니다.
 _NAME = re.compile(
     r"(?:이름은|이름이)\s*([가-힣]{2,4})(?<![요다죠까네])(?=\s*(?:이에요|예요|입니다|이고|이요|[.,!]|$))"
+)
+# 생년 바로 뒤에 말한 이름("1965년생 박말순이에요"). 단서가 분명한 '년생' 뒤만 봅니다.
+_NAME_AFTER_BIRTH = re.compile(
+    r"\d{2,4}\s*년생\s*([가-힣]{2,4})(?<![요다죠까네])(?=\s*(?:이에요|예요|입니다|이고|이요|[.,!]|$))"
+)
+# 비밀번호 단서 뒤의 영문·숫자·기호 덩어리("비밀번호가 bokja123!인데"). 한글 말은 건드리지 않습니다.
+_SECRET = re.compile(
+    # 긴 영어 단서(mypassword·passwords 등)는 앞뒤 글자와 상관없이, 짧은 pw는 단어 전체이거나
+    # 바로 뒤에 :·=가 올 때만 봅니다("upward1234" 같은 말은 건드리지 않음).
+    r"(?:비밀\s*번호|비번|암호|패스워드|(?:password|passwd|pwd)s?"
+    r"|(?<![A-Za-z])pw(?![A-Za-z])|pw(?=\s*[:=：]))"
+    r"\s*(?:은|는|가|이|[:=：])?\s*['\"]?"
+    r"([!-~]{4,})",
+    re.IGNORECASE,
 )
 _ACCOUNT_DIGITS = range(10, 15)
 
@@ -146,7 +162,23 @@ def detect(text: str) -> list[Finding]:
             found.append(Finding(PiiKind.PHONE, m.start(), m.end()))
     _add_accounts(text, found)
     _add_extra(text, found)
+    _add_secrets(text, found)
     return sorted(found, key=lambda f: f.start)
+
+
+def _add_secrets(text: str, found: list[Finding]) -> None:
+    """비밀번호 자리를 가립니다. 다른 패턴이 그 안의 일부(숫자·이메일 모양)만 찾았으면 두 자리를
+    합쳐 통째로 가리고, 겹친 것 중 등급 0(주민번호 등)이 있으면 그 종류를 남겨 차단이 풀리지 않게
+    합니다."""
+    for m in _SECRET.finditer(text):
+        start, end = m.span(1)
+        inside = [f for f in found if f.start < end and start < f.end]
+        for f in inside:
+            found.remove(f)
+        blocking = next((f.kind for f in inside if f.blocking), None)
+        start = min([start, *(f.start for f in inside)])
+        end = max([end, *(f.end for f in inside)])
+        found.append(Finding(blocking or PiiKind.SECRET, start, end))
 
 
 def _is_date_time(text: str) -> bool:
@@ -222,9 +254,10 @@ def _add_extra(text: str, found: list[Finding]) -> None:
             shaped = _RRN.fullmatch(text[start:end]) or _CARD.fullmatch(text[start:end])
             kind = PiiKind.NUMBER if shaped else PiiKind.ACCOUNT
             found.append(Finding(kind, start, end))
-    for m in _NAME.finditer(text):
-        if not _overlaps(found, m.start(1), m.end(1)):
-            found.append(Finding(PiiKind.NAME, m.start(1), m.end(1)))
+    for pattern, kind in ((_NAME, PiiKind.NAME), (_NAME_AFTER_BIRTH, PiiKind.NAME)):
+        for m in pattern.finditer(text):
+            if not _overlaps(found, m.start(1), m.end(1)):
+                found.append(Finding(kind, m.start(1), m.end(1)))
 
 
 def mask(text: str) -> tuple[str, list[Finding]]:

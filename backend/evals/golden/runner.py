@@ -6,26 +6,33 @@
 DB는 테스트 트랜잭션 안에서만 쓰고 끝나면 롤백합니다(`db_session` 픽스처).
 """
 
+import shutil
 from datetime import date, datetime, time
+from pathlib import Path
 from typing import Any
 
 from sqlalchemy.orm import Session
 
 from app.core.clock import KST
+from app.core.config import get_settings
 from app.repositories import accounts as account_repo
 from app.rules import periods
 from app.rules.activity_table import load_rules, required_evidence
 from app.rules.entry_text import ONLINE_PRESUBMIT_MAX_AGE
+from app.schemas.files import FilePurpose
 from app.schemas.messages import MessageCreate
+from app.schemas.procedure import Stage
 from app.services import accounts as account_service
 from app.services import activities as activity_service
 from app.services import application as application_service
 from app.services import chat as chat_service
+from app.services import files as files_service
 from app.services import resume as resume_service
 from app.services import rounds as round_service
 from app.services.accounts import AccountContext
 from app.services.visitors import authenticate, create_visitor
 from evals.golden.adapter import AgentResult
+from evals.golden.schema import FILES_DIR
 
 # 문항 상태값에 없는 값. 결과에 영향이 없도록 시연 계정과 비슷한 값으로 둡니다.
 INSURED_YEARS = 10.0
@@ -45,24 +52,46 @@ def run_case(db: Session, case: dict[str, Any]) -> AgentResult:
     replies: list[str] = []
     next_action: str | None = None
     cites: list[str] = []
-    for text in case_input["messages"]:
-        turn = chat_service.start_turn(db, account, MessageCreate(text=text), None, today)
-        events = list(turn.events())
-        turn.finish()
-        # 화면에 보이는 답 = 글자 + 되묻기 질문(ask_user). 질문만 하고 끝난 턴도 답이 있습니다.
-        replies.append(
-            "".join(e.data.text for e in events if e.name in ("token", "ask_user")).strip()
-        )
-        cites.extend(e.data.cite for e in events if e.name == "done" and e.data.cite)
-        next_action = next((e.data.next_action for e in events if e.name == "done"), next_action)
+    # 첨부는 화면처럼 먼저 올리고 첫 말에 붙입니다. 실물은 평가가 끝나면 지웁니다.
+    try:
+        file_ids = _upload_files(db, account, case_input["files"], state["stage"])
+        for text in case_input["messages"]:
+            message = MessageCreate(text=text, file_ids=file_ids)
+            file_ids = []
+            turn = chat_service.start_turn(db, account, message, None, today)
+            events = list(turn.events())
+            turn.finish()
+            # 화면에 보이는 답 = 글자 + 되묻기 질문(ask_user). 질문만 하고 끝난 턴도 답이 있습니다.
+            replies.append(
+                "".join(e.data.text for e in events if e.name in ("token", "ask_user")).strip()
+            )
+            cites.extend(e.data.cite for e in events if e.name == "done" and e.data.cite)
+            next_action = next(
+                (e.data.next_action for e in events if e.name == "done"), next_action
+            )
+        data = _snapshot(db, account, today, now)
+    finally:
+        shutil.rmtree(Path(get_settings().upload_dir) / str(account.user_id), ignore_errors=True)
 
     return AgentResult(
         replies=replies,
         next_action=next_action,
-        data=_snapshot(db, account, today, now),
+        data=data,
         initial_data=initial,
         cites=cites,
     )
+
+
+def _upload_files(db: Session, account: AccountContext, names: list[str], stage: str) -> list[str]:
+    """문항 첨부를 그 계정에 올립니다. 용도는 화면과 같이 구직등록 단계면 이력서 서류(판독 뒤 삭제),
+    그 뒤면 구직활동 증빙입니다(frontend useFileUpload.purposeForStage)."""
+    purpose = FilePurpose.RESUME_DOC if stage == Stage.JOB_REGISTRATION else FilePurpose.EVIDENCE
+    file_ids = []
+    for name in names:
+        with (FILES_DIR / name).open("rb") as stream:
+            created = files_service.upload(db, account, name, stream, purpose, None)
+        file_ids.append(created.file_id)
+    return file_ids
 
 
 def _enter(
@@ -196,6 +225,9 @@ def _snapshot(db: Session, account: AccountContext, today: date, now: datetime) 
         is_attendance_round=application.attendance_required,
         required=check.required,
         required_job_search=check.required_job_search,
+        # 화면의 D-day·대상기간 (DerivedState). 인정일 당일이면 0
+        d_day=(check.recognition_date - today).days,
+        period={"start": check.period_start.isoformat(), "end": check.period_end.isoformat()},
     )
     return data
 

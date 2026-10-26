@@ -17,6 +17,25 @@ from app.schemas.procedure import Stage
 
 WEEKDAYS = "월화수목금토일"
 DAYS_PER_WEEK = 7
+# 인정일 당일 인터넷 신청 마감과 놓쳤을 때 센터 방문 마감 (규칙표 DUE-092·093)
+ONLINE_DEADLINE = 17
+VISIT_DEADLINE = 18
+# 실업신고일부터 구직급여를 주지 않는 대기기간 (DUE-057)
+WAITING_DAYS = 7
+# 이직 당시 만 65세 이상은 인터넷 사전제출 대신 센터 방문 (PROC-048, 화면 안내 M1과 같은 단계)
+ONLINE_PRESUBMIT_MAX_AGE = 65
+PRESUBMIT_STAGES = (Stage.JOB_REGISTRATION, Stage.EDUCATION, Stage.ELIGIBILITY_APPLICATION)
+BEFORE_FIRST_ROUND = (*PRESUBMIT_STAGES, Stage.ELIGIBILITY_APPLIED)
+# 회차 점검의 활동 상태(schemas.rounds.ActivityStatus) 중 인정되지 않은 이유
+SAME_DAY = "same_day"
+OUT_OF_PERIOD = "out_of_period"
+# 1차 교육 방식 (ACT-020 일반: 센터 방문 · ACT-021·022 만 60세 이상·장애인: 온라인 또는 센터)
+GENERAL = "general"
+FIRST_ROUND_EDUCATION = {
+    GENERAL: "1차 실업인정일에는 고용센터에 직접 출석해 교육을 들어야 해요(인터넷 신청 아님).",
+    "age_60_64": "1차 교육은 온라인 또는 고용센터에서 들어요.",
+    "age65_or_disabled": "1차 교육은 온라인 또는 고용센터에서 들어요.",
+}
 # 사람 요약에 적는 최근 경력 수
 SUMMARY_CAREERS = 2
 
@@ -85,12 +104,85 @@ def round_lines(round_: dict[str, Any]) -> list[str]:
         else:
             need += " 필요한 건수는 채웠어요."
         lines.append(need)
+    job_search = round_.get("required_job_search") or 0
+    if job_search and not round_.get("job_search_only"):
+        lines.append(
+            f"그중 구직활동(입사지원·면접 등)이 {job_search}건 이상 있어야 해요. "
+            "취업특강·직업심리검사 같은 다른 활동만으로는 채울 수 없어요."
+        )
     if days := round_.get("interval_days"):
         span = f"{days // DAYS_PER_WEEK}주" if days % DAYS_PER_WEEK == 0 else f"{days}일"
         kind = "구직활동" if round_.get("job_search_only") else "활동"
         lines.append(f"이 회차는 {span}마다 {kind}을 1건씩 해야 해요.")
+    lines += not_counted_lines(round_.get("not_counted") or [], start, end)
     if round_.get("attendance_required"):
         lines.append(f"{n}차는 고용센터에 직접 출석하는 회차예요.")
+    else:
+        lines += deadline_lines(d_day, round_.get("now_time"))
+    return lines
+
+
+def not_counted_lines(items: list[dict[str, str]], start: date, end: date) -> list[str]:
+    """기록했지만 인정되지 않은 활동의 이유. 같은 날 1건(ACT-110), 대상기간 밖."""
+    lines = []
+    for item in items:
+        day = md(date.fromisoformat(item["date"]))
+        if item["status"] == SAME_DAY:
+            lines.append(
+                f"{day}에는 활동이 2건 이상이라 1건만 인정돼요(같은 날은 1건). "
+                "모자란 건수는 다른 날 해야 해요."
+            )
+        elif item["status"] == OUT_OF_PERIOD:
+            lines.append(
+                f"{day}에 한 활동은 이번 대상기간({md(start)}~{md(end)}) 밖이라 "
+                "이번 회차에 들어가지 않아요."
+            )
+    return lines
+
+
+def deadline_lines(d_day: int, now_time: str | None) -> list[str]:
+    """인터넷 실업인정 마감(DUE-092·093). 인정일 당일 마감이 지났으면 그 사실을 먼저.
+
+    18시(방문 마감)도 지났으면 이미 지난 마감을 안내하지 않고, 다음 절차는 관할 고용센터에
+    확인하라고 합니다(놓친 뒤의 절차는 규칙표에 없음).
+    """
+    rule = (
+        f"실업인정일 당일 인터넷 신청은 0시부터 {ONLINE_DEADLINE}시까지예요. "
+        f"{ONLINE_DEADLINE}시까지 못 보내면 그날 {VISIT_DEADLINE}시까지 고용센터에 가서 신청해요."
+    )
+    hour = int(now_time.split(":")[0]) if d_day == 0 and now_time else None
+    if hour is not None and hour >= VISIT_DEADLINE:
+        return [
+            f"지금은 {now_time}이라 오늘 인터넷 신청({ONLINE_DEADLINE}시)과 센터 방문 신청"
+            f"({VISIT_DEADLINE}시) 마감이 모두 지났어요. "
+            "다음 절차는 관할 고용센터에 확인해야 해요.",
+        ]
+    if hour is not None and hour >= ONLINE_DEADLINE:
+        return [
+            f"지금은 {now_time}이라 오늘 인터넷 신청 마감({ONLINE_DEADLINE}시)이 지났어요. "
+            f"{VISIT_DEADLINE}시까지 고용센터에 가서 신청해야 해요.",
+            rule,
+        ]
+    return [rule]
+
+
+def stage_rule_lines(
+    stage: str | None, *, age: int | None, group: str | None, round_no: int | None
+) -> list[str]:
+    """단계에 따라 미리 알아야 할 규칙: 65세 이상 방문 신청, 대기기간, 1차 교육."""
+    lines = []
+    if age is not None and age >= ONLINE_PRESUBMIT_MAX_AGE and stage in PRESUBMIT_STAGES:
+        lines.append(
+            f"이직 당시 만 {age}세라 수급자격 신청은 인터넷 사전제출 대신 "
+            "관할 고용센터에 방문해서 해요. 실업급여를 못 받는다는 뜻은 아니에요."
+        )
+    if stage in BEFORE_FIRST_ROUND:
+        lines.append(
+            f"수급자격을 신청하면 실업신고일부터 {WAITING_DAYS}일은 대기기간이라 "
+            "구직급여가 나오지 않아요."
+        )
+    if stage == Stage.ELIGIBILITY_APPLIED or round_no == 1:
+        lines.append(FIRST_ROUND_EDUCATION.get(group or "", FIRST_ROUND_EDUCATION[GENERAL]))
     return lines
 
 
@@ -181,6 +273,8 @@ def build_briefing(
     resume_question: ResumeQuestion | None = None,
     education_done: bool | None = None,
     person: list[str] | None = None,
+    age: int | None = None,
+    group: str | None = None,
 ) -> list[str]:
     """모델 입력 맨 앞에 둘 "지금 상황" 문장들. 사람 요약(person_lines)이 맨 앞에 옵니다."""
     lines: list[str] = list(person or [])
@@ -188,6 +282,8 @@ def build_briefing(
         lines.append(STAGE_TEXT[Stage(stage)])
     if stage == Stage.EDUCATION and education_done is False:
         lines.append("수급자격 신청자 교육을 아직 듣지 않았어요.")
+    round_no = round_["round"] if round_ else None
+    lines += stage_rule_lines(stage, age=age, group=group, round_no=round_no)
     if round_:
         lines += round_lines(round_)
     resume = resume_line(resume_question)

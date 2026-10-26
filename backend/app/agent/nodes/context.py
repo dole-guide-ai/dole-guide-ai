@@ -16,6 +16,7 @@ from app.rules.briefing import build_briefing, interval_days, person_lines, resu
 from app.rules.next_action import next_action
 from app.rules.rule_cards import GROUP_LABELS, Profile, cards_by_id, cards_for, search_cards
 from app.schemas.procedure import Stage
+from app.schemas.rounds import ActivityStatus
 from app.services import accounts as account_service
 from app.services import knowledge as knowledge_service
 from app.services import resume as resume_service
@@ -24,6 +25,8 @@ from app.services import rounds as round_service
 # 미리 붙이는 카드 수(lookup_rules가 돌려주는 수와 같게 해 두 방식을 같은 조건으로 비교)
 INJECT_LIMIT = 3
 COUNT_RULE_NOTE = "필요 건수는 rules의 이 수급자 유형·회차 카드를 따른다"
+# 브리핑이 "왜 인정되지 않았는지"를 설명하는 활동 상태
+NOT_COUNTED_REASONS = (ActivityStatus.SAME_DAY, ActivityStatus.OUT_OF_PERIOD)
 
 
 def load_context(state: AgentState, config: RunnableConfig) -> dict[str, Any]:
@@ -66,6 +69,14 @@ def load_context(state: AgentState, config: RunnableConfig) -> dict[str, Any]:
                 "counted": check.counted,
                 "remaining": check.remaining,
                 "remaining_job_search": check.remaining_job_search,
+                "required_job_search": check.required_job_search,
+                # 기록했지만 인정되지 않은 활동(같은 날·대상기간 밖)의 날짜와 이유
+                "not_counted": [
+                    {"date": a.activity_date.isoformat(), "status": a.status.value}
+                    for a in check.activities
+                    if a.status in NOT_COUNTED_REASONS
+                ],
+                "now_time": facts["now_time"],
                 "interval_days": interval_days(procedure.recipient_group, check.round),
                 "job_search_only": bool(check.required)
                 and check.required_job_search == check.required,
@@ -79,7 +90,13 @@ def load_context(state: AgentState, config: RunnableConfig) -> dict[str, Any]:
                 facts["round"] |= {"remaining": None, "remaining_job_search": None}
                 facts["round"]["count_rule"] = COUNT_RULE_NOTE
     question = resume_service.read_next_question(ctx.db, ctx.account)
-    action = next_action(facts["stage"], facts.get("round"))
+    facts["resume_ready"] = account_service.resume_ready(ctx.db, user_id, procedure)
+    action = next_action(
+        facts["stage"],
+        facts.get("round"),
+        resume_ready=facts["resume_ready"],
+        education_done=procedure.education_done,
+    )
     # 모델이 JSON을 해석하지 않아도 되게 코드가 결론을 문장으로 씁니다(rules/briefing).
     facts["briefing"] = build_briefing(
         facts["stage"],
@@ -87,6 +104,8 @@ def load_context(state: AgentState, config: RunnableConfig) -> dict[str, Any]:
         action=action,
         resume_question=question,
         education_done=procedure.education_done,
+        age=procedure.age_at_separation,
+        group=procedure.recipient_group,
         person=person_lines(
             age=procedure.age_at_separation,
             separation_date=procedure.separation_date,
