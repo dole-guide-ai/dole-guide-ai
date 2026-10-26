@@ -13,6 +13,7 @@ from pydantic import BaseModel
 
 from app.agent import gateway
 from app.agent.graph import AgentState
+from app.agent.nodes.preprocess import ATTACHMENT_OPEN
 from app.agent.prompts import load_prompt
 from app.schemas.procedure import Stage
 
@@ -37,8 +38,6 @@ _ROUND_WORDS = re.compile(
     r"지원했|입사 ?지원|지원 ?완료|지원서|면접|넣었|활동|회차|몇 ?번|몇 ?건|몇개|특강|박람회|"
     r"추천|채워|모자라|부족"
 )
-# preprocess가 첨부에서 읽은 글을 감싸는 표시. 단어 규칙은 사용자가 직접 한 말만 봅니다.
-_ATTACHMENT_START = "<첨부>"
 _APPLICATION_WORDS = re.compile(r"신청서|본인 ?답|소득|알바했|일했|취업했|취직했|일당")
 _RESUME_WORDS = re.compile(
     r"이력서|경력|다녔|일했어요|그만뒀|들어가|입사|퇴사|학교|졸업|자격증|희망|직종|지역|불러오"
@@ -60,7 +59,7 @@ def by_rules(text: str, stage: str | None) -> Panel | None:
     단계에서 올린 첨부는 구직활동 증빙이므로, 제도 질문·신청서·이력서 쪽 말이 아니면 회차 패널로
     보냅니다.
     """
-    text, attached, _ = text.partition(_ATTACHMENT_START)
+    text, attached, _ = text.partition(ATTACHMENT_OPEN)
     if (
         _QUESTION_END.search(text)
         and _POLICY_WORDS.search(text)
@@ -107,7 +106,7 @@ def route_turn(state: AgentState) -> dict[str, Any]:
     calls = state.get("model_calls", 0)
     if panel is None:
         # 모델 분류에도 첨부 속 글은 넣지 않습니다(서류 단어·문서 속 지시가 분류를 흔들지 않게).
-        said = text.partition(_ATTACHMENT_START)[0].strip()
+        said = text.partition(ATTACHMENT_OPEN)[0].strip()
         panel = by_model(said or ATTACHMENT_ONLY, facts)
         calls += 1
     return {"panel": panel.value, "model_calls": calls}
