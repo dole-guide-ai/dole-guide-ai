@@ -2,7 +2,7 @@
 다시 만듭니다. 서버는 이 스크립트를 쓰지 않고, 고용24 코드가 바뀌었을 때 사람이 돌립니다.
 
 사용: backend/에서 `uv run python scripts/fetch_work24_codes.py`
-(backend/.env에 WORK24_API_KEY 필요). 인증키는 출력·저장하지 않습니다.
+(backend/.env에 WORK24_CODE_API_KEY 필요). 인증키는 출력·저장하지 않습니다.
 원본 필드명(regionCd·jobsNm·superCd)은 여기서만 쓰고 JSON은 code·name·parent·depth로 둡니다.
 """
 
@@ -25,9 +25,9 @@ LEVELS = ("oneDepth", "twoDepth", "threeDepth")
 
 
 def fetch(dtl_gb: str, root_tag: str) -> ET.Element:
-    key = get_settings().work24_api_key
+    key = get_settings().work24_code_api_key
     if not key:
-        sys.exit("backend/.env에 WORK24_API_KEY를 넣어 주세요.")
+        sys.exit("backend/.env에 WORK24_CODE_API_KEY를 넣어 주세요.")
     params = {"authKey": key, "returnType": "XML", "target": "CMCD", "dtlGb": dtl_gb}
     res = httpx.get(URL, params=params, timeout=30)
     if res.is_error:  # raise_for_status 예외 메시지에는 키가 든 URL이 찍혀서 직접 처리

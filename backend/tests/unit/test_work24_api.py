@@ -71,3 +71,13 @@ def test_snapshot_applies_range_and_page(monkeypatch) -> None:
     assert later.total < everything.total
     assert all(p.schedule[:10] >= "2026-11-13" for p in later.items)
     assert second_page.items == [] and second_page.total == everything.total
+
+
+def test_each_api_uses_its_own_key(monkeypatch) -> None:
+    """고용24 인증키는 API마다 달라서, 호출마다 그 API의 키를 씁니다."""
+    settings = work24_api.get_settings()
+    monkeypatch.setattr(settings, "work24_training_api_key", "training-key")
+    monkeypatch.setattr(settings, "work24_program_api_key", "program-key")
+
+    assert work24_api._api_key(work24_api.TRAINING_URL) == "training-key"
+    assert work24_api._api_key(work24_api.PROGRAM_URL) == "program-key"

@@ -75,8 +75,12 @@ class Settings(BaseSettings):
     internal_api_secret: str = ""
     # 계좌 암호화 키(Fernet). local에서 비우면 개발용 키를 씁니다.
     account_encryption_key: str = ""
-    # 고용24 OpenAPI 인증키. 비우면 스냅샷만 씁니다.
-    work24_api_key: str = ""
+    # 고용24 OpenAPI 인증키. API마다 따로 발급됩니다.
+    # 공통코드는 scripts/fetch_work24_codes.py만 씁니다(서비스는 저장된 JSON을 읽음).
+    # 훈련과정·취업역량 프로그램 키를 비우면 그 조회는 스냅샷만 씁니다.
+    work24_code_api_key: str = ""
+    work24_training_api_key: str = ""
+    work24_program_api_key: str = ""
     # 고용24 OpenAPI 호출 하나의 대기 시간과 실패 시 다시 부르는 횟수 (설계 3.11: 5초·재시도 1회)
     external_api_timeout_seconds: float = 5
     external_api_retries: int = 1

@@ -2,7 +2,7 @@
 
 훈련과정 목록(310L01)과 구직자취업역량 강화프로그램(217L01)을 XML로 부릅니다. 호출 하나는
 EXTERNAL_API_TIMEOUT_SECONDS(5초)까지 기다리고 실패하면 EXTERNAL_API_RETRIES(1회) 다시 부릅니다.
-인증키가 없거나 끝내 실패하면 None을 돌려주고, 서비스가 스냅샷으로 대체합니다.
+API별 인증키가 없거나 끝내 실패하면 None을 돌려주고, 서비스가 스냅샷으로 대체합니다.
 응답 원본은 저장하지 않고, 인증키가 든 호출 URL은 로그·오류에 남기지 않습니다.
 """
 
@@ -42,11 +42,21 @@ def _total(root: ET.Element, tag: str, fallback: int) -> int:
     return int(raw) if raw and raw.strip().isdigit() else fallback
 
 
+def _api_key(url: str) -> str:
+    """고용24 인증키는 API마다 다릅니다."""
+    settings = get_settings()
+    return {
+        TRAINING_URL: settings.work24_training_api_key,
+        PROGRAM_URL: settings.work24_program_api_key,
+    }[url]
+
+
 def _get(url: str, params: dict[str, str]) -> ET.Element | None:
     settings = get_settings()
-    if not settings.work24_api_key:
+    key = _api_key(url)
+    if not key:
         return None
-    query = {"authKey": settings.work24_api_key, **params}
+    query = {"authKey": key, **params}
     for attempt in range(settings.external_api_retries + 1):
         try:
             res = httpx.get(url, params=query, timeout=settings.external_api_timeout_seconds)
