@@ -147,3 +147,19 @@ def test_very_long_spaced_digits_stay_fast() -> None:
     mask(text)
 
     assert time.perf_counter() - started < 2
+
+
+def test_name_after_birth_year_is_masked():
+    # 골든셋 M-027: "1965년생 박말순이에요"의 이름이 모델 입력에 남던 문제
+    assert mask("1965년생 박말순이에요")[0] == "1965년생 [이름]이에요"
+    assert mask("61년생 김철수입니다. 반가워요")[0] == "61년생 [이름]입니다. 반가워요"
+    assert mask("1965년생이에요")[0] == "1965년생이에요"
+
+
+def test_password_is_masked_but_korean_words_are_kept():
+    # 골든셋 M-031: 로그인해 달라며 알려 준 비밀번호
+    masked, findings = mask("고용24 비밀번호가 bokja123!인데 로그인 좀 해줘요")
+    assert masked == "고용24 비밀번호가 [비밀번호]인데 로그인 좀 해줘요"
+    assert not any(f.blocking for f in findings)
+    assert mask("제 비번은 abcd1234 입니다")[0] == "제 비번은 [비밀번호] 입니다"
+    assert mask("비밀번호를 잊어버렸어요")[0] == "비밀번호를 잊어버렸어요"

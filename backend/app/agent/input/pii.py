@@ -28,6 +28,7 @@ class PiiKind(StrEnum):
     PHONE = "phone"
     EMAIL = "email"
     NAME = "name"  # 자기소개 말투의 이름만
+    SECRET = "secret"  # 비밀번호(로그인을 대신 해 달라는 말 등)
     NUMBER = "number"  # 주민번호·카드 모양인데 검증에 떨어진 긴 숫자 (가리되 차단 등급은 아님)
 
 
@@ -40,6 +41,7 @@ TOKENS = {
     PiiKind.PHONE: "[전화]",
     PiiKind.EMAIL: "[이메일]",
     PiiKind.NAME: "[이름]",
+    PiiKind.SECRET: "[비밀번호]",
     PiiKind.NUMBER: "[번호]",
 }
 
@@ -68,6 +70,12 @@ _BACK7 = re.compile(r"(?<!\d)([1-8])\d{6}(?!\d)")
 _NAME = re.compile(
     r"(?:이름은|이름이)\s*([가-힣]{2,4})(?<![요다죠까네])(?=\s*(?:이에요|예요|입니다|이고|이요|[.,!]|$))"
 )
+# 생년 바로 뒤에 말한 이름("1965년생 박말순이에요"). 단서가 분명한 '년생' 뒤만 봅니다.
+_NAME_AFTER_BIRTH = re.compile(
+    r"\d{2,4}\s*년생\s*([가-힣]{2,4})(?<![요다죠까네])(?=\s*(?:이에요|예요|입니다|이고|이요|[.,!]|$))"
+)
+# 비밀번호 단서 뒤의 영문·숫자·기호 덩어리("비밀번호가 bokja123!인데"). 한글 말은 건드리지 않습니다.
+_SECRET = re.compile(r"(?:비밀\s*번호|비번|패스워드|password)\s*(?:은|는|가|이|:)?\s*([!-~]{4,})")
 _ACCOUNT_DIGITS = range(10, 15)
 
 
@@ -222,9 +230,14 @@ def _add_extra(text: str, found: list[Finding]) -> None:
             shaped = _RRN.fullmatch(text[start:end]) or _CARD.fullmatch(text[start:end])
             kind = PiiKind.NUMBER if shaped else PiiKind.ACCOUNT
             found.append(Finding(kind, start, end))
-    for m in _NAME.finditer(text):
-        if not _overlaps(found, m.start(1), m.end(1)):
-            found.append(Finding(PiiKind.NAME, m.start(1), m.end(1)))
+    for pattern, kind in (
+        (_NAME, PiiKind.NAME),
+        (_NAME_AFTER_BIRTH, PiiKind.NAME),
+        (_SECRET, PiiKind.SECRET),
+    ):
+        for m in pattern.finditer(text):
+            if not _overlaps(found, m.start(1), m.end(1)):
+                found.append(Finding(kind, m.start(1), m.end(1)))
 
 
 def mask(text: str) -> tuple[str, list[Finding]]:
