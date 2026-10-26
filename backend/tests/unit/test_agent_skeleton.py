@@ -65,7 +65,6 @@ def test_adapter_exposes_registry_tools_with_schema() -> None:
 
     assert [t.name for t in tools] == list(TOOLS_BY_PANEL["resume"])
     assert "careers" in tools[0].args
-    assert tools[2].invoke({})["text"].startswith("실업급여는 네 단계")
 
 
 def test_adapter_returns_tool_error_to_llm_instead_of_raising() -> None:

@@ -83,3 +83,34 @@ def test_certification_year_and_preferences() -> None:
 def test_spoken_month_and_short_year_word() -> None:
     assert normalize_date("올 구월", TODAY, SEPARATION).value == "2026-09"
     assert normalize_date("올렸어요", TODAY, SEPARATION).value is None
+
+
+def test_occupation_and_position_go_to_separate_fields() -> None:
+    fact = CareerFact(company_name="대성기계", occupation="생산직", position="반장")
+
+    values = _values(_plan(ResumeFacts(careers=[fact])))
+
+    assert values["/careers/c1/position"] == "반장"
+    assert values["/careers/c1/occupation"]["name"] == "생산직"
+
+
+def test_occupation_in_position_moves_to_occupation_and_short_duties_ask() -> None:
+    facts = ResumeFacts(
+        careers=[CareerFact(company_name="한빛물류", position="생산직", main_duties="포장")]
+    )
+    plan = plan_writes(ResumeData(), facts, TODAY, date(2026, 9, 30))
+
+    paths = {w.path.rsplit("/", 1)[-1]: w.value for w in plan.writes}
+    assert "position" not in paths
+    assert paths["occupation"]["name"] == "생산직"
+    assert any("짧아요" in a for a in plan.asks)
+
+
+def test_none_answers_are_saved_so_the_question_does_not_repeat() -> None:
+    facts = ResumeFacts(careers=[CareerFact(position="없음")], no_certifications=True)
+    data = ResumeData(careers=[Career(item_id="c1")])
+    plan = plan_writes(data, facts, TODAY, date(2026, 9, 30))
+
+    by_path = {w.path: w for w in plan.writes}
+    assert by_path["/careers/c1/position"].value == "없음"
+    assert by_path["/certifications_status"].status == "not_applicable"

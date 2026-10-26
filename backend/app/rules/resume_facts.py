@@ -17,15 +17,28 @@ from app.schemas.forms.resume import Career, OccupationStatus, ResumeData
 from app.schemas.resume import FieldWrite
 
 MAX_REGIONS = 3
+CERTIFICATIONS_STATUS = "/certifications_status"
+COMPETENCIES_STATUS = "/competencies_status"
 # 고등학교·대학 졸업은 보통 2월입니다. 연도만 말하면 2월로 두고 확인 필요로 남깁니다.
 GRADUATION_MONTH = 2
+# 입학은 보통 3월입니다. 연도만 말하면 3월로 두고 확인 필요로 남깁니다.
+ENTRANCE_MONTH = 3
+# 이보다 짧은 "하던 일"(예: "포장")은 이력서로 쓰기에 부족해 구체적으로 다시 묻습니다.
+DUTY_MIN_CHARS = 8
+# 직급 칸에 들어온 직종 이름(생산직·사무직 등). 모델이 칸을 헷갈려도 코드가 직종으로 옮깁니다.
+OCCUPATION_LIKE = re.compile(r"(생산|사무|기술|영업|서비스|판매|관리|운전|경비|청소|조리|현장)직$")
 
 
 class CareerFact(BaseModel):
     company_name: str | None = None
     start: str | None = Field(None, description="입사 시점 표현 그대로(예: 작년 3월, 2004년 3월)")
     end: str | None = Field(None, description="퇴사 시점 표현 그대로(예: 올해 9월, 지금까지)")
-    position: str | None = Field(None, description="직급·직책(반장, 과장)")
+    position: str | None = Field(
+        None,
+        description="직급·직책(반장, 과장). 없었다고 하면 '없음'. "
+        "생산직·사무직 같은 직종은 occupation에 넣는다",
+    )
+    occupation: str | None = Field(None, description="직종(생산직, 물류 사무, 경비)")
     main_duties: str | None = Field(None, description="주로 한 일")
 
 
@@ -33,6 +46,7 @@ class EducationFact(BaseModel):
     school_name: str | None = None
     education_level: str | None = Field(None, description="고등학교·대학교(2,3년)·대학교(4년) 등")
     graduation_status: str | None = Field(None, description="졸업·중퇴·재학 등")
+    start: str | None = Field(None, description="입학 시점 표현 그대로(예: 1987년)")
     end: str | None = Field(None, description="졸업 시점 표현 그대로(예: 1990년)")
 
 
@@ -49,6 +63,7 @@ class ResumeFacts(BaseModel):
     certifications: list[CertificationFact] = []
     desired_occupations: list[str] = Field(default_factory=list, description="희망 직종 이름")
     desired_regions: list[str] = Field(default_factory=list, description="일하고 싶은 지역")
+    no_certifications: bool = Field(False, description="자격증·면허가 없다고 했으면 true")
 
 
 @dataclass
@@ -71,12 +86,33 @@ def plan_writes(
     for i, name in enumerate(
         facts.desired_occupations, start=len(data.job_preferences.desired_occupations) + 1
     ):
-        value = {"code": None, "name": name, "status": OccupationStatus.NAME_ONLY.value}
-        plan.writes.append(_said(f"/job_preferences/desired_occupations/o{i}/occupation", value))
+        path = f"/job_preferences/desired_occupations/o{i}/occupation"
+        plan.writes.append(_said(path, _occupation(name)))
+    if facts.no_certifications and not data.certifications:
+        plan.writes.append(not_applicable(CERTIFICATIONS_STATUS))
     if facts.desired_regions:
         regions = [{"code": None, "name": n} for n in facts.desired_regions[:MAX_REGIONS]]
         plan.writes.append(_said("/job_preferences/desired_regions", regions))
     return plan
+
+
+def _fix_position(fact: CareerFact) -> CareerFact:
+    """직급 칸에 "생산직" 같은 직종이 오면 직종 칸으로 옮깁니다(직종이 이미 있으면 직급만 비움)."""
+    if not (fact.position and OCCUPATION_LIKE.search(fact.position.strip())):
+        return fact
+    return fact.model_copy(
+        update={"position": None, "occupation": fact.occupation or fact.position.strip()}
+    )
+
+
+def not_applicable(path: str) -> FieldWrite:
+    """섹션을 "없어요"로 저장합니다(예: 자격증 없음 → /certifications_status)."""
+    return FieldWrite(path=path, status=FieldStatus.NOT_APPLICABLE, source=FieldSource.USER_ANSWER)
+
+
+def _occupation(name: str) -> dict[str, Any]:
+    """직종은 이름만 받습니다. 고용24 직종 코드는 아직 고르지 않은 상태(name_only)입니다."""
+    return {"code": None, "name": name, "status": OccupationStatus.NAME_ONLY.value}
 
 
 def _said(path: str, value: Any) -> FieldWrite:
@@ -109,12 +145,20 @@ def _target_career(data: ResumeData, fact: CareerFact) -> tuple[str, bool]:
 def _career(
     plan: FactPlan, data: ResumeData, fact: CareerFact, today: date, separation_date: date
 ) -> None:
+    fact = _fix_position(fact)
     item_id, is_new = _target_career(data, fact)
+    if fact.main_duties and len(re.sub(r"\s", "", fact.main_duties)) < DUTY_MIN_CHARS:
+        plan.asks.append(
+            f"하던 일 '{fact.main_duties}'이(가) 짧아요. 다룬 물건·장비, 맡은 범위, 처리량처럼 "
+            "구체적으로 한 가지만 더 물어보면 좋아요"
+        )
     base = f"/careers/{item_id}"
     writes: list[FieldWrite] = []
     for key in ("company_name", "position", "main_duties"):
         if value := getattr(fact, key):
             writes.append(_said(f"{base}/{key}", value))
+    if fact.occupation:
+        writes.append(_said(f"{base}/occupation", _occupation(fact.occupation)))
     for key, expr in (("start_date", fact.start), ("end_date", fact.end)):
         if not expr:
             continue
@@ -138,16 +182,23 @@ def _education(
         for key in ("school_name", "education_level", "graduation_status")
         if (value := getattr(fact, key))
     ]
-    if fact.end:
-        result = normalize_date(fact.end, today, separation_date)
-        if result.ask and (year := re.search(r"(\d{4})\s*년?", fact.end)):
-            value = f"{year[1]}-{GRADUATION_MONTH:02d}"
-            note = f"'{fact.end}' → {value} (졸업은 보통 2월이라 2월로 두었어요. 확인 필요)"
+    for key, expr, month, label in (
+        ("start_date", fact.start, ENTRANCE_MONTH, "입학"),
+        ("end_date", fact.end, GRADUATION_MONTH, "졸업"),
+    ):
+        if not expr:
+            continue
+        result = normalize_date(expr, today, separation_date)
+        if result.ask and (year := re.search(r"(\d{4})\s*년?", expr)):
+            value = f"{year[1]}-{month:02d}"
+            note = (
+                f"'{expr}' → {value} ({label}은 보통 {month}월이라 {month}월로 두었어요. 확인 필요)"
+            )
             result = DateResult(value, transformed=True, note=note)
         if result.ask:
-            plan.asks.append(f"졸업 시점 '{fact.end}'을(를) 다시 물어야 해요")
+            plan.asks.append(f"{label} 시점 '{expr}'을(를) 다시 물어야 해요")
         else:
-            writes.append(_dated(f"{base}/end_date", fact.end, result, today))
+            writes.append(_dated(f"{base}/{key}", expr, result, today))
     if writes:
         plan.writes.extend(writes)
 
