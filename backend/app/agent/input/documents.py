@@ -1,15 +1,20 @@
-"""문서 첨부(pdf·docx·hwpx)에서 글자를 뽑습니다.
+"""문서 첨부(pdf·docx·hwpx·hwp)에서 글자를 뽑습니다.
 
 글자가 들어 있는 문서는 OCR 없이 서버 안에서 바로 읽으므로 원본이 외부 모델로 나가지 않습니다.
-가리기(pii.mask)는 부르는 쪽이 합니다. hwp(옛 한글 형식)와 스캔한 pdf처럼 글자가 없는 문서는
-빈 글을 돌려주고, 대화에서 사진으로 다시 올려 달라고 안내합니다.
+가리기(pii.mask)는 부르는 쪽이 합니다. 글자가 없는 스캔 pdf는 빈 글을 돌려주고, 부르는 쪽이
+`pdf_page_images`로 쪽을 그림으로 바꿔 사진처럼 받아씁니다(preprocess).
 """
 
+import io
 import re
+import struct
 import zipfile
+import zlib
 from pathlib import Path
 from xml.sax.saxutils import unescape
 
+import olefile
+import pypdfium2 as pdfium
 from docx import Document
 from pypdf import PdfReader
 
@@ -21,6 +26,24 @@ PDF_SIGNATURE = b"%PDF"
 ZIP_SIGNATURE = b"PK\x03\x04"
 HWPX_SECTION = re.compile(r"Contents/section\d+\.xml")
 HWPX_TEXT = re.compile(r"<hp:t(?:\s[^>]*)?>([^<]*)</hp:t>")
+OLE_SIGNATURE = b"\xd0\xcf\x11\xe0"
+# 스캔 pdf에서 그림으로 바꿔 받아쓸 최대 쪽수와 배율(약 150dpi). 이력서·증명서는 보통 1~2쪽입니다.
+MAX_SCANNED_PAGES = 3
+PDF_RENDER_SCALE = 2
+
+# 한글(HWP 5) 문서 구조: FileHeader의 속성 비트, 본문 레코드의 문단 글자 태그(HWPTAG_BEGIN+51)
+HWP_HEADER_PROPERTIES = 36
+HWP_COMPRESSED = 0x1
+HWP_ENCRYPTED = 0x2
+HWP_PARA_TEXT = 67
+HWP_LONG_RECORD = 0xFFF
+# 글자 사이의 제어 문자. 이 번호들은 8글자(16바이트) 자리를 차지합니다(표·그림 같은 개체, 탭).
+HWP_WIDE_CONTROLS = frozenset(
+    {1, 2, 3, 4, 5, 6, 7, 8, 9, 11, 12, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23}
+)
+HWP_WIDE_UNITS = 8
+HWP_TAB = 9
+HWP_LINE_BREAKS = frozenset({10, 13})
 
 
 def _pdf_text(path: Path) -> str:
@@ -45,6 +68,85 @@ def _hwpx_text(archive: zipfile.ZipFile) -> str:
     return "\n".join(texts)
 
 
+def _inflate(data: bytes) -> bytes:
+    """압축된 본문을 풉니다. 풀린 크기가 상한을 넘으면 거기서 멈춥니다(압축 폭탄)."""
+    inflater = zlib.decompressobj(-zlib.MAX_WBITS)
+    return inflater.decompress(data, MAX_UNZIPPED_BYTES)
+
+
+def _hwp_records(data: bytes):
+    """본문 레코드(태그, 내용)를 차례로."""
+    offset = 0
+    while offset + 4 <= len(data):
+        (header,) = struct.unpack_from("<I", data, offset)
+        offset += 4
+        tag, size = header & 0x3FF, (header >> 20) & 0xFFF
+        if size == HWP_LONG_RECORD:
+            (size,) = struct.unpack_from("<I", data, offset)
+            offset += 4
+        yield tag, data[offset : offset + size]
+        offset += size
+
+
+def _hwp_paragraph(payload: bytes) -> str:
+    """문단 글자(UTF-16LE). 개체·필드 같은 제어 문자는 건너뛰고 탭·줄바꿈만 남깁니다."""
+    units = struct.unpack(f"<{len(payload) // 2}H", payload[: len(payload) // 2 * 2])
+    out, i = [], 0
+    while i < len(units):
+        code = units[i]
+        if code >= 32:
+            out.append(chr(code))
+        elif code == HWP_TAB:
+            out.append("\t")
+        elif code in HWP_LINE_BREAKS:
+            out.append("\n")
+        i += HWP_WIDE_UNITS if code in HWP_WIDE_CONTROLS else 1
+    return "".join(out)
+
+
+def _hwp_text(path: Path) -> str:
+    """옛 한글(HWP 5, OLE 복합 문서) 본문. 암호가 걸린 문서는 읽지 않습니다."""
+    with olefile.OleFileIO(str(path)) as ole:
+        header = ole.openstream("FileHeader").read()
+        (properties,) = struct.unpack_from("<I", header, HWP_HEADER_PROPERTIES)
+        if properties & HWP_ENCRYPTED:
+            return ""
+        sections = sorted(
+            (e for e in ole.listdir() if len(e) == 2 and e[0] == "BodyText"),
+            key=lambda e: int(e[1].removeprefix("Section") or 0),
+        )
+        texts = []
+        for entry in sections:
+            data = ole.openstream(entry).read()
+            if properties & HWP_COMPRESSED:
+                data = _inflate(data)
+            texts += [_hwp_paragraph(p) for tag, p in _hwp_records(data) if tag == HWP_PARA_TEXT]
+    return "\n".join(texts)
+
+
+def pdf_page_images(path: str) -> list[bytes]:
+    """pdf 앞 몇 쪽을 PNG로. 글자가 없는 스캔 pdf를 사진처럼 받아쓸 때 씁니다. 못 읽으면 빈 목록."""
+    try:
+        pdf = pdfium.PdfDocument(path)
+    except Exception:  # 깨진 pdf
+        return []
+    pages = []
+    try:
+        for index in range(min(len(pdf), MAX_SCANNED_PAGES)):
+            image = pdf[index].render(scale=PDF_RENDER_SCALE).to_pil()
+            buffer = io.BytesIO()
+            image.save(buffer, "PNG")
+            pages.append(buffer.getvalue())
+    finally:
+        pdf.close()
+    return pages
+
+
+def is_pdf(path: str) -> bool:
+    with Path(path).open("rb") as f:
+        return f.read(4).startswith(PDF_SIGNATURE)
+
+
 def _zip_text(path: Path) -> str:
     with zipfile.ZipFile(path) as archive:
         if sum(info.file_size for info in archive.infolist()) > MAX_UNZIPPED_BYTES:
@@ -66,6 +168,8 @@ def extract_text(path: str) -> str:
             text = _pdf_text(file)
         elif head.startswith(ZIP_SIGNATURE):
             text = _zip_text(file)
+        elif head.startswith(OLE_SIGNATURE):
+            text = _hwp_text(file)
         else:
             return ""
     except Exception:  # 깨진 문서는 대화를 막지 않고 못 읽은 것으로 칩니다.

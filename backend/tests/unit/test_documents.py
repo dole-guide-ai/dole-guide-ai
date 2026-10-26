@@ -1,8 +1,12 @@
 """첨부 문서 글자 뽑기(agent/input/documents.py). 파일은 테스트 안에서 만든 합성 값입니다."""
 
+import io
+import struct
 import zipfile
+import zlib
 
 from docx import Document
+from PIL import Image
 
 from app.agent.input import documents
 
@@ -97,3 +101,70 @@ def test_long_text_is_cut(tmp_path):
     doc.save(str(path))
 
     assert len(documents.extract_text(str(path))) == documents.MAX_DOCUMENT_CHARS
+
+
+def _record(tag: int, payload: bytes) -> bytes:
+    return struct.pack("<I", tag | (len(payload) << 20)) + payload
+
+
+def _hwp_chars(text: str) -> bytes:
+    """한글 형식의 문단 글자. 탭은 실제 파일처럼 8글자 자리 제어 문자로 넣습니다."""
+    tab = struct.pack("<8H", 9, 0, 0, 0, 0, 0, 0, 9)
+    return tab.join(part.encode("utf-16-le") for part in text.split("\t"))
+
+
+def _hwp_body(*paragraphs: str) -> bytes:
+    # 문단 글자 앞에 표 개체 제어 문자(8글자 자리)를 하나 끼워 건너뛰는지도 봅니다.
+    table = struct.pack("<8H", 11, 0, 0, 0, 0, 0, 0, 11)
+    records = b"".join(
+        _record(documents.HWP_PARA_TEXT, table + _hwp_chars(p) + b"\r\x00") for p in paragraphs
+    )
+    compressor = zlib.compressobj(wbits=-zlib.MAX_WBITS)
+    return compressor.compress(records) + compressor.flush()
+
+
+class _FakeOle:
+    def __init__(self, properties: int, body: bytes):
+        header = b"HWP Document File".ljust(36, b"\0") + struct.pack("<I", properties)
+        self.streams = {"FileHeader": header, "BodyText/Section0": body}
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+    def listdir(self):
+        return [["FileHeader"], ["BodyText", "Section0"]]
+
+    def openstream(self, name):
+        key = name if isinstance(name, str) else "/".join(name)
+        return io.BytesIO(self.streams[key])
+
+
+def test_hwp_body_text(tmp_path, monkeypatch):
+    path = tmp_path / "career.hwp"
+    path.write_bytes(documents.OLE_SIGNATURE + b"\0" * 16)
+    body = _hwp_body("경력증명서", "회사명\tOO산업")
+    monkeypatch.setattr(documents.olefile, "OleFileIO", lambda p: _FakeOle(1, body))
+
+    assert documents.extract_text(str(path)) == "경력증명서\n회사명\tOO산업"
+
+
+def test_encrypted_hwp_is_not_read(tmp_path, monkeypatch):
+    path = tmp_path / "locked.hwp"
+    path.write_bytes(documents.OLE_SIGNATURE + b"\0" * 16)
+    monkeypatch.setattr(
+        documents.olefile, "OleFileIO", lambda p: _FakeOle(1 | 2, _hwp_body("비밀"))
+    )
+
+    assert documents.extract_text(str(path)) == ""
+
+
+def test_scanned_pdf_has_no_text_but_page_images(tmp_path):
+    path = tmp_path / "scan.pdf"
+    Image.new("RGB", (200, 100), "white").save(path, "PDF")
+
+    assert documents.extract_text(str(path)) == ""
+    pages = documents.pdf_page_images(str(path))
+    assert len(pages) == 1 and pages[0].startswith(b"\x89PNG")
