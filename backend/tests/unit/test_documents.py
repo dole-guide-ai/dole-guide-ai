@@ -71,6 +71,15 @@ def test_unknown_or_broken_file_is_empty(tmp_path):
     assert documents.extract_text(str(broken)) == ""
 
 
+def test_zip_bomb_is_not_read(tmp_path, monkeypatch):
+    path = tmp_path / "bomb.hwpx"
+    with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr("Contents/section0.xml", "<hp:t>가</hp:t>" + " " * 2048)
+    monkeypatch.setattr(documents, "MAX_UNZIPPED_BYTES", 1024)
+
+    assert documents.extract_text(str(path)) == ""
+
+
 def test_long_text_is_cut(tmp_path):
     path = tmp_path / "long.docx"
     doc = Document()

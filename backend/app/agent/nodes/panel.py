@@ -99,7 +99,7 @@ def _with_images(messages: list[Any], config: RunnableConfig) -> list[Any]:
     ctx = tool_context_of(config)
     if get_settings().image_mode != "vision" or ctx is None:
         return messages
-    file_ids = getattr(turn_of(config), "file_ids", None) or []
+    file_ids = dict.fromkeys(getattr(turn_of(config), "file_ids", None) or [])
     paths = [
         str(path)
         for file_id in file_ids

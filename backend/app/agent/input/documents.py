@@ -14,6 +14,8 @@ from pypdf import PdfReader
 
 # 한 파일에서 대화로 넘기는 최대 글자 수. 경력증명서·이력서는 보통 1~2쪽이라 넉넉합니다.
 MAX_DOCUMENT_CHARS = 4000
+# docx·hwpx(zip)를 풀었을 때 크기 상한. 4MB 업로드가 수백 MB로 풀리는 압축 폭탄을 막습니다.
+MAX_UNZIPPED_BYTES = 20 * 1024 * 1024
 PDF_SIGNATURE = b"%PDF"
 ZIP_SIGNATURE = b"PK\x03\x04"
 HWPX_SECTION = re.compile(r"Contents/section\d+\.xml")
@@ -44,6 +46,8 @@ def _hwpx_text(archive: zipfile.ZipFile) -> str:
 
 def _zip_text(path: Path) -> str:
     with zipfile.ZipFile(path) as archive:
+        if sum(info.file_size for info in archive.infolist()) > MAX_UNZIPPED_BYTES:
+            return ""
         names = archive.namelist()
         if "word/document.xml" in names:
             return _docx_text(path)

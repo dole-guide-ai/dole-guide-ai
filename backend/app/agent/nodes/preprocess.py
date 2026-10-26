@@ -72,7 +72,7 @@ def attachment_text(config: RunnableConfig) -> str:
     if ctx is None:
         return ""
     texts = []
-    for file_id in getattr(turn_of(config), "file_ids", None) or []:
+    for file_id in dict.fromkeys(getattr(turn_of(config), "file_ids", None) or []):
         path = files_service.open_attachment(ctx.db, ctx.account, file_id)
         if path is not None and (text := _read_attachment(path)):
             texts.append(text)
