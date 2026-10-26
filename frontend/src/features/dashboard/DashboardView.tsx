@@ -11,6 +11,7 @@ import { useFileUpload } from '@/features/chat/useFileUpload';
 import { DashboardHeader } from '@/features/dashboard/DashboardHeader';
 import { NoticeToast } from '@/features/dashboard/NoticeToast';
 import { PanelFrame } from '@/features/dashboard/PanelFrame';
+import { ResetAccountButton } from '@/features/dashboard/ResetAccountButton';
 import { sessionNotices } from '@/features/dashboard/sessionNotices';
 import { SplitHandle } from '@/features/dashboard/SplitHandle';
 import { useSplitRatio } from '@/features/dashboard/useSplitRatio';
@@ -103,6 +104,7 @@ export const DashboardView = ({ session, personaName }: DashboardViewProps) => {
           />
         }
         onSwitchAccount={() => setIsSwitchOpen(true)}
+        devActions={<ResetAccountButton personaId={session.persona_id} />}
         onOpenMyData={() => setIsMyDataOpen(true)}
       />
       <NoticeToast key={session.session_id} notices={sessionNotices(session)} />

@@ -27,6 +27,8 @@ interface DashboardHeaderProps {
   progress: ReactNode;
   onSwitchAccount: () => void;
   onOpenMyData?: () => void;
+  /** 계정을 처음 상태로 되돌리는 버튼 등 */
+  devActions?: ReactNode;
 }
 
 export const DashboardHeader = ({
@@ -36,6 +38,7 @@ export const DashboardHeader = ({
   progress,
   onSwitchAccount,
   onOpenMyData,
+  devActions,
 }: DashboardHeaderProps) => (
   <header className="bg-surface relative">
     <div className="flex flex-wrap items-center gap-x-6 gap-y-3 px-4 py-3 sm:px-6">
@@ -101,6 +104,7 @@ export const DashboardHeader = ({
           <ArrowLeftRight aria-hidden size={ICON_SIZE.md} strokeWidth={ICON_STROKE} />
           계정 바꾸기
         </Button>
+        {devActions}
       </nav>
     </div>
     <div className="border-line border-y px-4 py-2 sm:px-6">{progress}</div>
