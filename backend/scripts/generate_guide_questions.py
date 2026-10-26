@@ -61,8 +61,16 @@ def pick_chunks() -> list[dict]:
 
 
 def generate(chunk: dict) -> str:
+    """질문 하나. 모델 호출이 실패하면 빈 글자를 돌려 다른 조각의 결과는 그대로 저장합니다.
+
+    실패한 조각은 저장되지 않으므로 다음 실행에서 다시 만듭니다.
+    """
     model = gateway.get_chat_model("extract").with_structured_output(GuideQuestion)
-    result = model.invoke([SystemMessage(load_prompt(PROMPT)), HumanMessage(chunk["content"])])
+    try:
+        result = model.invoke([SystemMessage(load_prompt(PROMPT)), HumanMessage(chunk["content"])])
+    except Exception as exc:  # noqa: BLE001 — 한 조각 실패로 전체 결과를 잃지 않게
+        print(f"실패 {chunk['chunk_id']}: {type(exc).__name__}")
+        return ""
     return result.question.strip()
 
 

@@ -10,10 +10,11 @@
 - 정책·FAQ 사람: data/knowledge/eval/*.jsonl (저장소에 없음). 파일이 없으면 건너뜁니다.
 
 지표
-- hit@k: 정답 중 하나라도 k등 안에 있는 질문 비율. 대화에는 3장을 붙이므로 hit@3이 기준입니다.
+- hit@k: 정답 중 하나라도 k등 안에 있는 질문 비율. 대화에는 ATTACH장(5)을 붙이므로
+  hit@5가 기준입니다.
 - MRR@10: 첫 정답 등수의 역수 평균(10등 밖은 0).
-- 거절 임계값: 코사인 유사도가 t 이상인 결과만 남길 때 정답 hit@3과 관련 없는 질문에 무엇이라도
-  붙는 비율(오첨부)을 t별로 봅니다.
+- 거절 임계값: 코사인 유사도가 t 이상인 결과만 남길 때 붙는 ATTACH장의 정답 적중과
+  관련 없는 질문에 무엇이라도 붙는 비율(오첨부)을 t별로 봅니다.
 
 실행: backend/에서 `uv run python -m evals.retrieval.run` (색인을 먼저 채움: scripts.ingest.index)
 """
@@ -26,7 +27,7 @@ import uuid
 from collections.abc import Iterable
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import nullcontext
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -63,6 +64,7 @@ TOP = 10
 ATTACH = 5  # 대화에 붙이는 수(RETRIEVAL_INJECT_LIMIT 기본값)
 THRESHOLDS = [round(0.30 + 0.05 * i, 2) for i in range(9)]
 WORKERS = 8
+MRR_DEPTH = 10  # 재정렬 구성은 후보가 20장이라 10등 밖은 0점으로 셉니다.
 QUERY_BATCH = 100  # 질문 임베딩 요청 하나에 담는 수(Upstage 상한)
 GOLDEN_SET = "골든셋 카드"
 RULE_ID = re.compile(r"\b(?:PROC|ELIG|ACT|DUE|SUP)-\d+\b")
@@ -101,6 +103,8 @@ class Ranked:
     query: Query
     ids: list[str]
     sims: list[float | None]
+    # 재정렬 구성에서 재정렬과 상관없이 앞에 붙는 사용자 조건 카드(운영 attach_knowledge와 같게)
+    fixed: list[KnowledgeHit] = field(default_factory=list)
 
     def rank(self) -> int | None:
         return next((i for i, c in enumerate(self.ids, 1) if c in self.query.positives), None)
@@ -244,11 +248,15 @@ def run(configs: list[str], embedding: str | None = None) -> dict[str, Any]:
                         query_vector=vectors[text], profile=q.profile if use_profile else None,
                     )  # fmt: skip
                     hits = found.rules if q.group == "rule" else found.guides
+                    fixed: list[KnowledgeHit] = []
                     if use_profile and q.profile and q.group == "rule":
-                        hits = _with_fixed(hits, cards_for(q.profile.for_query(text)))
-                    ranked.append(
-                        Ranked(q, [h.chunk_id for h in hits], [h.similarity for h in hits])
-                    )
+                        fixed_cards = cards_for(q.profile.for_query(text))
+                        if name in RERANKED:  # 재정렬은 검색 결과만 고르고 고정 카드는 뒤에 붙임
+                            fixed = _fixed_hits(fixed_cards)
+                        else:
+                            hits = _with_fixed(hits, fixed_cards)
+                    ids = [h.chunk_id for h in hits]
+                    ranked.append(Ranked(q, ids, [h.similarity for h in hits], fixed))
                 if name in RERANKED:
                     ranked = _reranked(ranked)
                 results[name][set_name] = ranked
@@ -256,7 +264,10 @@ def run(configs: list[str], embedding: str | None = None) -> dict[str, Any]:
 
 
 def _reranked(ranked: list[Ranked]) -> list[Ranked]:
-    """모델이 고른 카드를 앞에, 고르지 않은 후보를 뒤에. 고른 결과는 파일에 둡니다(재실행 비용)."""
+    """사용자 조건 카드 + 모델이 고른 카드만 결과로 둡니다(운영처럼 고르지 않은 후보는 붙지 않음).
+
+    고른 결과는 파일에 둡니다(재실행 비용).
+    """
     path = REPORT_DIR / "cache" / f"rerank-{get_settings().extract_model}.json"
     cache = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
     cards = cards_by_id()
@@ -275,10 +286,10 @@ def _reranked(ranked: list[Ranked]) -> list[Ranked]:
     path.write_text(json.dumps(cache, ensure_ascii=False, indent=1), encoding="utf-8")
     out = []
     for r in ranked:
-        chosen = cache.get(key(r), r.ids)
-        rest = [i for i in r.ids if i not in chosen]
-        sims = dict(zip(r.ids, r.sims, strict=True))
-        ids = chosen + rest
+        sims = dict(zip(r.ids, r.sims, strict=True)) | {h.chunk_id: h.similarity for h in r.fixed}
+        fixed = [h.chunk_id for h in r.fixed]
+        chosen = cache.get(key(r), r.ids) if r.query.group == "rule" else r.ids
+        ids = fixed + [i for i in chosen if i not in fixed]
         out.append(Ranked(r.query, ids, [sims[i] for i in ids]))
     return out
 
@@ -297,12 +308,12 @@ def metrics(ranked: list[Ranked]) -> dict[str, float | int]:
         "hit@1": sum(1 for k in ranks if k and k <= 1) / n,
         "hit@3": sum(1 for k in ranks if k and k <= 3) / n,
         "hit@5": sum(1 for k in ranks if k and k <= 5) / n,
-        "mrr@10": sum(1 / k for k in ranks if k) / n,
+        "mrr@10": sum(1 / k for k in ranks if k and k <= MRR_DEPTH) / n,
     }
 
 
 def threshold_table(ranked: list[Ranked]) -> list[dict[str, float]]:
-    """t별 정답 hit@3(임계값을 넘은 결과만)과 관련 없는 질문의 오첨부율."""
+    """t별 붙는 ATTACH장의 정답 적중(임계값을 넘은 결과만)과 관련 없는 질문의 오첨부율."""
     rows = []
     positives = [r for r in ranked if r.query.positives]
     negatives = [r for r in ranked if not r.query.positives]
@@ -316,7 +327,7 @@ def threshold_table(ranked: list[Ranked]) -> list[dict[str, float]]:
         hit = sum(1 for r in positives if set(kept(r)) & r.query.positives) / max(len(positives), 1)
         false_attach = sum(1 for r in negatives if kept(r)) / max(len(negatives), 1)
         avg_attached = sum(len(kept(r)) for r in positives) / max(len(positives), 1)
-        rows.append({"t": t, "hit@3": hit, "false_attach": false_attach, "attached": avg_attached})
+        rows.append({"t": t, "hit": hit, "false_attach": false_attach, "attached": avg_attached})
     return rows
 
 
@@ -354,11 +365,11 @@ def render(out: dict[str, Any], threshold_config: str | None) -> str:
         lines.append("")
     if threshold_config:
         lines += [f"## 거절 임계값 ({threshold_config}, 규칙 카드 상위 {ATTACH}장)", "",
-                  "| t | 정답 hit@3 | 오첨부율 | 질문당 붙는 수 |",
+                  f"| t | 정답 hit@{ATTACH} | 오첨부율 | 질문당 붙는 수 |",
                   "| --- | --- | --- | --- |"]  # fmt: skip
         for row in threshold_table(rule_sets[threshold_config]):
             lines.append(
-                f"| {row['t']:.2f} | {row['hit@3']:.2f} | {row['false_attach']:.2f} "
+                f"| {row['t']:.2f} | {row['hit']:.2f} | {row['false_attach']:.2f} "
                 f"| {row['attached']:.2f} |"
             )
         lines.append("")
@@ -366,13 +377,13 @@ def render(out: dict[str, Any], threshold_config: str | None) -> str:
 
 
 def misses(out: dict[str, Any], config: str) -> list[dict[str, Any]]:
-    """3등 안에 정답이 없는 규칙 카드 질문(실패 분석용). 골든셋 문항도 함께 봅니다."""
+    """붙는 ATTACH장 안에 정답이 없는 규칙 카드 질문(실패 분석용). 골든셋 문항도 함께 봅니다."""
     rows = []
     by_set = out["results"][config]
     for r in by_set["규칙 카드"] + by_set[GOLDEN_SET]:
         if r.query.positives and not (r.rank() or 99) <= ATTACH:
             rows.append({"qid": r.query.qid, "question": r.query.question, "rank": r.rank(),
-                         "top3": r.ids[:ATTACH]})  # fmt: skip
+                         "attached": r.ids[:ATTACH]})  # fmt: skip
     return rows
 
 

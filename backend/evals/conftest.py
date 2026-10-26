@@ -1,5 +1,6 @@
 import json
 import os
+from collections.abc import Iterator
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -28,16 +29,28 @@ def requires_llm() -> None:
         pytest.skip("모델 공급자 키가 없어 실제 모델 평가를 건너뜁니다.")
 
 
-@pytest.fixture(scope="session", autouse=True)
-def eval_tracing() -> None:
+# 루트 conftest가 테스트에서만 끄는 설정(트레이스·재정렬). 평가에서는 .env·기본값을 씁니다.
+TEST_ONLY_ENV = ("LANGSMITH_TRACING", "RETRIEVAL_RERANK")
+
+
+@pytest.fixture(scope="package", autouse=True)
+def eval_tracing() -> Iterator[None]:
     """실제 모델 평가는 서버와 같은 .env 설정으로 LangSmith에 트레이스를 남깁니다.
 
     루트 conftest가 테스트용으로 끈 값(트레이스·재정렬)을 지우고 설정을 다시 읽습니다.
     import 때가 아니라 evals 테스트가 실제로 돌 때만 하므로, tests/와 같이 실행해도
-    tests/ 쪽에는 트레이스가 켜지지 않습니다.
+    tests/ 쪽에는 트레이스가 켜지지 않습니다. 평가가 끝나면 원래 값으로 되돌립니다(같은 실행에서
+    뒤에 도는 tests/가 실제 모델을 부르지 않게).
     """
-    os.environ.pop("LANGSMITH_TRACING", None)
-    os.environ.pop("RETRIEVAL_RERANK", None)
+    saved = {name: os.environ.get(name) for name in TEST_ONLY_ENV}
+    for name in TEST_ONLY_ENV:
+        os.environ.pop(name, None)
+    get_settings.cache_clear()
+    gateway.configure_tracing()
+    yield
+    for name, value in saved.items():
+        if value is not None:
+            os.environ[name] = value
     get_settings.cache_clear()
     gateway.configure_tracing()
 

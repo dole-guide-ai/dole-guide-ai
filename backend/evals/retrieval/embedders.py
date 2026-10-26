@@ -4,6 +4,7 @@
 문서 벡터는 reports/cache/docvec-<이름>.json에 두어 다시 돌릴 때 임베딩하지 않습니다.
 """
 
+import hashlib
 import json
 from collections.abc import Callable, Iterator, Sequence
 from contextlib import contextmanager
@@ -61,6 +62,10 @@ def documents() -> dict[str, str]:
     return {d.chunk_id: d.text for d in docs}
 
 
+def _text_key(text: str) -> str:
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()[:24]
+
+
 def _normalize(rows: Sequence[Sequence[float]]) -> np.ndarray:
     matrix = np.asarray(rows, dtype=np.float32)
     return matrix / np.linalg.norm(matrix, axis=1, keepdims=True).clip(min=1e-12)
@@ -72,19 +77,23 @@ class MemoryIndex:
     def __init__(self, embedder: Embedder, cache_dir: Path, batch: int = 100) -> None:
         self.embedder = embedder
         self.model = embedder.make()
+        # 글의 해시로 캐시합니다. 같은 ID라도 규칙표·조각 글이 바뀌면 다시 임베딩합니다.
         path = cache_dir / f"docvec-{embedder.name}.json"
         cache: dict[str, list[float]] = (
             json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
         )
         docs = documents()
-        todo = [i for i in docs if i not in cache]
+        keys = {i: _text_key(text) for i, text in docs.items()}
+        todo = list(dict.fromkeys(k for k in keys.values() if k not in cache))
+        texts = {keys[i]: docs[i] for i in docs}
         for start in range(0, len(todo), batch):
-            ids = todo[start : start + batch]
-            cache |= dict(zip(ids, self.model.embed_documents([docs[i] for i in ids]), strict=True))
+            part = todo[start : start + batch]
+            vectors = self.model.embed_documents([texts[k] for k in part])
+            cache |= dict(zip(part, vectors, strict=True))
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps(cache), encoding="utf-8")
         self.ids = list(docs)
-        self.matrix = _normalize([cache[i] for i in self.ids])
+        self.matrix = _normalize([cache[keys[i]] for i in self.ids])
         self.position = {chunk_id: n for n, chunk_id in enumerate(self.ids)}
 
     def embed_queries(self, texts: list[str]) -> list[list[float]]:
