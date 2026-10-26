@@ -19,9 +19,11 @@ from app.repositories import accounts as account_repo
 from app.rules import periods
 from app.rules.activity_table import load_rules, required_evidence
 from app.rules.entry_text import ONLINE_PRESUBMIT_MAX_AGE
+from app.schemas.common import FieldStatus
 from app.schemas.files import FilePurpose
 from app.schemas.messages import MessageCreate
 from app.schemas.procedure import Stage
+from app.schemas.resume import ResumeStatus
 from app.services import accounts as account_service
 from app.services import activities as activity_service
 from app.services import application as application_service
@@ -30,6 +32,7 @@ from app.services import files as files_service
 from app.services import resume as resume_service
 from app.services import rounds as round_service
 from app.services.accounts import AccountContext
+from app.services.entry import ResumeState
 from app.services.visitors import authenticate, create_visitor
 from evals.golden.adapter import AgentResult
 from evals.golden.schema import FILES_DIR
@@ -41,6 +44,8 @@ RECOGNITION_INTERVAL_DAYS = 28
 # 본인과 다른지 확인하는 동작을 평가할 수 있게 합니다. 나머지는 서류와 겹치지 않는 이름입니다.
 PERSONA_NAMES = {"park": "박진수", "park2": "박진수", "choi": "최영수", "lee": "이정호"}
 DEFAULT_NAME = "평가계정"
+# 골든셋 상태값 resume_status에서 이력서가 없다는 값(나머지는 ResumeState와 같음)
+NO_RESUME = "none"
 
 
 def run_case(db: Session, case: dict[str, Any]) -> AgentResult:
@@ -161,7 +166,7 @@ def _seed(case_input: dict[str, Any], today: date) -> dict[str, Any]:
 
 def _seed_resume(resume: dict[str, Any], status: str) -> dict[str, Any] | None:
     """프론트 모양(competencies.careers) → seed 모양(careers). 이력서가 없으면 None."""
-    if status == "none":
+    if status == NO_RESUME:
         return None
     competencies = resume["competencies"]
     data = {
@@ -173,13 +178,17 @@ def _seed_resume(resume: dict[str, Any], status: str) -> dict[str, Any] | None:
     }
     # draft = 쓰다 만 이력서(저장일 없음).
     # outdated = 퇴사 전에 저장한 이력서라 저장일을 아주 예전으로 둡니다.
-    if status == "draft":
-        return {"status": "draft", "field_status": "confirmed", "data": data}
-    saved_offset = -3650 if status == "outdated" else -1
+    if status == ResumeState.DRAFT:
+        return {
+            "status": ResumeStatus.DRAFT.value,
+            "field_status": FieldStatus.CONFIRMED.value,
+            "data": data,
+        }
+    saved_offset = -3650 if status == ResumeState.OUTDATED else -1
     return {
-        "status": "saved",
+        "status": ResumeStatus.SAVED.value,
         "saved_offset": saved_offset,
-        "field_status": "confirmed",
+        "field_status": FieldStatus.CONFIRMED.value,
         "data": data,
     }
 
