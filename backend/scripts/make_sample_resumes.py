@@ -192,6 +192,7 @@ def write_hwpx(r: Resume, path: Path) -> None:
         for i, row in enumerate([head, *rows]):
             for j, value in enumerate(row):
                 table.set_cell_text(i, j, value)
+    doc.package.set_document_metadata(title=f"이력서 - {r.title}", subject=NOTICE)
     doc.save_to_path(path)
 
 
