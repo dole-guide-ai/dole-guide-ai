@@ -107,6 +107,8 @@ def _read_photo(path: Path) -> tuple[str, bool]:
         transcript = images.transcribe(str(path))
     except Exception:  # 깨진 사진·모델 실패는 턴을 막지 않고 다시 찍어 달라고 합니다.
         return UNREADABLE_PHOTO, False
+    if not transcript.strip():
+        return UNREADABLE_PHOTO, False
     masked, findings = pii.mask(transcript)
     safe = not any(f.blocking for f in findings)
     return masked, safe and get_settings().image_mode == "vision"
@@ -142,7 +144,8 @@ def read_attachments(config: RunnableConfig) -> Attachments:
 
 
 def preprocess(state: AgentState, config: RunnableConfig) -> dict[str, Any]:
-    text, blocked = gate(turn_of(config).text)
+    # 사용자가 직접 친 첨부 표시는 지웁니다(첨부 경계를 흉내 내 라우팅·규칙을 속이지 못하게).
+    text, blocked = gate(_ATTACHMENT_TAG.sub("", turn_of(config).text))
     attachments = Attachments()
     if blocked:
         emit(TokenEvent(text=BLOCKED_REPLY))

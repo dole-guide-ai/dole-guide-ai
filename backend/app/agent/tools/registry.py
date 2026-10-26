@@ -160,9 +160,14 @@ def _record_activity(ctx: ToolContext, args: RecordActivityInput) -> dict[str, A
     if day is None:
         raise ToolError(f"'{args.when}'이(가) 며칠인지 정하지 못했어요. 날짜를 다시 물어 주세요.")
     body = ActivityCreate(
-        activity_date=day, file_ids=ctx.take_evidence(), **args.model_dump(exclude={"when"})
+        activity_date=day,
+        file_ids=list(ctx.evidence_file_ids),
+        **args.model_dump(exclude={"when"}),
     )
-    return _dump(activity_service.record_answered_activity(ctx.db, ctx.account, body, ctx.today))
+    recorded = activity_service.record_answered_activity(ctx.db, ctx.account, body, ctx.today)
+    # 기록이 실패하면 증빙을 남겨 두어 모델이 다시 부를 때 그대로 붙습니다.
+    ctx.take_evidence()
+    return _dump(recorded)
 
 
 def _record_resume_facts(ctx: ToolContext, args: ResumeFacts) -> dict[str, Any]:

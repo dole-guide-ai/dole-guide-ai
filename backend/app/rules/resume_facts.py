@@ -211,16 +211,15 @@ def _education(
 ACQUIRED = re.compile(r"(\d{4})(?:\s*[-./년]\s*(\d{1,2})(?:\s*[-./월]\s*(\d{1,2}))?)?")
 
 
-def _acquired_value(m: re.Match[str]) -> str:
+def _acquired_value(m: re.Match[str]) -> str | None:
+    """취득일 값. 없는 달·날("2011.13", "2011.02.30")이면 None(다시 물음)."""
     year, month, day = m[1], m[2], m[3]
     if not month:
         return year
-    if day:
-        try:
-            return date(int(year), int(month), int(day)).isoformat()
-        except ValueError:
-            pass  # 없는 날짜는 일을 버리고 월까지만
-    return f"{year}-{int(month):02d}-01"
+    try:
+        return date(int(year), int(month), int(day or 1)).isoformat()
+    except ValueError:
+        return None
 
 
 def _certification(plan: FactPlan, item_id: str, fact: CertificationFact) -> None:
@@ -229,7 +228,10 @@ def _certification(plan: FactPlan, item_id: str, fact: CertificationFact) -> Non
     if fact.issuing_organization:
         plan.writes.append(_said(f"{base}/issuing_organization", fact.issuing_organization))
     if fact.acquired and (m := ACQUIRED.search(fact.acquired)):
-        plan.writes.append(_said(f"{base}/acquired_date", _acquired_value(m)))
+        if (value := _acquired_value(m)) is None:
+            plan.asks.append(f"자격증 취득일 '{fact.acquired}'은(는) 없는 날짜라 다시 물어야 해요")
+        else:
+            plan.writes.append(_said(f"{base}/acquired_date", value))
 
 
 def _new_id(careers: list[Career], prefix: str) -> str:
