@@ -27,7 +27,7 @@ def test_tokens_join_into_one_answer_with_cite() -> None:
             MessageRole.ASSISTANT,
             MessageKind.TEXT,
             "1건 남았어요.",
-            {"cite": "안내문", "rule_refs": []},
+            {"cite": "안내문", "rule_refs": [], "cite_links": []},
         )
     ]
 

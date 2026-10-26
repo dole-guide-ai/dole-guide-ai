@@ -96,11 +96,17 @@ def test_turn_streams_events_and_saves_bubbles(client, entered_headers, monkeypa
     assert history["next_cursor"] is None
 
 
-def test_default_graph_responder_works(client, entered_headers):
+def test_default_graph_responder_works(client, entered_headers, fake_llm):
+    """기본 응답기(그래프)로 한 턴: 진행 표시 → 답 글자 → done (노션 「AI 설계」 2-6 A+F)."""
+    fake_llm(["이번 회차 활동을 같이 정리해요."])
     events = sse_events(send(client, entered_headers("lee")))
 
-    assert events[-1][0] == "done"
-    assert all(name == "token" for name, _ in events[:-1])
+    names = [name for name, _ in events]
+    assert names[0] == "tool_call"
+    assert events[0][1] == {"name": "compose_reply", "status": "started"}
+    assert "token" in names
+    assert names[-1] == "done"
+    assert "합성 질문" not in "".join(d.get("text", "") for n, d in events if n == "token")
 
 
 def test_responder_failure_becomes_error_event(client, entered_headers, monkeypatch):
@@ -148,7 +154,8 @@ def test_ask_user_is_restored_as_pending_ask(client, entered_headers, monkeypatc
     assert account["pending_ask"]["choices"] == ["계약만료", "권고사직"]
 
 
-def test_same_idempotency_key_is_not_run_twice(client, entered_headers, monkeypatch):
+def test_same_idempotency_key_is_not_run_twice(client, entered_headers, monkeypatch, fake_llm):
+    fake_llm(["합성 답이에요."])
     headers = entered_headers("lee") | {"Idempotency-Key": "msg-1"}
 
     first = send(client, headers)
@@ -183,7 +190,8 @@ def committed_account(migrated_db):
         db.commit()
 
 
-def test_second_turn_while_first_runs_is_409(committed_account):
+def test_second_turn_while_first_runs_is_409(committed_account, fake_llm):
+    fake_llm(["합성 답이에요.", "합성 답이에요."])
     body = MessageCreate(text="합성 질문")
     with SessionLocal() as first_db, SessionLocal() as second_db:
         turn = chat_service.start_turn(first_db, committed_account, body, None, TEST_TODAY)

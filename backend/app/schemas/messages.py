@@ -78,9 +78,20 @@ class AskUserEvent(BaseModel):
     accepts_file: bool = False
 
 
+class CiteLink(BaseModel):
+    """근거 줄 출처 하나 (RAG 검색 자료, 노션 「RAG 설계 (복사본)」 7.5)."""
+
+    title: str
+    url: str | None = None
+    updated_on: str | None = None
+
+
 class DoneEvent(BaseModel):
+    # 화면 근거 줄 글자 ("근거 · {cite}")
     cite: str | None = None
     rule_refs: list[str] = []
+    # 근거 줄에서 열어 볼 원문 링크 (최대 3개)
+    cite_links: list[CiteLink] = []
 
 
 class ErrorEvent(BaseModel):

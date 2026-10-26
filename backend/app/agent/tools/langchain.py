@@ -9,13 +9,13 @@ from typing import Any
 
 from langchain_core.tools import BaseTool, StructuredTool, ToolException
 
-from app.agent.tools.registry import TOOLS, Tool, ToolContext, ToolError
+from app.agent.tools.registry import TOOLS, Tool, ToolContext, ToolError, execute
 
 
 def _as_langchain(ctx: ToolContext, tool: Tool) -> BaseTool:
     def run(**kwargs: Any) -> dict[str, Any]:
         try:
-            return tool.run(ctx, tool.input_model.model_validate(kwargs))
+            return execute(ctx, tool, tool.input_model.model_validate(kwargs))
         except ToolError as exc:
             raise ToolException(str(exc)) from exc
 

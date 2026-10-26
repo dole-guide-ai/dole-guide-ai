@@ -1,4 +1,5 @@
 from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 from typing import Annotated
 
 from fastapi import Depends
@@ -32,6 +33,30 @@ def get_db() -> Iterator[Session]:
 
 
 DbSession = Annotated[Session, Depends(get_db)]
+
+
+@contextmanager
+def deferred_commit(db: Session) -> Iterator[None]:
+    """안에서 부른 `commit()`을 저장점(savepoint) 확정으로 바꿉니다.
+
+    대화 턴은 계정 잠금을 요청 트랜잭션이 쥐고 있어, 도구가 부른 서비스가 commit하면 턴 도중에
+    잠금이 풀립니다. 도구 하나를 저장점 하나로 묶어 실패하면 그 도구 것만 되돌리고, 실제 commit은
+    턴이 끝날 때(services/chat.Turn.finish) 한 번 합니다. 서비스 코드는 바꾸지 않습니다.
+    """
+    savepoint = db.begin_nested()
+    original = db.commit
+    db.commit = db.flush  # type: ignore[method-assign]
+    try:
+        yield
+    except BaseException:
+        if savepoint.is_active:
+            savepoint.rollback()
+        raise
+    else:
+        if savepoint.is_active:
+            savepoint.commit()
+    finally:
+        db.commit = original  # type: ignore[method-assign]
 
 
 def create_or_existing[T](

@@ -33,6 +33,12 @@ const TOOL_LABEL: Record<string, string> = {
   parse_file: '서류를 읽는 중…',
   lookup_code: '고용24 직종·지역 이름을 맞춰 보는 중…',
   search_guide: '근거 자료를 찾는 중…',
+  compose_reply: '답을 정리하는 중…',
+  save_resume_fields: '이력서에 적는 중…',
+  record_activity: '활동을 기록하는 중…',
+  record_user_answer: '신청서에 적는 중…',
+  search_trainings: '훈련과정을 찾는 중…',
+  search_programs: '취업 프로그램을 찾는 중…',
 };
 
 /** 대시보드 본문 (1.5): 상단 한 줄(진행바 · 다음 할 일) · 대화 · 패널. */

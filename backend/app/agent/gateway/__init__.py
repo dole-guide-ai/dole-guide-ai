@@ -26,6 +26,20 @@ def get_chat_model(role: ModelRole = "agent") -> BaseChatModel:
     )
 
 
+def get_guard_model() -> BaseChatModel | None:
+    """출력 판정용 Llama Guard (OpenAI 호환 API). 설정이 없으면 None."""
+    settings = get_settings()
+    if not (settings.guard_llm_base_url and settings.guard_llm_model):
+        return None
+    return ChatOpenAI(
+        model=settings.guard_llm_model,
+        api_key=settings.guard_llm_api_key or "none",
+        base_url=settings.guard_llm_base_url,
+        timeout=settings.llm_timeout_seconds,
+        max_retries=MAX_RETRIES,
+    )
+
+
 def get_embeddings() -> Embeddings:
     """문서·질문 임베딩. 질문용 모델이 따로 지정되면 질문만 그 모델로 보냅니다."""
     settings = get_settings()

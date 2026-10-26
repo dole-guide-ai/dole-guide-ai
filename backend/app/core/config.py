@@ -84,6 +84,17 @@ class Settings(BaseSettings):
     # 고용24 OpenAPI 호출 하나의 대기 시간과 실패 시 다시 부르는 횟수 (설계 3.11: 5초·재시도 1회)
     external_api_timeout_seconds: float = 5
     external_api_retries: int = 1
+    # 대화 에이전트 (노션 「AI 설계」 2-4: agent ⇄ tools 왕복 상한, 2-3: 기억할 최근 대화 수)
+    agent_max_tool_rounds: int = 4
+    agent_history_messages: int = 12
+    # 보안 가드 백엔드 (쉼표 목록, rules는 늘 켜짐): prompt_guard, llama_guard
+    guard_backends: str = "rules"
+    guard_block_threshold: float = 0.8
+    prompt_guard_model: str = "meta-llama/Llama-Prompt-Guard-2-86M"
+    # Llama Guard를 부를 OpenAI 호환 주소·키·모델. 비우면 그 판정은 꺼집니다.
+    guard_llm_base_url: str = ""
+    guard_llm_api_key: str = ""
+    guard_llm_model: str = ""
     # LangSmith 관측. 키가 없으면 꺼집니다.
     langsmith_api_key: str = ""
     langsmith_project: str = "dole-guide-ai"

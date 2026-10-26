@@ -275,6 +275,40 @@ def _procedure_or_404(db: Session, user_id: uuid.UUID):
     return procedure
 
 
+def confirm_field(db: Session, user_id: uuid.UUID, path: str, *, today: date) -> ResumeWriteResult:
+    """확인 질문에 "네, 맞아요"라고 한 칸을 확정합니다 (2-1.4, 확인 필요 → 확정).
+
+    값 · 출처 · 근거는 그대로 두고 상태만 confirmed로 바꿉니다. 없는 칸이면 422입니다.
+    """
+    data = read_resume_data(repo.get_resume(db, user_id))
+    field = dict(rules.form_fields(data)).get(path)
+    if field is None:
+        raise UnprocessableError("확인할 칸을 찾지 못했어요.")
+    write = FieldWrite(
+        path=path,
+        value=field.value,
+        status=FieldStatus.CONFIRMED,
+        source=field.source or FieldSource.USER_ANSWER,
+        transformed=False,
+        evidence=field.evidence.model_dump(mode="json") if field.evidence else None,
+    )
+    return save_resume_fields(db, user_id, [write], today=today)
+
+
+def next_question(db: Session, user_id: uuid.UUID, *, doc_failed: bool = False):
+    """지금 이력서에서 다음에 물을 질문 (대화 턴이 부름, F-14). 절차 상태가 없으면 None."""
+    procedure = repo.get_procedure(db, user_id)
+    if procedure is None:
+        return None
+    data = read_resume_data(repo.get_resume(db, user_id))
+    return rules.next_resume_question(
+        data,
+        entry_branch=_branch(data),
+        separation_date=procedure.separation_date,
+        doc_failed=doc_failed,
+    )
+
+
 def read_resume_data(resume: repo.Resume | None) -> resume_form.ResumeData:
     if resume is None:
         return resume_form.ResumeData()

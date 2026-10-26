@@ -11,12 +11,13 @@ import uuid
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import date, datetime
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.agent.tools import guide
+from app.core.db import deferred_commit
 from app.schemas.activities import ActivityCreate, ActivityRoute
 from app.schemas.common import FieldSource, FieldStatus, JsonPatchOp
 from app.schemas.resume import FieldWrite
@@ -27,6 +28,7 @@ from app.services import recommendations as recommendation_service
 from app.services import resume as resume_service
 from app.services import rounds as round_service
 from app.services import trainings as training_service
+from app.services import work24_codes
 from app.services.accounts import AccountContext
 
 CURRENT_ROUND = "current"
@@ -46,6 +48,9 @@ class ToolContext:
     now: datetime
     # 지금 질문이 다루는 칸 경로(앞부분). None이면 제한 없음(테스트·관리용)
     allowed_paths: tuple[str, ...] | None = None
+    # 대화 턴에서는 도구마다 저장점만 확정하고 commit은 턴 끝에 한 번 합니다
+    # (core/db.deferred_commit).
+    defer_commit: bool = False
 
     def ensure_allowed(self, path: str) -> None:
         if self.allowed_paths is not None and not any(
@@ -83,10 +88,16 @@ class ResumeFieldInput(BaseModel):
     value: Any = None
     # 사용자가 말한 값을 그대로 넣었는지(extracted), 다시 확인받았는지(confirmed)
     confirmed: bool = False
+    # "없어요"라고 답한 섹션(자격면허·그 밖의 역량). 값 없이 해당 없음으로 둡니다.
+    not_applicable: bool = False
 
 
 class SaveResumeInput(BaseModel):
     fields: list[ResumeFieldInput] = Field(min_length=1, max_length=10)
+
+
+class ConfirmFieldInput(BaseModel):
+    path: str = Field(pattern=r"^/", description="확인받은 이력서 칸 경로")
 
 
 class UserAnswerInput(BaseModel):
@@ -109,6 +120,11 @@ class SearchTrainingsInput(BaseModel):
 
 class SearchProgramsInput(BaseModel):
     start: date | None = None
+
+
+class LookupCodeInput(BaseModel):
+    kind: Literal["occupation", "region"] = Field(description="occupation 직종, region 지역")
+    text: str = Field(min_length=1, max_length=50, description="사용자가 말한 직종·지역 이름")
 
 
 # ── 실행 함수 ─────────────────────────────────────────────
@@ -142,6 +158,12 @@ def _mark_done(ctx: ToolContext, args: MarkDoneInput) -> dict[str, Any]:
     )
 
 
+def _write_status(f: ResumeFieldInput) -> FieldStatus:
+    if f.not_applicable:
+        return FieldStatus.NOT_APPLICABLE
+    return FieldStatus.CONFIRMED if f.confirmed else FieldStatus.EXTRACTED
+
+
 def _save_resume(ctx: ToolContext, args: SaveResumeInput) -> dict[str, Any]:
     for f in args.fields:
         ctx.ensure_allowed(f.path)
@@ -149,7 +171,7 @@ def _save_resume(ctx: ToolContext, args: SaveResumeInput) -> dict[str, Any]:
         FieldWrite(
             path=f.path,
             value=f.value,
-            status=FieldStatus.CONFIRMED if f.confirmed else FieldStatus.EXTRACTED,
+            status=_write_status(f),
             source=FieldSource.USER_ANSWER,
         )
         for f in args.fields
@@ -159,6 +181,15 @@ def _save_resume(ctx: ToolContext, args: SaveResumeInput) -> dict[str, Any]:
         "updates": [_dump(u) for u in result.updates],
         "next_question": _dump(result.next_question),
         "issues": [_dump(i) for i in result.issues],
+    }
+
+
+def _confirm_resume(ctx: ToolContext, args: ConfirmFieldInput) -> dict[str, Any]:
+    ctx.ensure_allowed(args.path)
+    result = resume_service.confirm_field(ctx.db, ctx.account.user_id, args.path, today=ctx.today)
+    return {
+        "updates": [_dump(u) for u in result.updates],
+        "next_question": _dump(result.next_question),
     }
 
 
@@ -190,6 +221,16 @@ def _trainings(ctx: ToolContext, args: SearchTrainingsInput) -> dict[str, Any]:
 
 def _programs(ctx: ToolContext, args: SearchProgramsInput) -> dict[str, Any]:
     return _dump(training_service.search_programs(args.start, ctx.now))
+
+
+def _lookup_code(ctx: ToolContext, args: LookupCodeInput) -> dict[str, Any]:
+    """고용24 공통코드 후보 3개. 저장된 기준표(JSON)에서 찾고 API는 부르지 않습니다."""
+    candidates = work24_codes.lookup_code(args.kind, args.text)
+    return {
+        "candidates": [_dump(c) for c in candidates],
+        # 후보가 다 맞지 않으면 이 값으로 이름만 저장합니다(세 번 실패하면, F-14).
+        "name_only": work24_codes.name_only(args.text),
+    }
 
 
 def _overview(ctx: ToolContext, _: NoInput) -> dict[str, Any]:
@@ -225,6 +266,12 @@ TOOLS: dict[str, Tool] = {
             SaveResumeInput,
             _save_resume,
         ),
+        Tool(
+            "confirm_resume_field",
+            "확인 질문에 맞다고 한 이력서 칸 확정",
+            ConfirmFieldInput,
+            _confirm_resume,
+        ),
         Tool("record_user_answer", "신청서 본인 답변 한 칸 저장", UserAnswerInput, _record_answer),
         Tool("record_unsure", "확인 필요로 두기", UnsureInput, _record_unsure),
         Tool("import_work24_items", "고용24 불러오기에서 고른 항목 넣기", ImportInput, _import),
@@ -236,16 +283,35 @@ TOOLS: dict[str, Tool] = {
             _programs,
         ),
         Tool("answer_overview", "전체 순서 4단계 고정 안내(LLM 없이)", NoInput, _overview),
+        Tool(
+            "lookup_code",
+            "말한 직종·지역 이름으로 고용24 공통코드 후보 3개 찾기",
+            LookupCodeInput,
+            _lookup_code,
+        ),
     )
 }
 
 # 패널(서브그래프)마다 LLM에 넘기는 도구 (AI 설계 6.3: 3~4개)
 TOOLS_BY_PANEL: dict[str, tuple[str, ...]] = {
-    "resume": ("save_resume_fields", "import_work24_items", "answer_overview"),
+    "resume": (
+        "save_resume_fields",
+        "confirm_resume_field",
+        "lookup_code",
+        "import_work24_items",
+    ),
     "round": ("check_round", "record_activity", "mark_done", "recommend_activities"),
     "application": ("record_user_answer", "record_unsure", "check_round"),
     "education": ("search_trainings", "search_programs", "answer_overview"),
 }
+
+
+def execute(ctx: ToolContext, tool: Tool, args: BaseModel) -> dict[str, Any]:
+    """도구 하나를 실행합니다. 대화 턴이면 저장점 하나로 묶습니다."""
+    if not ctx.defer_commit:
+        return tool.run(ctx, args)
+    with deferred_commit(ctx.db):
+        return tool.run(ctx, args)
 
 
 def run_tool(ctx: ToolContext, name: str, args: dict[str, Any]) -> dict[str, Any]:
@@ -253,4 +319,4 @@ def run_tool(ctx: ToolContext, name: str, args: dict[str, Any]) -> dict[str, Any
     tool = TOOLS.get(name)
     if tool is None:
         raise ToolError("없는 도구예요.")
-    return tool.run(ctx, tool.input_model.model_validate(args))
+    return execute(ctx, tool, tool.input_model.model_validate(args))

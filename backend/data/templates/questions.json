@@ -1,0 +1,82 @@
+{
+  "_note": "대화 질문 문구 (질문 하나 · 선택지 3개 이하 · 해요체, 상세기획 2-0.2). 질문 ID는 규칙 함수(app/rules)가 고르고, 문구는 여기서만 만듭니다. {변수}는 규칙 함수가 준 값입니다. 신청서 선택지는 [화면 글자, 저장 값] 쌍입니다.",
+  "resume": {
+    "resume.doc_retry": "글자가 잘 안 보여요. 밝은 곳에서 서류 전체가 나오게 다시 찍어 주시거나 말로 알려 주세요.",
+    "resume.value_confirm": "제가 바꿔 적은 값이 맞는지 확인해 주세요.",
+    "resume.career_new": "가장 최근에 일하신 곳을 알려 주세요. 경력증명서 사진을 올리셔도 돼요.",
+    "resume.career_since_old": "{year}년 이력서 이후에 일하신 곳이 있나요?",
+    "resume.career_duties": "{company}에서 주로 어떤 일을 하셨어요?",
+    "resume.career_position": "{company}에서 직급이나 직책이 있으셨어요?",
+    "resume.career_end_check": "{company}은 {year}년 {month}월에 그만두신 게 맞나요?",
+    "resume.license": "가지고 계신 자격증이나 면허가 있나요?",
+    "resume.education_level": "마지막으로 다니신 학교는 어디까지인가요?",
+    "resume.education_detail": "{level} 학교 이름과 다닌 기간을 알려 주세요.",
+    "resume.wish_job": "앞으로 어떤 일을 하고 싶으세요?",
+    "resume.wish_experience": "{occupation} 경력이 이 정도 맞나요?",
+    "resume.wish_region": "어느 지역에서 일하고 싶으세요? 3곳까지 고를 수 있어요.",
+    "resume.wish_wage": "희망하는 월급이 있나요?",
+    "resume.wish_employment": "어떤 형태로 일하고 싶으세요?",
+    "resume.wish_military": "병역대체 근무는 해당이 없으신 거 맞나요?",
+    "resume.resume_title": "이력서 제목을 이렇게 할까요?",
+    "resume.optional_sections": "그 밖에 적고 싶은 교육·봉사·컴퓨터 활용 같은 게 있나요?",
+    "resume.save_ready": "이력서가 다 채워졌어요. 확인하고 저장할까요?"
+  },
+  "application": {
+    "application.has_work": {
+      "text": "이번 실업인정 대상기간에 일하거나 돈을 받은 적이 있나요?",
+      "choices": [["있어요", "yes"], ["없어요", "no"]]
+    },
+    "application.work_entries": {
+      "text": "일한 날, 일한 시간, 돈 받은 날, 받은 금액을 알려 주세요.",
+      "choices": []
+    },
+    "application.employment_status": {
+      "text": "취업했거나 개인 사업을 시작했나요?",
+      "choices": [["아니요", "none"], ["취업했어요", "employed"], ["개인 사업을 해요", "self_employed"]]
+    },
+    "application.employment_started_on": {
+      "text": "언제부터 일을 시작했나요? 날짜를 알려 주세요.",
+      "choices": []
+    },
+    "application.industrial_accident": {
+      "text": "지금 산재 휴업급여를 받고 있나요?",
+      "choices": [["아니요", "no"], ["받고 있어요", "yes"]]
+    },
+    "application.credit": {
+      "text": "실업크레딧(국민연금 보험료 지원)을 신청할까요?",
+      "choices": [["희망해요", "wish"], ["희망하지 않아요", "not_wish"]]
+    },
+    "application.credit_notice": {
+      "text": "실업크레딧 안내는 어떻게 받을까요?",
+      "choices": [["전자고지", "electronic"], ["우편", "mail"]]
+    },
+    "application.credit_auto_payment": {
+      "text": "실업크레딧 보험료를 자동이체로 낼까요?",
+      "choices": [["자동이체 할게요", "wish"], ["안 할게요", "not_wish"]]
+    },
+    "application.credit_consent": {
+      "text": "실업크레딧을 위해 재산·소득 확인에 동의하나요?",
+      "choices": [["동의해요", "agree"], ["동의하지 않아요", "disagree"]]
+    },
+    "application.notification_method": {
+      "text": "지급 결정 알림은 지난번처럼 받을까요?",
+      "choices": [["문자로 받을게요", "sms"], ["전자우편", "email"], ["우편", "mail"]]
+    },
+    "application.next_plan": {
+      "text": "다음 실업인정일까지 할 활동 계획을 알려 주세요.",
+      "choices": []
+    },
+    "application.privacy_consent": {
+      "text": "개인정보 수집·이용에 어떻게 답하실지 직접 골라 주세요.",
+      "choices": [["모두 동의", "agree_all"], ["필수만 동의", "agree_required_only"], ["동의하지 않음", "disagree"]]
+    },
+    "application.locked": {
+      "text": "취업했거나 산재 휴업급여를 받고 있으면 이번 신청서는 고용센터 안내를 따라야 해요.",
+      "choices": []
+    },
+    "application.done": {
+      "text": "본인 답변이 모두 채워졌어요. 패널에서 확인하고 제출해 주세요.",
+      "choices": []
+    }
+  }
+}

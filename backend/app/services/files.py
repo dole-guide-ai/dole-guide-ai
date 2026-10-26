@@ -89,6 +89,31 @@ def open_file(db: Session, account: AccountContext, file_id: str) -> tuple[File,
     return row, path
 
 
+def files_to_read(
+    db: Session, account: AccountContext, file_ids: list[str]
+) -> list[tuple[File, Path]]:
+    """대화 턴이 판독할 자기 계정 파일들. 모르는·남의·지운 파일은 건너뜁니다 (F-09)."""
+    found: list[tuple[File, Path]] = []
+    for raw in file_ids:
+        try:
+            parsed = uuid.UUID(raw)
+        except ValueError:
+            continue
+        row = repo.get_for_user(db, account.user_id, parsed)
+        if row is None:
+            continue
+        path = _upload_root() / row.storage_key
+        if path.is_file():
+            found.append((row, path))
+    return found
+
+
+def discard_after_reading(row: File, path: Path) -> None:
+    """이력서 서류(resume_doc)는 판독 뒤 실물을 지웁니다. 증빙은 보관합니다."""
+    if row.purpose == FilePurpose.RESUME_DOC:
+        path.unlink(missing_ok=True)
+
+
 def _store(
     db: Session,
     account: AccountContext,

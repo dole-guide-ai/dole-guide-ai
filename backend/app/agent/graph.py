@@ -1,56 +1,74 @@
-"""LangGraph 그래프를 조립하는 자리입니다.
+"""LangGraph 그래프 조립 (노션 「AI 설계」 2절).
 
-지금은 공용 부품이 이어지는지 보여 주는 예시 그래프(노드 하나, LLM 호출 없음)입니다. 노드 구성과
-상태 모양은 영역을 맡은 사람이 설계해 바꿉니다. 바꿀 때 지킬 연결 약속은 이렇습니다.
+바깥 그래프 하나 + 패널 서브그래프 넷(resume · round · application · education).
 
-- 화면으로 나갈 이벤트는 노드 안에서 `events.emit(...)`으로 냅니다(응답기가 SSE로 흘려보냄).
-- 턴 정보(`TurnInput`)와 도구 문맥(`ToolContext`)은 `config["configurable"]`에서 꺼냅니다
-  (`turn_of`, `tool_context_of`). 상태에 넣지 않아 체크포인트에 DB 세션이 저장되지 않습니다.
-- 그래프는 `build_graph(checkpointer)`로 만들고, 응답기가 턴마다 부릅니다.
+```
+START → preprocess → load_context ─(고정 경로)──────────────────┐
+                          └─(패널 라우터)→ {panel}_agent ⇄ {panel}_tools ─→ verify → ask → END
+```
+
+- preprocess: 개인정보 가림 · 서류 판독 · 입력 가드
+- load_context: 절차 단계로 패널을 고르고(LLM 아님), 다음 질문 · 쓸 수 있는 칸을 정함, 고정 경로
+- {panel}_agent ⇄ {panel}_tools: 값 추출 → 도구 → 답 문장 (최대 AGENT_MAX_TOOL_ROUNDS바퀴)
+- verify: 숫자 · 근거 · 출력 가드를 검사한 뒤에만 답을 흘려보냄
+- ask: 다음 질문(ask_user)
+
+연결 약속
+- 화면 이벤트는 노드 안에서 `events.emit(...)`으로 냅니다(응답기가 SSE로 흘려보냄).
+- 턴 정보 · 도구 문맥은 `config["configurable"]`에서 꺼냅니다(graph_config).
 """
 
-from typing import Annotated, Any, TypedDict
-
-from langchain_core.messages import AIMessage, AnyMessage
-from langchain_core.runnables import RunnableConfig
 from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.graph import END, START, StateGraph
-from langgraph.graph.message import add_messages
 from langgraph.graph.state import CompiledStateGraph
 
-from app.agent.events import emit
-from app.agent.tools.registry import ToolContext
-from app.schemas.messages import DoneEvent, TokenEvent
+from app.agent.graph_config import TOOL_CONTEXT_KEY, TURN_KEY, tool_context_of, turn_of
+from app.agent.nodes.ask import ask
+from app.agent.nodes.context import load_context
+from app.agent.nodes.panel import after_agent, make_agent, make_tools
+from app.agent.nodes.preprocess import preprocess
+from app.agent.nodes.verify import verify
+from app.agent.panels import Panel
+from app.agent.state import AgentState
 
-TURN_KEY = "turn"
-TOOL_CONTEXT_KEY = "tool_context"
+__all__ = [
+    "TOOL_CONTEXT_KEY",
+    "TURN_KEY",
+    "AgentState",
+    "build_graph",
+    "tool_context_of",
+    "turn_of",
+]
 
-PLACEHOLDER_REPLY = "말씀하신 내용을 받았어요. AI 답변은 곧 연결돼요."
-
-
-class AgentState(TypedDict):
-    messages: Annotated[list[AnyMessage], add_messages]
-
-
-def turn_of(config: RunnableConfig) -> Any:
-    return config["configurable"][TURN_KEY]
+VERIFY = "verify"
 
 
-def tool_context_of(config: RunnableConfig) -> ToolContext:
-    return config["configurable"][TOOL_CONTEXT_KEY]
-
-
-def respond(state: AgentState) -> dict[str, list[AnyMessage]]:
-    """예시 노드. 사용자 말은 되풀이하지 않고 고정 문구를 글자 이벤트로 냅니다."""
-    for word in PLACEHOLDER_REPLY.split(" "):
-        emit(TokenEvent(text=word + " "))
-    emit(DoneEvent())
-    return {"messages": [AIMessage(PLACEHOLDER_REPLY)]}
+def _route(state: AgentState) -> str:
+    """고정 경로면 바로 verify(검사 없이 흘려보냄), 아니면 고른 패널의 agent로."""
+    if state.get("fixed") or not state.get("panel"):
+        return VERIFY
+    return f"{state['panel']}_agent"
 
 
 def build_graph(checkpointer: BaseCheckpointSaver | None = None) -> CompiledStateGraph:
     builder = StateGraph(AgentState)
-    builder.add_node("respond", respond)
-    builder.add_edge(START, "respond")
-    builder.add_edge("respond", END)
+    builder.add_node("preprocess", preprocess)
+    builder.add_node("load_context", load_context)
+    builder.add_node(VERIFY, verify)
+    builder.add_node("ask", ask)
+
+    targets = {VERIFY: VERIFY}
+    for panel in Panel:
+        agent, tools = f"{panel}_agent", f"{panel}_tools"
+        builder.add_node(agent, make_agent(panel))
+        builder.add_node(tools, make_tools(panel))
+        builder.add_conditional_edges(agent, after_agent, {"tools": tools, VERIFY: VERIFY})
+        builder.add_edge(tools, agent)
+        targets[agent] = agent
+
+    builder.add_edge(START, "preprocess")
+    builder.add_edge("preprocess", "load_context")
+    builder.add_conditional_edges("load_context", _route, targets)
+    builder.add_edge(VERIFY, "ask")
+    builder.add_edge("ask", END)
     return builder.compile(checkpointer=checkpointer)

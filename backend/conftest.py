@@ -23,7 +23,10 @@ for _key in ("WORK24_CODE_API_KEY", "WORK24_TRAINING_API_KEY", "WORK24_PROGRAM_A
 
 from alembic.config import Config  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
+from langchain_core.language_models import BaseChatModel  # noqa: E402
 from langchain_core.language_models.fake_chat_models import FakeListChatModel  # noqa: E402
+from langchain_core.messages import AIMessage, BaseMessage  # noqa: E402
+from langchain_core.outputs import ChatGeneration, ChatResult  # noqa: E402
 from sqlalchemy import create_engine, text  # noqa: E402
 from sqlalchemy.exc import OperationalError  # noqa: E402
 from sqlalchemy.orm import Session  # noqa: E402
@@ -102,6 +105,44 @@ def fake_llm(monkeypatch: pytest.MonkeyPatch):
 
     def _install(responses: list[str]) -> FakeListChatModel:
         model = FakeListChatModel(responses=responses)
+        monkeypatch.setattr(gateway, "get_chat_model", lambda role="agent": model)
+        return model
+
+    return _install
+
+
+class ScriptedChatModel(BaseChatModel):
+    """도구 호출까지 흉내 내는 가짜 모델. 정해 둔 AIMessage를 순서대로 돌려줍니다.
+
+    `calls`에 받은 메시지 목록을 남겨, 모델에 무엇이 넘어갔는지(개인정보 가림 등) 확인합니다.
+    """
+
+    script: list[AIMessage]
+    calls: list[list[BaseMessage]] = []
+
+    @property
+    def _llm_type(self) -> str:
+        return "scripted"
+
+    def bind_tools(self, tools, **kwargs):  # noqa: ANN001, ANN003, ANN201
+        return self
+
+    def _generate(self, messages, stop=None, run_manager=None, **kwargs):  # noqa: ANN001, ANN003, ANN202
+        self.calls.append(list(messages))
+        message = self.script.pop(0) if self.script else AIMessage("알겠어요.")
+        return ChatResult(generations=[ChatGeneration(message=message)])
+
+
+@pytest.fixture
+def scripted_llm(monkeypatch: pytest.MonkeyPatch):
+    """도구 호출을 포함한 응답 순서를 정합니다.
+
+    사용: scripted_llm([AIMessage("", tool_calls=[{"name": ..., "args": ..., "id": "c1"}]),
+                        AIMessage("답")])
+    """
+
+    def _install(script: list[AIMessage]) -> ScriptedChatModel:
+        model = ScriptedChatModel(script=list(script), calls=[])
         monkeypatch.setattr(gateway, "get_chat_model", lambda role="agent": model)
         return model
 

@@ -13,7 +13,6 @@ from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field
 from datetime import date, datetime
 
-from langchain_core.messages import HumanMessage
 from langchain_core.runnables import RunnableConfig
 from langgraph.checkpoint.base import BaseCheckpointSaver
 from sqlalchemy.orm import Session
@@ -21,10 +20,11 @@ from sqlalchemy.orm import Session
 from app.agent import checkpointer as checkpointer_module
 from app.agent import gateway
 from app.agent.events import TurnEvent
-from app.agent.graph import TOOL_CONTEXT_KEY, TURN_KEY, build_graph
+from app.agent.graph import build_graph
+from app.agent.graph_config import TOOL_CONTEXT_KEY, TURN_KEY
 from app.agent.tools.registry import ToolContext
 from app.core.clock import KST
-from app.schemas.messages import DoneEvent, InputKind
+from app.schemas.messages import AskUserEvent, DoneEvent, InputKind
 from app.services.accounts import AccountContext
 
 
@@ -50,7 +50,8 @@ def tool_context(turn: TurnInput) -> ToolContext | None:
         return None
     account = AccountContext(turn.user_id, turn.persona_id, turn.anchor_date)
     now = datetime.combine(turn.today, datetime.now(KST).time(), KST)
-    return ToolContext(db=turn.db, account=account, today=turn.today, now=now)
+    # 대화 턴의 도구는 저장점만 확정하고 commit은 턴 끝에 한 번 합니다(core/db.deferred_commit).
+    return ToolContext(db=turn.db, account=account, today=turn.today, now=now, defer_commit=True)
 
 
 def run_config(turn: TurnInput) -> RunnableConfig:
@@ -73,22 +74,26 @@ def graph_responder(
 ) -> Iterator[TurnEvent]:
     """노드가 낸 이벤트를 흘려보냅니다.
 
-    `done`은 그래프가 체크포인트 저장까지 끝낸 뒤 보냅니다. 노드가 낸 `done`(근거 줄)은
-    잡아 두었다가 그때 보내고, 노드가 내지 않았으면 빈 `done`을 보냅니다.
+    순서는 tool_call → form_update → token → done → ask_user입니다(설계 4절). `done`과 `ask_user`는
+    그래프가 체크포인트 저장까지 끝낸 뒤 보내고, 노드가 `done`을 내지 않았으면 빈 `done`을 보냅니다.
     도중에 실패하면 `done` 없이 오류로 끝납니다.
+
+    사용자 말은 입력으로 넘기지 않습니다. preprocess가 개인정보를 가린 글만 상태에 남깁니다.
     """
     graph = build_graph(checkpointer or checkpointer_module.get_checkpointer())
     done = TurnEvent(DoneEvent())
-    for event in graph.stream(
-        {"messages": [HumanMessage(turn.text)]}, run_config(turn), stream_mode="custom"
-    ):
+    asks: list[TurnEvent] = []
+    for event in graph.stream({}, run_config(turn), stream_mode="custom"):
         if not isinstance(event, TurnEvent):
             continue
         if isinstance(event.data, DoneEvent):
             done = event
+        elif isinstance(event.data, AskUserEvent):
+            asks.append(event)
         else:
             yield event
     yield done
+    yield from asks
 
 
 def get_responder() -> Responder:

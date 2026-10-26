@@ -9,6 +9,7 @@
 """
 
 import re
+from dataclasses import dataclass
 from typing import Any
 
 CREDIT_MIN_AGE = 60  # 만 60세 이상은 실업크레딧 대상이 아님 (설계 6.7)
@@ -114,3 +115,75 @@ def department_only(text: str | None) -> str | None:
         return None
     dept = _TITLE_TAIL.sub("", cleaned).strip()
     return dept or None
+
+
+# ── 다음 질문 (F-24, 상세기획 2-3.3) ───────────────────────
+
+LOCKED_QUESTION = "application.locked"
+DONE_QUESTION = "application.done"
+
+# (질문 ID, 칸 경로) — 위에서부터 처음 비어 있는 칸을 묻습니다.
+_QUESTION_ORDER: tuple[tuple[str, str], ...] = (
+    ("application.has_work", "/work/has_work"),
+    ("application.work_entries", "/work/entries"),
+    ("application.employment_status", "/employment/status"),
+    ("application.employment_started_on", "/employment/started_on"),
+    ("application.industrial_accident", "/industrial_accident/receiving"),
+    ("application.credit", "/credit/application"),
+    ("application.credit_notice", "/credit/notice_method"),
+    ("application.credit_auto_payment", "/credit/auto_payment"),
+    ("application.credit_consent", "/credit/income_asset_consent"),
+    ("application.notification_method", "/notification_method"),
+    ("application.next_plan", "/next_plan"),
+    ("application.privacy_consent", "/privacy_consent"),
+)
+
+
+@dataclass(frozen=True)
+class ApplicationQuestion:
+    """다음에 물을 본인 답변 칸. 잠겼거나 다 답했으면 `path`가 None입니다."""
+
+    id: str
+    path: str | None = None
+
+
+def _node(data: dict[str, Any], path: str) -> Any:
+    node: Any = data
+    for key in path.strip("/").split("/"):
+        node = node.get(key) if isinstance(node, dict) else None
+    return node
+
+
+def _answered(data: dict[str, Any], path: str) -> bool:
+    """답이 있거나 확인 필요(conflict)로 둔 칸. 거둬들인(rejected) 칸은 다시 묻습니다."""
+    node = _node(data, path)
+    if not isinstance(node, dict):
+        return False
+    if node.get("status") == "conflict":
+        return True
+    return node.get("status") != "rejected" and node.get("value") not in (None, "", [])
+
+
+def _asked(path: str, data: dict[str, Any], age: int) -> bool:
+    """다른 답에 따라 묻지 않는 칸을 거릅니다."""
+    if path == "/work/entries":
+        return _value(data, "/work/has_work") == "yes"
+    if path in DATE_PATHS:
+        return _value(data, "/employment/status") not in (None, NONE)
+    if path == "/credit/application":
+        return credit_applicable(age)
+    if path in CREDIT_DETAIL_PATHS:
+        return _value(data, "/credit/application") == WISH
+    return True
+
+
+def next_application_question(
+    data: dict[str, Any], age: int, locked: str | None
+) -> ApplicationQuestion:
+    """근로 → 취업 → 산재 → 실업크레딧 → 통지 → 다음 활동 → 동의 순으로 빈 칸 하나 (2-3.3)."""
+    if locked is not None:
+        return ApplicationQuestion(LOCKED_QUESTION)
+    for question_id, path in _QUESTION_ORDER:
+        if _asked(path, data, age) and not _answered(data, path):
+            return ApplicationQuestion(question_id, path)
+    return ApplicationQuestion(DONE_QUESTION)

@@ -125,6 +125,28 @@ def read_application(
     )
 
 
+def next_answer_question(
+    db: Session, account: AccountContext, today: date
+) -> answer_rules.ApplicationQuestion | None:
+    """지금 회차 신청서에서 다음에 물을 본인 답변 칸 (대화 턴이 부름, F-24).
+
+    회차가 없거나 제출한 신청서면 None입니다.
+    """
+    try:
+        target, rounds = find_round(db, account.user_id, CURRENT, today)
+    except NotFoundError:
+        return None
+    application = repo.get_application(db, target.round_id)
+    if application is None or application.status == ApplicationStatus.SUBMITTED:
+        return None
+    data = rules.carry_previous_answers(
+        application.data, previous_answers(db, rounds, target.round_no)
+    )
+    return answer_rules.next_application_question(
+        data, _age(db, account), rules.locked_reason(data)
+    )
+
+
 # ── 고치기 · 제출 (F-27, 설계 3.6) ─────────────────────────────────────────────
 
 SUBMIT_PATHS = {"/status", "/submit_mode", "/attend_items"}
