@@ -24,6 +24,7 @@ import re
 import uuid
 from collections.abc import Iterable
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import nullcontext
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -44,6 +45,7 @@ from app.services.knowledge import (
     search,
 )
 from evals.golden.schema import CSV_PATH, TURN_SEP, split_list
+from evals.retrieval.embedders import EMBEDDERS, MemoryIndex, use_memory_index
 
 HERE = Path(__file__).parent
 REPORT_DIR = HERE.parent / "reports"
@@ -57,6 +59,7 @@ TOP = 10
 ATTACH = 5  # 대화에 붙이는 수(RETRIEVAL_INJECT_LIMIT 기본값)
 THRESHOLDS = [round(0.30 + 0.05 * i, 2) for i in range(9)]
 WORKERS = 8
+QUERY_BATCH = 100  # 질문 임베딩 요청 하나에 담는 수(Upstage 상한)
 GOLDEN_SET = "골든셋 카드"
 RULE_ID = re.compile(r"\b(?:PROC|ELIG|ACT|DUE|SUP)-\d+\b")
 
@@ -152,13 +155,15 @@ def load_queries() -> dict[str, list[Query]]:
         }
     for name, files in GUIDE_SETS.items():
         queries = []
-        for filename in files:
+        # 사람 질문 파일은 없을 수 있습니다(생성 질문은 scripts/generate_guide_questions.py).
+        for filename in (f for f in files if (KNOWLEDGE_EVAL / f).exists()):
             for r in _jsonl(KNOWLEDGE_EVAL / filename):
                 # 다른 고용 형태 전용 청크는 찾지 않으므로 그런 정답만 있는 질문은 뺍니다.
                 positives = set(r["positives"]) & allowed
                 if positives:
                     queries.append(Query(r["qid"], r["question"], positives, "guide", "human"))
-        sets[name] = queries
+        if queries:
+            sets[name] = queries
     return sets
 
 
@@ -174,13 +179,17 @@ def _rewrites(questions: Iterable[str]) -> dict[str, str]:
     return cache
 
 
-def _vectors(texts: Iterable[str]) -> dict[str, list[float]]:
+def _vectors(texts: Iterable[str], index: MemoryIndex | None = None) -> dict[str, list[float]]:
     """질문 벡터도 파일에 둡니다. 질문용 모델이 바뀌면 파일 이름이 달라져 새로 만듭니다."""
-    path = REPORT_DIR / "cache" / f"qvec-{get_settings().embedding_query_model}.json"
+    name = index.embedder.name if index else get_settings().embedding_query_model
+    path = REPORT_DIR / "cache" / f"qvec-{name}.json"
     cache = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
     todo = [t for t in dict.fromkeys(texts) if t not in cache]
+    embed = index.embed_queries if index else gateway.embed_queries
+    for start in range(0, len(todo), QUERY_BATCH):
+        part = todo[start : start + QUERY_BATCH]
+        cache |= dict(zip(part, embed(part), strict=True))
     if todo:
-        cache |= dict(zip(todo, gateway.embed_queries(todo), strict=True))
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps(cache), encoding="utf-8")
     return cache
@@ -207,16 +216,18 @@ def _with_fixed(hits: list[KnowledgeHit], fixed: list[RuleCard]) -> list[Knowled
     return _fixed_hits(fixed) + [h for h in hits if h.meta.get("rule_id") not in fixed_ids]
 
 
-def run(configs: list[str]) -> dict[str, Any]:
+def run(configs: list[str], embedding: str | None = None) -> dict[str, Any]:
+    """embedding을 주면 서버 색인 대신 그 모델로 임베딩한 메모리 색인으로 찾습니다(embedders.py)."""
+    index = MemoryIndex(EMBEDDERS[embedding], REPORT_DIR / "cache") if embedding else None
     sets = load_queries()
     all_queries = [q for qs in sets.values() for q in qs]
     rewrites = (
         _rewrites(q.question for q in all_queries) if any(CONFIGS[c][1] for c in configs) else {}
     )
     texts = [q.question for q in all_queries] + list(rewrites.values())
-    vectors = _vectors(texts)
+    vectors = _vectors(texts, index)
     results: dict[str, dict[str, list[Ranked]]] = {}
-    with SessionLocal() as db:
+    with SessionLocal() as db, use_memory_index(db, index) if index else nullcontext():
         for name in configs:
             options, rewrite, use_profile = CONFIGS[name]
             results[name] = {}
@@ -239,7 +250,7 @@ def run(configs: list[str]) -> dict[str, Any]:
                 if name in RERANKED:
                     ranked = _reranked(ranked)
                 results[name][set_name] = ranked
-    return {"sets": sets, "results": results, "rewrites": rewrites}
+    return {"sets": sets, "results": results, "rewrites": rewrites, "embedding": embedding}
 
 
 def _reranked(ranked: list[Ranked]) -> list[Ranked]:
@@ -313,7 +324,8 @@ def _fmt(value: float | int) -> str:
 
 def render(out: dict[str, Any], threshold_config: str | None) -> str:
     results = out["results"]
-    lines = [f"# 검색 평가 ({datetime.now():%Y-%m-%d %H:%M})", ""]
+    embedding = out.get("embedding") or f"서버 색인({get_settings().embedding_model})"
+    lines = [f"# 검색 평가 ({datetime.now():%Y-%m-%d %H:%M}) · 임베딩 {embedding}", ""]
     keys = ["n", "hit@1", "hit@3", "hit@5", "mrr@10"]
     for set_name in out["sets"]:
         lines += [f"## {set_name}", "", "| 방식 | " + " | ".join(keys) + " |",
@@ -366,9 +378,10 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--configs", default=",".join(CONFIGS))
     parser.add_argument("--threshold-config", default="hybrid+syn")
+    parser.add_argument("--embedding", choices=list(EMBEDDERS), help="비우면 서버 색인(DB)")
     args = parser.parse_args()
     configs = args.configs.split(",")
-    out = run(configs)
+    out = run(configs, args.embedding)
     threshold_config = args.threshold_config if args.threshold_config in configs else None
     text = render(out, threshold_config)
     REPORT_DIR.mkdir(exist_ok=True)

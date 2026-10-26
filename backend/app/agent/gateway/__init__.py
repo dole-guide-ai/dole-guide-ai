@@ -39,6 +39,16 @@ def get_embeddings() -> Embeddings:
     return _SplitEmbeddings(documents, _embeddings(provider, query_model))
 
 
+def get_embeddings_for(
+    provider: Provider, model: str, query_model: str = "", dimensions: int | None = None
+) -> Embeddings:
+    """설정과 다른 임베딩 모델(평가에서 모델을 견줄 때). dimensions는 줄일 수 있는 모델만."""
+    documents = _embeddings(provider, model, dimensions)
+    if not query_model or query_model == model:
+        return documents
+    return _SplitEmbeddings(documents, _embeddings(provider, query_model, dimensions))
+
+
 def embed_queries(texts: list[str]) -> list[list[float]]:
     """질문 여러 개를 묶어서 질문용 모델로 임베딩합니다.
 
@@ -100,10 +110,11 @@ def to_app_error(exc: Exception) -> AppError:
     return LlmUnavailableError()
 
 
-def _embeddings(provider: Provider, model: str) -> OpenAIEmbeddings:
+def _embeddings(provider: Provider, model: str, dimensions: int | None = None) -> OpenAIEmbeddings:
     settings = get_settings()
     return OpenAIEmbeddings(
         model=model,
+        dimensions=dimensions,
         api_key=settings.api_key_for(provider),
         base_url=PROVIDERS[provider].base_url,
         timeout=settings.llm_timeout_seconds,
