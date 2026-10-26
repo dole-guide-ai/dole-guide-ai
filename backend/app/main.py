@@ -31,6 +31,7 @@ from app.api.routers import (
     resume,
     rounds,
     trainings,
+    transcriptions,
     visitors,
 )
 from app.core.config import get_settings
@@ -110,6 +111,7 @@ for router in (
     imports.router,
     facts.router,
     messages.router,
+    transcriptions.router,
     trainings.router,
 ):
     app.include_router(router)
