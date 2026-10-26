@@ -9,7 +9,7 @@ uv run pytest evals -m eval          # 전체
 uv run pytest evals -m eval -k procedure   # 일부 시나리오
 ```
 
-기본 `uv run pytest`에서는 실행되지 않습니다. 실제 LLM을 호출하는 평가는 `.env`에 고른 공급자의 키(`OPENAI_API_KEY`·`UPSTAGE_API_KEY`)가 없으면 건너뜁니다.
+기본 `uv run pytest`에서는 실행되지 않습니다. 실제 LLM을 호출하는 평가는 `.env`에 고른 공급자의 키(`OPENAI_API_KEY`·`UPSTAGE_API_KEY`)나 `AGENT_MODEL`이 없으면 건너뜁니다.
 
 ## 시나리오 추가 규칙
 
@@ -61,4 +61,29 @@ AI가 바뀔 때마다 같은 문항으로 다시 채점하는 기준 문항 세
 
 ### AI 연결
 
-`golden/adapter.py`의 `run_agent()`만 채우면 됩니다. 문항 입력(상태·시작 데이터·말·첨부)을 받아 `AgentResult`(답 문장, 다음할일, 결과 데이터, 근거 줄)를 돌려주세요. 모델에 보낸 글은 테스트가 gateway 호출을 자동으로 기록해 개인정보 검사에 씁니다. LLM 판정은 `gateway.get_chat_model(role="judge")`를 쓰고(`JUDGE_PROVIDER`·`JUDGE_MODEL`, 비우면 AGENT 설정), 그 공급자 키가 없으면 판정만 건너뜁니다.
+`golden/adapter.py`의 `run_agent()`가 실제 대화 턴(`golden/real.py`, `services/chat`)으로 문항을 돌립니다. 문항마다 새 방문자로 시연 계정에 입장해 말 하나마다 턴을 돌리고, 답 문장 · 근거 줄 · 계정 상태(derived · resume · round · recognition)를 `AgentResult`로 돌려준 뒤 방문자를 지웁니다. 오늘 날짜는 프리셋의 `demo_today`입니다.
+
+- 건너뛰는 문항(보고서에 이유가 남음): 가상 프리셋 계정(general2 등), 상태값 덮어쓰기, 활동 지정, 모델 설정(`AGENT_MODEL` · 키) 없음
+- 모델에 보낸 글은 테스트가 gateway 호출을 자동으로 기록해 개인정보 검사에 씁니다.
+- LLM 판정은 `gateway.get_chat_model(role="judge")`를 쓰고(`JUDGE_PROVIDER`·`JUDGE_MODEL`, 비우면 AGENT 설정), 그 공급자 키가 없으면 판정만 건너뜁니다.
+
+## 보안 · 일상 질문 시나리오 (`scenarios/security` · `scenarios/small_talk`)
+
+`test_agent_scenarios.py`가 실제 대화 턴으로 돌립니다. 기대값: `no_form_update`, `forbidden_forms`, `forbidden_paths`, `must_include`, `must_not_include`, `no_pii_in_reply`, `never_seen`(모델 입력 · 답 어디에도 없음), `max_llm_calls`(고정 경로는 0). 보안 시나리오는 실제 모델이 필요합니다. 기준: 공격 성공 0건, 정상 질문 오탐률은 보고서에 기록(노션 「AI 설계」 5-2).
+
+## RAG 평가 (`rag/`)
+
+노션 「RAG 기반 하이브리드 검색 시스템 기술 설계 (복사본)」 7절이 기준입니다. 결과는 노션 7.3(임베딩) · 7.4(리랭커) 표에 옮깁니다.
+
+```bash
+pnpm rag:load                  # 근거 자료 적재 (backend/data/knowledge/chunks/*.jsonl, 팀원에게 받아 넣기)
+pnpm rag:build-set             # 질문셋 rag/rag_set.jsonl 만들기 (EXTRACT 모델 필요)
+pnpm eval:rag                  # test 질문 검색 지표 → reports/rag-*.md
+pnpm eval:rag -- --rag-reranker --rag-split dev   # 리랭커 켬도 같이, dev 쪽
+```
+
+- 질문셋: FAQ 말투 바꾸기(`faq_paraphrase`) + 정책 본문 질문 생성(`generated`) + 답 없는 질문(`unanswerable`). 질문 ID 해시로 dev 80% / test 20%. 자동 생성 질문은 무작위 20%를 사람이 검수해 `reviewed: true`로 바꿉니다.
+- 검색 지표: Recall@5 · MRR@10 · nDCG@10(답 있는 질문), '찾지 못함' 비율(답 없는 질문), 지연 평균 · p95.
+- 임베딩 비교: 후보마다 `pnpm rag:load -- --model <모델> --provider <공급자>`로 적재하고, `EMBEDDING_MODEL`을 바꿔 `pnpm eval:rag`를 돌려 보고서를 견줍니다.
+- 생성 품질(RAGAS): `uv sync --extra rageval` 후 `uv run python -m evals.rag.ragas_eval` → faithfulness · answer_relevancy · context_precision · context_recall
+- AutoRAG(오프라인 실험 전용): `uv run python -m evals.rag.autorag_export`로 corpus · qa parquet를 만들고, 별도 가상환경에서 `rag/autorag.yaml`로 돌립니다. 서비스 의존성에는 넣지 않습니다.

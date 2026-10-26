@@ -79,21 +79,28 @@ LangGraph 에이전트 작업 전에 읽을 것:
 
 ### 영역 분담
 
-<!-- TODO(팀 합의): 담당자별 영역과 공용 파일 변경 절차를 채웁니다. -->
+설계: 노션 「AI 설계: LangGraph 대화 턴 · RAG · 보안 · 평가」(2절 그래프, 3절 RAG, 5절 보안, 6절 평가).
 
 | 영역 | 담당 | 노드 | 프롬프트 | 평가 시나리오 |
 | --- | --- | --- | --- | --- |
-| (미정) | | `agent/nodes/<영역>.py` | `agent/prompts/<영역>/` | `evals/scenarios/<영역>/` |
+| 공용(전처리 · 라우터 · verify · ask) | (팀 합의) | `agent/nodes/{preprocess,context,verify,ask}.py` | `agent/prompts/common/`, `verify/` | `evals/scenarios/small_talk/` |
+| resume (패널 A) | (팀 합의) | `agent/nodes/panel.py` + `panels.py` | `agent/prompts/resume/` | 골든셋 서류 영역 |
+| round (패널 B) | (팀 합의) | 같음 | `agent/prompts/round/` | 골든셋 절차 영역 |
+| application (패널 C) | (팀 합의) | 같음 | `agent/prompts/application/` | 골든셋 서류 · 절차 영역 |
+| education | (팀 합의) | 같음 | `agent/prompts/education/` | — |
+| guide (RAG) | (팀 합의) | 도구 `search_guide`, `services/knowledge.py` | `agent/prompts/common/system.md` | `evals/rag/`, 골든셋 근거 영역 |
+| 보안 가드 | (팀 합의) | `agent/guard/` | — | `evals/scenarios/security/`, 골든셋 개인정보 영역 |
 
-공용 파일(`agent/graph.py`, `AgentState`, `agent/responder.py`, `agent/tools/registry.py`)을 바꾸는 절차: (미정)
+공용 파일(`agent/graph.py`, `agent/state.py`, `agent/responder.py`, `agent/tools/registry.py`)을 바꾸는 절차: (팀 합의). 바꾸면 `tests/integration/test_agent_graph.py`가 통과해야 합니다.
 
 ### 평가 기준
 
-<!-- TODO(팀 합의): AI PR이 통과해야 할 지표와 기준값을 채웁니다. -->
-
-| 골든셋 | 지표 | 기준 |
+| 골든셋 · 세트 | 지표 | 기준 |
 | --- | --- | --- |
-| form_fill · grounding · masking · procedure | (미정) | (미정) |
+| form_fill · procedure | 문항 정답률 | (팀 합의) |
+| grounding | 정답률 + RAG Recall@5 · MRR@10 · RAGAS faithfulness | (팀 합의) |
+| masking · 보안 시나리오 | 개인정보 누출 · 공격 성공 | 0건 |
+| small_talk | 칸 변경 0, LLM 호출 0 | 전부 통과 |
 
 ## 배포
 
