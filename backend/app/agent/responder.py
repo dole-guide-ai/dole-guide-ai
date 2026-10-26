@@ -29,6 +29,7 @@ from app.agent.nodes.preprocess import BLOCKED_REPLY, gate
 from app.agent.tools.registry import ToolContext
 from app.core.clock import KST
 from app.schemas.messages import DoneEvent, InputKind, TokenEvent
+from app.services import files as files_service
 from app.services.accounts import AccountContext
 
 
@@ -105,13 +106,20 @@ def graph_responder(
         yield TurnEvent(TokenEvent(text=BLOCKED_REPLY))
         yield done
         return
-    for event in graph.stream(payload, config, stream_mode="custom"):
-        if not isinstance(event, TurnEvent):
-            continue
-        if isinstance(event.data, DoneEvent):
-            done = event
-        else:
-            yield event
+    try:
+        for event in graph.stream(payload, config, stream_mode="custom"):
+            if not isinstance(event, TurnEvent):
+                continue
+            if isinstance(event.data, DoneEvent):
+                done = event
+            else:
+                yield event
+    finally:
+        # 질문에 답하는 재개 턴은 preprocess를 거치지 않아 첨부를 읽지 않으므로 지우지 않습니다.
+        # 연결이 끊겨 스트림이 닫혀도(close) 읽은 이력서 서류는 지웁니다.
+        read_files = turn.file_ids and not isinstance(payload, Command)
+        if read_files and (ctx := tool_context(turn)) is not None:
+            files_service.discard_resume_docs(ctx.db, ctx.account, turn.file_ids)
     snapshot = graph.get_state(config)
     if snapshot.next and snapshot.values:
         # 질문에서 멈춘 턴은 finish를 거치지 않습니다. 질문 앞에 안내한 내용의 근거 줄과

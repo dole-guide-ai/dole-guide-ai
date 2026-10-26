@@ -82,6 +82,10 @@ class Settings(BaseSettings):
     retrieval_guide_limit: int = 2
     # 답 검사(6단계): 근거에 없는 숫자·근거를 넘는 단정이 든 문장을 뺌. 효과를 견줄 때만 끕니다.
     answer_check: bool = True
+    # 첨부 사진 처리. off: 무시 · vision: 답하는 모델에 사진째(#222 실험 사진 문항 6/9로 최고)
+    # · transcribe: 추출 모델이 글자만 받아써 가린 뒤 글로 넘김. 어느 방식이든 사진이 외부 모델로
+    # 나갑니다. 데모는 합성 서류만 받으므로 vision이 기본이고, 실서비스 전에 로컬 OCR로 바꿉니다.
+    image_mode: Literal["off", "vision", "transcribe"] = "vision"
 
     # BFF(Next)가 붙이는 X-Internal-Secret 값. local에서 비우면 확인하지 않습니다.
     internal_api_secret: str = ""
