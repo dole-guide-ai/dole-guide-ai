@@ -70,6 +70,18 @@ class Settings(BaseSettings):
     embedding_provider: Provider = "openai"
     embedding_model: str = ""
     embedding_query_model: str = ""
+    # 규칙 카드(팀 규칙표)를 모델에 주는 방식. tool: 모델이 lookup_rules로 찾음,
+    # inject: 코드가 사용자 말로 미리 찾아 프롬프트에 붙임.
+    # 4단계 측정(절차 영역 평균 통과율 63% 대 56%)으로 inject를 기본값으로 정했습니다.
+    rule_cards_mode: Literal["tool", "inject"] = "inject"
+    # 검색(5단계): 단어(BM25)+벡터를 RRF로 합침. 측정(규칙 카드 질문 54개, 상위 3장 기준)으로
+    # 구어 사전을 켜고 코사인 유사도 0.50 미만은 버립니다(정답 hit@3 0.87, 무관한 질문 오첨부 8%).
+    retrieval_synonyms: bool = True
+    retrieval_min_similarity: float = 0.50
+    # 안내(guide) 패널에 붙이는 정책·FAQ 조각 수
+    retrieval_guide_limit: int = 2
+    # 답 검사(6단계): 근거에 없는 숫자·근거를 넘는 단정이 든 문장을 뺌. 효과를 견줄 때만 끕니다.
+    answer_check: bool = True
 
     # BFF(Next)가 붙이는 X-Internal-Secret 값. local에서 비우면 확인하지 않습니다.
     internal_api_secret: str = ""

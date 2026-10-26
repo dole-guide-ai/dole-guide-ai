@@ -6,7 +6,7 @@
  */
 
 import type { components } from '@/types/api.gen';
-import type { FieldStatus } from '@/types/chat.types';
+import type { FieldStatus, FormUpdateEvent } from '@/types/chat.types';
 import type { OccupationRef, ResumeDraftRead, ResumeFieldState } from '@/types/resume.types';
 
 type ResumeRead = components['schemas']['ResumeRead'];
@@ -174,4 +174,30 @@ export const resumePatchOp = (path: string, value: unknown) => {
   if (parts[0] === 'education' && parts.length === 3)
     parts[2] = EDUCATION_BACK[parts[2]] ?? parts[2];
   return { op: 'replace', path: `/${parts.join('/')}`, value };
+};
+
+// 패널이 `competencies` 아래에 두는 백엔드 최상위 칸
+const UNDER_COMPETENCIES = new Set(['careers', 'certifications', 'other_certifications']);
+
+/**
+ * 대화의 이력서 `form_update`(백엔드 경로 `/careers/c1/company_name`)를 패널의 예전 경로
+ * (`/competencies/careers/c1/company_name`)로 바꿉니다. 처음 불러올 때 `resumeFromServer`가 하는
+ * 변환과 같아야 대화 중에 패널이 바로 바뀝니다.
+ */
+export const resumeUpdateFromServer = (event: FormUpdateEvent): FormUpdateEvent => {
+  if (!event.path.startsWith('/')) return event;
+  const parts = event.path.slice(1).split('/');
+  let { value } = event;
+  if (parts[0] === 'certifications_status') {
+    // 패널에는 "자격증 없음" 상태 칩만 있습니다. 값을 넣으면 자격증 목록을 덮어씁니다.
+    return { ...event, path: '/competencies/certifications', value: undefined };
+  }
+  if (UNDER_COMPETENCIES.has(parts[0])) parts.unshift('competencies');
+  if (parts[0] === 'education' && parts.length === 3) {
+    parts[2] = EDUCATION_RENAME[parts[2]] ?? parts[2];
+  }
+  if (event.path === '/job_preferences/desired_regions' && Array.isArray(value)) {
+    value = value.map((r) => (typeof r === 'object' && r && 'name' in r ? r.name : r));
+  }
+  return { ...event, path: `/${parts.join('/')}`, value };
 };

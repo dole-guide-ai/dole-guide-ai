@@ -16,13 +16,16 @@ from typing import Any
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from app.agent.tools import guide
+from app.rules.days import normalize_day
+from app.rules.resume_facts import ResumeFacts, plan_writes
 from app.schemas.activities import ActivityCreate, ActivityRoute
 from app.schemas.common import FieldSource, FieldStatus, JsonPatchOp
 from app.schemas.resume import FieldWrite
+from app.services import accounts as account_service
 from app.services import activities as activity_service
 from app.services import application as application_service
 from app.services import imports as import_service
+from app.services import knowledge as knowledge_service
 from app.services import recommendations as recommendation_service
 from app.services import resume as resume_service
 from app.services import rounds as round_service
@@ -62,9 +65,11 @@ class NoInput(BaseModel):
 
 
 class RecordActivityInput(BaseModel):
-    """활동 하나 기록. 구분은 종류로 코드가 정합니다."""
+    """활동 하나 기록. 구분은 종류로, 날짜는 말한 표현으로 코드가 정합니다."""
 
-    activity_date: date
+    when: str = Field(
+        description="사용자가 말한 날짜 표현 그대로(예: 어제, 지난주 금요일, 11월 20일)"
+    )
     kind: str = Field(description="job_application·interview·lecture 등 활동 종류")
     route: ActivityRoute | None = None
     org_name: str | None = None
@@ -83,6 +88,8 @@ class ResumeFieldInput(BaseModel):
     value: Any = None
     # 사용자가 말한 값을 그대로 넣었는지(extracted), 다시 확인받았는지(confirmed)
     confirmed: bool = False
+    # 섹션을 "없어요"로 둘 때(예: /competencies_status). value는 비웁니다.
+    not_applicable: bool = False
 
 
 class SaveResumeInput(BaseModel):
@@ -100,6 +107,12 @@ class UnsureInput(BaseModel):
 
 class ImportInput(BaseModel):
     import_ids: list[str] = Field(min_length=1, max_length=20)
+
+
+class LookupRulesInput(BaseModel):
+    query: str = Field(
+        description="찾을 규칙 주제를 짧게(예: 이메일 지원 증빙, 신청 마감 시간, 일용직 자격)"
+    )
 
 
 class SearchTrainingsInput(BaseModel):
@@ -130,8 +143,28 @@ def _recommend(ctx: ToolContext, _: NoInput) -> dict[str, Any]:
 
 
 def _record_activity(ctx: ToolContext, args: RecordActivityInput) -> dict[str, Any]:
-    body = ActivityCreate(**args.model_dump())
+    day = normalize_day(args.when, ctx.today)
+    if day is None:
+        raise ToolError(f"'{args.when}'이(가) 며칠인지 정하지 못했어요. 날짜를 다시 물어 주세요.")
+    body = ActivityCreate(activity_date=day, **args.model_dump(exclude={"when"}))
     return _dump(activity_service.record_answered_activity(ctx.db, ctx.account, body, ctx.today))
+
+
+def _record_resume_facts(ctx: ToolContext, args: ResumeFacts) -> dict[str, Any]:
+    procedure = account_service.read_procedure(ctx.db, ctx.account.user_id)
+    current = resume_service.read_resume(ctx.db, ctx.account).data
+    plan = plan_writes(current, args, ctx.today, procedure.separation_date)
+    result: dict[str, Any] = {"saved": 0, "ask": plan.asks}
+    if plan.writes:
+        saved = resume_service.save_resume_fields(
+            ctx.db, ctx.account.user_id, plan.writes, today=ctx.today
+        )
+        result.update(
+            saved=len(plan.writes),
+            updates=[_dump(u) for u in saved.updates],
+            issues=[_dump(i) for i in saved.issues],
+        )
+    return result
 
 
 def _mark_done(ctx: ToolContext, args: MarkDoneInput) -> dict[str, Any]:
@@ -149,7 +182,13 @@ def _save_resume(ctx: ToolContext, args: SaveResumeInput) -> dict[str, Any]:
         FieldWrite(
             path=f.path,
             value=f.value,
-            status=FieldStatus.CONFIRMED if f.confirmed else FieldStatus.EXTRACTED,
+            status=(
+                FieldStatus.NOT_APPLICABLE
+                if f.not_applicable
+                else FieldStatus.CONFIRMED
+                if f.confirmed
+                else FieldStatus.EXTRACTED
+            ),
             source=FieldSource.USER_ANSWER,
         )
         for f in args.fields
@@ -157,7 +196,6 @@ def _save_resume(ctx: ToolContext, args: SaveResumeInput) -> dict[str, Any]:
     result = resume_service.save_resume_fields(ctx.db, ctx.account.user_id, writes, today=ctx.today)
     return {
         "updates": [_dump(u) for u in result.updates],
-        "next_question": _dump(result.next_question),
         "issues": [_dump(i) for i in result.issues],
     }
 
@@ -192,8 +230,13 @@ def _programs(ctx: ToolContext, args: SearchProgramsInput) -> dict[str, Any]:
     return _dump(training_service.search_programs(args.start, ctx.now))
 
 
-def _overview(ctx: ToolContext, _: NoInput) -> dict[str, Any]:
-    return guide.overview()
+# 한 번에 돌려주는 규칙 카드 수. 많을수록 엉뚱한 카드가 섞여 답을 흐립니다.
+LOOKUP_LIMIT = 3
+
+
+def _lookup_rules(ctx: ToolContext, args: LookupRulesInput) -> dict[str, Any]:
+    found = knowledge_service.search(ctx.db, args.query, LOOKUP_LIMIT, guide_limit=0)
+    return {"rules": [c.for_model() for c in knowledge_service.rule_cards_of(found.rules)]}
 
 
 # ── 목록 ─────────────────────────────────────────────
@@ -210,23 +253,57 @@ class Tool:
 TOOLS: dict[str, Tool] = {
     t.name: t
     for t in (
-        Tool("check_round", "이번 회차 점검(인정 건수·부족·경고·필요 증빙)", NoInput, _check_round),
-        Tool("recommend_activities", "부족한 활동 추천 최대 3개", NoInput, _recommend),
+        Tool(
+            "check_round",
+            "이번 실업인정 회차의 필요 건수·인정 건수·부족 건수·경고·필요 증빙을 계산해 돌려줌",
+            NoInput,
+            _check_round,
+        ),
+        Tool(
+            "recommend_activities",
+            "이번 회차에 부족한 재취업활동을 할 수 있는 활동으로 최대 3개 추천",
+            NoInput,
+            _recommend,
+        ),
         Tool(
             "record_activity",
-            "활동 기록",
+            "사용자가 실제로 한 재취업활동(입사지원·면접 등) 하나를 이번 회차 활동으로 기록",
             RecordActivityInput,
             _record_activity,
         ),
-        Tool("mark_done", "예정 활동을 했어요로 바꾸기", MarkDoneInput, _mark_done),
+        Tool(
+            "mark_done",
+            "추천받아 예정으로 둔 활동을 사용자가 실제로 했다고 할 때 완료로 바꿈",
+            MarkDoneInput,
+            _mark_done,
+        ),
+        Tool(
+            "record_resume_facts",
+            "사용자가 말한 이력서 사실(경력·학력·자격증·희망 직종·지역)을 이력서에 저장. "
+            "말한 값과 날짜 표현만 넣으면 칸·날짜 변환은 서버가 함",
+            ResumeFacts,
+            _record_resume_facts,
+        ),
         Tool(
             "save_resume_fields",
-            "이력서 칸 쓰기",
+            "이력서 칸 경로로 값 쓰기. record_resume_facts에 없는 칸(제목·희망 월급·고용형태·"
+            "병역·근무시간·그 밖의 역량·운전·경력 월급 등)과 섹션 '없음'(not_applicable)",
             SaveResumeInput,
             _save_resume,
         ),
-        Tool("record_user_answer", "신청서 본인 답변 한 칸 저장", UserAnswerInput, _record_answer),
-        Tool("record_unsure", "확인 필요로 두기", UnsureInput, _record_unsure),
+        Tool(
+            "record_user_answer",
+            "실업인정 신청서에서 본인만 답할 수 있는 칸(근로·소득·취업 여부 등) 하나를 저장. "
+            "이력서에는 쓰지 않음",
+            UserAnswerInput,
+            _record_answer,
+        ),
+        Tool(
+            "record_unsure",
+            "실업인정 신청서 칸에 사용자가 모르겠다고 답했을 때 그 칸을 확인 필요로 둠",
+            UnsureInput,
+            _record_unsure,
+        ),
         Tool("import_work24_items", "고용24 불러오기에서 고른 항목 넣기", ImportInput, _import),
         Tool("search_trainings", "훈련과정 찾기", SearchTrainingsInput, _trainings),
         Tool(
@@ -235,16 +312,31 @@ TOOLS: dict[str, Tool] = {
             SearchProgramsInput,
             _programs,
         ),
-        Tool("answer_overview", "전체 순서 4단계 고정 안내(LLM 없이)", NoInput, _overview),
+        Tool(
+            "lookup_rules",
+            "팀 규칙표에서 실업급여 규칙(증빙·마감·인정 여부·횟수·예외)을 찾아 "
+            "내용과 출처를 돌려줌. 규칙 질문은 기억으로 답하지 말고 먼저 이 도구로 찾음",
+            LookupRulesInput,
+            _lookup_rules,
+        ),
     )
 }
 
-# 패널(서브그래프)마다 LLM에 넘기는 도구 (AI 설계 6.3: 3~4개)
+# 패널마다 LLM에 넘기는 도구 (AI 설계 6.3: 3~4개였으나 4단계에서 규칙 찾기 lookup_rules를 더하며
+# 최대 5개로 조정. 도구가 많을수록 선택이 흔들려서(1단계 실험) 늘릴 때는 골든셋으로 다시 잽니다)
+MAX_PANEL_TOOLS = 5
 TOOLS_BY_PANEL: dict[str, tuple[str, ...]] = {
-    "resume": ("save_resume_fields", "import_work24_items", "answer_overview"),
-    "round": ("check_round", "record_activity", "mark_done", "recommend_activities"),
-    "application": ("record_user_answer", "record_unsure", "check_round"),
-    "education": ("search_trainings", "search_programs", "answer_overview"),
+    # 사실 추출(경력·학력 날짜 변환)은 record_resume_facts, 그 밖의 모든 칸은 save_resume_fields
+    "resume": ("record_resume_facts", "save_resume_fields", "import_work24_items"),
+    "round": (
+        "check_round",
+        "record_activity",
+        "mark_done",
+        "recommend_activities",
+        "lookup_rules",
+    ),
+    "application": ("record_user_answer", "record_unsure", "check_round", "lookup_rules"),
+    "guide": ("lookup_rules", "search_trainings", "search_programs"),
 }
 
 

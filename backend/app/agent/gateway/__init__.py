@@ -12,6 +12,7 @@ from app.core.errors import AppError, LlmUnavailableError, RateLimitedError
 from app.core.request_id import current_request_id
 
 MAX_RETRIES = 1
+RESPONSES_API_PROVIDERS = {"openai"}
 
 
 def get_chat_model(role: ModelRole = "agent") -> BaseChatModel:
@@ -23,6 +24,7 @@ def get_chat_model(role: ModelRole = "agent") -> BaseChatModel:
         base_url=PROVIDERS[provider].base_url,
         timeout=settings.llm_timeout_seconds,
         max_retries=MAX_RETRIES,
+        use_responses_api=provider in RESPONSES_API_PROVIDERS,
     )
 
 
@@ -35,6 +37,17 @@ def get_embeddings() -> Embeddings:
     if not query_model or query_model == settings.embedding_model:
         return documents
     return _SplitEmbeddings(documents, _embeddings(provider, query_model))
+
+
+def embed_queries(texts: list[str]) -> list[list[float]]:
+    """질문 여러 개를 묶어서 질문용 모델로 임베딩합니다.
+
+    평가처럼 질문이 많을 때 하나씩 보내면 공급자 요청 한도에 걸립니다.
+    """
+    embeddings = get_embeddings()
+    if isinstance(embeddings, _SplitEmbeddings):
+        return embeddings.query.embed_documents(texts)
+    return embeddings.embed_documents(texts)
 
 
 def trace_config() -> dict[str, dict[str, str]]:

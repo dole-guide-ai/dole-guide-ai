@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import { resumeFromServer, resumePatchOp } from '@/lib/resumeForm';
+import { applyFormUpdateToDraft } from '@/lib/formStore';
+import { resumeFromServer, resumePatchOp, resumeUpdateFromServer } from '@/lib/resumeForm';
 import type { components } from '@/types/api.gen';
 
 type ResumeRead = components['schemas']['ResumeRead'];
@@ -82,5 +83,55 @@ describe('resumePatchOp', () => {
       '/other_certifications',
     );
     expect(resumePatchOp('job_preferences.experience_summary', '신입')).toBeNull();
+  });
+});
+
+describe('resumeUpdateFromServer', () => {
+  it('대화 중 새 경력 칸을 패널의 경력 목록에 넣습니다', () => {
+    const draft = { values: { competencies: { careers: [] } }, fields: {} };
+    const update = resumeUpdateFromServer({
+      form: 'resume',
+      path: '/careers/c1/company_name',
+      op: 'add',
+      value: '한빛물류',
+      status: 'extracted',
+    });
+
+    const next = applyFormUpdateToDraft(draft, update);
+
+    expect(next.values).toEqual({
+      competencies: { careers: [{ item_id: 'c1', company_name: '한빛물류' }] },
+    });
+    expect(next.fields['competencies.careers.c1.company_name']?.status).toBe('extracted');
+  });
+
+  it('학력 칸 이름과 희망 지역 값을 패널 모양으로 바꿉니다', () => {
+    const education = resumeUpdateFromServer({
+      form: 'resume',
+      path: '/education/e1/education_level',
+      op: 'replace',
+      value: '고등학교',
+    });
+    const regions = resumeUpdateFromServer({
+      form: 'resume',
+      path: '/job_preferences/desired_regions',
+      op: 'replace',
+      value: [{ name: '인천' }],
+    });
+
+    expect(education.path).toBe('/education/e1/level');
+    expect(regions.value).toEqual(['인천']);
+  });
+
+  it('자격증 없음 상태는 목록을 덮어쓰지 않고 칩만 바꿉니다', () => {
+    const update = resumeUpdateFromServer({
+      form: 'resume',
+      path: '/certifications_status',
+      op: 'replace',
+      value: 'none',
+      status: 'confirmed',
+    });
+
+    expect(update).toMatchObject({ path: '/competencies/certifications', value: undefined });
   });
 });

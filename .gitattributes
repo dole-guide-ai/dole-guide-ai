@@ -11,3 +11,7 @@
 *.pdf binary
 *.hwp binary
 *.hwpx binary
+
+# 스크립트가 만드는 파일. PR 화면에서 접어 보여 줍니다(PR 크기 검사에서도 제외).
+backend/data/reference/work24_codes.json linguist-generated=true
+backend/data/rules/rule_questions.csv linguist-generated=true

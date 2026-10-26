@@ -81,6 +81,8 @@ class AskUserEvent(BaseModel):
 class DoneEvent(BaseModel):
     cite: str | None = None
     rule_refs: list[str] = []
+    # 지금 할 일 하나(절차 단계·회차 상태로 코드가 정함). 화면은 바로가기 버튼 등에 씁니다.
+    next_action: str | None = None
 
 
 class ErrorEvent(BaseModel):

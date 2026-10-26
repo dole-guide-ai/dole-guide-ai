@@ -16,6 +16,8 @@ import type { ImportKind } from '@/types/imports.types';
 interface ChatPanelProps {
   messages: ChatMessage[];
   choices: string[];
+  /** 답을 기다리는 질문 문장. 선택지가 없어도 있으면 질문 카드를 띄웁니다. */
+  question?: string | null;
   /** 마지막 질문이 연 고용24 불러오기 목록 (2-0.4) */
   importKind?: ImportKind | null;
   sessionId?: string;
@@ -37,6 +39,7 @@ interface ChatPanelProps {
 export const ChatPanel = ({
   messages,
   choices,
+  question = null,
   importKind,
   sessionId,
   personaId,
@@ -54,9 +57,9 @@ export const ChatPanel = ({
   const logRef = useRef<HTMLDivElement>(null);
   const lastText = messages[messages.length - 1]?.text;
   // 질문 카드는 건너뛰면 닫히고, 새 질문(말풍선 수·선택지가 바뀜)이 오면 다시 뜹니다.
-  const questionKey = `${messages.length}:${choices.join('|')}`;
+  const questionKey = `${messages.length}:${question ?? ''}:${choices.join('|')}`;
   const [dismissedKey, setDismissedKey] = useState<string | null>(null);
-  const isQuestionOpen = choices.length > 0 && dismissedKey !== questionKey;
+  const isQuestionOpen = (choices.length > 0 || !!question) && dismissedKey !== questionKey;
 
   useEffect(() => {
     // 페이지가 아니라 대화 목록 칸만 맨 아래로 내립니다.
@@ -106,6 +109,7 @@ export const ChatPanel = ({
           <QuestionCard
             key={questionKey}
             choices={choices}
+            question={question}
             onChoice={onChoice}
             onAnswer={onSend}
             onDismiss={() => setDismissedKey(questionKey)}

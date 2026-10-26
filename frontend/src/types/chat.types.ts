@@ -80,6 +80,8 @@ export interface FormUpdateEvent {
 export interface DoneEvent {
   cite?: string;
   rule_refs?: string[];
+  /** 지금 할 일 하나(서버가 절차 단계·회차 상태로 정함). 예: write_resume, add_activity */
+  next_action?: string | null;
 }
 
 /** PATCH /forms/{kind} 본문 (2-0.6 패널에서 직접 고치기) */

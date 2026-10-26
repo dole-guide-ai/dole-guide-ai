@@ -1,0 +1,46 @@
+{
+  "_note": "대화에서 이력서 다음 칸을 물을 때 쓰는 질문 문구. ID는 rules/resume.next_resume_question과 같고 {이름}은 문구 변수로 채웁니다. 대명사(그곳·거기·그것)는 쓰지 않습니다. 변수가 비면 unnamed 문구, 없으면 fallbacks의 이름을 씁니다. LLM은 쓰지 않습니다.",
+  "questions": {
+    "resume.doc_retry": "올려 주신 서류를 읽지 못했어요. 다시 찍어 올리시겠어요, 아니면 말로 하시겠어요?",
+    "resume.career_new": "가장 최근에 일하신 곳은 어디예요? 회사 이름과 다니신 기간을 말씀해 주세요.",
+    "resume.career_since_old": "{year}년 이후에 일하신 곳이 있으세요?",
+    "resume.career_period": "{company}에는 언제부터 언제까지 다니셨어요? 몇 년 몇 월인지 말씀해 주세요.",
+    "resume.career_duties": "{company}에서는 주로 어떤 일을 하셨어요? 다루신 물건이나 장비도 같이 말씀해 주시면 좋아요.",
+    "resume.career_position": "{company}에서 직급이나 직책이 있으셨어요? (예: 반장, 대리)",
+    "resume.career_end_check": "{company} 퇴사가 {year}년 {month}월이 맞나요?",
+    "resume.career_more": "{company} 전에 다니신 회사도 있으세요?",
+    "resume.license": "가지고 계신 자격증이나 면허가 있으세요?",
+    "resume.education_level": "마지막으로 다니신 학교는 어디까지예요?",
+    "resume.education_detail": "{level} 학교 이름과 입학·졸업 연도를 알려 주세요.",
+    "resume.wish_job": "앞으로 어떤 일을 하고 싶으세요?",
+    "resume.wish_experience": "{occupation} 일은 해 보신 경력이 있으신 거죠?",
+    "resume.wish_region": "일하고 싶은 지역은 어디예요? 세 곳까지 말씀해 주셔도 돼요.",
+    "resume.wish_wage": "희망하시는 월급이 있으세요?",
+    "resume.wish_employment": "기간이 정해지지 않은 일과 정해진 일 중 어떤 걸 원하세요?",
+    "resume.wish_military": "병역대체 근무는 해당이 없으시죠?",
+    "resume.resume_title": "이력서 제목을 '{title}'로 정할까요?",
+    "resume.optional_sections": "외국어나 컴퓨터 활용처럼 더 적어 둘 역량이 있으세요?",
+    "resume.save_ready": "꼭 채울 칸을 다 채웠어요. 오른쪽 이력서를 확인하고 저장해 주세요."
+  },
+  "choices": {
+    "resume.career_more": [
+      "네, 있어요",
+      "없어요"
+    ]
+  },
+  "unnamed": {
+    "resume.career_since_old": "예전 이력서를 쓰신 뒤에 다니신 회사가 있으세요?",
+    "resume.career_period": "최근에 다니신 회사에는 언제부터 언제까지 다니셨어요? 몇 년 몇 월인지 말씀해 주세요.",
+    "resume.career_duties": "최근에 다니신 회사에서는 주로 어떤 일을 하셨어요? 다루신 물건이나 장비도 같이 말씀해 주시면 좋아요.",
+    "resume.career_position": "최근에 다니신 회사에서 직급이나 직책이 있으셨어요? (예: 반장, 대리)",
+    "resume.career_more": "지금 적은 회사 전에 다니신 회사도 있으세요?",
+    "resume.education_detail": "마지막으로 다니신 학교 이름과 입학·졸업 연도를 알려 주세요.",
+    "resume.wish_experience": "희망하시는 일은 해 보신 경력이 있으신 거죠?",
+    "resume.resume_title": "이력서 제목은 어떻게 할까요? 예: 물류 경력 이력서"
+  },
+  "fallbacks": {
+    "company": "최근에 다니신 회사",
+    "level": "마지막으로 다니신",
+    "occupation": "희망하시는"
+  }
+}

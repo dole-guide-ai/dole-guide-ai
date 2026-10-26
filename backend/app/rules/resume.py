@@ -125,13 +125,25 @@ class DateResult:
 
 _RELATIVE_YEARS = {"재작년": -2, "작년": -1, "지난해": -1, "올해": 0, "금년": 0}
 _VAGUE = re.compile(r"봄|여름|가을|겨울|초|중순|말|쯤|무렵")
+# 말로 한 월("삼월", "시월")을 숫자로. 긴 이름부터 바꿔야 "십이월"이 "십"+"이월"로 깨지지 않습니다.
+_KOREAN_MONTHS = {
+    "십이월": 12, "십일월": 11, "시월": 10, "구월": 9, "팔월": 8, "칠월": 7,
+    "유월": 6, "오월": 5, "사월": 4, "삼월": 3, "이월": 2, "일월": 1,
+}  # fmt: skip
+
+
+def _spoken_months(text: str) -> str:
+    """말로 한 월을 숫자로, 월 앞의 "올"("올 구월")을 "올해"로 바꿉니다("올렸어요"는 그대로)."""
+    for word, month in _KOREAN_MONTHS.items():
+        text = text.replace(word, f"{month}월")
+    return re.sub(r"올(?!해)\s*(?=\d{1,2}\s*월)", "올해 ", text)
 
 
 def normalize_date(
     expr: str, today: date, separation_date: date, age_at_separation: int | None = None
 ) -> DateResult:
     """사용자의 날짜 표현을 YYYY-MM으로 바꿉니다 (2-1.4 날짜 표현)."""
-    text = expr.strip()
+    text = _spoken_months(expr.strip())
     if m := re.search(r"(\d{4})\s*(?:년|[-./])\s*(\d{1,2})", text):
         if not _is_month(int(m[2])):
             return DateResult(None, ask=True)
@@ -370,6 +382,28 @@ def can_save_resume(data: ResumeData, *, outdated: bool = False) -> bool:
     return resume_completeness(data, outdated=outdated).filled == 5 and _no_check(data)
 
 
+# ── 제목 추천 ───────────────────────────────────────────
+
+# 하던 일·직종이 이 글자보다 길면 제목에 넣지 않고 직종·회사로 대신합니다.
+TITLE_SUBJECT_MAX = 12
+
+
+def suggest_resume_title(data: ResumeData) -> str:
+    """경력으로 이력서 제목을 추천합니다(예: "물류 경력 이력서"). 경력이 없으면 희망 직종으로."""
+    careers = sorted(data.careers, key=lambda c: str(c.start_date.value or ""), reverse=True)
+    for c in careers:
+        occupation = c.occupation.value
+        name = occupation.get("name") if isinstance(occupation, dict) else None
+        for subject in (name, c.main_duties.value, c.company_name.value):
+            if subject and len(str(subject)) <= TITLE_SUBJECT_MAX:
+                return f"{subject} 경력 이력서"
+    for d in data.job_preferences.desired_occupations:
+        occupation = d.occupation.value
+        if isinstance(occupation, dict) and occupation.get("name"):
+            return f"{occupation['name']} 희망 이력서"
+    return "구직 이력서"
+
+
 # ── 다음 질문 ───────────────────────────────────────────
 
 
@@ -388,13 +422,18 @@ def next_resume_question(
     entry_branch: str,
     separation_date: date,
     doc_failed: bool = False,
+    skip_confirm: bool = False,
 ) -> ResumeQuestion:
-    """2-1.3 표를 위에서부터 검사해 처음 맞는 질문 하나를 고릅니다."""
+    """2-1.3 표를 위에서부터 검사해 처음 맞는 질문 하나를 고릅니다.
+
+    `skip_confirm`: 대화에서 물을 때는 "바꾼 값 확인"을 건너뜁니다. 확인은 사용자가 패널의
+    "확인 필요" 표시로 하고, 대화로 "네"라고 해도 확정되지 않아 같은 확인이 되풀이되기 때문입니다.
+    """
     q = ResumeQuestion
     if doc_failed:
         return q("resume.doc_retry", choices=("다시 찍을게요", "말로 할게요"))
     for path, f in form_fields(data):
-        if needs_check(f):
+        if needs_check(f) and not skip_confirm:
             return q(
                 "resume.value_confirm", {"path": path}, ("네, 맞아요", "아니요, 다시 말할게요")
             )
@@ -410,6 +449,10 @@ def next_resume_question(
         return q(
             "resume.career_since_old", {"year": end[0] if end else None}, ("네, 있어요", "없어요")
         )
+    for c in careers:
+        # 근무 기간은 고용24 경력의 필수 칸이라 하던 일보다 먼저 묻습니다.
+        if not (is_filled(c.start_date) and is_filled(c.end_date)):
+            return q("resume.career_period", {"company": c.company_name.value})
     for c in careers[:RECENT_CAREERS]:
         if not is_filled(c.main_duties):
             return q("resume.career_duties", {"company": c.company_name.value})
@@ -463,7 +506,11 @@ def next_resume_question(
     if not is_filled(prefs.military_alternative):
         return q("resume.wish_military", choices=("네, 맞아요", "아니요"))
     if not is_filled(data.resume_title):
-        return q("resume.resume_title", choices=("네, 좋아요", "다르게 할게요"))
+        return q(
+            "resume.resume_title",
+            {"title": suggest_resume_title(data)},
+            ("네, 좋아요", "다르게 할게요"),
+        )
     if data.competencies_status.status == FieldStatus.MISSING:
         return q("resume.optional_sections", choices=("없어요", "있어요"))
     return q("resume.save_ready", choices=("확인하고 저장할게요", "고칠 게 있어요"))

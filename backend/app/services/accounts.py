@@ -36,7 +36,7 @@ from app.schemas.procedure import ProcedureRead, Stage
 from app.schemas.resume import ResumeStatus
 from app.schemas.rounds import ActivityStatus, ApplicationStatus, RoundStatus, RoundSummary
 from app.services import messages as message_service
-from app.services.entry import ResumeState, build_entry
+from app.services.entry import ResumeState, build_entry, situation_rule_refs
 from app.services.seed import at
 
 # seed에서 이미 낸 회차는 인정일 이 시각에 낸 것으로 둡니다.
@@ -292,6 +292,17 @@ def _round_facts(db: Session, user_id: uuid.UUID, today: date) -> RoundFacts | N
         weekly=bool(result.weeks),
         same_day=sum(1 for a in result.activities if a.status == ActivityStatus.SAME_DAY),
     )
+
+
+def situation_rules(
+    db: Session,
+    user_id: uuid.UUID,
+    procedure: ProcedureRead,
+    round_: RoundSummary | None,
+    d_day: int | None,
+) -> list[str]:
+    """지금 단계·회차의 근거 규칙 카드(첫 안내와 같은 분기). 대화에서 근거로 미리 붙입니다."""
+    return situation_rule_refs(procedure, _resume_status(db, user_id, procedure), round_, d_day)
 
 
 def _resume_status(db: Session, user_id: uuid.UUID, procedure: ProcedureRead) -> ResumeState | None:

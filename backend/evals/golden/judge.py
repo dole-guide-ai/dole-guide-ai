@@ -59,10 +59,10 @@ def _gateway_judge() -> Any:
             return gateway.get_chat_model(role="judge")
 
         def generate(self, prompt: str) -> str:
-            return str(self.model.invoke(prompt).content)
+            return self.model.invoke(prompt).text
 
         async def a_generate(self, prompt: str) -> str:
-            return str((await self.model.ainvoke(prompt)).content)
+            return (await self.model.ainvoke(prompt)).text
 
         def get_model_name(self) -> str:
             return "gateway:judge"

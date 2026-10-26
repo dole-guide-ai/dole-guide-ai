@@ -1,10 +1,11 @@
-"""AI 공용 뼈대: 예시 그래프·응답기 연결, 도구 어댑터, 프롬프트 로더, 체크포인터 접속 문자열."""
+"""AI 공용 뼈대: 응답기 연결, 도구 어댑터, 프롬프트 로더, 체크포인터 접속 문자열."""
 
 import uuid
 from datetime import date, datetime
 from unittest.mock import MagicMock
 
 import pytest
+from langchain_core.messages import AIMessage
 from langgraph.checkpoint.memory import InMemorySaver
 
 from app.agent.checkpointer import conninfo
@@ -29,7 +30,8 @@ def _ctx(allowed: tuple[str, ...] | None = None) -> ToolContext:
     return ToolContext(MagicMock(), account, TODAY, now, allowed_paths=allowed)
 
 
-def test_graph_responder_streams_tokens_then_done() -> None:
+def test_graph_responder_streams_tokens_then_done(fake_agent_llm) -> None:
+    fake_agent_llm([AIMessage("합성 답")])
     out = list(graph_responder(_turn(uuid.uuid4()), InMemorySaver()))
 
     assert all(isinstance(e.data, TokenEvent) for e in out[:-1])
@@ -37,7 +39,8 @@ def test_graph_responder_streams_tokens_then_done() -> None:
     assert "합성 입력 문장" not in "".join(e.data.text for e in out[:-1])
 
 
-def test_checkpointer_keeps_conversation_per_account() -> None:
+def test_checkpointer_keeps_conversation_per_account(fake_agent_llm) -> None:
+    fake_agent_llm([AIMessage("합성 답")])
     saver, user = InMemorySaver(), uuid.uuid4()
     list(graph_responder(_turn(user, "첫 말"), saver))
     list(graph_responder(_turn(user, "둘째 말"), saver))
@@ -61,8 +64,7 @@ def test_adapter_exposes_registry_tools_with_schema() -> None:
     tools = as_langchain_tools(_ctx(), TOOLS_BY_PANEL["resume"])
 
     assert [t.name for t in tools] == list(TOOLS_BY_PANEL["resume"])
-    assert "fields" in tools[0].args
-    assert tools[2].invoke({})["text"].startswith("실업급여는 네 단계")
+    assert "careers" in tools[0].args
 
 
 def test_adapter_returns_tool_error_to_llm_instead_of_raising() -> None:
@@ -84,8 +86,10 @@ def test_conninfo_drops_sqlalchemy_driver() -> None:
     assert conninfo("postgresql+psycopg://u:p@h:5432/d") == "postgresql://u:p@h:5432/d"
 
 
-def test_done_is_sent_only_after_checkpoint_saved() -> None:
+def test_done_is_sent_only_after_checkpoint_saved(fake_agent_llm) -> None:
     """체크포인트 저장이 실패하면 done 없이 실패로 끝납니다 (done 뒤 error가 오지 않게)."""
+
+    fake_agent_llm([AIMessage("합성 답")])
 
     class FailingSaver(InMemorySaver):
         def put(self, *args, **kwargs):  # noqa: ANN002, ANN003, ANN201

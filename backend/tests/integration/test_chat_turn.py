@@ -8,6 +8,7 @@ from datetime import time as dtime
 
 import pytest
 from fastapi.testclient import TestClient
+from langchain_core.messages import AIMessage
 from sqlalchemy import delete
 
 from app.agent import responder
@@ -96,7 +97,8 @@ def test_turn_streams_events_and_saves_bubbles(client, entered_headers, monkeypa
     assert history["next_cursor"] is None
 
 
-def test_default_graph_responder_works(client, entered_headers):
+def test_default_graph_responder_works(client, entered_headers, fake_agent_llm):
+    fake_agent_llm([AIMessage("합성 답")])
     events = sse_events(send(client, entered_headers("lee")))
 
     assert events[-1][0] == "done"
@@ -183,7 +185,8 @@ def committed_account(migrated_db):
         db.commit()
 
 
-def test_second_turn_while_first_runs_is_409(committed_account):
+def test_second_turn_while_first_runs_is_409(committed_account, fake_agent_llm):
+    fake_agent_llm([AIMessage("합성 답")])
     body = MessageCreate(text="합성 질문")
     with SessionLocal() as first_db, SessionLocal() as second_db:
         turn = chat_service.start_turn(first_db, committed_account, body, None, TEST_TODAY)
