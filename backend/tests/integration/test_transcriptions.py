@@ -4,8 +4,16 @@ from fastapi.testclient import TestClient
 from app.agent import gateway
 from app.core.config import get_settings
 from app.schemas.common import ErrorCode
+from app.services import transcriptions as transcription_service
 
 pytestmark = pytest.mark.integration
+
+
+@pytest.fixture(autouse=True)
+def fresh_limiter(monkeypatch: pytest.MonkeyPatch) -> None:
+    """테스트마다 계정별 횟수 제한을 새로 시작합니다(다른 테스트의 호출이 쌓이지 않게)."""
+    monkeypatch.setattr(transcription_service, "_limiter", transcription_service._MinuteLimiter())
+
 
 # 합성 녹음: 형식 서명만 맞춘 짧은 바이트
 WEBM = b"\x1a\x45\xdf\xa3" + b"\x00" * 32

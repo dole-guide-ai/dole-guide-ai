@@ -14,6 +14,7 @@
 
 import argparse
 import csv
+import hashlib
 import io
 import re
 import wave
@@ -85,13 +86,16 @@ def keyword_hits(row: Row, hypothesis: str) -> tuple[int, int]:
 
 
 def speech(client: openai.OpenAI, row: Row, tts_model: str, refresh: bool) -> Path:
-    path = CACHE / f"{row.id}.wav"
+    instructions = STYLE_INSTRUCTIONS.get(row.style, DEFAULT_INSTRUCTIONS)
+    # 모델·목소리·말투·문장이 바뀌면 다른 파일이 되어 예전 녹음을 다시 쓰지 않습니다.
+    key = "|".join((tts_model, VOICE, instructions, row.spoken))
+    path = CACHE / f"{row.id}-{hashlib.sha256(key.encode('utf-8')).hexdigest()[:12]}.wav"
     if refresh or not path.exists():
         audio = client.audio.speech.create(
             model=tts_model,
             voice=VOICE,
             input=row.spoken,
-            instructions=STYLE_INSTRUCTIONS.get(row.style, DEFAULT_INSTRUCTIONS),
+            instructions=instructions,
             response_format="wav",
         )
         path.write_bytes(audio.content)
