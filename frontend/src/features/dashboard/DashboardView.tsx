@@ -7,7 +7,7 @@ import { AccountSwitchDialog } from '@/features/auth/AccountSwitchDialog';
 import { useBigText } from '@/features/bigText/useBigText';
 import { ChatPanel } from '@/features/chat/ChatPanel';
 import { useChatStream } from '@/features/chat/useChatStream';
-import { useFileUpload } from '@/features/chat/useFileUpload';
+import { canAttachEvidenceAt, useFileUpload } from '@/features/chat/useFileUpload';
 import { useVoiceInput } from '@/features/chat/useVoiceInput';
 import { DashboardHeader } from '@/features/dashboard/DashboardHeader';
 import { NoticeToast } from '@/features/dashboard/NoticeToast';
@@ -162,6 +162,7 @@ export const DashboardView = ({ session, personaName }: DashboardViewProps) => {
           voiceStatus={voice.status}
           voiceError={voice.error}
           isFileRequested={chat.acceptsFile}
+          canAttachEvidence={canAttachEvidenceAt(session.state.stage)}
           isStreaming={chat.isStreaming}
           isUploading={upload.isPending}
           statusText={statusText}
