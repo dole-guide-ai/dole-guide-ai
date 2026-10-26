@@ -141,12 +141,23 @@ def not_counted_lines(items: list[dict[str, str]], start: date, end: date) -> li
 
 
 def deadline_lines(d_day: int, now_time: str | None) -> list[str]:
-    """인터넷 실업인정 마감(DUE-092·093). 인정일 당일 17시가 지났으면 그 사실을 먼저."""
+    """인터넷 실업인정 마감(DUE-092·093). 인정일 당일 마감이 지났으면 그 사실을 먼저.
+
+    18시(방문 마감)도 지났으면 이미 지난 마감을 안내하지 않고, 다음 절차는 관할 고용센터에
+    확인하라고 합니다(놓친 뒤의 절차는 규칙표에 없음).
+    """
     rule = (
         f"실업인정일 당일 인터넷 신청은 0시부터 {ONLINE_DEADLINE}시까지예요. "
         f"{ONLINE_DEADLINE}시까지 못 보내면 그날 {VISIT_DEADLINE}시까지 고용센터에 가서 신청해요."
     )
-    if d_day == 0 and now_time and int(now_time.split(":")[0]) >= ONLINE_DEADLINE:
+    hour = int(now_time.split(":")[0]) if d_day == 0 and now_time else None
+    if hour is not None and hour >= VISIT_DEADLINE:
+        return [
+            f"지금은 {now_time}이라 오늘 인터넷 신청({ONLINE_DEADLINE}시)과 센터 방문 신청"
+            f"({VISIT_DEADLINE}시) 마감이 모두 지났어요. "
+            "다음 절차는 관할 고용센터에 확인해야 해요.",
+        ]
+    if hour is not None and hour >= ONLINE_DEADLINE:
         return [
             f"지금은 {now_time}이라 오늘 인터넷 신청 마감({ONLINE_DEADLINE}시)이 지났어요. "
             f"{VISIT_DEADLINE}시까지 고용센터에 가서 신청해야 해요.",

@@ -157,6 +157,10 @@ def test_round_lines_online_deadline():
     after = " ".join(round_lines(ROUND | {"d_day": 0, "now_time": "17:20"}))
     assert "17시까지" in before and "마감" not in before
     assert "17:20이라 오늘 인터넷 신청 마감(17시)이 지났어요" in after
+    # 18시도 지났으면 이미 지난 방문 마감을 안내하지 않음
+    late = " ".join(round_lines(ROUND | {"d_day": 0, "now_time": "18:30"}))
+    assert "마감이 모두 지났어요" in late and "관할 고용센터에 확인" in late
+    assert "18시까지 고용센터에 가서" not in late
     # 출석 회차는 인터넷 신청이 아니므로 마감 안내를 붙이지 않음
     attend = " ".join(round_lines(ROUND | {"attendance_required": True}))
     assert "17시" not in attend

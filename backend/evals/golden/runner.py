@@ -53,8 +53,8 @@ def run_case(db: Session, case: dict[str, Any]) -> AgentResult:
     next_action: str | None = None
     cites: list[str] = []
     # 첨부는 화면처럼 먼저 올리고 첫 말에 붙입니다. 실물은 평가가 끝나면 지웁니다.
-    file_ids = _upload_files(db, account, case_input["files"], state["stage"])
     try:
+        file_ids = _upload_files(db, account, case_input["files"], state["stage"])
         for text in case_input["messages"]:
             message = MessageCreate(text=text, file_ids=file_ids)
             file_ids = []
