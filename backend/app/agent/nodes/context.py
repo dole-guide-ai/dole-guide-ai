@@ -23,8 +23,6 @@ from app.services import knowledge as knowledge_service
 from app.services import resume as resume_service
 from app.services import rounds as round_service
 
-# 미리 붙이는 카드 수(lookup_rules가 돌려주는 수와 같게 해 두 방식을 같은 조건으로 비교)
-INJECT_LIMIT = 3
 # 소정급여일수 표가 나뉘는 나이(이직 당시)
 OVER_50_AGE = 50
 # 검색 문장을 바꿀 때 넣는 앞선 사용자 말 수
@@ -139,12 +137,12 @@ def attach_knowledge(state: AgentState, config: RunnableConfig) -> dict[str, Any
     if settings.rule_cards_mode == "inject":
         ctx = tool_context_of(config)
         if ctx is None:  # DB 없이 그래프만 도는 단위 테스트: 단어 검색만
-            found_cards = search_cards(text, INJECT_LIMIT, profile)
+            found_cards = search_cards(text, settings.retrieval_inject_limit, profile)
         else:
             guide_limit = settings.retrieval_guide_limit if state.get("panel") == Panel.GUIDE else 0
             query, calls = search_text(state, text)
             found = knowledge_service.search(
-                ctx.db, query, INJECT_LIMIT, guide_limit, profile=profile
+                ctx.db, query, settings.retrieval_inject_limit, guide_limit, profile=profile
             )
             found_cards, guides = knowledge_service.rule_cards_of(found.rules), found.guides
         cards += [c for c in found_cards if c.rule_id not in {x.rule_id for x in cards}]

@@ -78,6 +78,9 @@ class Settings(BaseSettings):
     # 구어 사전을 켜고 코사인 유사도 0.50 미만은 버립니다(정답 hit@3 0.87, 무관한 질문 오첨부 8%).
     retrieval_synonyms: bool = True
     retrieval_min_similarity: float = 0.50
+    # 사용자 말로 찾아 붙이는 규칙 카드 수(지금 단계·회차 카드는 따로 앞에 붙음). 골든셋 근거 영역
+    # 평균 통과 3장 96 · 5장 98.5 · 7장 98.5(절차는 차이 없음)로 5장을 씁니다.
+    retrieval_inject_limit: int = 5
     # 안내(guide) 패널에 붙이는 정책·FAQ 조각 수
     retrieval_guide_limit: int = 2
     # 이어지는 말("그럼 그건요?")은 앞선 사용자 말을 넣어 검색 문장으로 바꿈(extract 호출 +1).

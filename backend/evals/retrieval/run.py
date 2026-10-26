@@ -54,7 +54,7 @@ GUIDE_SETS = {
     "정책·FAQ 생성": ("queries.jsonl",),
 }
 TOP = 10
-ATTACH = 3  # 대화에 붙이는 수(INJECT_LIMIT)
+ATTACH = 5  # 대화에 붙이는 수(RETRIEVAL_INJECT_LIMIT 기본값)
 THRESHOLDS = [round(0.30 + 0.05 * i, 2) for i in range(9)]
 WORKERS = 8
 GOLDEN_SET = "골든셋 카드"
