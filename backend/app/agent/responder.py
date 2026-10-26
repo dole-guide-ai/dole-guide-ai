@@ -55,7 +55,10 @@ def tool_context(turn: TurnInput) -> ToolContext | None:
         return None
     account = AccountContext(turn.user_id, turn.persona_id, turn.anchor_date)
     now = datetime.combine(turn.today, datetime.now(KST).time(), KST)
-    return ToolContext(db=turn.db, account=account, today=turn.today, now=now)
+    evidence = files_service.evidence_ids(turn.db, account, turn.file_ids) if turn.file_ids else []
+    return ToolContext(
+        db=turn.db, account=account, today=turn.today, now=now, evidence_file_ids=evidence
+    )
 
 
 def run_config(turn: TurnInput) -> RunnableConfig:

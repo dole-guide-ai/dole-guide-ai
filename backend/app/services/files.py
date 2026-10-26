@@ -92,6 +92,16 @@ def open_attachment(db: Session, account: AccountContext, file_id: str) -> Path 
     return path if path.is_file() else None
 
 
+def evidence_ids(db: Session, account: AccountContext, file_ids: list[str]) -> list[str]:
+    """첨부 중 자기 계정의 구직활동 증빙(evidence)만. 활동에 붙일 수 있는 파일입니다."""
+    return [
+        file_id
+        for file_id in dict.fromkeys(file_ids)
+        if (row := _own_row(db, account, file_id)) is not None
+        and row.purpose == FilePurpose.EVIDENCE
+    ]
+
+
 def discard_resume_docs(db: Session, account: AccountContext, file_ids: list[str]) -> None:
     """판독을 마친 이력서 서류(resume_doc)의 실물을 지웁니다. 증빙은 신청에 쓰므로 남깁니다."""
     for file_id in file_ids:
