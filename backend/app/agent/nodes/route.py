@@ -45,6 +45,8 @@ _RESUME_WORDS = re.compile(
 )
 
 CLASSIFY_PROMPT = "router/classify"
+# 사용자 말 없이 첨부만 올린 턴을 모델 분류에 넘길 때 쓰는 문구
+ATTACHMENT_ONLY = "(말 없이 파일만 올렸어요)"
 
 
 class RouteChoice(BaseModel):
@@ -104,6 +106,8 @@ def route_turn(state: AgentState) -> dict[str, Any]:
     panel = by_rules(text, facts.get("stage"))
     calls = state.get("model_calls", 0)
     if panel is None:
-        panel = by_model(text, facts)
+        # 모델 분류에도 첨부 속 글은 넣지 않습니다(서류 단어·문서 속 지시가 분류를 흔들지 않게).
+        said = text.partition(_ATTACHMENT_START)[0].strip()
+        panel = by_model(said or ATTACHMENT_ONLY, facts)
         calls += 1
     return {"panel": panel.value, "model_calls": calls}
