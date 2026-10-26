@@ -5,8 +5,9 @@
   colloquial(구어)·negative(관련 규칙 없음, 거절해야 함)
 - 골든셋 카드: evals/golden/golden_set.csv에서 근거 칸에 규칙 카드 ID가 적힌 문항(마지막 말로 찾음).
   고용 형태만 다르고 내용이 같은 카드도 정답으로 봅니다. 영역(근거·절차·서류)별로도 냅니다.
-- 정책·FAQ: data/knowledge/eval/*.jsonl (저장소에 없음). 사람 질문 41개, LLM 생성 80개.
-  파일이 없으면 건너뜁니다.
+- 정책·FAQ 생성: evals/retrieval/guide_queries.jsonl (저장소에 있음). 크롤링 조각마다 LLM이 만든
+  질문(scripts/generate_guide_questions.py). 정답은 그 조각 하나, scope는 faq·policy.
+- 정책·FAQ 사람: data/knowledge/eval/*.jsonl (저장소에 없음). 파일이 없으면 건너뜁니다.
 
 지표
 - hit@k: 정답 중 하나라도 k등 안에 있는 질문 비율. 대화에는 3장을 붙이므로 hit@3이 기준입니다.
@@ -52,8 +53,11 @@ REPORT_DIR = HERE.parent / "reports"
 RULE_QUERIES = HERE / "rule_queries.jsonl"
 KNOWLEDGE_EVAL = HERE.parents[1] / "data" / "knowledge" / "eval"
 GUIDE_SETS = {
-    "정책·FAQ 사람": ("queries_golden.jsonl", "queries_human.jsonl"),
-    "정책·FAQ 생성": ("queries.jsonl",),
+    "정책·FAQ 사람": (
+        KNOWLEDGE_EVAL / "queries_golden.jsonl",
+        KNOWLEDGE_EVAL / "queries_human.jsonl",
+    ),
+    "정책·FAQ 생성": (HERE / "guide_queries.jsonl",),
 }
 TOP = 10
 ATTACH = 5  # 대화에 붙이는 수(RETRIEVAL_INJECT_LIMIT 기본값)
@@ -145,8 +149,6 @@ def load_queries() -> dict[str, list[Query]]:
         ]
     }
     sets[GOLDEN_SET] = golden_queries()
-    if not KNOWLEDGE_EVAL.exists():
-        return sets
     with SessionLocal() as db:
         allowed = {
             c.chunk_id
@@ -155,13 +157,13 @@ def load_queries() -> dict[str, list[Query]]:
         }
     for name, files in GUIDE_SETS.items():
         queries = []
-        # 사람 질문 파일은 없을 수 있습니다(생성 질문은 scripts/generate_guide_questions.py).
-        for filename in (f for f in files if (KNOWLEDGE_EVAL / f).exists()):
-            for r in _jsonl(KNOWLEDGE_EVAL / filename):
+        for path in (f for f in files if f.exists()):  # 사람 질문 파일은 없을 수 있습니다.
+            for r in _jsonl(path):
                 # 다른 고용 형태 전용 청크는 찾지 않으므로 그런 정답만 있는 질문은 뺍니다.
                 positives = set(r["positives"]) & allowed
                 if positives:
-                    queries.append(Query(r["qid"], r["question"], positives, "guide", "human"))
+                    style = r.get("scope", "human")
+                    queries.append(Query(r["qid"], r["question"], positives, "guide", style))
         if queries:
             sets[name] = queries
     return sets

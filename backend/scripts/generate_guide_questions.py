@@ -1,7 +1,8 @@
 """정책·FAQ 조각마다 그 조각이 답이 될 질문을 만들어 검색 평가 질문셋으로 씁니다.
 
-결과는 data/knowledge/eval/queries.jsonl("정책·FAQ 생성" 세트, evals/retrieval/run.py가 읽음)입니다.
-조각 파일처럼 저장소에 올리지 않습니다. 질문은 그 조각 하나를 정답으로 둡니다.
+결과는 evals/retrieval/guide_queries.jsonl("정책·FAQ 생성" 세트, evals/retrieval/run.py가 읽음)이고
+저장소에 올립니다. 팀이 같은 질문으로 점수를 견주게 하려는 것으로, 크롤링 원문이 아니라 생성한
+질문과 조각 ID만 담깁니다. 질문은 그 조각 하나를 정답으로 둡니다.
 
 - FAQ: 모든 조각(질의를 그대로 쓰지 않고 사용자 말투로 바꿔 씀)
 - 정책 본문: 글이 충분한 조각 중 정책별로 고르게 SAMPLE_POLICY_SECTIONS개
@@ -25,7 +26,7 @@ from app.agent.prompts import load_prompt  # noqa: E402
 from scripts.ingest import paths  # noqa: E402
 
 PROMPT = "retrieval/guide_questions"
-OUT = paths.CHUNKS.parent / "eval" / "queries.jsonl"
+OUT = Path(__file__).resolve().parents[1] / "evals" / "retrieval" / "guide_queries.jsonl"
 FAQ_FILE = paths.FAQ_CHUNKS
 POLICY_FILE = paths.POLICY_CONTENT_CHUNKS
 SAMPLE_POLICY_SECTIONS = 150
