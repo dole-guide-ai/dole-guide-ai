@@ -110,6 +110,36 @@ SEEDS: dict[str, dict[str, Any]] = {
             "certifications": [{"certificate_name": "지게차운전기능사", "acquired_date": None}],
         }
     },
+    # 경력·자격증·학력·희망 직종·지역은 찼고, 경력 여부·월급·고용형태·병역·제목은 남은 이력서
+    "park_almost": {
+        "competencies": {
+            "careers": [
+                {**_career("OO산업", "2004-03", "2026-09", "프레스 생산"), "position": "반장"}
+            ],
+            "certifications": [
+                {"certificate_name": "지게차운전기능사", "acquired_date": "2011-05-20"}
+            ],
+        },
+        "education": [
+            {
+                "education_level": "고등학교",
+                "graduation_status": "졸업",
+                "school_name": "OO고등학교",
+                "start_date": "1981-03",
+                "end_date": "1984-02",
+                "is_highest_education": True,
+            }
+        ],
+        "job_preferences": {
+            "desired_occupations": [
+                {
+                    "item_id": "occ_001",
+                    "occupation": {"code": None, "name": "지게차 운전원", "status": "confirmed"},
+                }
+            ],
+            "desired_regions": [{"code": None, "name": "경기 안산시"}],
+        },
+    },
     "choi_resume_2019": {
         "competencies": {
             "careers": [_career("OO아파트 관리사무소", "2010-03", "2019-04", "시설관리")],
@@ -135,9 +165,14 @@ def resolve_input(case_input: dict[str, Any]) -> dict[str, Any]:
             f"상태값 이름 {names}을 모르겠어요(오타?). 쓸 수 있는 값: {', '.join(allowed)}"
         )
     state = {**BASE, **PERSONAS[persona], **overrides}
+    # 시작 이력서(seed)를 줬는데 이력서 상태가 "없음"이면 러너가 seed를 버리므로 작성 중으로 봅니다.
+    if seed and state["resume_status"] == "none":
+        state["resume_status"] = "draft"
     resume = empty_resume()
     if seed:
-        resume["competencies"].update(deepcopy(SEEDS[seed]["competencies"]))
+        chosen = deepcopy(SEEDS[seed])
+        resume["competencies"].update(chosen.pop("competencies"))
+        resume.update(chosen)
     activities = case_input["activities"]
     if activities is None:
         activities = deepcopy(LEE_ACTIVITIES) if persona == "lee" else []

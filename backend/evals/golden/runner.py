@@ -37,7 +37,10 @@ from evals.golden.schema import FILES_DIR
 # 문항 상태값에 없는 값. 결과에 영향이 없도록 시연 계정과 비슷한 값으로 둡니다.
 INSURED_YEARS = 10.0
 RECOGNITION_INTERVAL_DAYS = 28
-EVAL_PROFILE = {"name": "평가계정"}
+# 계정 이름. 시연 계정은 합성 서류(경력증명서 등)에 적힌 이름과 같게 두어, 서류의 이름이
+# 본인과 다른지 확인하는 동작을 평가할 수 있게 합니다. 나머지는 서류와 겹치지 않는 이름입니다.
+PERSONA_NAMES = {"park": "박진수", "park2": "박진수", "choi": "최영수", "lee": "이정호"}
+DEFAULT_NAME = "평가계정"
 
 
 def run_case(db: Session, case: dict[str, Any]) -> AgentResult:
@@ -126,7 +129,7 @@ def _seed(case_input: dict[str, Any], today: date) -> dict[str, Any]:
         state["age_at_separation"], state["has_disability"], state["recipient_type"] == "repeat"
     )
     seed: dict[str, Any] = {
-        "profile": EVAL_PROFILE,
+        "profile": {"name": PERSONA_NAMES.get(case_input["persona"], DEFAULT_NAME)},
         "procedure": {
             "stage": state["stage"],
             "recipient_group": group,
@@ -204,6 +207,8 @@ def _snapshot(db: Session, account: AccountContext, today: date, now: datetime) 
     procedure = account_service.read_procedure(db, account.user_id, today)
     data: dict[str, Any] = {
         "resume": values,
+        # 절차 상태: 대화로 교육 이수 등을 알렸을 때 단계가 넘어가는지 봅니다.
+        "procedure": {"stage": str(procedure.stage), "education_done": procedure.education_done},
         "activities": [_activity(a.model_dump(mode="json")) for a in activities.items],
         "derived": {
             "rule_group": procedure.recipient_group,
