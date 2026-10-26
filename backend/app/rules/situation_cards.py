@@ -29,8 +29,14 @@ ROUTE_LABELS = {
 }
 
 
-def build_rule_cards(derived: dict[str, Any]) -> list[dict[str, str]]:
-    """이번 회차에 인정되는 활동·안 되는 활동·누적 한도·경로별 증빙 문장 [{text, cite}]."""
+def build_rule_cards(
+    derived: dict[str, Any], *, include_evidence: bool = True
+) -> list[dict[str, str]]:
+    """이번 회차에 인정되는 활동·안 되는 활동·누적 한도·경로별 증빙 문장 [{text, cite}].
+
+    경로별 증빙은 팀 규칙표 카드 검색과 겹치므로, 그래프 facts에 붙일 때는 뺍니다
+    (include_evidence=False).
+    """
     rules = load_rules()
     group, round_no = derived["group"], derived["current_round"] or 1
     allowed = [k.label for k in rules.kinds if not is_not_allowed(k, rules, group, round_no)]
@@ -49,8 +55,9 @@ def build_rule_cards(derived: dict[str, Any]) -> list[dict[str, str]]:
             f"직업훈련은 대상 기간에 {rules.training_hours.min_counted}시간 이상이면 1건, "
             f"{rules.training_hours.full_round}시간 이상이면 그 회차 활동을 모두 채운 것으로 봐요."
         )
-    for route in rules.routes:
-        label = ROUTE_LABELS.get(route.route, route.route)
-        evidence = ", ".join(route.evidence) if route.evidence else "따로 낼 증빙이 없어요"
-        cards.append(f"{label}의 증빙: {evidence}.")
+    if include_evidence:
+        for route in rules.routes:
+            label = ROUTE_LABELS.get(route.route, route.route)
+            evidence = ", ".join(route.evidence) if route.evidence else "따로 낼 증빙이 없어요"
+            cards.append(f"{label}의 증빙: {evidence}.")
     return [{"text": text, "cite": CITE} for text in cards]

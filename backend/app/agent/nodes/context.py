@@ -12,6 +12,7 @@ from app.agent.nodes.route import Panel
 from app.core.config import get_settings
 from app.core.errors import AppError
 from app.rules.rule_cards import search_cards
+from app.rules.situation_cards import build_rule_cards as build_situation_cards
 from app.schemas.procedure import Stage
 from app.services import accounts as account_service
 from app.services import knowledge as knowledge_service
@@ -43,6 +44,14 @@ def load_context(state: AgentState, config: RunnableConfig) -> dict[str, Any]:
         except AppError:  # 남은 회차가 없음(종료 직전)
             check = None
         if check is not None:
+            # 이번 회차에 인정·불인정되는 활동(활동 규칙 표 + 팀 rounds 규칙, 이민수 상황 카드).
+            # 수치가 아니라 목록이라 모델이 계산할 일이 없고, 안 되는 활동의 기록 요청을 거를 수
+            # 있습니다(골든셋 P-013).
+            round_rules = build_situation_cards(
+                {"group": check.rule_group, "current_round": check.round},
+                include_evidence=False,
+            )
+            facts["round_rules"] = [card["text"] for card in round_rules]
             facts["round"] = {
                 "round": check.round,
                 "period_start": check.period_start.isoformat(),
