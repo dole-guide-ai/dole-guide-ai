@@ -21,6 +21,7 @@
 
 import argparse
 import csv
+import hashlib
 import json
 import re
 import uuid
@@ -33,7 +34,7 @@ from pathlib import Path
 from typing import Any
 
 from app.agent import gateway
-from app.agent.retrieval import rerank_cards, rewrite_query
+from app.agent.retrieval import rerank_cards, rerank_messages, rewrite_query
 from app.core.config import get_settings
 from app.core.db import SessionLocal
 from app.repositories import knowledge as knowledge_repo
@@ -272,23 +273,36 @@ def _reranked(ranked: list[Ranked]) -> list[Ranked]:
     cache = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
     cards = cards_by_id()
 
-    def key(r: Ranked) -> str:
-        return r.query.question + "|" + ",".join(r.ids)
+    def candidates(r: Ranked) -> list[RuleCard]:
+        return [cards[i.removeprefix(RULE_ID_PREFIX)] for i in r.ids]
 
-    def choose(r: Ranked) -> list[str]:
-        candidates = [cards[i.removeprefix(RULE_ID_PREFIX)] for i in r.ids]
-        return [RULE_ID_PREFIX + c.rule_id for c in rerank_cards(r.query.question, candidates, TOP)]
+    def key(r: Ranked) -> str:
+        """실제 모델 입력(프롬프트·카드 글·질문)의 해시. 카드나 프롬프트가 바뀌면 다시 고릅니다."""
+        messages = rerank_messages(r.query.question, candidates(r), TOP)
+        joined = "\n".join(str(m.content) for m in messages)
+        return hashlib.sha256(joined.encode("utf-8")).hexdigest()
+
+    def choose(r: Ranked) -> list[str] | None:
+        """모델이 고른 ID. 호출이 실패하면 None(대체 순위를 선택으로 저장하지 않음)."""
+        try:
+            chosen = rerank_cards(r.query.question, candidates(r), TOP, fallback=False)
+        except Exception:  # noqa: BLE001 — 실패한 질문은 다음 실행에서 다시 고릅니다
+            return None
+        return [RULE_ID_PREFIX + c.rule_id for c in chosen]
 
     todo = [r for r in ranked if r.query.group == "rule" and key(r) not in cache]
     with ThreadPoolExecutor(WORKERS) as pool:
-        cache |= dict(zip(map(key, todo), pool.map(choose, todo), strict=True))
+        picked = dict(zip(map(key, todo), pool.map(choose, todo), strict=True))
+    if failed := sum(1 for v in picked.values() if v is None):
+        print(f"재정렬 호출 실패 {failed}건: 이번 실행만 검색 순위로 셉니다(캐시에 넣지 않음).")
+    cache |= {k: v for k, v in picked.items() if v is not None}
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(cache, ensure_ascii=False, indent=1), encoding="utf-8")
     out = []
     for r in ranked:
         sims = dict(zip(r.ids, r.sims, strict=True)) | {h.chunk_id: h.similarity for h in r.fixed}
         fixed = [h.chunk_id for h in r.fixed]
-        chosen = cache.get(key(r), r.ids) if r.query.group == "rule" else r.ids
+        chosen = cache.get(key(r), r.ids[:TOP]) if r.query.group == "rule" else r.ids
         ids = fixed + [i for i in chosen if i not in fixed]
         out.append(Ranked(r.query, ids, [sims[i] for i in ids]))
     return out

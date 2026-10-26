@@ -67,3 +67,10 @@ def test_prompt_lists_candidates_with_target(cards) -> None:
     line = retrieval._candidate(cards[2])
 
     assert line.startswith("ELIG-184 | ") and "50세 이상" in line
+
+
+def test_without_fallback_failure_is_raised(monkeypatch, cards) -> None:
+    _use(monkeypatch, RuntimeError("모델 장애"))
+
+    with pytest.raises(RuntimeError):
+        rerank_cards("질문", cards, 2, fallback=False)

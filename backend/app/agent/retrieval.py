@@ -15,7 +15,7 @@
 import logging
 from collections.abc import Sequence
 
-from langchain_core.messages import HumanMessage, SystemMessage
+from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage
 from pydantic import BaseModel, Field
 
 from app.agent import gateway
@@ -64,26 +64,34 @@ def _candidate(card: RuleCard) -> str:
     return " | ".join(p for p in parts if p)
 
 
-def rerank_cards(text: str, cards: Sequence[RuleCard], limit: int) -> list[RuleCard]:
+def rerank_messages(text: str, cards: Sequence[RuleCard], limit: int) -> list[BaseMessage]:
+    """재정렬 모델에 보내는 입력. 평가는 이 내용으로 캐시 키를 만듭니다."""
+    listing = "\n".join(_candidate(c) for c in cards)
+    return [
+        SystemMessage(load_prompt(RERANK_PROMPT).replace("{limit}", str(limit))),
+        HumanMessage(
+            f"<candidates>\n{listing}\n</candidates>\n<user_message>\n{text}\n</user_message>"
+        ),
+    ]
+
+
+def rerank_cards(
+    text: str, cards: Sequence[RuleCard], limit: int, fallback: bool = True
+) -> list[RuleCard]:
     """질문에 필요한 카드를 limit장까지 골라 고른 순서로. 관련 카드가 없으면 빈 목록.
 
     모델 호출이 실패하거나 후보에 없는 ID만 돌아오면 검색 순위 앞의 limit장을 씁니다.
+    fallback=False면 모델 호출 실패를 그대로 올립니다(평가가 대체 순위를 모델 선택으로
+    저장하지 않게).
     """
     if not cards:
         return []
     model = gateway.get_chat_model("extract").with_structured_output(ChosenCards)
-    listing = "\n".join(_candidate(c) for c in cards)
     try:
-        result = model.invoke(
-            [
-                SystemMessage(load_prompt(RERANK_PROMPT).replace("{limit}", str(limit))),
-                HumanMessage(
-                    f"<candidates>\n{listing}\n</candidates>\n"
-                    f"<user_message>\n{text}\n</user_message>"
-                ),
-            ]
-        )
+        result = model.invoke(rerank_messages(text, cards, limit))
     except Exception as exc:  # noqa: BLE001 — 재정렬 실패는 검색 순위로 대신합니다
+        if not fallback:
+            raise
         logger.warning("card_rerank_failed", extra={"code": gateway.to_app_error(exc).code})
         return list(cards[:limit])
     by_id = {c.rule_id: c for c in cards}
