@@ -29,6 +29,7 @@ from app.agent.nodes.preprocess import BLOCKED_REPLY, gate
 from app.agent.tools.registry import ToolContext
 from app.core.clock import KST
 from app.schemas.messages import DoneEvent, InputKind, TokenEvent
+from app.services import files as files_service
 from app.services.accounts import AccountContext
 
 
@@ -112,6 +113,8 @@ def graph_responder(
             done = event
         else:
             yield event
+    if turn.file_ids and (ctx := tool_context(turn)) is not None:
+        files_service.discard_resume_docs(ctx.db, ctx.account, turn.file_ids)
     snapshot = graph.get_state(config)
     if snapshot.next and snapshot.values:
         # 질문에서 멈춘 턴은 finish를 거치지 않습니다. 질문 앞에 안내한 내용의 근거 줄과

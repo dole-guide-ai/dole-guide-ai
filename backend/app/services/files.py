@@ -71,6 +71,35 @@ def upload(
     return result
 
 
+def _own_row(db: Session, account: AccountContext, file_id: str) -> File | None:
+    try:
+        parsed = uuid.UUID(file_id)
+    except ValueError:
+        return None
+    return repo.get_for_user(db, account.user_id, parsed)
+
+
+def open_attachment(db: Session, account: AccountContext, file_id: str) -> Path | None:
+    """대화에 첨부한 자기 파일(증빙·이력서 서류)의 경로. 없거나 남의 파일·지운 파일이면 None.
+
+    에이전트의 사진·문서 읽기용입니다. 못 여는 파일로 턴을 막지 않도록 404 대신 None을
+    돌려주고, 부른 쪽이 그 파일을 건너뜁니다.
+    """
+    row = _own_row(db, account, file_id)
+    if row is None:
+        return None
+    path = _upload_root() / row.storage_key
+    return path if path.is_file() else None
+
+
+def discard_resume_docs(db: Session, account: AccountContext, file_ids: list[str]) -> None:
+    """판독을 마친 이력서 서류(resume_doc)의 실물을 지웁니다. 증빙은 신청에 쓰므로 남깁니다."""
+    for file_id in file_ids:
+        row = _own_row(db, account, file_id)
+        if row is not None and row.purpose == FilePurpose.RESUME_DOC:
+            (_upload_root() / row.storage_key).unlink(missing_ok=True)
+
+
 def open_file(db: Session, account: AccountContext, file_id: str) -> tuple[File, Path]:
     """자기 계정의 구직활동 증빙만 엽니다.
 

@@ -24,8 +24,9 @@ from pydantic import BaseModel, Field, ValidationError
 
 from app.agent import gateway
 from app.agent.events import emit
-from app.agent.graph import AgentState, tool_context_of
+from app.agent.graph import AgentState, tool_context_of, turn_of
 from app.agent.grounding import Evidence, SentenceChecker
+from app.agent.input import images
 from app.agent.output import SentenceStream
 from app.agent.prompts import load_prompt
 from app.agent.tools.registry import TOOLS, TOOLS_BY_PANEL, ToolError, run_tool
@@ -33,6 +34,7 @@ from app.core.config import get_settings
 from app.core.errors import AppError
 from app.schemas.common import FormUpdate
 from app.schemas.messages import AskUserEvent, TokenEvent, ToolCallEvent
+from app.services import files as files_service
 
 MAX_MODEL_CALLS = 4  # 분류 1 + 패널 루프 3 (노션 「에이전트 구조 설계」 8절)
 MAX_TOOL_CALLS = 6
@@ -88,9 +90,34 @@ def system_prompt(state: AgentState) -> str:
     )
 
 
-def call_model(state: AgentState) -> dict[str, Any]:
+def _with_images(messages: list[Any], config: RunnableConfig) -> list[Any]:
+    """IMAGE_MODE=vision이면 이번 턴 첨부 사진을 마지막 사용자 말에 붙입니다.
+
+    모델에 보내는 복사본에만 붙이고 상태(체크포인트)에는 남기지 않습니다. 사진이 아닌 파일과
+    열 수 없는 파일은 보내지 않습니다(문서는 preprocess가 글로 넣음).
+    """
+    ctx = tool_context_of(config)
+    if get_settings().image_mode != "vision" or ctx is None:
+        return messages
+    file_ids = getattr(turn_of(config), "file_ids", None) or []
+    paths = [
+        str(path)
+        for file_id in file_ids
+        if (path := files_service.open_attachment(ctx.db, ctx.account, file_id))
+    ]
+    if not (parts := images.image_parts(paths)):
+        return messages
+    last = next((i for i in range(len(messages) - 1, -1, -1)
+                 if isinstance(messages[i], HumanMessage)), None)  # fmt: skip
+    if last is None:
+        return messages
+    patched = HumanMessage([{"type": "text", "text": str(messages[last].content)}, *parts])
+    return [*messages[:last], patched, *messages[last + 1 :]]
+
+
+def call_model(state: AgentState, config: RunnableConfig) -> dict[str, Any]:
     model = gateway.get_chat_model("agent").bind_tools(tool_schemas(state["panel"]))
-    messages = [SystemMessage(system_prompt(state)), *state["messages"]]
+    messages = _with_images([SystemMessage(system_prompt(state)), *state["messages"]], config)
     reply: AIMessageChunk | None = None
     # 문장이 끝날 때마다 걸러서 보냅니다(agent/output.py). 다른 언어가 섞인 문장부터 버리고,
     # 근거에 없는 숫자나 근거를 넘는 단정이 든 문장은 뺍니다(agent/grounding.py).
