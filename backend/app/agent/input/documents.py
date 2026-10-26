@@ -8,6 +8,7 @@
 import re
 import zipfile
 from pathlib import Path
+from xml.sax.saxutils import unescape
 
 from docx import Document
 from pypdf import PdfReader
@@ -40,7 +41,7 @@ def _hwpx_text(archive: zipfile.ZipFile) -> str:
     texts = []
     for name in sections:
         xml = archive.read(name).decode("utf-8", errors="ignore")
-        texts.append(" ".join(HWPX_TEXT.findall(xml)))
+        texts.append(" ".join(unescape(t) for t in HWPX_TEXT.findall(xml)))
     return "\n".join(texts)
 
 
