@@ -30,7 +30,7 @@ from pathlib import Path
 from typing import Any
 
 from app.agent import gateway
-from app.agent.retrieval import rewrite_query
+from app.agent.retrieval import rerank_cards, rewrite_query
 from app.core.config import get_settings
 from app.core.db import SessionLocal
 from app.repositories import knowledge as knowledge_repo
@@ -71,7 +71,11 @@ CONFIGS: dict[str, tuple[SearchOptions, bool, bool]] = {
     "hybrid+syn+rewrite": (SearchOptions(synonyms=True), True, False),
     "hybrid+syn+filter": (SearchOptions(synonyms=True, profile_query=False), False, True),
     "hybrid+syn+profile": (SearchOptions(synonyms=True), False, True),
+    # 아래 구성은 후보 RERANK_CANDIDATES장을 extract 모델이 다시 골라 앞에 둡니다(규칙 카드만).
+    "hybrid+syn+profile+rerank": (SearchOptions(synonyms=True), False, True),
 }
+RERANKED = {"hybrid+syn+profile+rerank"}
+RERANK_CANDIDATES = 20
 
 
 @dataclass
@@ -220,8 +224,9 @@ def run(configs: list[str]) -> dict[str, Any]:
                 ranked = []
                 for q in queries:
                     text = rewrites[q.question] if rewrite else q.question
+                    top = RERANK_CANDIDATES if name in RERANKED else TOP
                     found = search(
-                        db, text, rule_limit=TOP if q.group == "rule" else 0,
+                        db, text, rule_limit=top if q.group == "rule" else 0,
                         guide_limit=TOP if q.group == "guide" else 0, options=options,
                         query_vector=vectors[text], profile=q.profile if use_profile else None,
                     )  # fmt: skip
@@ -231,8 +236,38 @@ def run(configs: list[str]) -> dict[str, Any]:
                     ranked.append(
                         Ranked(q, [h.chunk_id for h in hits], [h.similarity for h in hits])
                     )
+                if name in RERANKED:
+                    ranked = _reranked(ranked)
                 results[name][set_name] = ranked
     return {"sets": sets, "results": results, "rewrites": rewrites}
+
+
+def _reranked(ranked: list[Ranked]) -> list[Ranked]:
+    """모델이 고른 카드를 앞에, 고르지 않은 후보를 뒤에. 고른 결과는 파일에 둡니다(재실행 비용)."""
+    path = REPORT_DIR / "cache" / f"rerank-{get_settings().extract_model}.json"
+    cache = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+    cards = cards_by_id()
+
+    def key(r: Ranked) -> str:
+        return r.query.question + "|" + ",".join(r.ids)
+
+    def choose(r: Ranked) -> list[str]:
+        candidates = [cards[i.removeprefix(RULE_ID_PREFIX)] for i in r.ids]
+        return [RULE_ID_PREFIX + c.rule_id for c in rerank_cards(r.query.question, candidates, TOP)]
+
+    todo = [r for r in ranked if r.query.group == "rule" and key(r) not in cache]
+    with ThreadPoolExecutor(WORKERS) as pool:
+        cache |= dict(zip(map(key, todo), pool.map(choose, todo), strict=True))
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(cache, ensure_ascii=False, indent=1), encoding="utf-8")
+    out = []
+    for r in ranked:
+        chosen = cache.get(key(r), r.ids)
+        rest = [i for i in r.ids if i not in chosen]
+        sims = dict(zip(r.ids, r.sims, strict=True))
+        ids = chosen + rest
+        out.append(Ranked(r.query, ids, [sims[i] for i in ids]))
+    return out
 
 
 # ── 지표 ─────────────────────────────────────────────────

@@ -10,7 +10,7 @@ from langchain_core.runnables import RunnableConfig
 
 from app.agent.graph import AgentState, tool_context_of
 from app.agent.nodes.route import Panel
-from app.agent.retrieval import rewrite_query
+from app.agent.retrieval import rerank_cards, rewrite_query
 from app.agent.tools import guide
 from app.core.config import get_settings
 from app.core.errors import AppError
@@ -141,10 +141,14 @@ def attach_knowledge(state: AgentState, config: RunnableConfig) -> dict[str, Any
         else:
             guide_limit = settings.retrieval_guide_limit if state.get("panel") == Panel.GUIDE else 0
             query, calls = search_text(state, text)
-            found = knowledge_service.search(
-                ctx.db, query, settings.retrieval_inject_limit, guide_limit, profile=profile
-            )
+            limit = settings.retrieval_inject_limit
+            # 재정렬하면 후보를 넉넉히 찾고 모델이 limit장을 고릅니다.
+            wanted = settings.retrieval_rerank_candidates if settings.retrieval_rerank else limit
+            found = knowledge_service.search(ctx.db, query, wanted, guide_limit, profile=profile)
             found_cards, guides = knowledge_service.rule_cards_of(found.rules), found.guides
+            if settings.retrieval_rerank and found_cards:
+                found_cards = rerank_cards(query, found_cards, limit)
+                calls += 1
         cards += [c for c in found_cards if c.rule_id not in {x.rule_id for x in cards}]
     if not cards and not guides:
         return {"attached": [], "model_calls": calls}
