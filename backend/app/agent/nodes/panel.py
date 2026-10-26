@@ -24,7 +24,7 @@ from pydantic import BaseModel, Field, ValidationError
 
 from app.agent import gateway
 from app.agent.events import emit
-from app.agent.graph import AgentState, tool_context_of, turn_of
+from app.agent.graph import AgentState, tool_context_of
 from app.agent.grounding import Evidence, SentenceChecker
 from app.agent.input import images
 from app.agent.output import SentenceStream
@@ -90,22 +90,25 @@ def system_prompt(state: AgentState) -> str:
     )
 
 
-def _with_images(messages: list[Any], config: RunnableConfig) -> list[Any]:
-    """IMAGE_MODE=vision이면 이번 턴 첨부 사진을 마지막 사용자 말에 붙입니다.
+def _with_images(messages: list[Any], file_ids: list[str], config: RunnableConfig) -> list[Any]:
+    """preprocess가 사진째 보내도 된다고 정한 사진(vision_files)을 마지막 사용자 말에 붙입니다.
 
-    모델에 보내는 복사본에만 붙이고 상태(체크포인트)에는 남기지 않습니다. 사진이 아닌 파일과
-    열 수 없는 파일은 보내지 않습니다(문서는 preprocess가 글로 넣음).
+    모델에 보내는 복사본에만 붙이고 상태(체크포인트)에는 남기지 않습니다. 사진 내용은
+    preprocess가 받아써 가린 글로 이미 대화 기록에 있어 다음 턴에도 씁니다.
     """
     ctx = tool_context_of(config)
-    if get_settings().image_mode != "vision" or ctx is None:
+    if not file_ids or ctx is None:
         return messages
-    file_ids = dict.fromkeys(getattr(turn_of(config), "file_ids", None) or [])
     paths = [
         str(path)
         for file_id in file_ids
         if (path := files_service.open_attachment(ctx.db, ctx.account, file_id))
     ]
-    if not (parts := images.image_parts(paths)):
+    try:
+        parts = images.image_parts(paths)
+    except ValueError:  # 그 사이 읽을 수 없게 된 사진은 받아쓴 글만 씁니다.
+        return messages
+    if not parts:
         return messages
     last = next((i for i in range(len(messages) - 1, -1, -1)
                  if isinstance(messages[i], HumanMessage)), None)  # fmt: skip
@@ -117,7 +120,11 @@ def _with_images(messages: list[Any], config: RunnableConfig) -> list[Any]:
 
 def call_model(state: AgentState, config: RunnableConfig) -> dict[str, Any]:
     model = gateway.get_chat_model("agent").bind_tools(tool_schemas(state["panel"]))
-    messages = _with_images([SystemMessage(system_prompt(state)), *state["messages"]], config)
+    messages = _with_images(
+        [SystemMessage(system_prompt(state)), *state["messages"]],
+        state.get("vision_files") or [],
+        config,
+    )
     reply: AIMessageChunk | None = None
     # 문장이 끝날 때마다 걸러서 보냅니다(agent/output.py). 다른 언어가 섞인 문장부터 버리고,
     # 근거에 없는 숫자나 근거를 넘는 단정이 든 문장은 뺍니다(agent/grounding.py).
