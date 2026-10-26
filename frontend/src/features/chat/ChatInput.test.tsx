@@ -87,9 +87,14 @@ describe('ChatInput', () => {
     );
     expect(screen.getByRole('status')).toHaveTextContent('듣고 있어요');
 
+    // 답을 만드는 중(isDisabled)에도 녹음은 끝낼 수 있어야 합니다.
+    rerender(<ChatInput {...props} voiceStatus="recording" isDisabled />);
+    expect(screen.getByRole('button', { name: '말하기 끝내기' })).toBeEnabled();
+
     rerender(<ChatInput {...props} voiceStatus="transcribing" />);
     expect(screen.getByRole('button', { name: '눌러서 말하기' })).toBeDisabled();
     expect(screen.getByText('받아쓰는 중…')).toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent('글로 바꾸고 있어요');
 
     rerender(<ChatInput {...props} voiceError="마이크를 쓸 수 없어요." />);
     expect(screen.getByRole('alert')).toHaveTextContent('마이크를 쓸 수 없어요.');

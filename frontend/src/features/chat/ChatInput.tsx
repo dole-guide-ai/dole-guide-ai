@@ -134,7 +134,7 @@ export const ChatInput = ({
           </button>
           <button
             type="button"
-            disabled={!onVoiceToggle || isDisabled || isTranscribing}
+            disabled={!onVoiceToggle || isTranscribing || (isDisabled && !isRecording)}
             onClick={onVoiceToggle}
             aria-label={isRecording ? '말하기 끝내기' : '눌러서 말하기'}
             aria-pressed={isRecording}
@@ -168,13 +168,16 @@ export const ChatInput = ({
           </button>
         </div>
       </div>
-      {(isRecording || voiceError) && (
+      {(isRecording || isTranscribing || voiceError) && (
         <p
           id={VOICE_NOTE_ID}
           role={voiceError ? 'alert' : 'status'}
           className={`text-center text-sm font-semibold ${voiceError ? 'text-danger' : 'text-brand'}`}
         >
-          {voiceError ?? "듣고 있어요. 말씀을 마치면 '다 말했어요'를 눌러 주세요."}
+          {voiceError ??
+            (isRecording
+              ? "듣고 있어요. 말씀을 마치면 '다 말했어요'를 눌러 주세요."
+              : '말씀을 글로 바꾸고 있어요. 잠시만 기다려 주세요.')}
         </p>
       )}
       <p id={PRIVACY_NOTE_ID} className="text-muted text-center text-sm">
