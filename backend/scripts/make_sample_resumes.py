@@ -3,22 +3,23 @@
 대화에 서류를 올려 판독(agent/input/documents.py)을 확인할 때 씁니다. 만든 파일은
 data/samples/resumes/에 커밋되어 있어 보통은 다시 만들 필요가 없습니다.
 
-    uv run --with reportlab python -m scripts.make_sample_resumes --font <한글 TTF 경로>
+    uv run --with reportlab --with python-hwpx python -m scripts.make_sample_resumes
 
-PDF에는 한글 글꼴이 필요합니다(기본: Windows 맑은 고딕). reportlab은 이 스크립트에서만 써서
-프로젝트 의존성에 넣지 않았습니다.
+PDF에는 한글 글꼴이 필요합니다(기본: Windows 맑은 고딕, 다른 경로는 --font). reportlab·python-hwpx는
+이 스크립트에서만 써서 프로젝트 의존성에 넣지 않았습니다.
 """
 
 import argparse
-import zipfile
 from dataclasses import dataclass, field
 from pathlib import Path
 from xml.sax.saxutils import escape
 
 from docx import Document
+from docx.oxml.ns import qn
 
 OUT_DIR = Path(__file__).resolve().parents[1] / "data" / "samples" / "resumes"
 DEFAULT_FONT = Path("C:/Windows/Fonts/malgun.ttf")
+DOCX_FONT = "맑은 고딕"
 # 본문에 쓰면 AI가 이력서 칸(기타 희망사항)에 옮겨 적어서 파일 속성(설명·주제)에만 둡니다.
 NOTICE = "테스트용 합성 이력서입니다. 실제 인물·회사가 아닙니다."
 
@@ -118,8 +119,24 @@ def sections(r: Resume) -> list[tuple[str, list[str], list[list[str]]]]:
     ]  # fmt: skip
 
 
+def _use_korean_font(style) -> None:
+    """기본 서식은 한글 글꼴을 테마로만 정해 두어(제목은 비어 있음) 보는 프로그램에 따라 한글이
+    네모로 나옵니다. 모든 글자 칸에 맑은 고딕을 직접 지정합니다."""
+    _set_fonts(style.element.get_or_add_rPr().get_or_add_rFonts())
+
+
+def _set_fonts(fonts) -> None:
+    for theme in ("w:asciiTheme", "w:hAnsiTheme", "w:eastAsiaTheme", "w:cstheme"):
+        fonts.attrib.pop(qn(theme), None)
+    for slot in ("w:ascii", "w:hAnsi", "w:eastAsia", "w:cs"):
+        fonts.set(qn(slot), DOCX_FONT)
+
+
 def write_docx(r: Resume, path: Path) -> None:
     doc = Document()
+    for name in ("Normal", "Heading 1", "Heading 2", "Table Grid"):
+        _use_korean_font(doc.styles[name])
+    _set_fonts(doc.styles.element.find(qn("w:docDefaults")).find(".//" + qn("w:rFonts")))
     doc.add_heading(f"이력서 - {r.title}", level=1)
     for heading, head, rows in sections(r):
         if not rows:
@@ -160,81 +177,22 @@ def write_pdf(r: Resume, path: Path, font: Path) -> None:
     SimpleDocTemplate(str(path), pagesize=A4, subject=NOTICE).build(story)
 
 
-HWPX_NS = (
-    'xmlns:ha="http://www.hancom.co.kr/hwpml/2011/app" '
-    'xmlns:hp="http://www.hancom.co.kr/hwpml/2011/paragraph" '
-    'xmlns:hs="http://www.hancom.co.kr/hwpml/2011/section" '
-    'xmlns:hh="http://www.hancom.co.kr/hwpml/2011/head" '
-    'xmlns:hc="http://www.hancom.co.kr/hwpml/2011/core"'
-)
-
-
-def _hwpx_paragraph(text: str) -> str:
-    return (
-        '<hp:p paraPrIDRef="0" styleIDRef="0"><hp:run charPrIDRef="0">'
-        f"<hp:t>{escape(text)}</hp:t></hp:run></hp:p>"
-    )
-
-
 def write_hwpx(r: Resume, path: Path) -> None:
-    """한글(OWPML) 최소 구성. 표 대신 "칸: 값" 문단으로 씁니다."""
-    lines = [f"이력서 - {r.title}"]
+    """한글 표준 빈 문서 틀(python-hwpx)에 제목·표를 넣습니다. 손으로 만든 최소 구성은
+    한글 프로그램에서 내용이 비어 보여서 라이브러리 틀을 씁니다."""
+    from hwpx.document import HwpxDocument
+
+    doc = HwpxDocument.new()
+    doc.add_heading(f"이력서 - {r.title}", level=1)
     for heading, head, rows in sections(r):
         if not rows:
             continue
-        lines.append(f"[{heading}]")
-        lines += [" / ".join(f"{h}: {v}" for h, v in zip(head, row, strict=True)) for row in rows]
-
-    section = (
-        f'<?xml version="1.0" encoding="UTF-8"?><hs:sec {HWPX_NS}>'
-        + "".join(_hwpx_paragraph(line) for line in lines)
-        + "</hs:sec>"
-    )
-    header = (
-        f'<?xml version="1.0" encoding="UTF-8"?><hh:head {HWPX_NS} version="1.4" secCnt="1">'
-        '<hh:beginNum page="1" footnote="1" endnote="1" pic="1" tbl="1" equation="1"/>'
-        "<hh:refList>"
-        '<hh:fontfaces itemCnt="1"><hh:fontface lang="HANGUL" fontCnt="1">'
-        '<hh:font id="0" face="맑은 고딕" type="TTF" isEmbedded="0"/></hh:fontface></hh:fontfaces>'
-        '<hh:charProperties itemCnt="1"><hh:charPr id="0" height="1000" textColor="#000000"/>'
-        "</hh:charProperties>"
-        '<hh:paraProperties itemCnt="1"><hh:paraPr id="0"/></hh:paraProperties>'
-        '<hh:styles itemCnt="1"><hh:style id="0" type="PARA" name="바탕글" engName="Normal" '
-        'paraPrIDRef="0" charPrIDRef="0" nextStyleIDRef="0" langID="1042"/></hh:styles>'
-        "</hh:refList></hh:head>"
-    )
-    content = (
-        '<?xml version="1.0" encoding="UTF-8"?>'
-        '<opf:package xmlns:opf="http://www.idpf.org/2007/opf/" version="" unique-identifier="">'
-        "<opf:metadata/>"
-        "<opf:manifest>"
-        '<opf:item id="header" href="Contents/header.xml" media-type="application/xml"/>'
-        '<opf:item id="section0" href="Contents/section0.xml" media-type="application/xml"/>'
-        '</opf:manifest><opf:spine><opf:itemref idref="header" linear="yes"/>'
-        '<opf:itemref idref="section0" linear="yes"/></opf:spine></opf:package>'
-    )
-    container = (
-        '<?xml version="1.0" encoding="UTF-8"?>'
-        '<ocf:container xmlns:ocf="urn:oasis:names:tc:opendocument:xmlns:container">'
-        '<ocf:rootfiles><ocf:rootfile full-path="Contents/content.hpf" '
-        'media-type="application/hwpml-package+xml"/></ocf:rootfiles></ocf:container>'
-    )
-    version = (
-        '<?xml version="1.0" encoding="UTF-8"?>'
-        '<hv:HCFVersion xmlns:hv="http://www.hancom.co.kr/hwpml/2011/version" '
-        'tagetApplication="WORDPROCESSOR" major="5" minor="1" micro="0" buildNumber="0"/>'
-    )
-    with zipfile.ZipFile(path, "w") as archive:
-        archive.writestr(zipfile.ZipInfo("mimetype"), "application/hwp+zip")  # 압축 없이 맨 앞
-        with_deflate = {
-            "version.xml": version,
-            "META-INF/container.xml": container,
-            "Contents/content.hpf": content,
-            "Contents/header.xml": header,
-            "Contents/section0.xml": section,
-        }
-        for name, text in with_deflate.items():
-            archive.writestr(name, text, compress_type=zipfile.ZIP_DEFLATED)
+        doc.add_heading(heading, level=2)
+        table = doc.add_table(1 + len(rows), len(head))
+        for i, row in enumerate([head, *rows]):
+            for j, value in enumerate(row):
+                table.set_cell_text(i, j, value)
+    doc.save_to_path(path)
 
 
 def main() -> None:
