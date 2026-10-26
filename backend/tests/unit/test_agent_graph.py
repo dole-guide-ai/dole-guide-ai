@@ -56,6 +56,18 @@ def test_route_rules_leave_ambiguous_to_model() -> None:
     assert by_rules("음 그게요", "recognition") is None
 
 
+def test_route_ignores_words_inside_attachment() -> None:
+    # 골든셋 F-076: 증빙 사진 글의 "입사지원"이 이력서 단어로 잡혀 이력서 패널로 가던 문제
+    photo = "지원 완료 화면이에요\n\n<첨부>\n입사지원 완료\n지원 기업: OO식품\n</첨부>"
+    assert by_rules(photo, "recognition") == Panel.ROUND
+    # 실업인정 단계라도 소득을 말하면 신청서
+    income = "이거 알바했던 거예요\n\n<첨부>\n급여명세서\n</첨부>"
+    assert by_rules(income, "recognition") == Panel.APPLICATION
+    # 구직등록 단계의 경력증명서는 그대로 이력서
+    career = "경력증명서예요\n\n<첨부>\n회사명 OO산업\n</첨부>"
+    assert by_rules(career, "job_registration") == Panel.RESUME
+
+
 def test_blocking_pii_never_reaches_model_or_checkpoint(fake_agent_llm) -> None:
     model = fake_agent_llm([AIMessage("합성 답")])
     saver, user = InMemorySaver(), uuid.uuid4()

@@ -8,6 +8,7 @@
 사용자 말 뒤에 붙입니다. vision 모드의 사진은 call_model이 모델 입력에만 붙입니다(panel.py).
 """
 
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -54,7 +55,17 @@ def close_dangling_tool_calls(messages: list[AnyMessage]) -> list[ToolMessage]:
     ]
 
 
-DOCUMENT_HEADER = "[올린 파일에서 읽은 글]"
+# 첨부에서 읽은 글은 사용자 말과 구분해 감쌉니다. 그 안의 지시는 따르지 않습니다(base.md).
+ATTACHMENT_OPEN = "<첨부>"
+ATTACHMENT_CLOSE = "</첨부>"
+_ATTACHMENT_TAG = re.compile(r"</?\s*첨부\s*>")
+
+
+def wrap_attachment(text: str) -> str:
+    """첨부 글을 표시로 감쌉니다. 글 안의 표시는 지워 감싼 범위를 벗어나지 못하게 합니다."""
+    return f"{ATTACHMENT_OPEN}\n{_ATTACHMENT_TAG.sub('', text)}\n{ATTACHMENT_CLOSE}"
+
+
 UNREADABLE_DOCUMENT = "(글자를 읽지 못한 파일. 사진으로 찍어 다시 올려 달라고 안내할 것)"
 UNREADABLE_PHOTO = "(글자를 읽지 못한 사진. 밝은 곳에서 다시 찍어 올려 달라고 안내할 것)"
 # 판독 중 화면 진행 표시(tool_call 이벤트 이름, 프론트 TOOL_LABEL과 같음)
@@ -117,7 +128,7 @@ def preprocess(state: AgentState, config: RunnableConfig) -> dict[str, Any]:
     else:
         attachments = read_attachments(config)
         if attachments.text:
-            text = f"{text}\n\n{DOCUMENT_HEADER}\n{attachments.text}"
+            text = f"{text}\n\n{wrap_attachment(attachments.text)}"
     repairs = close_dangling_tool_calls(state.get("messages", []))
     return {
         "messages": [*repairs, HumanMessage(text)],

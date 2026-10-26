@@ -201,3 +201,13 @@ def test_rrn_given_as_password_still_blocks():
 )
 def test_password_cues_in_longer_words(text: str, expected: str):
     assert mask(text)[0] == expected
+
+
+@pytest.mark.parametrize(
+    "text",
+    ["면접 일시 2026. 12. 10. 10:00", "2026.12.10 10:00 면접", "신청일 2026. 09. 15."],
+)
+def test_document_dates_are_not_numbers(text: str):
+    # 골든셋 F-025: 면접확인서 날짜가 [계좌번호]로 가려져 면접일을 저장하지 못하던 문제
+    assert mask(text)[0] == text
+    assert not has_blocking(text)

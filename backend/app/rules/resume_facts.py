@@ -53,7 +53,10 @@ class EducationFact(BaseModel):
 
 class CertificationFact(BaseModel):
     certificate_name: str
-    acquired: str | None = Field(None, description="취득 시점 표현 그대로(예: 2011년)")
+    acquired: str | None = Field(None, description="취득 시점 표현 그대로(예: 2011년, 2011.05.20)")
+    issuing_organization: str | None = Field(
+        None, description="발급 기관(예: 한국산업인력공단). 말하거나 서류에 있을 때만"
+    )
 
 
 class ResumeFacts(BaseModel):
@@ -204,12 +207,29 @@ def _education(
         plan.writes.extend(writes)
 
 
+# 자격증 취득일 "2011년", "2011.05", "2011.05.20". 일까지 있으면 일도 씁니다(서류 사진).
+ACQUIRED = re.compile(r"(\d{4})(?:\s*[-./년]\s*(\d{1,2})(?:\s*[-./월]\s*(\d{1,2}))?)?")
+
+
+def _acquired_value(m: re.Match[str]) -> str:
+    year, month, day = m[1], m[2], m[3]
+    if not month:
+        return year
+    if day:
+        try:
+            return date(int(year), int(month), int(day)).isoformat()
+        except ValueError:
+            pass  # 없는 날짜는 일을 버리고 월까지만
+    return f"{year}-{int(month):02d}-01"
+
+
 def _certification(plan: FactPlan, item_id: str, fact: CertificationFact) -> None:
     base = f"/certifications/{item_id}"
     plan.writes.append(_said(f"{base}/certificate_name", fact.certificate_name))
-    if fact.acquired and (m := re.search(r"(\d{4})(?:\s*[-./년]\s*(\d{1,2}))?", fact.acquired)):
-        value = f"{m[1]}-{int(m[2]):02d}-01" if m[2] else m[1]
-        plan.writes.append(_said(f"{base}/acquired_date", value))
+    if fact.issuing_organization:
+        plan.writes.append(_said(f"{base}/issuing_organization", fact.issuing_organization))
+    if fact.acquired and (m := ACQUIRED.search(fact.acquired)):
+        plan.writes.append(_said(f"{base}/acquired_date", _acquired_value(m)))
 
 
 def _new_id(careers: list[Career], prefix: str) -> str:

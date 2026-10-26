@@ -72,8 +72,14 @@ class RecordActivityInput(BaseModel):
     )
     kind: str = Field(description="job_application·interview·lecture 등 활동 종류")
     route: ActivityRoute | None = None
-    org_name: str | None = None
-    job_title: str | None = None
+    org_name: str | None = Field(
+        None,
+        description=(
+            "회사·기관 이름만(예: OO기획). 공고 제목의 '채용'·'모집'·'공고'·직무명은 빼고, "
+            "직무는 job_title에"
+        ),
+    )
+    job_title: str | None = Field(None, description="지원한 직무(예: 경리, 지게차 운전)")
     hours: float | None = None
 
 
