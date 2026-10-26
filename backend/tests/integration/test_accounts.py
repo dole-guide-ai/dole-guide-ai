@@ -1,3 +1,4 @@
+import uuid
 from datetime import date, timedelta
 
 import pytest
@@ -137,4 +138,6 @@ def test_delete_also_clears_conversation_state(client: TestClient, monkeypatch) 
     client.put("/accounts/park", headers=headers)
 
     assert client.delete("/accounts/park", headers=headers).status_code == 204
-    assert len(deleted) == 1
+    # 스레드 ID는 persona_id("park")가 아니라 계정 user_id(UUID)입니다.
+    assert len(deleted) == 1 and uuid.UUID(deleted[0])
+    assert client.get("/accounts/park", headers=headers).status_code == 404

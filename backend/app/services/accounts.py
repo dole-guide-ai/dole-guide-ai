@@ -129,12 +129,16 @@ def enter(
 
 
 def delete_account(db: Session, account: AccountContext) -> None:
-    """계정 행과 함께 대화 그래프 상태(체크포인트, thread_id=user_id)와 업로드 파일을 지웁니다."""
+    """계정 행과 함께 대화 그래프 상태(체크포인트, thread_id=user_id)와 업로드 파일을 지웁니다.
+
+    체크포인트를 먼저 지웁니다. 여기서 실패하면 계정 행이 남아 있어 DELETE를 다시 보내면 되고,
+    계정만 지워진 채 대화 상태·파일이 남는 일이 없습니다.
+    """
+    checkpointer.get_checkpointer().delete_thread(str(account.user_id))
     user = repo.get_user_by_id(db, account.user_id)
     if user is not None:
         repo.delete_user(db, user)
         db.commit()
-    checkpointer.get_checkpointer().delete_thread(str(account.user_id))
     shutil.rmtree(Path(get_settings().upload_dir) / str(account.user_id), ignore_errors=True)
 
 
