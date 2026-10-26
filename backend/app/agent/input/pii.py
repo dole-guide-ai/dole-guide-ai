@@ -68,6 +68,8 @@ _DATE_TIME = re.compile(
     r"(\d{4})\s*[-./]\s*(\d{1,2})\s*[-./]\s*(\d{1,2})\.?"
     r"(?:\s+(\d{1,2})(?:\s*[:시]\s*(\d{1,2})?)?)?"
 )
+# 날짜·시각이 띄어쓰기로 나뉘는 최대 조각 수: "2026." "12." "10." "10시" "30"
+DATE_TIME_MAX_PIECES = 5
 _DATE_YEARS = range(1900, 2100)
 _HOURS = range(24)
 _MINUTES = range(60)
@@ -222,7 +224,7 @@ def _date_time_pieces(text: str, pieces: list[tuple[int, int]]) -> list[tuple[in
         size = next(
             (
                 k
-                for k in (3, 2, 1)
+                for k in range(DATE_TIME_MAX_PIECES, 0, -1)
                 if i + k <= len(pieces) and _is_date_time(text[pieces[i][0] : pieces[i + k - 1][1]])
             ),
             0,
