@@ -29,14 +29,50 @@ class AgentResult:
     model_inputs: list[str] = field(default_factory=list)
 
 
+# 시연 seed에 있는 계정만 실제 그래프로 돌립니다. 가상 프리셋(general2 등)·상태값 덮어쓰기·활동 지정
+# 문항은 계정 데이터를 그대로 만들 방법이 아직 없어 건너뜁니다(보고서에 '건너뜀'으로 남음).
+SEED_PERSONAS = ("park", "choi", "lee")
+# 절차 단계 → 다음 할 일 (schema.NEXT_ACTIONS)
+NEXT_ACTION_BY_STAGE = {
+    "job_registration": "write_resume",
+    "education": "complete_education",
+    "eligibility_application": "prepare_eligibility",
+    "eligibility_applied": "enter_recognition_date",
+    "recognition": "add_activity",
+}
+APPLICATION_PANEL_ACTION = "review_form"
+
+
 def run_agent(case: dict[str, Any]) -> AgentResult:
     """문항 하나를 실제 AI로 실행합니다.
 
     case["input"]: persona, state(합친 상태값), data(시작 데이터),
     messages(턴별 말), files(첨부 이름).
-    첨부 파일 경로는 schema.FILES_DIR / 이름. 그래프 호출은 서비스 함수를 거쳐 주세요.
+    첨부 파일 경로는 schema.FILES_DIR / 이름. 그래프 호출은 서비스 함수(대화 턴)를 거칩니다.
+    계정은 문항마다 새 방문자로 만들고 끝나면 지웁니다. 오늘 날짜는 프리셋의 demo_today입니다.
     """
-    raise AgentNotReadyError("AI 본체 연결 전이라 건너뜀. 채점 코드 점검은 --golden-agent=selftest")
+    from app.core.config import get_settings
+    from evals.golden.real import run_real
+
+    settings = get_settings()
+    if not (settings.has_llm_key() and settings.agent_model):
+        raise AgentNotReadyError("모델 설정(AGENT_MODEL · 키)이 없어 실제 AI 평가를 건너뜀")
+    _ensure_supported(case)
+    return run_real(case)
+
+
+def _ensure_supported(case: dict[str, Any]) -> None:
+    from evals.golden.presets import BASE, LEE_ACTIVITIES, PERSONAS
+
+    case_input = case["input"]
+    persona = case_input["persona"]
+    if persona not in SEED_PERSONAS:
+        raise AgentNotReadyError(f"가상 프리셋 계정({persona})은 아직 실제 그래프로 못 돌려 건너뜀")
+    if case_input["state"] != {**BASE, **PERSONAS[persona]}:
+        raise AgentNotReadyError("상태값 덮어쓰기 문항은 아직 실제 그래프로 못 돌려 건너뜀")
+    default = LEE_ACTIVITIES if persona == "lee" else []
+    if case_input["activities"] != default:
+        raise AgentNotReadyError("활동 지정 문항은 아직 실제 그래프로 못 돌려 건너뜀")
 
 
 def run_selftest(case: dict[str, Any], broken: bool = False) -> AgentResult:

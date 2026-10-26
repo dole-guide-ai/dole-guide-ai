@@ -66,6 +66,7 @@ def run_config(turn: TurnInput) -> RunnableConfig:
             TOOL_CONTEXT_KEY: tool_context(turn),
         },
         **gateway.trace_config(),
+        "callbacks": gateway.trace_callbacks(),
     }
 
 

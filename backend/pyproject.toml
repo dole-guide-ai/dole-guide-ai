@@ -36,6 +36,11 @@ guard = [
 rerank = [
     "sentence-transformers>=6.2.0",
 ]
+rageval = [
+    "pandas>=3.1.0",
+    "pyarrow>=26.0.0",
+    "ragas>=0.4.3",
+]
 
 [dependency-groups]
 dev = [

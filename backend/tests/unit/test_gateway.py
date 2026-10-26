@@ -150,3 +150,15 @@ def test_trace_config_carries_request_id() -> None:
         assert gateway.trace_config() == {"metadata": {"request_id": "req-12345678"}}
     finally:
         current_request_id.reset(token)
+
+
+def test_trace_callbacks_mask_personal_info(settings) -> None:
+    """트레이스가 켜지면 개인정보를 가리는 트레이서를 붙입니다 (N-02)."""
+    settings(langsmith_tracing=False, langsmith_api_key="")
+    assert gateway.trace_callbacks() == []
+
+    settings(langsmith_tracing=True, langsmith_api_key="lsv2-test")
+    (tracer,) = gateway.trace_callbacks()
+    masked = tracer.client._anonymizer({"text": "제 번호는 010-1234-5678이에요"})
+
+    assert "010-1234-5678" not in masked["text"]

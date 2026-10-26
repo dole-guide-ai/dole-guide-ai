@@ -24,8 +24,11 @@ def load_scenarios(area: str) -> list[dict[str, Any]]:
 @pytest.fixture
 def requires_llm() -> None:
     """실제 LLM을 호출하는 평가에서 사용합니다. API 키가 없으면 건너뜁니다."""
-    if not get_settings().has_llm_key():
+    settings = get_settings()
+    if not settings.has_llm_key():
         pytest.skip("모델 공급자 키가 없어 실제 모델 평가를 건너뜁니다.")
+    if not settings.agent_model:
+        pytest.skip("AGENT_MODEL이 비어 있어 실제 모델 평가를 건너뜁니다.")
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -60,6 +63,9 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         help="이 영역만 실행",
     )
     group.addoption("--golden-threshold", type=float, default=0.7, help="LLM 판정 통과 점수(0~1)")
+    rag = parser.getgroup("rag", "RAG 평가")
+    rag.addoption("--rag-split", choices=["dev", "test"], default="test", help="질문셋 쪽")
+    rag.addoption("--rag-reranker", action="store_true", help="리랭커 켬도 같이 잼")
 
 
 @pytest.fixture(scope="session")

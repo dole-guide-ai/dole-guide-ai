@@ -1,0 +1,6 @@
+{
+  "id": "small-talk-002",
+  "description": "잡담: 도우미 범위 밖 안내, LLM 없음, 칸 그대로",
+  "input": { "persona": "lee", "messages": ["오늘 점심 뭐 먹지?"] },
+  "expected": { "max_llm_calls": 0, "no_form_update": true, "must_include": ["도우미"] }
+}

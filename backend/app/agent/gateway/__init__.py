@@ -1,6 +1,8 @@
 """모든 LLM·임베딩 호출."""
 
 import os
+from functools import lru_cache
+from typing import Any
 
 import openai
 from langchain_core.embeddings import Embeddings
@@ -69,6 +71,29 @@ def trace_config() -> dict[str, dict[str, str]]:
     return {"metadata": {"request_id": current_request_id.get()}}
 
 
+def trace_callbacks() -> list[Any]:
+    """LangSmith 트레이스 콜백. 보내기 전에 입출력의 개인정보를 가립니다 (N-02).
+
+    트레이스가 꺼져 있으면 빈 목록입니다. 환경변수로 켜진 기본 트레이서 대신 이 트레이서가 쓰입니다.
+    """
+    settings = get_settings()
+    if not (settings.langsmith_tracing and settings.langsmith_api_key):
+        return []
+    return [_anonymized_tracer(settings.langsmith_project)]
+
+
+@lru_cache(maxsize=1)
+def _anonymized_tracer(project: str) -> Any:
+    from langchain_core.tracers import LangChainTracer
+    from langsmith import Client
+    from langsmith.anonymizer import create_anonymizer
+
+    from app.agent.input.pii import mask
+
+    anonymizer = create_anonymizer(lambda text, _path: mask(text)[0])
+    return LangChainTracer(project_name=project, client=Client(anonymizer=anonymizer))
+
+
 def tracing_env(settings: Settings) -> dict[str, str]:
     """LangSmith가 읽는 환경변수 값(순수 함수).
 
@@ -93,7 +118,7 @@ def configure_tracing() -> bool:
     """LangSmith 트레이스를 켜거나 끕니다. 앱 시작·실제 모델 평가 때 한 번 부릅니다.
 
     LangChain·LangGraph는 os.environ의 LANGSMITH_* 값을 읽으므로 설정(.env)을 여기서 옮겨 둡니다.
-    개인정보 가림(anonymizer)은 N-02에서 붙입니다.
+    개인정보 가림(anonymizer)은 `trace_callbacks()`가 응답기 실행 config에 붙입니다.
     """
     env = tracing_env(get_settings())
     os.environ.update(env)

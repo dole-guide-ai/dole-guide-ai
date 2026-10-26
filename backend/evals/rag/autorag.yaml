@@ -1,0 +1,27 @@
+# AutoRAG 실험 설정 (오프라인 전용, 노션 「RAG 설계 (복사본)」 7.2 · 7.4)
+# 별도 가상환경: pip install AutoRAG
+# autorag evaluate --config autorag.yaml --qa_data_path autorag_data/qa.parquet \
+#   --corpus_data_path autorag_data/corpus.parquet --project_dir autorag_project
+node_lines:
+  - node_line_name: retrieve_node_line
+    nodes:
+      - node_type: retrieval
+        strategy:
+          metrics: [retrieval_recall, retrieval_ndcg, retrieval_mrr]
+        top_k: [5, 10, 20]
+        modules:
+          - module_type: bm25
+            bm25_tokenizer: ko_kiwi
+          - module_type: vectordb
+            vectordb: default
+          - module_type: hybrid_rrf
+            weight_range: (4, 80)
+      - node_type: passage_reranker
+        strategy:
+          metrics: [retrieval_recall, retrieval_ndcg, retrieval_mrr]
+          speed_threshold: 2
+        top_k: 5
+        modules:
+          - module_type: pass_reranker
+          - module_type: flag_embedding_reranker
+            model_name: BAAI/bge-reranker-v2-m3

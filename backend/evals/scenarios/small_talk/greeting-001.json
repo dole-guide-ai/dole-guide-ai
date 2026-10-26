@@ -1,0 +1,6 @@
+{
+  "id": "small-talk-001",
+  "description": "인사: 고정 답, LLM 없음, 칸 그대로",
+  "input": { "persona": "park", "messages": ["안녕하세요"] },
+  "expected": { "max_llm_calls": 0, "no_form_update": true }
+}
