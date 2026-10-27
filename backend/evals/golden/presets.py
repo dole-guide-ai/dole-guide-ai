@@ -124,7 +124,7 @@ SEEDS: dict[str, dict[str, Any]] = {
             {
                 "education_level": "고등학교",
                 "graduation_status": "졸업",
-                "school_name": "OO고등학교",
+                "school_name": "OO공업고등학교",
                 "start_date": "1981-03",
                 "end_date": "1984-02",
                 "is_highest_education": True,
@@ -134,16 +134,20 @@ SEEDS: dict[str, dict[str, Any]] = {
             "desired_occupations": [
                 {
                     "item_id": "occ_001",
-                    "occupation": {"code": None, "name": "지게차 운전원", "status": "confirmed"},
+                    "occupation": {
+                        "code": "813207",
+                        "name": "프레스기 및 절단기 조작원",
+                        "status": "confirmed",
+                    },
                 }
             ],
-            "desired_regions": [{"code": None, "name": "경기 안산시"}],
+            "desired_regions": [{"code": None, "name": "서울 OO구"}],
         },
     },
     "choi_resume_2019": {
         "competencies": {
-            "careers": [_career("OO아파트 관리사무소", "2010-03", "2019-04", "시설관리")],
-            "certifications": [{"certificate_name": "전기기능사", "acquired_date": "2009-11-20"}],
+            "careers": [_career("OO웹솔루션", "2005-03", "2019-04", "웹사이트 개발")],
+            "certifications": [{"certificate_name": "정보처리기사", "acquired_date": "1998-11-15"}],
         }
     },
 }
