@@ -15,6 +15,9 @@ from evals.golden.report import Record, Report
 def merge(paths: list[Path]) -> Path:
     parts = [json.loads(p.read_text(encoding="utf-8")) for p in paths]
     first = parts[0]
+    # 개발용·검증용 보고서를 섞어 합치면 세트 표기와 내용이 달라지므로 막습니다.
+    if len(sets := {part.get("case_set", "all") for part in parts}) > 1:
+        raise SystemExit(f"세트가 다른 보고서는 합칠 수 없어요: {', '.join(sorted(sets))}")
     report = Report(
         mode=first["mode"],
         judge=first["judge"],

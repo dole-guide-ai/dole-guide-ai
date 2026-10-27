@@ -7,6 +7,7 @@ DB는 테스트 트랜잭션 안에서만 쓰고 끝나면 롤백합니다(`db_s
 """
 
 import shutil
+from collections import Counter
 from datetime import date, datetime, time
 from pathlib import Path
 from typing import Any
@@ -46,6 +47,12 @@ PERSONA_NAMES = {"park": "박진수", "park2": "박진수", "choi": "최영수",
 DEFAULT_NAME = "평가계정"
 # 골든셋 상태값 resume_status에서 이력서가 없다는 값(나머지는 ResumeState와 같음)
 NO_RESUME = "none"
+# 골든셋 활동 칸의 종류(job_search·other) → 서버 활동 (category, kind).
+# other는 지금 문항에서 온라인 취업특강(step_online)만 쓰므로 취업특강으로 넣습니다.
+SEED_ACTIVITY = {
+    "job_search": ("job_search", "job_application"),
+    "other": ("non_job_search", "lecture"),
+}
 
 
 def prepare_case(
@@ -82,11 +89,10 @@ def setup_problems(case_input: dict[str, Any], initial: dict[str, Any]) -> list[
         want, got = len(_dig(want_resume, path)), len(_dig(got_resume, path))
         if want != got:
             problems.append(f"시작 {label} {want}개를 넣었는데 계정에는 {got}개")
-    want_activities = len(case_input["data"]["activities"])
-    if want_activities != len(initial["activities"]):
-        problems.append(
-            f"시작 활동 {want_activities}개를 넣었는데 계정에는 {len(initial['activities'])}개"
-        )
+    want_kinds = Counter(SEED_ACTIVITY[a["kind"]][1] for a in case_input["data"]["activities"])
+    got_kinds = Counter(a["kind"] for a in initial["activities"])
+    if want_kinds != got_kinds:
+        problems.append(f"시작 활동 {dict(want_kinds)}을 넣었는데 계정에는 {dict(got_kinds)}")
     want_stage = case_input["state"]["stage"]
     if initial["procedure"]["stage"] != want_stage:
         problems.append(f"단계가 {want_stage}이어야 하는데 {initial['procedure']['stage']}")
@@ -196,8 +202,8 @@ def _seed(case_input: dict[str, Any], today: date) -> dict[str, Any]:
         "activities": [
             {
                 "date_offset": _offset(a["date"], today),
-                "category": "job_search",
-                "kind": "job_application",
+                "category": SEED_ACTIVITY[a["kind"]][0],
+                "kind": SEED_ACTIVITY[a["kind"]][1],
                 "route": a.get("route"),
                 "org_name": a.get("org_name"),
                 "source": "doc",
