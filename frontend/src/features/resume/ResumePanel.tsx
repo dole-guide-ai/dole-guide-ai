@@ -74,12 +74,14 @@ const toYesNo = (text: string) => text === '예';
 // 희망임금은 원 단위로 저장합니다(대화·seed와 같음). 화면과 직접 입력은 만원으로 보여 주고 받습니다.
 const WON_PER_MANWON = 10_000;
 const toMonthlyWage = (text: string) => ({
-  amount: Number(text) * WON_PER_MANWON,
+  // 만원 단위 입력("250.5")을 원으로. 소수 곱셈 오차가 원 단위에 남지 않게 반올림합니다.
+  amount: Math.round(Number(text) * WON_PER_MANWON),
   unit: 'monthly',
   currency: 'KRW',
   negotiable: false,
 });
-const toManwon = (amount: number) => Math.round(amount / WON_PER_MANWON);
+// 반올림하지 않습니다. 250만 5천 원이 251만원으로 보이거나 그대로 다시 저장되지 않게요.
+const toManwon = (amount: number) => amount / WON_PER_MANWON;
 
 const firstEducation = (level: string): ResumeEducation[] => [
   {

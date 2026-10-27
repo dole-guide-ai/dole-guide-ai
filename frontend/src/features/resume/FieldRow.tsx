@@ -84,9 +84,11 @@ export const FieldRow = ({
 
   useEffect(() => {
     if (!updatedAt) return;
+    // 패널을 다시 열 때 예전 변경까지 다시 스크롤·강조하지 않도록 남은 시간만큼만 표시합니다.
+    const left = HIGHLIGHT_MS - (Date.now() - updatedAt);
     // 테스트 환경(jsdom)에는 scrollIntoView가 없습니다.
-    rowRef.current?.scrollIntoView?.({ block: 'center', behavior: 'smooth' });
-    const timer = window.setTimeout(() => setFadedAt(updatedAt), HIGHLIGHT_MS);
+    if (left > 0) rowRef.current?.scrollIntoView?.({ block: 'center', behavior: 'smooth' });
+    const timer = window.setTimeout(() => setFadedAt(updatedAt), Math.max(left, 0));
     return () => window.clearTimeout(timer);
   }, [updatedAt]);
 
