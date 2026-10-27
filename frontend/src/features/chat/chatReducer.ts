@@ -133,9 +133,14 @@ export const chatReducer = (state: ChatState, action: ChatAction): ChatState => 
         choices: action.pendingAsk?.choices ?? state.choices,
         // 멈춘 질문이 있으면 마지막 말풍선이 그 질문입니다.
         question: action.pendingAsk ? (action.messages.at(-1)?.text ?? null) : null,
-        importKind: action.pendingAsk?.import_kind ?? null,
-        acceptsFile: action.pendingAsk?.accepts_file ?? false,
-        fileChoice: action.pendingAsk?.file_choice ?? null,
+        // 멈춘 질문이 없으면 선택지와 함께 첫 안내의 파일 받기·파일 버튼도 그대로 둡니다.
+        ...(action.pendingAsk
+          ? {
+              importKind: action.pendingAsk.import_kind ?? null,
+              acceptsFile: action.pendingAsk.accepts_file ?? false,
+              fileChoice: action.pendingAsk.file_choice ?? null,
+            }
+          : { importKind: null }),
       };
 
     case CHAT_ACTIONS.USER_SENT: {
@@ -224,6 +229,7 @@ export const chatReducer = (state: ChatState, action: ChatAction): ChatState => 
         ...next,
         choices: action.entry.choices,
         question: null,
+        importKind: null,
         acceptsFile: action.entry.accepts_file ?? false,
         fileChoice: action.entry.file_choice ?? null,
       };
