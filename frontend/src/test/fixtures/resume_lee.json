@@ -53,14 +53,6 @@
           "evidence": null,
           "answered_on": null
         },
-        "gpa": {
-          "value": null,
-          "status": "missing",
-          "source": null,
-          "transformed": false,
-          "evidence": null,
-          "answered_on": null
-        },
         "gpa_scale": {
           "value": null,
           "status": "missing",
@@ -69,8 +61,29 @@
           "evidence": null,
           "answered_on": null
         },
+        "gpa": {
+          "value": null,
+          "status": "missing",
+          "source": null,
+          "transformed": false,
+          "evidence": null,
+          "answered_on": null
+        },
         "major": {
-          "value": "컴퓨터공학",
+          "value": "컴퓨터공학과",
+          "status": "confirmed",
+          "source": "seed",
+          "transformed": false,
+          "evidence": null,
+          "answered_on": null
+        },
+        "major_code": {
+          "value": {
+            "code": "04080100061",
+            "name": "컴퓨터공학과",
+            "said": "컴퓨터공학",
+            "status": "confirmed"
+          },
           "status": "confirmed",
           "source": "seed",
           "transformed": false,
@@ -164,8 +177,10 @@
       "desired_regions": {
         "value": [
           {
-            "code": null,
-            "name": "서울 강서구"
+            "code": "11500",
+            "name": "서울 강서구",
+            "said": "서울 강서구",
+            "status": "confirmed"
           }
         ],
         "status": "confirmed",
@@ -280,9 +295,14 @@
           "answered_on": null
         },
         "occupation": {
-          "value": null,
-          "status": "missing",
-          "source": null,
+          "value": {
+            "code": "133207",
+            "name": "모바일 애플리케이션 프로그래머(앱·어플 개발)",
+            "said": "앱 개발",
+            "status": "confirmed"
+          },
+          "status": "confirmed",
+          "source": "seed",
           "transformed": false,
           "evidence": null,
           "answered_on": null
@@ -355,9 +375,14 @@
           "answered_on": null
         },
         "occupation": {
-          "value": null,
-          "status": "missing",
-          "source": null,
+          "value": {
+            "code": "133301",
+            "name": "웹 개발자(웹 엔지니어·웹 프로그래머)",
+            "said": "웹·SI 개발",
+            "status": "confirmed"
+          },
+          "status": "confirmed",
+          "source": "seed",
           "transformed": false,
           "evidence": null,
           "answered_on": null
@@ -401,6 +426,19 @@
         "item_id": "cert_001",
         "certificate_name": {
           "value": "정보처리기사",
+          "status": "confirmed",
+          "source": "seed",
+          "transformed": false,
+          "evidence": null,
+          "answered_on": null
+        },
+        "certificate_code": {
+          "value": {
+            "code": "5001320",
+            "name": "정보처리기사",
+            "said": "정보처리기사",
+            "status": "confirmed"
+          },
           "status": "confirmed",
           "source": "seed",
           "transformed": false,
@@ -553,6 +591,7 @@
     "/education/edu_001/start_date",
     "/education/edu_001/end_date",
     "/education/edu_001/major",
+    "/education/edu_001/gpa_scale",
     "/education/edu_001/gpa",
     "/careers/career_001/company_name",
     "/careers/career_001/start_date",

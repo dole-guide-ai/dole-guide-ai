@@ -53,14 +53,6 @@
           "evidence": null,
           "answered_on": null
         },
-        "gpa": {
-          "value": null,
-          "status": "missing",
-          "source": null,
-          "transformed": false,
-          "evidence": null,
-          "answered_on": null
-        },
         "gpa_scale": {
           "value": null,
           "status": "missing",
@@ -69,8 +61,29 @@
           "evidence": null,
           "answered_on": null
         },
+        "gpa": {
+          "value": null,
+          "status": "missing",
+          "source": null,
+          "transformed": false,
+          "evidence": null,
+          "answered_on": null
+        },
         "major": {
-          "value": "전자계산학",
+          "value": "전자계산학과",
+          "status": "extracted",
+          "source": "seed",
+          "transformed": false,
+          "evidence": null,
+          "answered_on": null
+        },
+        "major_code": {
+          "value": {
+            "code": "04080100048",
+            "name": "전자계산학과",
+            "said": "전자계산학",
+            "status": "confirmed"
+          },
           "status": "extracted",
           "source": "seed",
           "transformed": false,
@@ -117,9 +130,10 @@
           "item_id": "occ_001",
           "occupation": {
             "value": {
-              "code": null,
+              "code": "133300",
               "name": "웹 개발자",
-              "status": "needs_confirmation"
+              "said": "웹 개발자",
+              "status": "confirmed"
             },
             "status": "extracted",
             "source": "seed",
@@ -164,8 +178,10 @@
       "desired_regions": {
         "value": [
           {
-            "code": null,
-            "name": "서울 노원구"
+            "code": "11350",
+            "name": "서울 노원구",
+            "said": "서울 노원구",
+            "status": "confirmed"
           }
         ],
         "status": "extracted",
@@ -275,9 +291,14 @@
           "answered_on": null
         },
         "occupation": {
-          "value": null,
-          "status": "missing",
-          "source": null,
+          "value": {
+            "code": "133300",
+            "name": "웹 개발자",
+            "said": "웹 개발",
+            "status": "confirmed"
+          },
+          "status": "extracted",
+          "source": "seed",
           "transformed": false,
           "evidence": null,
           "answered_on": null
@@ -321,6 +342,19 @@
         "item_id": "cert_001",
         "certificate_name": {
           "value": "정보처리기사",
+          "status": "extracted",
+          "source": "seed",
+          "transformed": false,
+          "evidence": null,
+          "answered_on": null
+        },
+        "certificate_code": {
+          "value": {
+            "code": "5001320",
+            "name": "정보처리기사",
+            "said": "정보처리기사",
+            "status": "confirmed"
+          },
           "status": "extracted",
           "source": "seed",
           "transformed": false,
@@ -473,6 +507,7 @@
     "/education/edu_001/start_date",
     "/education/edu_001/end_date",
     "/education/edu_001/major",
+    "/education/edu_001/gpa_scale",
     "/education/edu_001/gpa",
     "/careers/career_001/company_name",
     "/careers/career_001/start_date",
