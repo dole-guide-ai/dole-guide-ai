@@ -130,3 +130,26 @@ def test_old_account_gets_import_rows_on_enter(
     assert client.put("/accounts/park", headers=headers).status_code == 200
     body = client.get("/accounts/park/imports/career-certificates", headers=headers).json()
     assert body["total"] == 3
+
+
+def test_import_fills_the_item_already_told_in_chat(
+    client: TestClient, entered_headers: Callable[[str], dict[str, str]]
+) -> None:
+    """대화로 먼저 적은 같은 회사는 불러와도 새 경력을 만들지 않고 그 항목을 채웁니다."""
+    headers = entered_headers("park")
+    etag = client.get("/accounts/park/resume", headers=headers).headers["ETag"]
+    told = client.patch(
+        "/accounts/park/resume",
+        headers=headers | {"If-Match": etag},
+        json=[{"op": "replace", "path": "/careers/c1/company_name", "value": "(주)OO산업"}],
+    )
+    assert told.status_code == 200, told.text
+
+    res = client.post(
+        "/accounts/park/imports/apply", headers=headers, json={"import_ids": ["cc_career_001"]}
+    )
+
+    assert res.status_code == 200, res.text
+    careers = client.get("/accounts/park/resume", headers=headers).json()["data"]["careers"]
+    assert [c["item_id"] for c in careers] == ["c1"]
+    assert careers[0]["start_date"]["value"] == "2004-03"

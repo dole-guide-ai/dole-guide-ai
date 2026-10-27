@@ -174,3 +174,85 @@ def test_impossible_acquired_date_is_asked_again(acquired: str) -> None:
 
     assert "/certifications/q1/acquired_date" not in _values(plan)
     assert any(acquired in ask for ask in plan.asks)
+
+
+# ── 같은 말을 다시 해도 같은 항목(멱등) ─────────────────────
+
+
+def _saved(data: ResumeData, plan) -> ResumeData:
+    """계획한 쓰기를 이력서 데이터에 적용한 결과(다음 턴의 이력서)."""
+    raw = data.model_dump(mode="json")
+    for w in plan.writes:
+        section, item_id, name = w.path.strip("/").rsplit("/", 2)[-3:]
+        target = raw
+        for part in section.split("/"):
+            target = target[part]
+        item = next((i for i in target if i["item_id"] == item_id), None)
+        if item is None:
+            item = {"item_id": item_id}
+            target.append(item)
+        item[name] = {"value": w.value, "status": w.status, "source": w.source}
+    return ResumeData.model_validate(raw)
+
+
+def test_saying_the_same_items_again_updates_them_instead_of_adding() -> None:
+    facts = ResumeFacts(
+        careers=[CareerFact(company_name="(주)OO산업")],
+        education=[EducationFact(education_level="고등학교", school_name="OO고")],
+        certifications=[CertificationFact(certificate_name="지게차운전기능사")],
+        desired_occupations=["물류 관리"],
+    )
+    once = _saved(ResumeData(), _plan(facts))
+    again = _plan(
+        ResumeFacts(
+            careers=[CareerFact(company_name="OO산업 주식회사")],
+            education=[EducationFact(education_level="고등학교", end="1990년")],
+            certifications=[CertificationFact(certificate_name="지게차운전기능사 ")],
+            desired_occupations=["물류관리"],
+        ),
+        once,
+    )
+    twice = _saved(once, again)
+
+    assert [c.item_id for c in twice.careers] == ["c1"]
+    assert [e.item_id for e in twice.education] == ["e1"]
+    assert twice.education[0].end_date.value == "1990-02"
+    assert [q.item_id for q in twice.certifications] == ["q1"]
+    assert len(twice.job_preferences.desired_occupations) == 1
+
+
+def test_two_new_items_in_one_turn_get_their_own_ids() -> None:
+    # 예전에는 둘 다 len+1(c1)이라 한 항목으로 합쳐졌습니다.
+    plan = _plan(
+        ResumeFacts(
+            careers=[CareerFact(company_name="OO물류"), CareerFact(company_name="OO기계")],
+            certifications=[
+                CertificationFact(certificate_name="지게차운전기능사"),
+                CertificationFact(certificate_name="정보처리기사"),
+            ],
+        )
+    )
+    values = _values(plan)
+    assert values["/careers/c1/company_name"] == "OO물류"
+    assert values["/careers/c2/company_name"] == "OO기계"
+    assert values["/certifications/q2/certificate_name"] == "정보처리기사"
+
+
+def test_new_item_does_not_take_an_id_left_by_a_removed_one() -> None:
+    # q1을 지워 q2만 남았을 때 새 자격증이 len+1(q2)로 기존 항목을 덮어쓰던 문제
+    data = ResumeData.model_validate(
+        {"certifications": [{"item_id": "q2", "certificate_name": {"value": "정보처리기사"}}]}
+    )
+    cook = CertificationFact(certificate_name="조리기능사")
+    plan = _plan(ResumeFacts(certifications=[cook]), data)
+
+    assert "/certifications/q2/certificate_name" not in _values(plan)
+    assert _values(plan)["/certifications/q3/certificate_name"] == "조리기능사"
+
+
+def test_fourth_desired_occupation_is_rejected_not_failing_the_turn() -> None:
+    names = ["물류", "경비", "조리", "청소"]
+    plan = _plan(ResumeFacts(desired_occupations=names))
+
+    assert sum(p.endswith("/occupation") for p in _values(plan)) == 3
+    assert any("청소" in r for r in plan.rejected)

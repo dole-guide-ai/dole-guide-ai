@@ -13,12 +13,13 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+from app.rules.resume.check import MAX_PICKS
 from app.rules.resume.dates import DateResult, date_field, normalize_date
 from app.rules.resume.fields import CERTIFICATIONS_STATUS, not_applicable, occupation, said
+from app.rules.resume.items import ItemPicker
 from app.schemas.forms.resume import EducationLevel, GraduationStatus, ResumeData, choices_of
 from app.schemas.resume import FieldWrite
 
-MAX_REGIONS = 3
 # 고등학교·대학 졸업은 보통 2월입니다. 연도만 말하면 2월로 두고 확인 필요로 남깁니다.
 GRADUATION_MONTH = 2
 # 입학은 보통 3월입니다. 연도만 말하면 3월로 두고 확인 필요로 남깁니다.
@@ -57,6 +58,7 @@ class EducationFact(BaseModel):
 
 
 class CertificationFact(BaseModel):
+    item_id: str | None = Field(None, description=ITEM_ID_HINT)
     certificate_name: str
     acquired: str | None = Field(None, description="취득 시점 표현 그대로(예: 2011년, 2011.05.20)")
     issuing_organization: str | None = Field(
@@ -87,22 +89,21 @@ class FactPlan:
 def plan_writes(
     data: ResumeData, facts: ResumeFacts, today: date, separation_date: date
 ) -> FactPlan:
+    """같은 회사·학교·자격증·직종을 다시 말하면 그 항목을 고칩니다(rules/resume/items)."""
     plan = FactPlan()
+    picker = ItemPicker(data)
     for fact in facts.careers:
-        _career(plan, data, fact, today, separation_date)
+        _career(plan, picker, fact, today, separation_date)
     for fact in facts.education:
-        _education(plan, data, fact, today, separation_date)
-    for i, fact in enumerate(facts.certifications, start=len(data.certifications) + 1):
-        _certification(plan, f"q{i}", fact)
-    for i, name in enumerate(
-        facts.desired_occupations, start=len(data.job_preferences.desired_occupations) + 1
-    ):
-        path = f"/job_preferences/desired_occupations/o{i}/occupation"
-        plan.writes.append(said(path, occupation(name)))
+        _education(plan, picker, fact, today, separation_date)
+    for fact in facts.certifications:
+        _certification(plan, picker, fact)
+    for name in facts.desired_occupations:
+        _desired_occupation(plan, picker, name)
     if facts.no_certifications and not data.certifications:
         plan.writes.append(not_applicable(CERTIFICATIONS_STATUS))
     if facts.desired_regions:
-        regions = [{"code": None, "name": n} for n in facts.desired_regions[:MAX_REGIONS]]
+        regions = [{"code": None, "name": n} for n in facts.desired_regions[:MAX_PICKS]]
         plan.writes.append(said("/job_preferences/desired_regions", regions))
     return plan
 
@@ -112,28 +113,17 @@ def _dated(path: str, expr: str, result: DateResult, today: date) -> FieldWrite:
     return FieldWrite(path=path, **form_field.model_dump(mode="json", exclude={"answered_on"}))
 
 
-def _target(items: list[Any], item_id: str | None, prefix: str) -> tuple[str | None, bool]:
-    """(쓸 item_id, 새 항목인지). 모델이 준 item_id가 없는 항목이면 (None, False)로 거절합니다."""
-    if item_id:
-        return (item_id, False) if any(i.item_id == item_id for i in items) else (None, False)
-    return _new_id(items, prefix), True
-
-
 def _career(
-    plan: FactPlan, data: ResumeData, fact: CareerFact, today: date, separation_date: date
+    plan: FactPlan, picker: ItemPicker, fact: CareerFact, today: date, separation_date: date
 ) -> None:
-    item_id, is_new = _target(data.careers, fact.item_id, "c")
-    if item_id is None:
-        plan.asks.append(f"경력 item_id '{fact.item_id}'가 없어요. resume_items의 id를 쓰세요")
-        return
-    if is_new and not fact.company_name:
+    if not fact.item_id and not fact.company_name:
         # 회사 이름 없이 직급·하던 일만 오면 기존 경력에 덧붙이는 말입니다. 어느 경력인지 모르면
         # 추측하지 않고 모델에 item_id를 다시 넣게 합니다.
         plan.asks.append("어느 경력인지 item_id를 넣어 다시 저장하세요(resume_items 참고)")
         return
-    if is_new and (same := _same_company(data, fact.company_name)):
-        # 이미 적은 회사를 새로 만들지 않습니다(같은 회사 두 번 저장 방지).
-        item_id, is_new = same, False
+    item_id, is_new = _picked(plan, picker, "careers", fact.item_id, (fact.company_name,), "경력")
+    if item_id is None:
+        return
     if fact.main_duties and len(re.sub(r"\s", "", fact.main_duties)) < DUTY_MIN_CHARS:
         plan.asks.append(
             f"하던 일 '{fact.main_duties}'이(가) 짧아요. 다룬 물건·장비, 맡은 범위, 처리량처럼 "
@@ -161,14 +151,14 @@ def _career(
 
 
 def _education(
-    plan: FactPlan, data: ResumeData, fact: EducationFact, today: date, separation_date: date
+    plan: FactPlan, picker: ItemPicker, fact: EducationFact, today: date, separation_date: date
 ) -> None:
-    item_id, is_new = _target(data.education, fact.item_id, "e")
+    values = (fact.school_name, fact.education_level)
+    item_id, is_new = _picked(plan, picker, "education", fact.item_id, values, "학력")
     if item_id is None:
-        plan.asks.append(f"학력 item_id '{fact.item_id}'가 없어요. resume_items의 id를 쓰세요")
         return
-    if is_new and data.education and fact.education_level is None:
-        # 학교 이름·연도만 오면 기존 학력에 덧붙이는 말입니다(학력이 e2로 새로 생기던 문제).
+    if is_new and picker.data.education and fact.education_level is None:
+        # 다른 학교 이름·연도만 오면 기존 학력에 덧붙이는 말인지 새 학력인지 알 수 없습니다.
         plan.asks.append("어느 학력인지 item_id를 넣어 다시 저장하세요(resume_items 참고)")
         return
     base = f"/education/{item_id}"
@@ -220,7 +210,11 @@ def _acquired_value(m: re.Match[str]) -> str | None:
     return value.isoformat() if day else value.isoformat()[:7]
 
 
-def _certification(plan: FactPlan, item_id: str, fact: CertificationFact) -> None:
+def _certification(plan: FactPlan, picker: ItemPicker, fact: CertificationFact) -> None:
+    values = (fact.certificate_name,)
+    item_id, _ = _picked(plan, picker, "certifications", fact.item_id, values, "자격증")
+    if item_id is None:
+        return
     base = f"/certifications/{item_id}"
     plan.writes.append(said(f"{base}/certificate_name", fact.certificate_name))
     if fact.issuing_organization:
@@ -232,22 +226,28 @@ def _certification(plan: FactPlan, item_id: str, fact: CertificationFact) -> Non
             plan.writes.append(said(f"{base}/acquired_date", value))
 
 
-def _new_id(items: list[Any], prefix: str) -> str:
-    used = {i.item_id for i in items}
-    n = len(items) + 1
-    while f"{prefix}{n}" in used:
-        n += 1
-    return f"{prefix}{n}"
+def _desired_occupation(plan: FactPlan, picker: ItemPicker, name: str) -> None:
+    pick = picker.pick("desired_occupations", values=(name,), limit=MAX_PICKS)
+    if pick.full:
+        plan.rejected.append(f"희망 직종 '{name}': 고용24는 {MAX_PICKS}개까지라 넣지 않음")
+    elif pick.is_new:  # 이미 적은 직종을 다시 말했으면 쓸 것이 없습니다.
+        path = f"/job_preferences/desired_occupations/{pick.item_id}/occupation"
+        plan.writes.append(said(path, occupation(name)))
 
 
-def _same_company(data: ResumeData, name: str) -> str | None:
-    return next(
-        (c.item_id for c in data.careers if _norm(c.company_name.value) == _norm(name)), None
-    )
-
-
-def _norm(value: Any) -> str:
-    return re.sub(r"\s|\(주\)|주식회사", "", str(value or ""))
+def _picked(
+    plan: FactPlan,
+    picker: ItemPicker,
+    section: str,
+    item_id: str | None,
+    values: tuple[Any, ...],
+    label: str,
+) -> tuple[str | None, bool]:
+    """(쓸 item_id, 새 항목인지). 모델이 준 item_id가 없는 항목이면 asks에 남기고 None."""
+    pick = picker.pick(section, item_id=item_id, values=values)
+    if pick.item_id is None:
+        plan.asks.append(f"{label} item_id '{item_id}'가 없어요. resume_items의 id를 쓰세요")
+    return pick.item_id, pick.is_new
 
 
 # ── 대기 칸의 답 → 칸 쓰기 ─────────────────────────────
@@ -308,5 +308,5 @@ def _shaped(path: str, item: Any) -> Any:
     if path.endswith("/occupation") and isinstance(item, str):
         return occupation(item)
     if path.endswith("/desired_regions") and isinstance(item, list):
-        return [{"code": None, "name": str(n)} for n in item][:MAX_REGIONS]
+        return [{"code": None, "name": str(n)} for n in item][:MAX_PICKS]
     return item

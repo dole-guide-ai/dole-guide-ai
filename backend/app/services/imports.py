@@ -3,6 +3,8 @@
 목록은 계정에 입장할 때 seed에서 복사한 work24_imports 행이고, 실제 고용24에는 연결하지 않습니다.
 고른 항목을 넣으면 입사지원은 구직활동(출처 import)으로, 경력·자격은 이력서 칸(출처 import)으로
 들어가고 is_recorded가 true가 됩니다. 이미 넣은 항목은 다시 넣지 않습니다.
+대화로 먼저 적은 같은 회사·자격증이 있으면 새 항목을 만들지 않고 그 항목을 채웁니다
+(대화와 같은 기준, rules/resume/items).
 """
 
 from datetime import date
@@ -13,6 +15,7 @@ from app.core.errors import ConflictError, NotFoundError, UnprocessableError
 from app.models import Work24Import
 from app.repositories import imports as import_repo
 from app.rules import imports as import_rules
+from app.rules.resume.items import ItemPicker
 from app.schemas.activities import ActivityCreate, ActivityRoute
 from app.schemas.common import FieldSource, FieldStatus, FormUpdate, UpdatesRead
 from app.schemas.imports import ImportCategory, ImportItem, ImportKind, ImportList
@@ -64,6 +67,7 @@ def apply_imports(
         raise NotFoundError(message=NOT_FOUND_MESSAGE)
     updates: list[FormUpdate] = []
     resume_writes: list[FieldWrite] = []
+    picker = ItemPicker(resume_service.current_data(db, account.user_id))
     for row in (found[i] for i in dict.fromkeys(import_ids)):
         if row.is_recorded:
             raise ConflictError(message=RECORDED_MESSAGE)
@@ -72,7 +76,7 @@ def apply_imports(
         if row.kind == ImportKind.JOB_APPLICATION:
             updates += _apply_application(db, account, row, today)
         else:
-            resume_writes += _resume_writes(row)
+            resume_writes += _resume_writes(row, picker)
         row.is_recorded = True
     if resume_writes:
         updates += resume_service.save_resume_fields(
@@ -99,24 +103,25 @@ def _apply_application(
     return result.updates
 
 
-def _resume_writes(row: Work24Import) -> list[FieldWrite]:
-    item = f"{ITEM_PREFIX}{row.source_id}"
+def _resume_writes(row: Work24Import, picker: ItemPicker) -> list[FieldWrite]:
     if row.category == ImportCategory.CAREER:
         v = import_rules.career_values(row.title, row.detail)
+        section, name = "careers", v.company_name
         fields = {
             "company_name": v.company_name,
             "start_date": v.start_date,
             "end_date": v.end_date,
         }
-        base = f"/careers/{item}"
     else:
         lic = import_rules.license_values(row.title, row.detail)
+        section, name = "certifications", lic.certificate_name
         fields = {
             "certificate_name": lic.certificate_name,
             "issuing_organization": lic.issuing_organization,
             "acquired_date": lic.acquired_date,
         }
-        base = f"/certifications/{item}"
+    item = picker.pick(section, values=(name,), new_id=f"{ITEM_PREFIX}{row.source_id}").item_id
+    base = f"/{section}/{item}"
     return [
         FieldWrite(
             path=f"{base}/{name}",

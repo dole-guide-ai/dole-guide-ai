@@ -193,6 +193,7 @@ def read_resume(db: Session, account: AccountContext) -> ResumeRead:
         lock_version=resume.lock_version if resume else 0,
         data=data,
         completeness=rules.resume_completeness(data, outdated=outdated),
+        required_paths=rules.required_paths(data),
         next_question=question.id,
         can_save=rules.can_save_resume(data, outdated=outdated),
         profile_display=read_profile_display(db, account.user_id),
@@ -319,6 +320,11 @@ def _procedure_or_404(db: Session, user_id: uuid.UUID):
     if procedure is None:
         raise NotFoundError(code=ErrorCode.ACCOUNT_NOT_FOUND)
     return procedure
+
+
+def current_data(db: Session, user_id: uuid.UUID) -> resume_form.ResumeData:
+    """지금 저장된 이력서 값(없으면 빈 이력서)."""
+    return read_resume_data(repo.get_resume(db, user_id))
 
 
 def read_resume_data(resume: repo.Resume | None) -> resume_form.ResumeData:
