@@ -3,7 +3,8 @@
 모델은 이력서 스키마에 맞춘 값을 넘깁니다. 선택 칸(학력·졸업 여부)은 스키마의 선택지 중 하나로,
 기존 항목을 고치면 그 항목의 item_id로 넘깁니다(말을 알아듣는 일은 모델이 합니다).
 여기서는 날짜 계산(오늘 기준 "작년 3월" → YYYY-MM), 새 항목 id 만들기, 맞지 않는 값 거절만 합니다.
-거절한 것은 asks로 모델에 돌려줘 사용자에게 다시 묻게 합니다.
+다시 물을 것은 사용자에게 그대로 보여도 되는 문장(asks)으로, 코드 사정(없는 item_id 등)은
+diagnostics로 따로 둡니다. diagnostics는 로그에만 남기고 모델·사용자에게 보내지 않습니다.
 """
 
 import re
@@ -27,6 +28,12 @@ ENTRANCE_MONTH = 3
 # 이보다 짧은 "하던 일"(예: "포장")은 이력서로 쓰기에 부족해 구체적으로 다시 묻습니다.
 DUTY_MIN_CHARS = 8
 ITEM_ID_HINT = "기존 항목을 고치면 진행표·resume_items의 item_id. 새 항목이면 비움"
+# 사용자에게 다시 물을 때 쓰는 문장(말하기 모델이 그대로 옮김)
+ASK_DATE = "'{expr}'이(가) 몇 년 몇 월인지 알려 주세요."
+ASK_WHICH_CAREER = "어느 회사에서 일한 내용인지 회사 이름을 알려 주세요."
+ASK_WHICH_SCHOOL = "어느 학교 학력인지 학교 이름을 알려 주세요."
+ASK_DUTIES = "{company}에서 하신 일을 다룬 물건·장비나 맡은 범위로 조금 더 알려 주세요."
+ASK_BAD_DATE = "자격증 취득일 '{expr}'은(는) 없는 날짜예요. 다시 알려 주세요."
 
 
 class CareerFact(BaseModel):
@@ -80,24 +87,36 @@ class ResumeFacts(BaseModel):
 @dataclass
 class FactPlan:
     writes: list[FieldWrite] = field(default_factory=list)
-    # 확정하지 못해 다시 물어야 할 것(모델에 돌려줌). 값은 넣지 않고 무엇이 모호한지만 씁니다.
+    # 사용자에게 다시 물을 문장(ASK_*). 말하기 모델이 그대로 옮깁니다.
     asks: list[str] = field(default_factory=list)
+    # 코드 사정(모델이 준 item_id가 없음 등). 로그에만 남기고 모델·사용자에게 보내지 않습니다.
+    diagnostics: list[str] = field(default_factory=list)
     # 스키마 선택지 밖이라 저장하지 않은 칸("경로: 고를 수 있는 값")
     rejected: list[str] = field(default_factory=list)
 
 
 def plan_writes(
-    data: ResumeData, facts: ResumeFacts, today: date, separation_date: date
+    data: ResumeData,
+    facts: ResumeFacts,
+    today: date,
+    separation_date: date,
+    *,
+    asking: tuple[str, ...] = (),
 ) -> FactPlan:
-    """같은 회사·학교·자격증·직종을 다시 말하면 그 항목을 고칩니다(rules/resume/items)."""
+    """같은 회사·학교·자격증·직종을 다시 말하면 그 항목을 고칩니다(rules/resume/items).
+
+    `asking`은 지금 답을 기다리는 칸 경로입니다. 회사·학교 이름 없이 기간·하던 일만 말하면
+    지금 묻는 항목의 답으로 보고 그 항목에 씁니다("언제부터 다니셨어요?" → "작년 3월부터요").
+    """
     plan = FactPlan()
     picker = ItemPicker(data)
+    targets = _asked_items(asking)
     for fact in facts.careers:
-        _career(plan, picker, fact, today, separation_date)
+        _career(plan, picker, fact, today, separation_date, targets.get("careers"))
     for fact in facts.education:
-        _education(plan, picker, fact, today, separation_date)
+        _education(plan, picker, fact, today, separation_date, targets.get("education"))
     for fact in facts.certifications:
-        _certification(plan, picker, fact)
+        _certification(plan, picker, fact, today, separation_date)
     for name in facts.desired_occupations:
         _desired_occupation(plan, picker, name)
     if facts.no_certifications and not data.certifications:
@@ -108,27 +127,42 @@ def plan_writes(
     return plan
 
 
+def _asked_items(paths: tuple[str, ...]) -> dict[str, str]:
+    """지금 묻는 칸 경로(/careers/c1/end_date) → {섹션: item_id}."""
+    found: dict[str, str] = {}
+    for path in paths:
+        parts = path.strip("/").split("/")
+        if len(parts) >= 2 and parts[0] in ("careers", "education"):
+            found.setdefault(parts[0], parts[1])
+    return found
+
+
 def _dated(path: str, expr: str, result: DateResult, today: date) -> FieldWrite:
     form_field = date_field(expr, result, today)
     return FieldWrite(path=path, **form_field.model_dump(mode="json", exclude={"answered_on"}))
 
 
 def _career(
-    plan: FactPlan, picker: ItemPicker, fact: CareerFact, today: date, separation_date: date
+    plan: FactPlan,
+    picker: ItemPicker,
+    fact: CareerFact,
+    today: date,
+    separation_date: date,
+    asked: str | None = None,
 ) -> None:
     if not fact.item_id and not fact.company_name:
-        # 회사 이름 없이 직급·하던 일만 오면 기존 경력에 덧붙이는 말입니다. 어느 경력인지 모르면
-        # 추측하지 않고 모델에 item_id를 다시 넣게 합니다.
-        plan.asks.append("어느 경력인지 item_id를 넣어 다시 저장하세요(resume_items 참고)")
-        return
+        # 회사 이름 없이 기간·직급·하던 일만 오면 기존 경력에 덧붙이는 말입니다. 지금 묻는 경력이
+        # 있으면 그 경력으로, 없으면 추측하지 않고 회사 이름을 다시 묻습니다.
+        if asked is None:
+            plan.diagnostics.append("career without company or item_id")
+            plan.asks.append(ASK_WHICH_CAREER)
+            return
+        fact = fact.model_copy(update={"item_id": asked})
     item_id, is_new = _picked(plan, picker, "careers", fact.item_id, (fact.company_name,), "경력")
     if item_id is None:
         return
     if fact.main_duties and len(re.sub(r"\s", "", fact.main_duties)) < DUTY_MIN_CHARS:
-        plan.asks.append(
-            f"하던 일 '{fact.main_duties}'이(가) 짧아요. 다룬 물건·장비, 맡은 범위, 처리량처럼 "
-            "구체적으로 한 가지만 더 물어보면 좋아요"
-        )
+        plan.asks.append(ASK_DUTIES.format(company=fact.company_name or "그 회사"))
     base = f"/careers/{item_id}"
     writes: list[FieldWrite] = []
     for key in ("company_name", "position", "main_duties"):
@@ -141,7 +175,7 @@ def _career(
             continue
         result = normalize_date(expr, today, separation_date)
         if result.ask:
-            plan.asks.append(f"경력 {key} '{expr}'은(는) 연·월이 정해지지 않아 다시 물어야 해요")
+            plan.asks.append(ASK_DATE.format(expr=expr))
             continue
         writes.append(_dated(f"{base}/{key}", expr, result, today))
     # 새 항목인데 확정한 값이 하나도 없으면 빈 경력을 만들지 않습니다("재작년 겨울부터").
@@ -151,15 +185,23 @@ def _career(
 
 
 def _education(
-    plan: FactPlan, picker: ItemPicker, fact: EducationFact, today: date, separation_date: date
+    plan: FactPlan,
+    picker: ItemPicker,
+    fact: EducationFact,
+    today: date,
+    separation_date: date,
+    asked: str | None = None,
 ) -> None:
+    if asked and not fact.item_id and not (fact.school_name or fact.education_level):
+        fact = fact.model_copy(update={"item_id": asked})
     values = (fact.school_name, fact.education_level)
     item_id, is_new = _picked(plan, picker, "education", fact.item_id, values, "학력")
     if item_id is None:
         return
     if is_new and picker.data.education and fact.education_level is None:
         # 다른 학교 이름·연도만 오면 기존 학력에 덧붙이는 말인지 새 학력인지 알 수 없습니다.
-        plan.asks.append("어느 학력인지 item_id를 넣어 다시 저장하세요(resume_items 참고)")
+        plan.diagnostics.append("education item ambiguous")
+        plan.asks.append(ASK_WHICH_SCHOOL)
         return
     base = f"/education/{item_id}"
     values = {
@@ -182,7 +224,7 @@ def _education(
             )
             result = DateResult(value, transformed=True, note=note)
         if result.ask:
-            plan.asks.append(f"{label} 시점 '{expr}'을(를) 다시 물어야 해요")
+            plan.asks.append(ASK_DATE.format(expr=expr))
         else:
             writes.append(_dated(f"{base}/{key}", expr, result, today))
     plan.writes.extend(writes)
@@ -210,7 +252,13 @@ def _acquired_value(m: re.Match[str]) -> str | None:
     return value.isoformat() if day else value.isoformat()[:7]
 
 
-def _certification(plan: FactPlan, picker: ItemPicker, fact: CertificationFact) -> None:
+def _certification(
+    plan: FactPlan,
+    picker: ItemPicker,
+    fact: CertificationFact,
+    today: date,
+    separation_date: date,
+) -> None:
     values = (fact.certificate_name,)
     item_id, _ = _picked(plan, picker, "certifications", fact.item_id, values, "자격증")
     if item_id is None:
@@ -219,11 +267,24 @@ def _certification(plan: FactPlan, picker: ItemPicker, fact: CertificationFact) 
     plan.writes.append(said(f"{base}/certificate_name", fact.certificate_name))
     if fact.issuing_organization:
         plan.writes.append(said(f"{base}/issuing_organization", fact.issuing_organization))
-    if fact.acquired and (m := ACQUIRED.search(fact.acquired)):
+    if fact.acquired:
+        _acquired(plan, f"{base}/acquired_date", fact.acquired, today, separation_date)
+
+
+def _acquired(plan: FactPlan, path: str, expr: str, today: date, separation_date: date) -> None:
+    """취득일. 서류처럼 쓴 날짜("2011.05.20")는 그대로 쓰고, 말로 한 날짜("작년 12월")는
+    경력·학력과 같은 계산(dates.normalize_date)으로 연-월을 정해 바꾼 표시·근거를 남깁니다."""
+    if m := ACQUIRED.search(expr):
         if (value := _acquired_value(m)) is None:
-            plan.asks.append(f"자격증 취득일 '{fact.acquired}'은(는) 없는 날짜라 다시 물어야 해요")
+            plan.asks.append(ASK_BAD_DATE.format(expr=expr))
         else:
-            plan.writes.append(said(f"{base}/acquired_date", value))
+            plan.writes.append(said(path, value))
+        return
+    result = normalize_date(expr, today, separation_date)
+    if result.ask:
+        plan.asks.append(ASK_DATE.format(expr=expr))
+    else:
+        plan.writes.append(_dated(path, expr, result, today))
 
 
 def _desired_occupation(plan: FactPlan, picker: ItemPicker, name: str) -> None:
@@ -246,13 +307,14 @@ def _picked(
     """(쓸 item_id, 새 항목인지). 모델이 준 item_id가 없는 항목이면 asks에 남기고 None."""
     pick = picker.pick(section, item_id=item_id, values=values)
     if pick.item_id is None:
-        plan.asks.append(f"{label} item_id '{item_id}'가 없어요. resume_items의 id를 쓰세요")
+        plan.diagnostics.append(f"unknown {section} item_id")
     return pick.item_id, pick.is_new
 
 
 # ── 대기 칸의 답 → 칸 쓰기 ─────────────────────────────
 
 DATE_SUFFIXES = ("/start_date", "/end_date")
+ACQUIRED_SUFFIX = "/acquired_date"
 
 
 def answer_writes(
@@ -270,10 +332,12 @@ def answer_writes(
     for path, item in _pair_values(paths, value):
         if item in (None, ""):
             continue
-        if path.endswith(DATE_SUFFIXES) and isinstance(item, str):
+        if path.endswith(ACQUIRED_SUFFIX) and isinstance(item, str):
+            _acquired(plan, path, item, today, separation_date)
+        elif path.endswith(DATE_SUFFIXES) and isinstance(item, str):
             result = normalize_date(item, today, separation_date)
             if result.ask:
-                plan.asks.append(f"'{item}'은(는) 연·월이 정해지지 않아 다시 물어야 해요")
+                plan.asks.append(ASK_DATE.format(expr=item))
             else:
                 plan.writes.append(_dated(path, item, result, today))
         elif choices_of(path) and item not in choices_of(path):

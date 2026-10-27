@@ -15,6 +15,7 @@
 """
 
 import json
+import logging
 import re
 from typing import Any, Literal, NotRequired, TypedDict
 
@@ -25,12 +26,14 @@ from pydantic import BaseModel, Field
 from app.agent import gateway
 from app.agent.events import emit
 from app.agent.graph import AgentState, tool_context_of
+from app.agent.input import pii
 from app.agent.nodes import route
 from app.agent.output import SentenceStream
 from app.agent.prompts import load_prompt
 from app.agent.tools.registry import ToolContext
 from app.rules import entry_text
 from app.rules import resume as rules
+from app.rules.obligations import Obligation, prompt_block
 from app.rules.resume.facts import FactPlan, ResumeFacts, answer_writes, plan_writes
 from app.rules.resume.steps import (
     DEFERRED_REVIEW,
@@ -48,6 +51,7 @@ from app.services import resume as resume_service
 
 # 모델에 넘기는 진행표 칸 수. 다음 칸 하나만 주면 묶어서 제안하거나 앞을 내다볼 수 없습니다.
 PLAN_SIZE = 3
+logger = logging.getLogger(__name__)
 READ_PROMPT = "resume/read_answer"
 SPEAK_PROMPT = "resume/speak"
 # 읽기에 함께 주는 최근 대화 수(사람 말·도우미 말)
@@ -85,10 +89,16 @@ class Reading(BaseModel):
 
 class Outcome(TypedDict, total=False):
     reset: bool  # "새로 쓸래요"로 이력서를 비움
-    saved: dict[str, Any]
+    # 저장한 칸: [{path, value, said}]. said는 말로 한 날짜를 계산해 바꾼 경우의 원래 표현
+    saved: list[dict[str, Any]]
     deferred: list[str]
     rejected: list[str]
-    clarify: str | None
+    # 사용자에게 다시 물을 문장(rules/resume/facts.ASK_*). 말하기가 그대로 옮깁니다.
+    questions: list[str]
+    # 읽기 모델이 남긴 메모(모호한 점). 말하기는 참고만 하고 그대로 옮기지 않습니다.
+    note: str | None
+    # 개인정보·민감한 사정이 들어 저장하지 않은 칸이 있음
+    private: bool
     off_topic: bool
     delegate: bool
     stop: bool
@@ -244,12 +254,24 @@ def _defer(memory: ResumeMemory, keys: list[str]) -> None:
 
 
 def _save(ctx: ToolContext, memory: ResumeMemory, writes: list[FieldWrite]) -> None:
-    if not writes:
+    # 가린 개인정보 토큰이나 건강·다툼·종교 같은 사정이 든 값은 칸에 쓰지 않습니다(같은 말의
+    # 다른 칸은 저장). 도구 저장과 같은 기준(input/pii.carries_private)입니다.
+    kept = [w for w in writes if not pii.carries_private(w.value)]
+    if len(kept) < len(writes):
+        memory["outcome"]["private"] = True
+    if not kept:
         return
-    saved = resume_service.save_resume_fields(ctx.db, ctx.account.user_id, writes, today=ctx.today)
+    saved = resume_service.save_resume_fields(ctx.db, ctx.account.user_id, kept, today=ctx.today)
     for update in saved.updates:
         emit(update)
-    memory["outcome"].setdefault("saved", {}).update({w.path: w.value for w in writes})
+    memory["outcome"].setdefault("saved", []).extend(
+        {
+            "path": w.path,
+            "value": w.value,
+            "said": (w.evidence or {}).get("quote") if w.transformed else None,
+        }
+        for w in kept
+    )
 
 
 # ── 읽기 (모델 ①) ───────────────────────────────────────
@@ -303,7 +325,11 @@ def read_answer(state: AgentState, config: RunnableConfig) -> dict[str, Any]:
         # 딴 얘기는 맡을 패널을 다시 골라 그 패널이 답하고, 대기 질문은 남겨 둡니다.
         text = str(state["messages"][-1].content)
         choice = route.panel_besides_resume(text, state.get("facts", {}))
-        update |= {"panel": choice.panel.value, "scope": choice.scope.value}
+        update |= {
+            "panel": choice.panel.value,
+            "scope": choice.scope.value,
+            "obligations": route.scope_obligations(state, choice.scope),
+        }
     return update
 
 
@@ -333,10 +359,16 @@ def save_answer(
     if reading.facts:
         procedure = account_service.read_procedure(ctx.db, ctx.account.user_id)
         current = resume_service.read_resume(ctx.db, ctx.account).data
-        plan = plan_writes(current, reading.facts, ctx.today, procedure.separation_date)
+        plan = plan_writes(
+            current,
+            reading.facts,
+            ctx.today,
+            procedure.separation_date,
+            asking=step.paths if step else (),
+        )
         writes += _checked(memory, plan)
     if reading.note and not writes:
-        outcome["clarify"] = reading.note
+        outcome["note"] = reading.note
     _save(ctx, memory, writes)
     if reading.kind in ("value", "not_known", "stop", "delegate", "correction"):
         memory["pending"] = None
@@ -367,10 +399,16 @@ def _path_writes(
 
 
 def _checked(memory: ResumeMemory, plan: FactPlan) -> list[FieldWrite]:
-    """다시 물을 것은 outcome.clarify에, 선택지 밖 값은 outcome.rejected에 적고 쓰기를 돌려줌."""
+    """다시 물을 문장은 outcome.questions에, 선택지 밖 값은 outcome.rejected에 적고 쓰기를 돌려줌.
+
+    코드 사정(diagnostics)은 모델·사용자에게 보내지 않고 건수만 로그에 남깁니다.
+    """
     outcome = memory["outcome"]
     if plan.asks:
-        outcome["clarify"] = " / ".join([*filter(None, [outcome.get("clarify")]), *plan.asks])
+        asked = outcome.setdefault("questions", [])
+        asked.extend(q for q in plan.asks if q not in asked)
+    if plan.diagnostics:
+        logger.info("resume plan diagnostics count=%d", len(plan.diagnostics))
     if plan.rejected:
         outcome.setdefault("rejected", []).extend(plan.rejected)
     return plan.writes
@@ -399,10 +437,12 @@ def _speak_input(state: AgentState, memory: ResumeMemory, step: ResumeStep | Non
         "user_said": _last_user_text(state),
     }
     memory["told_progress"] = progress
-    return (
-        f"## 지금 상황\n{briefing}\n\n## 이번 턴 결과와 다음 칸\n"
-        f"{json.dumps(payload, ensure_ascii=False, default=str)}"
+    duties = prompt_block([Obligation.from_state(o) for o in state.get("obligations", [])])
+    sections = [f"## 지금 상황\n{briefing}", duties]
+    sections.append(
+        f"## 이번 턴 결과와 다음 칸\n{json.dumps(payload, ensure_ascii=False, default=str)}"
     )
+    return "\n\n".join(s for s in sections if s)
 
 
 def speak(state: AgentState, config: RunnableConfig) -> dict[str, Any]:

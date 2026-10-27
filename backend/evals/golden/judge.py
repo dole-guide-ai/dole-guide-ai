@@ -59,9 +59,25 @@ def judge(case: dict[str, Any], replies: list[str], mode: str) -> Verdict:
     return Verdict(passed=not misses, score=yes / len(criteria), reason=" / ".join(misses))
 
 
+def _start_state(case: dict[str, Any]) -> str:
+    """대화 전 시작 상태 요약(판정 모델이 "모름"으로 빠지지 않게). 합성 값이라 개인정보 없음."""
+    state = case["input"].get("state")
+    if not state:
+        return ""
+    parts = [f"단계 {state.get('stage')}", f"수급자 유형 {state.get('recipient_type')}"]
+    if state.get("stage") == "recognition" and state.get("completed_rounds") is not None:
+        parts.append(f"지금 {state['completed_rounds'] + 1}차")
+    parts.append(f"오늘 {state.get('demo_today')} {state.get('demo_time')}")
+    if activities := case["input"].get("activities") or []:
+        days = ", ".join(sorted({a["date"] for a in activities}))
+        parts.append(f"이미 기록된 활동 {len(activities)}건({days})")
+    return "시작 상태: " + " · ".join(parts)
+
+
 def _conversation(case: dict[str, Any], replies: list[str]) -> str:
     """판정 모델에 보이는 대화. 턴마다 사용자 말과 챗봇 답을 짝지어 보여 줍니다."""
-    lines = [f"<상황>\n{case['description']}\n</상황>", "<대화>"]
+    situation = "\n".join(filter(None, [case["description"], _start_state(case)]))
+    lines = [f"<상황>\n{situation}\n</상황>", "<대화>"]
     for n, (said, reply) in enumerate(zip(case["input"]["messages"], replies, strict=False), 1):
         lines += [f"[{n}] 사용자: {said}", f"[{n}] 챗봇: {reply}"]
     lines.append("</대화>")

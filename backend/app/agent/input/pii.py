@@ -14,10 +14,14 @@ preprocess(입력), gateway(외부 호출 직전), LangSmith 마스킹, 출력 �
 찾은 값 자체는 결과에 담지 않고 종류·위치만 돌려줍니다(로그·트레이스에 원문이 남지 않게).
 """
 
+import csv
 import re
 from dataclasses import dataclass
 from datetime import date
 from enum import StrEnum
+from functools import cache
+from pathlib import Path
+from typing import Any
 
 
 class PiiKind(StrEnum):
@@ -317,3 +321,33 @@ def has_blocking(text: str) -> bool:
     gateway는 가린(`mask`) 글을 다시 이 함수로 검사하고, 그래도 남으면 호출하지 않습니다.
     """
     return any(f.blocking for f in detect(text))
+
+
+# 서류 칸에 적지 않는 민감한 사정(건강·분쟁·종교). 가리지 않고 저장만 막습니다(base.md 개인정보 절).
+SENSITIVE_TERMS_CSV = Path(__file__).resolve().parents[3] / "data" / "rules" / "sensitive_terms.csv"
+# 가린 개인정보 토큰이나 민감한 사정이 든 말의 종류(상태 pii_kinds)
+SENSITIVE = "sensitive"
+
+
+@cache
+def sensitive_terms() -> tuple[str, ...]:
+    with SENSITIVE_TERMS_CSV.open(encoding="utf-8", newline="") as f:
+        return tuple(row["term"] for row in csv.DictReader(f))
+
+
+def flag_sensitive(text: str) -> bool:
+    """건강·분쟁·종교 같은 민감한 사정이 있는지. 글은 바꾸지 않습니다."""
+    compact = re.sub(r"\s+", "", text)
+    return any(re.sub(r"\s+", "", term) in compact for term in sensitive_terms())
+
+
+def kinds_in(masked: str) -> list[str]:
+    """가린 글에 든 개인정보 종류와 민감한 사정. 값 없이 종류 이름만 돌려줍니다."""
+    found = [kind.value for kind, token in TOKENS.items() if token in masked]
+    return [*found, SENSITIVE] if flag_sensitive(masked) else found
+
+
+def carries_private(value: Any) -> bool:
+    """저장하려는 값에 가린 개인정보 토큰이나 민감한 사정이 들어 있는지."""
+    text = str(value)
+    return any(token in text for token in TOKENS.values()) or flag_sensitive(text)

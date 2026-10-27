@@ -14,6 +14,7 @@ from app.agent import gateway
 from app.agent.graph import AgentState
 from app.agent.nodes.preprocess import ATTACHMENT_OPEN
 from app.agent.prompts import load_prompt
+from app.rules import obligations as obligation_rules
 from app.schemas.procedure import Stage
 
 
@@ -108,7 +109,19 @@ def route_turn(state: AgentState) -> dict[str, Any]:
         if panel is not None
         else by_model(said or ATTACHMENT_ONLY, facts, attached=bool(attached))
     )
-    return {"panel": choice.panel.value, "scope": choice.scope.value}
+    return {
+        "panel": choice.panel.value,
+        "scope": choice.scope.value,
+        "obligations": scope_obligations(state, choice.scope),
+    }
+
+
+def scope_obligations(state: AgentState, scope: Scope) -> list[dict[str, Any]]:
+    """말의 범위와 이번 말의 개인정보에 맞춰 답에 꼭 넣을 안내(rules/obligations)."""
+    found = obligation_rules.from_scope(scope.value) + obligation_rules.from_pii(
+        state.get("pii_kinds", [])
+    )
+    return obligation_rules.merge(state.get("obligations", []), found)
 
 
 def panel_besides_resume(text: str, facts: dict[str, Any]) -> RouteChoice:

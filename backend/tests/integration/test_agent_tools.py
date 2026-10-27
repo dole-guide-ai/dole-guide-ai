@@ -57,6 +57,59 @@ def test_check_round_and_record_activity(ctx) -> None:
     assert (before["check_status"], after["check_status"]) == ("short", "satisfied")
 
 
+def test_record_activity_refuses_activity_not_counted_for_this_recipient(ctx) -> None:
+    # 일반 수급자(이정호)의 자원봉사는 인정되지 않아 넣지 않고 이유를 돌려줍니다(골든셋 P-021).
+    c = ctx()
+    before = activity_service.list_activities(c.db, c.account, None, TEST_TODAY).items
+
+    result = run_tool(c, "record_activity", {"when": "어제", "kind": "volunteer"})
+
+    after = activity_service.list_activities(c.db, c.account, None, TEST_TODAY).items
+    assert result["recorded"] is False
+    assert result["admission"]["status"] == "not_allowed"
+    assert len(after) == len(before)
+
+
+def test_write_tool_refuses_private_values(ctx) -> None:
+    c = ctx()
+
+    with pytest.raises(ToolError):
+        run_tool(c, "record_activity", {"when": "어제", "kind": "interview", "org_name": "[전화]"})
+
+
+def test_edit_activity_corrects_then_removes_a_recorded_activity(ctx) -> None:
+    # 골든셋 F-098 "그제 말고 어제였네요", F-097 회사 이름 정정, F-075 지우기
+    c = ctx()
+    added = run_tool(
+        c, "record_activity", {"when": "그저께", "kind": "interview", "org_name": "OO유통"}
+    )
+    activity_id = next(u["value"]["activity_id"] for u in added["updates"] if u["op"] == "add")
+
+    run_tool(c, "edit_activity", {"activity_id": activity_id, "when": "어제", "org_name": "OO정밀"})
+    fixed = next(
+        a
+        for a in activity_service.list_activities(c.db, c.account, None, TEST_TODAY).items
+        if str(a.activity_id) == activity_id
+    )
+    run_tool(c, "edit_activity", {"activity_id": activity_id, "remove": True})
+    left = activity_service.list_activities(c.db, c.account, None, TEST_TODAY).items
+
+    assert (fixed.activity_date.isoformat(), fixed.org_name) == ("2026-10-20", "OO정밀")
+    assert all(str(a.activity_id) != activity_id for a in left)
+
+
+def test_record_activity_marks_planned_future_activity(ctx) -> None:
+    c = ctx()
+
+    result = run_tool(
+        c,
+        "record_activity",
+        {"when": "내일", "done": False, "kind": "interview", "org_name": "OO물류"},
+    )
+
+    assert (result["recorded"], result["planned"]) == (True, True)
+
+
 def test_uploaded_evidence_is_attached_to_first_recorded_activity(
     ctx, db_session: Session, tmp_path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -156,3 +209,21 @@ def test_allowed_path_stops_at_field_boundary(ctx) -> None:
     c.ensure_allowed("/careers/c1/company_name")
     with pytest.raises(ToolError):
         c.ensure_allowed("/careers/c10/company_name")
+
+
+def test_complete_education_marks_done_only_in_education_stage(ctx, db_session: Session) -> None:
+    # 골든셋 P-196: 화면이 "대화창에서 '교육 다 들었어요'를 눌러 알려 주세요"라고 안내하는 경로
+    from app.repositories import accounts as account_repo
+    from app.schemas.procedure import Stage
+
+    c = ctx("park")
+    with pytest.raises(ConflictError):  # 구직등록 단계에서는 이수 표시를 막습니다(순서)
+        run_tool(c, "complete_education", {})
+    procedure = account_repo.get_procedure(db_session, c.account.user_id)
+    procedure.stage = Stage.EDUCATION
+    db_session.flush()
+
+    run_tool(c, "complete_education", {})
+
+    procedure = account_repo.get_procedure(db_session, c.account.user_id)
+    assert (procedure.education_done, procedure.stage) == (True, Stage.ELIGIBILITY_APPLICATION)

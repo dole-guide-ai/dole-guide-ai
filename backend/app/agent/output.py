@@ -10,6 +10,8 @@ import logging
 import re
 from collections.abc import Callable
 
+from app.rules.obligations import CENTER_CHECK
+
 logger = logging.getLogger(__name__)
 
 FOREIGN_SCRIPT = re.compile(r"[Ͱ-ϿЀ-ӿ֐-ۿऀ-ॿ฀-๿぀-ヿ]")
@@ -17,7 +19,7 @@ FOREIGN_SCRIPT = re.compile(r"[Ͱ-ϿЀ-ӿ֐-ۿऀ-ॿ฀-๿぀-ヿ]")
 # 이어 붙이면 원문과 같아서 상관없습니다.
 _COMPLETE = re.compile(r"[^.!?\n]*(?:[.!?]+[ \t]*|\n)")
 # 근거 검사(agent/grounding.py)로 문장을 뺐을 때 답 끝에 붙이는 안내
-CHECK_NOTE = "정확한 내용은 고용노동부 고객상담센터(1350)나 관할 고용센터에 확인해 주세요."
+CHECK_NOTE = CENTER_CHECK
 
 
 class SentenceStream:

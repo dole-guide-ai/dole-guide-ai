@@ -10,11 +10,13 @@ from langchain_core.runnables import RunnableConfig
 
 from app.agent.graph import AgentState, tool_context_of
 from app.agent.nodes import resume as resume_node
+from app.agent.nodes.preprocess import ATTACHMENT_OPEN
 from app.agent.nodes.route import Panel
 from app.agent.retrieval import rerank_cards, rewrite_query
 from app.agent.tools import guide
 from app.core.config import get_settings
 from app.core.errors import AppError
+from app.rules import obligations as obligation_rules
 from app.rules.briefing import build_briefing, interval_days, person_lines, resume_items
 from app.rules.next_action import next_action
 from app.rules.resume.fields import writable_fields
@@ -84,6 +86,20 @@ def load_context(state: AgentState, config: RunnableConfig) -> dict[str, Any]:
                     for a in check.activities
                     if a.status in NOT_COUNTED_REASONS
                 ],
+                # 이번 회차에 기록된 활동. 사용자가 잘못 말한 활동을 바로잡을 때(edit_activity)
+                # 가리킬 id입니다. 회사 이름은 개인정보가 아닙니다.
+                "activities": [
+                    {
+                        "activity_id": a.activity_id,
+                        "date": a.activity_date.isoformat(),
+                        "kind": a.kind,
+                        "org_name": a.org_name,
+                        "status": a.status.value,
+                    }
+                    for a in check.activities
+                ],
+                # 수급 기간 전체에서 쓴 누적 한도(특강 등). 말에 나온 활동의 한도 안내에 씁니다.
+                "limits_used": check.limits_used.model_dump(),
                 "now_time": facts["now_time"],
                 "interval_days": interval_days(procedure.recipient_group, check.round),
                 "job_search_only": bool(check.required)
@@ -150,6 +166,23 @@ def attach_knowledge(state: AgentState, config: RunnableConfig) -> dict[str, Any
     settings = get_settings()
     text = str(state["messages"][-1].content)
     profile = Profile(**state["profile"]) if state.get("profile") else None
+    # 회차 패널의 남은 건수·주기·같은 날, 인정일 당일 마감처럼 코드가 확정한 사실은 답에 꼭 넣음.
+    round_ = state.get("facts", {}).get("round") or {}
+    panel = state.get("panel")
+    said = text.partition(ATTACHMENT_OPEN)[0]
+    group = profile.group if profile else None
+    duties = obligation_rules.merge(
+        state.get("obligations", []),
+        obligation_rules.from_round(round_, panel, group)
+        + obligation_rules.from_deadline(round_)
+        + obligation_rules.from_mentions(
+            said,
+            panel,
+            group=group,
+            round_no=profile.round_no if profile else None,
+            limits_used=round_.get("limits_used"),
+        ),
+    )
     # 질문과 상관없이 먼저 붙이는 카드: 지금 단계의 규칙(첫 안내와 같은 분기)과 이 수급자 유형·
     # 회차에 정해진 규칙(질문에 "4차"가 있으면 그 회차).
     cards = [c for i in state.get("situation_rules", []) if (c := cards_by_id().get(i))]
@@ -173,12 +206,12 @@ def attach_knowledge(state: AgentState, config: RunnableConfig) -> dict[str, Any
                 found_cards = rerank_cards(query, found_cards, limit)
         cards += [c for c in found_cards if c.rule_id not in {x.rule_id for x in cards}]
     if not cards and not guides:
-        return {"attached": []}
+        return {"attached": [], "obligations": duties}
     facts = {**state.get("facts", {}), "rules": [c.for_model() for c in cards]}
     if guides:
         facts["guides"] = [knowledge_service.guide_for_model(g) for g in guides]
     # 붙인 근거 중 답에 실제로 쓴 것만 finish가 근거 줄에 남깁니다(agent/grounding.used_in_answer).
-    return {"facts": facts, "attached": [c.rule_id for c in cards]}
+    return {"facts": facts, "attached": [c.rule_id for c in cards], "obligations": duties}
 
 
 def search_text(state: AgentState, text: str) -> str:

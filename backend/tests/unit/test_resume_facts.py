@@ -7,6 +7,9 @@ from pydantic import ValidationError
 
 from app.rules.resume import normalize_date
 from app.rules.resume.facts import (
+    ASK_DUTIES,
+    ASK_WHICH_CAREER,
+    ASK_WHICH_SCHOOL,
     CareerFact,
     CertificationFact,
     EducationFact,
@@ -54,11 +57,41 @@ def test_item_id_targets_the_existing_career_and_is_required_without_company() -
     plan = _plan(ResumeFacts(careers=[CareerFact(item_id="c7", position="반장")]), data)
     assert _values(plan) == {"/careers/c7/position": "반장"}
 
-    # 회사 이름도 item_id도 없으면 어느 경력인지 추측하지 않고 다시 넣게 합니다.
+    # 회사 이름도 item_id도 없고 지금 묻는 경력도 없으면 추측하지 않고 회사 이름을 묻습니다.
+    # 사용자에게 보이는 질문에 item_id 같은 코드 말은 넣지 않습니다(골든셋 F-001 답에 노출됨).
     vague = _plan(ResumeFacts(careers=[CareerFact(position="반장")]), data)
-    assert vague.writes == [] and "item_id" in vague.asks[0]
+    assert vague.writes == [] and vague.asks == [ASK_WHICH_CAREER]
+    assert "item_id" not in " ".join(vague.asks) and vague.diagnostics
     wrong = _plan(ResumeFacts(careers=[CareerFact(item_id="c9", position="반장")]), data)
-    assert wrong.writes == [] and "c9" in wrong.asks[0]
+    assert wrong.writes == [] and wrong.asks == [] and wrong.diagnostics
+
+
+def test_period_without_company_goes_to_the_career_being_asked() -> None:
+    # "언제부터 다니셨어요?"(c1 기간 질문)에 "작년 3월부터 올해 9월까지요"(골든셋 F-001·F-010)
+    data = ResumeData(careers=[Career(item_id="c1")])
+    facts = ResumeFacts(careers=[CareerFact(start="작년 3월", end="올해 9월")])
+
+    plan = plan_writes(
+        data, facts, TODAY, SEPARATION, asking=("/careers/c1/start_date", "/careers/c1/end_date")
+    )
+
+    assert _values(plan) == {"/careers/c1/start_date": "2025-03", "/careers/c1/end_date": "2026-09"}
+
+
+def test_spoken_acquired_date_is_calculated_like_other_dates() -> None:
+    # 골든셋 F-031: "작년 12월에 딴 지게차" → 취득일이 비던 문제. 바꾼 표시와 원래 표현을 남깁니다.
+    def acquired(expr: str):
+        cert = CertificationFact(certificate_name="지게차", acquired=expr)
+        plan = _plan(ResumeFacts(certifications=[cert]))
+        return next(w for w in plan.writes if w.path.endswith("/acquired_date"))
+
+    spoken = acquired("작년 12월")
+    assert (spoken.value, spoken.transformed) == ("2025-12", True)
+    # 서류에 적힌 날짜는 말한 만큼 그대로 씁니다.
+    assert (acquired("2011.05.20").value, acquired("2011.05.20").transformed) == (
+        "2011-05-20",
+        False,
+    )
 
 
 def test_same_company_updates_existing_item() -> None:
@@ -113,16 +146,16 @@ def test_short_duties_ask_for_more() -> None:
     facts = ResumeFacts(careers=[CareerFact(company_name="한빛물류", main_duties="포장")])
     plan = plan_writes(ResumeData(), facts, TODAY, date(2026, 9, 30))
 
-    assert any("짧아요" in a for a in plan.asks)
+    assert plan.asks == [ASK_DUTIES.format(company="한빛물류")]
 
 
 def test_education_values_are_schema_choices_and_details_join_the_existing_item() -> None:
     data = ResumeData.model_validate(
         {"education": [{"item_id": "e1", "education_level": {"value": "고등학교"}}]}
     )
-    # 학교 이름만 오면 item_id가 있어야 합니다(e2로 새로 생기던 문제).
+    # 학교 이름만 오면 어느 학력인지 묻습니다(e2로 새로 생기던 문제).
     vague = _plan(ResumeFacts(education=[EducationFact(school_name="OO고등학교")]), data)
-    assert vague.writes == [] and "item_id" in vague.asks[0]
+    assert vague.writes == [] and vague.asks == [ASK_WHICH_SCHOOL]
     plan = _plan(
         ResumeFacts(education=[EducationFact(item_id="e1", school_name="OO고등학교")]), data
     )

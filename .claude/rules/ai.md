@@ -26,7 +26,7 @@ paths:
 - 에이전트 코드는 `gateway.get_chat_model()`처럼 모듈 경유로 호출(테스트의 `fake_llm`이 바꿔 끼움).
 - LLM 호출 실패는 `LlmUnavailableError`, 한도 초과는 `RateLimitedError`로 던짐. 스트림 도중이면 `error` 이벤트.
 - 관측(LangSmith)은 gateway 한 곳에서만 연결, 키가 없으면 꺼짐. 보내기 전 개인정보 마스킹.
-- 쓰기 도구는 지금 질문이 다루는 칸만 쓸 수 있음. `status`·회차·절차 날짜·`user_profiles`는 도구로 쓰지 않음. 본인 답변 칸은 `record_user_answer`만.
+- 쓰기 도구는 지금 질문이 다루는 칸만 쓸 수 있음. `status`·회차·절차 날짜·`user_profiles`는 도구로 쓰지 않음. 본인 답변 칸은 `record_user_answer`만. 절차 중 교육 이수(`education_done`)만 `complete_education`으로 씀(화면 안내가 대화로 받음).
 - 그래프 상태(`AgentState`)는 체크포인트에 저장되므로 DB 세션·`user_profiles` 값을 넣지 않음. 턴 정보·`ToolContext`는 `config["configurable"]`로 받음.
 - 사용자 입력·프롬프트·응답 원문을 로그에 남기지 않음.
 - 모델·프롬프트·규칙표를 바꾸면 `pnpm test:eval` 결과를 PR에 첨부.

@@ -133,6 +133,10 @@ def run_case(db: Session, case: dict[str, Any]) -> AgentResult:
                 (e.data.next_action for e in events if e.name == "done"), next_action
             )
         data = _snapshot(db, account, today, now)
+        # 활동은 날짜순이라 activities[-1]이 대화로 새로 넣은 활동이 아닐 수 있습니다(시드 활동이
+        # 더 늦은 날짜면). 대화 중에 생긴 활동만 따로 둬 기대값이 그 활동을 가리키게 합니다.
+        seeded = {a["activity_id"] for a in initial.get("activities", [])}
+        data["new_activities"] = [a for a in data["activities"] if a["activity_id"] not in seeded]
     finally:
         shutil.rmtree(Path(get_settings().upload_dir) / str(account.user_id), ignore_errors=True)
 

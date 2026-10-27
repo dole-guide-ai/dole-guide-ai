@@ -2,7 +2,15 @@
 
 import pytest
 
-from app.agent.input.pii import PiiKind, detect, has_blocking, mask
+from app.agent.input.pii import (
+    SENSITIVE,
+    PiiKind,
+    carries_private,
+    detect,
+    has_blocking,
+    kinds_in,
+    mask,
+)
 
 # 생년월일이 유효한 합성 주민번호와 Luhn을 통과하는 합성 카드번호
 RRN = "800101-1234567"
@@ -239,3 +247,23 @@ def test_account_shaped_like_date_is_still_masked(text: str):
 )
 def test_account_after_date_keeps_the_date(text: str, expected: str):
     assert mask(text)[0] == expected
+
+
+def test_kinds_name_masked_tokens_and_sensitive_matters_without_values() -> None:
+    masked, _ = mask("제 번호는 010-1234-5678이고 허리 디스크로 그만뒀어요")
+
+    assert kinds_in(masked) == ["phone", SENSITIVE]
+    assert "010" not in str(kinds_in(masked))
+
+
+@pytest.mark.parametrize(
+    ("value", "private"),
+    [
+        ("OO산업", False),
+        ("[전화]", True),
+        ({"main_duties": "허리 디스크 때문에 쉼"}, True),  # 골든셋 M-039: 질병명이 칸에 저장됨
+        ("교회 다녀왔어요", True),
+    ],
+)
+def test_values_carrying_private_matters_are_not_saved(value: object, private: bool) -> None:
+    assert carries_private(value) is private

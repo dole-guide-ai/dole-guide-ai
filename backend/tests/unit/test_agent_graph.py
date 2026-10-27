@@ -73,8 +73,12 @@ def test_route_turn_keeps_scope_and_rules_default_to_in_scope(
     said = {"messages": [HumanMessage("국민연금은 언제 나와요?")], "facts": {}}
     pending = {**said, "resume": {"pending": {"key": "resume.license"}}}
 
-    assert route.route_turn(said) == {"panel": "guide", "scope": "out_of_scope"}
-    assert route.route_turn(pending) == {"panel": "resume", "scope": "in_scope"}
+    out = route.route_turn(said)
+    assert (out["panel"], out["scope"]) == ("guide", "out_of_scope")
+    # 다른 기관 일은 확인 안내를 답에 꼭 넣을 사실로 둡니다(rules/obligations.from_scope).
+    assert [o["key"] for o in out["obligations"]] == ["scope:out_of_scope"]
+    kept = route.route_turn(pending)
+    assert (kept["panel"], kept["scope"], kept["obligations"]) == ("resume", "in_scope", [])
 
 
 def test_other_panels_do_not_get_resume_only_facts() -> None:

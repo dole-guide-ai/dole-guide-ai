@@ -46,6 +46,10 @@ class AgentState(TypedDict):
     tool_calls: NotRequired[int]
     # 개인정보 0등급이 있어 모델에 보내지 않은 턴
     blocked: NotRequired[bool]
+    # 이번 말에 든 개인정보 종류·민감한 사정(input/pii.kinds_in). 값은 넣지 않습니다.
+    pii_kinds: NotRequired[list[str]]
+    # 이번 턴 답에 꼭 들어가야 할 사실(rules/obligations). 빠지면 finish가 덧붙입니다.
+    obligations: NotRequired[list[dict[str, Any]]]
     # 이번 턴 답의 근거로 쓴 규칙 ID(규칙 카드·규칙 함수). finish가 근거 줄을 만듭니다.
     cited: NotRequired[list[str]]
     # 이번 턴에 미리 붙인 규칙 카드 ID. 답에 내용이 나온 카드만 근거 줄에 남깁니다(finish).

@@ -158,12 +158,15 @@ def preprocess(state: AgentState, config: RunnableConfig) -> dict[str, Any]:
     return {
         "pending_evidence": list(ctx.evidence_file_ids) if ctx else [],
         "messages": [*repairs, HumanMessage(text)],
+        # 가린 개인정보·민감한 사정의 종류(값 없음). 안내 의무사항과 저장 막기에 씁니다.
+        "pii_kinds": [] if blocked else pii.kinds_in(text),
         "blocked": blocked,
         "panel": None,
         "scope": None,
         "loop_calls": 0,
         "tool_calls": 0,
         "cited": [],
+        "obligations": [],
         "attached": [],
         "vision_files": attachments.vision_files,
     }
