@@ -22,10 +22,12 @@ from app.rules.resume.fields import (
 from app.schemas.common import FieldSource, FieldStatus
 from app.schemas.forms.resume import (
     Career,
+    Certification,
     Education,
     EducationLevel,
     EmploymentStatus,
     ExperienceType,
+    JobPreferences,
     OccupationStatus,
     ResumeData,
     required_fields,
@@ -128,12 +130,39 @@ def latest_career(careers: list[Career]) -> Career | None:
 # ── 완성도 · 저장 ───────────────────────────────────────
 
 
+# 대학 이상이면 고용24에서 전공·학점/총점을 받습니다. 전공은 꼭 채우고, 학점은 빈칸으로도
+# 저장할 수 있지만 고용24 입력 때 필요합니다(2-1.8).
+COLLEGE_FIELDS = ("major", "gpa")
+COLLEGE_REQUIRED_FOR_SAVE = ("major",)
+
+
+def is_college(e: Education) -> bool:
+    return education_rank(e.education_level.value) >= education_rank(EducationLevel.COLLEGE)
+
+
 def education_done(e: Education) -> bool:
-    """스키마의 꼭 채울 칸이 다 찼는지. 대학 이상이면 전공도(학점은 빈칸 저장 허용, 2-1.8)."""
-    names = required_fields(Education)
-    if education_rank(e.education_level.value) >= education_rank(EducationLevel.COLLEGE):
-        names.append("major")
+    """스키마의 꼭 채울 칸이 다 찼는지. 대학 이상이면 전공도(학점은 빈칸 저장 허용)."""
+    names = [*required_fields(Education), *(COLLEGE_REQUIRED_FOR_SAVE if is_college(e) else ())]
     return all(is_filled(getattr(e, n)) for n in names)
+
+
+def required_paths(data: ResumeData) -> list[str]:
+    """이 이력서에서 고용24에 꼭 넣어야 하는 칸 경로(★). 대학 이상 학력의 전공·학점처럼
+    값에 따라 생기는 칸도 넣습니다. 화면은 이 목록으로 ★와 칸 표시를 정합니다."""
+    paths = [f"/{n}" for n in required_fields(ResumeData)]
+    groups = (
+        ("/education", data.education, Education),
+        ("/careers", data.careers, Career),
+        ("/certifications", data.certifications, Certification),
+    )
+    for base, items, model in groups:
+        for item in items:
+            names = [*required_fields(model)]
+            if model is Education and is_college(item):
+                names += COLLEGE_FIELDS
+            paths += [f"{base}/{item.item_id}/{n}" for n in names]
+    paths += [f"/job_preferences/{n}" for n in required_fields(JobPreferences)]
+    return paths
 
 
 def saved_before_separation(saved_on: date | None, separation_date: date) -> bool:

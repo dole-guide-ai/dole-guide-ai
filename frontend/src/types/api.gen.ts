@@ -2209,6 +2209,8 @@ export interface components {
             lock_version: number;
             data: components["schemas"]["ResumeData"];
             completeness: components["schemas"]["Completeness"];
+            /** Required Paths */
+            required_paths?: string[];
             /** Next Question */
             next_question?: string | null;
             /** Can Save */

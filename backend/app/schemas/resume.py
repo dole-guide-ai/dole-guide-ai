@@ -37,6 +37,9 @@ class ResumeRead(BaseModel):
     lock_version: int
     data: ResumeData
     completeness: Completeness
+    # 고용24에 꼭 넣어야 하는 칸 경로(★). 대학 이상 학력의 전공·학점처럼 값에 따라 생기는 칸 포함.
+    # 판정은 서버(rules/resume/check.required_paths)만 하고 화면은 이 목록으로 ★·칸 표시를 정합니다.
+    required_paths: list[str] = PydanticField(default_factory=list)
     next_question: str | None = None
     can_save: bool
     profile_display: ProfileDisplay | None = None
