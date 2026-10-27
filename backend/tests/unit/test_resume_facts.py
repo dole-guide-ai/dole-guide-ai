@@ -1,11 +1,12 @@
-"""이력서 사실 → 칸 쓰기 (rules/resume_facts.py). 기준일 2026-10-12, 퇴사일 2026-09-30."""
+"""이력서 사실 → 칸 쓰기 (rules/resume/facts.py). 기준일 2026-10-12, 퇴사일 2026-09-30."""
 
 from datetime import date
 
 import pytest
+from pydantic import ValidationError
 
 from app.rules.resume import normalize_date
-from app.rules.resume_facts import (
+from app.rules.resume.facts import (
     CareerFact,
     CertificationFact,
     EducationFact,
@@ -27,10 +28,17 @@ def _values(plan) -> dict:
 
 
 def test_relative_and_spoken_dates_become_year_month() -> None:
-    plan = _plan(ResumeFacts(careers=[CareerFact(start="작년 삼월", end="올 구월")]))
+    fact = CareerFact(company_name="OO산업", start="작년 삼월", end="올 구월")
+    plan = _plan(ResumeFacts(careers=[fact]))
 
-    assert _values(plan) == {"/careers/c1/start_date": "2025-03", "/careers/c1/end_date": "2026-09"}
-    assert all(w.transformed for w in plan.writes)  # 바꾼 값은 확인 필요
+    values = _values(plan)
+    assert (values["/careers/c1/start_date"], values["/careers/c1/end_date"]) == (
+        "2025-03",
+        "2026-09",
+    )
+    assert all(
+        w.transformed for w in plan.writes if w.path.endswith("_date")
+    )  # 바꾼 값은 확인 필요
 
 
 def test_vague_start_asks_and_creates_no_empty_career() -> None:
@@ -40,12 +48,17 @@ def test_vague_start_asks_and_creates_no_empty_career() -> None:
     assert plan.asks
 
 
-def test_duties_without_company_go_to_last_career() -> None:
+def test_item_id_targets_the_existing_career_and_is_required_without_company() -> None:
     data = ResumeData(careers=[Career(item_id="c7")])
 
-    plan = _plan(ResumeFacts(careers=[CareerFact(position="반장")]), data)
-
+    plan = _plan(ResumeFacts(careers=[CareerFact(item_id="c7", position="반장")]), data)
     assert _values(plan) == {"/careers/c7/position": "반장"}
+
+    # 회사 이름도 item_id도 없으면 어느 경력인지 추측하지 않고 다시 넣게 합니다.
+    vague = _plan(ResumeFacts(careers=[CareerFact(position="반장")]), data)
+    assert vague.writes == [] and "item_id" in vague.asks[0]
+    wrong = _plan(ResumeFacts(careers=[CareerFact(item_id="c9", position="반장")]), data)
+    assert wrong.writes == [] and "c9" in wrong.asks[0]
 
 
 def test_same_company_updates_existing_item() -> None:
@@ -96,26 +109,47 @@ def test_occupation_and_position_go_to_separate_fields() -> None:
     assert values["/careers/c1/occupation"]["name"] == "생산직"
 
 
-def test_occupation_in_position_moves_to_occupation_and_short_duties_ask() -> None:
-    facts = ResumeFacts(
-        careers=[CareerFact(company_name="한빛물류", position="생산직", main_duties="포장")]
-    )
+def test_short_duties_ask_for_more() -> None:
+    facts = ResumeFacts(careers=[CareerFact(company_name="한빛물류", main_duties="포장")])
     plan = plan_writes(ResumeData(), facts, TODAY, date(2026, 9, 30))
 
-    paths = {w.path.rsplit("/", 1)[-1]: w.value for w in plan.writes}
-    assert "position" not in paths
-    assert paths["occupation"]["name"] == "생산직"
     assert any("짧아요" in a for a in plan.asks)
 
 
+def test_education_values_are_schema_choices_and_details_join_the_existing_item() -> None:
+    data = ResumeData.model_validate(
+        {"education": [{"item_id": "e1", "education_level": {"value": "고등학교"}}]}
+    )
+    # 학교 이름만 오면 item_id가 있어야 합니다(e2로 새로 생기던 문제).
+    vague = _plan(ResumeFacts(education=[EducationFact(school_name="OO고등학교")]), data)
+    assert vague.writes == [] and "item_id" in vague.asks[0]
+    plan = _plan(
+        ResumeFacts(education=[EducationFact(item_id="e1", school_name="OO고등학교")]), data
+    )
+    assert _values(plan) == {"/education/e1/school_name": "OO고등학교"}
+    # 선택지 밖의 값은 도구 입력에서 거절됩니다(모델이 스키마 값으로 옮김).
+    with pytest.raises(ValidationError):
+        EducationFact(education_level="고졸")
+
+
 def test_none_answers_are_saved_so_the_question_does_not_repeat() -> None:
-    facts = ResumeFacts(careers=[CareerFact(position="없음")], no_certifications=True)
+    facts = ResumeFacts(careers=[CareerFact(item_id="c1", position="없음")], no_certifications=True)
     data = ResumeData(careers=[Career(item_id="c1")])
     plan = plan_writes(data, facts, TODAY, date(2026, 9, 30))
 
     by_path = {w.path: w for w in plan.writes}
     assert by_path["/careers/c1/position"].value == "없음"
     assert by_path["/certifications_status"].status == "not_applicable"
+
+
+def test_certification_date_is_kept_to_the_month() -> None:
+    """ "2025년 9월"은 2025-09로 두고, 말하지 않은 "1일"을 붙이지 않습니다."""
+    for said, expected in (("2025년 9월", "2025-09"), ("2011년", "2011")):
+        fact = CertificationFact(certificate_name="기사", acquired=said)
+        assert (
+            _values(_plan(ResumeFacts(certifications=[fact])))["/certifications/q1/acquired_date"]
+            == expected
+        )
 
 
 def test_certification_issuer_and_full_date_from_document() -> None:
@@ -140,3 +174,85 @@ def test_impossible_acquired_date_is_asked_again(acquired: str) -> None:
 
     assert "/certifications/q1/acquired_date" not in _values(plan)
     assert any(acquired in ask for ask in plan.asks)
+
+
+# ── 같은 말을 다시 해도 같은 항목(멱등) ─────────────────────
+
+
+def _saved(data: ResumeData, plan) -> ResumeData:
+    """계획한 쓰기를 이력서 데이터에 적용한 결과(다음 턴의 이력서)."""
+    raw = data.model_dump(mode="json")
+    for w in plan.writes:
+        section, item_id, name = w.path.strip("/").rsplit("/", 2)[-3:]
+        target = raw
+        for part in section.split("/"):
+            target = target[part]
+        item = next((i for i in target if i["item_id"] == item_id), None)
+        if item is None:
+            item = {"item_id": item_id}
+            target.append(item)
+        item[name] = {"value": w.value, "status": w.status, "source": w.source}
+    return ResumeData.model_validate(raw)
+
+
+def test_saying_the_same_items_again_updates_them_instead_of_adding() -> None:
+    facts = ResumeFacts(
+        careers=[CareerFact(company_name="(주)OO산업")],
+        education=[EducationFact(education_level="고등학교", school_name="OO고")],
+        certifications=[CertificationFact(certificate_name="지게차운전기능사")],
+        desired_occupations=["물류 관리"],
+    )
+    once = _saved(ResumeData(), _plan(facts))
+    again = _plan(
+        ResumeFacts(
+            careers=[CareerFact(company_name="OO산업 주식회사")],
+            education=[EducationFact(education_level="고등학교", end="1990년")],
+            certifications=[CertificationFact(certificate_name="지게차운전기능사 ")],
+            desired_occupations=["물류관리"],
+        ),
+        once,
+    )
+    twice = _saved(once, again)
+
+    assert [c.item_id for c in twice.careers] == ["c1"]
+    assert [e.item_id for e in twice.education] == ["e1"]
+    assert twice.education[0].end_date.value == "1990-02"
+    assert [q.item_id for q in twice.certifications] == ["q1"]
+    assert len(twice.job_preferences.desired_occupations) == 1
+
+
+def test_two_new_items_in_one_turn_get_their_own_ids() -> None:
+    # 예전에는 둘 다 len+1(c1)이라 한 항목으로 합쳐졌습니다.
+    plan = _plan(
+        ResumeFacts(
+            careers=[CareerFact(company_name="OO물류"), CareerFact(company_name="OO기계")],
+            certifications=[
+                CertificationFact(certificate_name="지게차운전기능사"),
+                CertificationFact(certificate_name="정보처리기사"),
+            ],
+        )
+    )
+    values = _values(plan)
+    assert values["/careers/c1/company_name"] == "OO물류"
+    assert values["/careers/c2/company_name"] == "OO기계"
+    assert values["/certifications/q2/certificate_name"] == "정보처리기사"
+
+
+def test_new_item_does_not_take_an_id_left_by_a_removed_one() -> None:
+    # q1을 지워 q2만 남았을 때 새 자격증이 len+1(q2)로 기존 항목을 덮어쓰던 문제
+    data = ResumeData.model_validate(
+        {"certifications": [{"item_id": "q2", "certificate_name": {"value": "정보처리기사"}}]}
+    )
+    cook = CertificationFact(certificate_name="조리기능사")
+    plan = _plan(ResumeFacts(certifications=[cook]), data)
+
+    assert "/certifications/q2/certificate_name" not in _values(plan)
+    assert _values(plan)["/certifications/q3/certificate_name"] == "조리기능사"
+
+
+def test_fourth_desired_occupation_is_rejected_not_failing_the_turn() -> None:
+    names = ["물류", "경비", "조리", "청소"]
+    plan = _plan(ResumeFacts(desired_occupations=names))
+
+    assert sum(p.endswith("/occupation") for p in _values(plan)) == 3
+    assert any("청소" in r for r in plan.rejected)

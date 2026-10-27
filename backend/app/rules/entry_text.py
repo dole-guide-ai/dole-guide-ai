@@ -13,10 +13,14 @@ from pathlib import Path
 from typing import Any
 
 from app.rules.presubmit import online_presubmit, visit_to_apply
+from app.rules.resume.check import REQUIRED_SECTIONS
 
 TEMPLATES_JSON = Path(__file__).resolve().parents[2] / "data" / "templates" / "entry.json"
 _WEEKDAYS = "월화수목금토일"
 GENERAL_GROUP = "general"
+WELCOME_NEW = "new"
+WELCOME_RETURNING = "returning"
+RESUME_BRANCHES = ("E7b", "E7c")
 
 
 @lru_cache(maxsize=1)
@@ -52,6 +56,11 @@ class EntryFacts:
     attendance: bool = False
     old_resume_year: int | None = None
     round_facts: RoundFacts | None = None
+    # 첫 인사: "new"(처음, 도우미 소개를 앞에), "returning"(대화 기록이 있음), None(인사 없음,
+    # 저장 같은 동작 뒤 다시 만든 안내)
+    welcome: str | None = None
+    # 쓰는 중인 이력서의 꼭 채울 칸 수(이력서 단계에서 진행을 알려 줌)
+    resume_filled: int | None = None
 
 
 @dataclass(frozen=True)
@@ -113,7 +122,10 @@ def _summary(facts: EntryFacts) -> str | None:
 
 
 def compose(branch: str, facts: EntryFacts) -> Composed:
-    """분기 하나의 첫 안내 말풍선·선택지·근거 규칙을 만듭니다. 말풍선은 최대 2개입니다."""
+    """분기 하나의 첫 안내 말풍선·선택지·근거 규칙을 만듭니다.
+
+    말풍선은 최대 2개이고, 처음 온 사람이면 앞에 도우미 소개가 하나 더 붙습니다.
+    """
     t = templates()
     key = branch
     if branch == "E3":
@@ -133,6 +145,11 @@ def compose(branch: str, facts: EntryFacts) -> Composed:
     # 저장 연도를 모르는 예전 이력서는 연도 없는 문구를 씁니다.
     text = spec["text_no_year"] if key == "E7b" and not facts.old_resume_year else spec["text"]
     main = text.format(**values)
+    if facts.welcome == WELCOME_RETURNING:
+        # "{이름}님, 반가워요." 대신 "{이름}님, 다시 오셨네요."로 시작합니다.
+        greeting = t["greeting"]["returning"].format(**values)
+        rest = main.removeprefix(f"{facts.name}님, ").removeprefix("반가워요. ")
+        main = f"{greeting} {rest}"
     refs = list(spec.get("rule_refs", []))
     cite_ids = list(spec.get("cite", []))
     if key == "E4a":
@@ -141,6 +158,8 @@ def compose(branch: str, facts: EntryFacts) -> Composed:
     if key == "E5a" and online_presubmit(facts.age_at_separation):
         main += " " + t["presubmit_online"]
     messages = [(f"T-{key}", main)]
+    if facts.welcome == WELCOME_NEW:
+        messages.insert(0, ("T-INTRO", t["greeting"]["intro"]))
 
     # 둘째 말풍선: 현황 요약(E4b) + 덧붙임(M3 출석 회차, M1 65세 이상 신청 경로)
     second: list[str] = []
@@ -155,6 +174,11 @@ def compose(branch: str, facts: EntryFacts) -> Composed:
         second.append(m3["text"].format(**values))
         second_ids.append("M3")
         refs += m3["rule_refs"]
+    if key in RESUME_BRANCHES and facts.resume_filled is not None:
+        second.append(
+            t["resume_progress"].format(total=len(REQUIRED_SECTIONS), filled=facts.resume_filled)
+        )
+        second_ids.append("R")
     if visit_to_apply(facts.age_at_separation, facts.stage):
         m1 = t["addons"]["M1"]
         second.append(m1["text"].format(**values))
@@ -196,3 +220,8 @@ def next_step_text(facts: EntryFacts) -> str:
 
 def stage_title(stage: str) -> str | None:
     return templates()["titles"].get(stage)
+
+
+def action_of(label: str) -> str | None:
+    """첫 안내 보기 글자 → 코드가 하는 행동 이름(예: "새로 쓸래요" → reset_resume). 없으면 None."""
+    return templates().get("actions", {}).get(label.strip())

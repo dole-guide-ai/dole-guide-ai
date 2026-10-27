@@ -159,3 +159,17 @@ def test_delete_also_clears_conversation_state(client: TestClient, monkeypatch) 
     # 스레드 ID는 persona_id("park")가 아니라 계정 user_id(UUID)입니다.
     assert looked_up and deleted == [str(looked_up[0])]
     assert client.get("/accounts/park", headers=headers).status_code == 404
+
+
+def test_delete_while_a_turn_is_running_is_409_not_a_hang(client: TestClient, monkeypatch) -> None:
+    """답을 만드는 턴이 계정을 잠그고 있으면 초기화는 기다리지 않고 409로 알립니다."""
+    from app.repositories import messages as message_repo
+
+    monkeypatch.setattr(message_repo, "try_lock_turn", lambda db, user_id: False)
+    token = client.post("/visitors").json()["visitor_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+    client.put("/accounts/park", headers=headers)
+
+    res = client.delete("/accounts/park", headers=headers)
+
+    assert res.status_code == 409 and res.json()["code"] == "TURN_IN_PROGRESS"

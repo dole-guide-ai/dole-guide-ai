@@ -64,13 +64,13 @@ def test_adapter_exposes_registry_tools_with_schema() -> None:
     tools = as_langchain_tools(_ctx(), TOOLS_BY_PANEL["resume"])
 
     assert [t.name for t in tools] == list(TOOLS_BY_PANEL["resume"])
-    assert "careers" in tools[0].args
+    assert "import_ids" in tools[0].args
 
 
 def test_adapter_returns_tool_error_to_llm_instead_of_raising() -> None:
-    (save,) = as_langchain_tools(_ctx(allowed=("/careers",)), ["save_resume_fields"])
+    (answer,) = as_langchain_tools(_ctx(allowed=("/work",)), ["record_user_answer"])
 
-    result = save.invoke({"fields": [{"path": "/desired/job", "value": "합성 직무"}]})
+    result = answer.invoke({"path": "/income/has_income", "value": False})
 
     assert result == "지금 질문과 관계없는 칸이라 쓰지 않았어요."
 

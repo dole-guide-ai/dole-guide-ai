@@ -122,6 +122,8 @@ class FakeAgentModel(BaseChatModel):
 
     replies: list[AIMessage]
     route: str = "guide"
+    # 구조화 출력(분류 말고)에 차례로 돌려줄 값. 비면 schema의 기본값(이력서 읽기는 kind=none)
+    structured: list[dict] = []
     calls: int = 0
 
     @property
@@ -137,7 +139,14 @@ class FakeAgentModel(BaseChatModel):
         return self
 
     def with_structured_output(self, schema, **kwargs) -> RunnableLambda:  # noqa: ANN001
-        return RunnableLambda(lambda _: schema(panel=self.route))
+        if "panel" in schema.model_fields:
+            return RunnableLambda(lambda _: schema(panel=self.route))
+
+        def answer(_):  # noqa: ANN001, ANN202
+            data = self.structured.pop(0) if self.structured else {}
+            return schema.model_validate(data)
+
+        return RunnableLambda(answer)
 
 
 @pytest.fixture
@@ -147,8 +156,10 @@ def fake_agent_llm(monkeypatch: pytest.MonkeyPatch):
     사용: fake_agent_llm([AIMessage("", tool_calls=[...]), AIMessage("답")], route="round")
     """
 
-    def _install(replies: list[AIMessage], route: str = "guide") -> FakeAgentModel:
-        model = FakeAgentModel(replies=replies, route=route)
+    def _install(
+        replies: list[AIMessage], route: str = "guide", structured: list[dict] | None = None
+    ) -> FakeAgentModel:
+        model = FakeAgentModel(replies=replies, route=route, structured=list(structured or []))
         monkeypatch.setattr(gateway, "get_chat_model", lambda role="agent": model)
         return model
 

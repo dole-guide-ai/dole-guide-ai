@@ -49,7 +49,7 @@ export const QuestionCard = ({
   };
 
   const select = (choice: string) => {
-    setSelected(choice);
+    setSelected((current) => (current === choice ? null : choice));
     setDraft('');
   };
 
@@ -107,7 +107,9 @@ export const QuestionCard = ({
                   value={choice}
                   checked={isSelected}
                   disabled={isDisabled}
-                  onChange={() => select(choice)}
+                  // 라디오는 이미 고른 것을 다시 눌러도 onChange가 안 나므로 onClick으로 토글합니다.
+                  onChange={() => undefined}
+                  onClick={() => select(choice)}
                   className="sr-only"
                 />
                 <span

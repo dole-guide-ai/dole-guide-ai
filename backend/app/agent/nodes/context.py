@@ -9,6 +9,7 @@ from langchain_core.messages import HumanMessage
 from langchain_core.runnables import RunnableConfig
 
 from app.agent.graph import AgentState, tool_context_of
+from app.agent.nodes import resume as resume_node
 from app.agent.nodes.route import Panel
 from app.agent.retrieval import rerank_cards, rewrite_query
 from app.agent.tools import guide
@@ -16,6 +17,7 @@ from app.core.config import get_settings
 from app.core.errors import AppError
 from app.rules.briefing import build_briefing, interval_days, person_lines, resume_items
 from app.rules.next_action import next_action
+from app.rules.resume.fields import writable_fields
 from app.rules.rule_cards import GROUP_LABELS, Profile, cards_by_id, cards_for, search_cards
 from app.schemas.procedure import Stage
 from app.schemas.rounds import ActivityStatus
@@ -53,8 +55,10 @@ def load_context(state: AgentState, config: RunnableConfig) -> dict[str, Any]:
         "resume_status": resume.status.value,
         # 전체 순서와 그 근거 카드. 답이 순서를 설명하면 finish가 근거 줄에 넣습니다.
         "procedure_steps": guide.overview(),
-        # save_resume_fields가 반복 항목을 가리킬 item_id(이력서 칸 값, 개인정보 아님)
+        # 읽기 모델이 반복 항목을 가리킬 item_id(이력서 칸 값, 개인정보 아님)
         "resume_items": resume_items(resume.data),
+        # 읽기 모델이 "함께 말한 값"을 넣을 칸 목록(경로·선택지·모양). 스키마에서 만듭니다.
+        "resume_fields": writable_fields(resume.data),
     }
     check = None
     if procedure.stage == Stage.RECOGNITION:
@@ -93,7 +97,9 @@ def load_context(state: AgentState, config: RunnableConfig) -> dict[str, Any]:
                 # 보이지 않게 건수를 비우고, 유형별 규칙 카드를 따르라고 적어 둡니다.
                 facts["round"] |= {"remaining": None, "remaining_job_search": None}
                 facts["round"]["count_rule"] = COUNT_RULE_NOTE
-    question = resume_service.read_next_question(ctx.db, ctx.account)
+    # 이력서 진행표: 남은 칸 앞 몇 개의 경로·선택지·코드 제안(nodes/resume)
+    facts["resume_plan"] = resume_node.plan_facts(ctx, state, resume.completeness.filled)
+    question = resume_node.first_step(ctx, state)
     facts["resume_ready"] = account_service.resume_ready(ctx.db, user_id, procedure)
     action = next_action(
         facts["stage"],
@@ -107,6 +113,7 @@ def load_context(state: AgentState, config: RunnableConfig) -> dict[str, Any]:
         round_=facts.get("round"),
         action=action,
         resume_question=question,
+        resume_filled=resume.completeness.filled,
         education_done=procedure.education_done,
         age=procedure.age_at_separation,
         group=procedure.recipient_group,

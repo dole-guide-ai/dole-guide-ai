@@ -24,16 +24,12 @@ from app.core.db import create_or_existing
 from app.core.errors import ConflictError, NotFoundError
 from app.repositories import accounts as repo
 from app.repositories import imports as import_repo
+from app.repositories import messages as message_repo
 from app.rules import notices as notice_rules
 from app.rules import periods, presubmit
 from app.rules import resume as resume_rules
-from app.rules.entry_text import RoundFacts
-from app.schemas.accounts import (
-    AccountRead,
-    PersonaCard,
-    PersonaDisplay,
-    PersonaList,
-)
+from app.rules.entry_text import WELCOME_NEW, WELCOME_RETURNING, RoundFacts
+from app.schemas.accounts import AccountRead, PersonaCard, PersonaDisplay, PersonaList
 from app.schemas.application import SubmitMode
 from app.schemas.common import ErrorCode
 from app.schemas.forms import recognition as recognition_form
@@ -132,7 +128,7 @@ def enter(
 
         user, _ = create_or_existing(db, backfill, lambda: existing)
     account = AccountContext(user.user_id, user.persona_id, user.anchor_date)
-    return read_account(db, account, now), created
+    return read_account(db, account, now, greet=True), created
 
 
 def delete_account(db: Session, account: AccountContext) -> None:
@@ -143,6 +139,9 @@ def delete_account(db: Session, account: AccountContext) -> None:
     지워지고 계정 행·업로드 폴더는 남을 수 있습니다. 이때도 계정이 남아 있어 DELETE를 다시 보내면
     정리됩니다(없는 thread를 지워도 오류가 나지 않습니다).
     """
+    # 답을 만드는 턴이 이 계정을 잠그고 있으면 기다리지 않고 바로 알립니다(초기화가 멈추지 않게).
+    if not message_repo.try_lock_turn(db, account.user_id):
+        raise ConflictError(code=ErrorCode.TURN_IN_PROGRESS)
     checkpointer.get_checkpointer().delete_thread(str(account.user_id))
     user = repo.get_user_by_id(db, account.user_id)
     if user is not None:
@@ -151,8 +150,14 @@ def delete_account(db: Session, account: AccountContext) -> None:
     shutil.rmtree(Path(get_settings().upload_dir) / str(account.user_id), ignore_errors=True)
 
 
-def read_account(db: Session, account: AccountContext, now: datetime) -> AccountRead:
-    """계정 상태. 지금 시각(KST)으로 인정일 마감(17·18시)과 알림까지 서버가 판정합니다."""
+def read_account(
+    db: Session, account: AccountContext, now: datetime, *, greet: bool = False
+) -> AccountRead:
+    """계정 상태. 지금 시각(KST)으로 인정일 마감(17·18시)과 알림까지 서버가 판정합니다.
+
+    `greet`: 입장·새로고침이면 첫 안내 앞에 인사를 붙입니다(처음이면 도우미 소개, 대화 기록이
+    있으면 "다시 오셨네요"). 저장 같은 동작 뒤에 다시 만드는 안내는 인사 없이 지금 상황만 줍니다.
+    """
     today = now.date()
     procedure = read_procedure(db, account.user_id, today)
     rounds = read_rounds(db, account.user_id, today)
@@ -168,6 +173,8 @@ def read_account(db: Session, account: AccountContext, now: datetime) -> Account
         name=_display_name(db, account.persona_id),
         old_resume_year=_old_resume_year(db, account.user_id, resume_state),
         round_facts=_round_facts(db, account.user_id, today) if current else None,
+        welcome=_welcome(db, account.user_id) if greet else None,
+        resume_filled=_resume_filled(db, account.user_id, resume_state),
     )
     return AccountRead(
         persona_id=account.persona_id,
@@ -332,6 +339,21 @@ def situation_rules(
 def resume_ready(db: Session, user_id: uuid.UUID, procedure: ProcedureRead) -> bool:
     """이직 뒤에 저장한 이력서가 있는지. 화면 안내(entry)와 다음 할 일이 같은 기준을 씁니다."""
     return _resume_status(db, user_id, procedure) == ResumeState.READY
+
+
+def _welcome(db: Session, user_id: uuid.UUID) -> str:
+    return WELCOME_RETURNING if message_service.has_history(db, user_id) else WELCOME_NEW
+
+
+def _resume_filled(db: Session, user_id: uuid.UUID, state: ResumeState | None) -> int | None:
+    """쓰는 중이거나 예전 이력서면 꼭 채울 5칸 중 몇 칸을 채웠는지."""
+    if state not in (ResumeState.DRAFT, ResumeState.OUTDATED):
+        return None
+    # 이력서 서비스가 이 모듈을 쓰므로 여기서 가져옵니다(순환 import 피하기).
+    from app.services.resume import read_resume_data  # noqa: PLC0415
+
+    data = read_resume_data(repo.get_resume(db, user_id))
+    return resume_rules.resume_completeness(data).filled
 
 
 def _resume_status(db: Session, user_id: uuid.UUID, procedure: ProcedureRead) -> ResumeState | None:

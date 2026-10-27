@@ -62,14 +62,14 @@ def get_account(db: DbSession, account: CurrentAccount, now: Now) -> AccountRead
 
     아직 입장하지 않은 계정이면 404 ACCOUNT_NOT_FOUND입니다.
     """
-    return account_service.read_account(db, account, now)
+    return account_service.read_account(db, account, now, greet=True)
 
 
 @router.delete(
     "/accounts/{persona_id}",
     summary="처음부터 다시 (계정 삭제)",
     status_code=status.HTTP_204_NO_CONTENT,
-    responses=error_responses(401, 404),
+    responses=error_responses(401, 404, 409),
 )
 def delete_account(db: DbSession, account: CurrentAccount) -> Response:
     """이 방문자의 이 계정만 지웁니다. 서류·회차·활동·대화와 업로드 파일이 함께 지워집니다.

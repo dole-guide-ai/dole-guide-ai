@@ -29,6 +29,29 @@ describe('ResumePanel (실제 이력서 API 응답)', () => {
     expect(screen.getByRole('button', { name: '확인하고 이력서 최신화' })).toBeDisabled();
   });
 
+  it('전공·학점 칸은 서버가 꼭 넣을 칸으로 줄 때만 보인다(대학 이상 판정은 서버)', async () => {
+    const choi = RESUMES.choi;
+    const item = choi.data.education?.[0]?.item_id ?? 'edu_001';
+    mockResumeApi('choi', {
+      ...choi,
+      required_paths: [...(choi.required_paths ?? []), `/education/${item}/major`],
+    });
+
+    renderWithProviders(<ResumePanel session={sessionFor('choi')} />);
+
+    expect(await screen.findByText('전공')).toBeInTheDocument();
+    expect(screen.getByText('빈칸 (고용24 입력 때 필요)')).toBeInTheDocument();
+  });
+
+  it('고등학교 학력이면 서버가 전공을 주지 않아 전공 칸이 없다', async () => {
+    mockResumeApi('choi');
+
+    renderWithProviders(<ResumePanel session={sessionFor('choi')} />);
+
+    await screen.findByLabelText('완성도');
+    expect(screen.queryByText('전공')).not.toBeInTheDocument();
+  });
+
   it('박진수(E7a): 빈 양식은 필수 칸이 남고 저장할 수 없다', async () => {
     mockResumeApi('park');
 
