@@ -50,7 +50,7 @@ def test_lee_gets_three_recommendations_and_deadline(
         "rec_4_step_lecture",
         "rec_4_interview",
     ]
-    assert "일반 사무" in body["items"][0]["title"]
+    assert "모바일 애플리케이션 프로그래머" in body["items"][0]["title"]
     assert body["deadline_text"].startswith("10.26(월)까지")
     assert "10.13(화)" in body["deadline_text"]
 

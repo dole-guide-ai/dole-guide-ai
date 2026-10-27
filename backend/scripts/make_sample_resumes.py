@@ -1,27 +1,34 @@
 """시연 계정별 테스트용 이력서 파일(pdf·docx·hwpx)을 만듭니다. 모두 합성 값입니다.
 
 대화에 서류를 올려 판독(agent/input/documents.py)을 확인할 때 씁니다. 만든 파일은
-data/samples/resumes/에 커밋되어 있어 보통은 다시 만들 필요가 없습니다.
+data/samples/resumes/에 커밋되어 있습니다. 마지막 경력의 퇴사월은 seed의 이직일(입장일 기준
+상대값)에 맞춰 만들므로, 시연하는 달이 바뀌면 그날로 다시 만듭니다.
 
     uv run --with reportlab --with python-hwpx python -m scripts.make_sample_resumes
+        --today 2026-10-27   # 생략하면 오늘
 
 PDF에는 한글 글꼴이 필요합니다(기본: Windows 맑은 고딕, 다른 경로는 --font). reportlab·python-hwpx는
 이 스크립트에서만 써서 프로젝트 의존성에 넣지 않았습니다.
 """
 
 import argparse
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
+from datetime import date
 from pathlib import Path
 from xml.sax.saxutils import escape
 
 from docx import Document
 from docx.oxml.ns import qn
 
+from app.services.seed import at, read_seed_file
+
 OUT_DIR = Path(__file__).resolve().parents[1] / "data" / "samples" / "resumes"
 DEFAULT_FONT = Path("C:/Windows/Fonts/malgun.ttf")
 DOCX_FONT = "맑은 고딕"
 # 본문에 쓰면 AI가 이력서 칸(기타 희망사항)에 옮겨 적어서 파일 속성(설명·주제)에만 둡니다.
 NOTICE = "테스트용 합성 이력서입니다. 실제 인물·회사가 아닙니다."
+# 마지막 경력의 퇴사월 자리. 만들 때 seed의 이직일(--today 기준)로 채웁니다.
+SEP = "{SEP}"
 
 
 @dataclass
@@ -49,7 +56,7 @@ RESUMES = [
         email="park.demo@example.com",
         education=[("1981.03 ~ 1984.02", "OO공업고등학교 기계과", "졸업")],
         careers=[
-            ("2004.03 ~ 2026.10", "OO산업", "반장", "프레스 기계 운전, 금형 교체, 생산 품질 검사"),
+            (f"2004.03 ~ {SEP}", "OO산업", "반장", "프레스 기계 운전, 금형 교체, 생산 품질 검사"),
             ("1990.03 ~ 2004.02", "OO기계", "사원", "부품 가공, 선반 작업"),
         ],
         certificates=[("지게차운전기능사", "한국산업인력공단", "2011.05.20")],
@@ -62,48 +69,53 @@ RESUMES = [
     ),
     Resume(
         persona="choi",
-        title="시설관리 경력 이력서 (2026년 고침)",
+        title="웹 개발 경력 이력서 (2026년 고침)",
         name="최영수",
         birth="1959년",
         phone="010-0000-0002",
         email="choi.demo@example.com",
-        education=[("1975.03 ~ 1978.02", "OO고등학교", "졸업")],
+        education=[("1978.03 ~ 1985.02", "OO대학교 전자계산학과", "졸업")],
         careers=[
-            (
-                "2019.06 ~ 2026.10",
-                "OO빌딩 관리단",
-                "시설주임",
-                "빌딩 전기·소방 설비 점검, 공사 입회",
-            ),
-            ("2010.03 ~ 2019.04", "OO아파트 관리사무소", "시설기사", "전기·설비 점검, 보수 작업"),
+            (f"2022.07 ~ {SEP}", "OO에이전시", "책임", "기업 홈페이지 개발·유지보수"),
+            ("2005.03 ~ 2019.04", "OO웹솔루션", "과장", "웹사이트 개발·유지보수"),
         ],
         certificates=[
-            ("전기기능사", "한국산업인력공단", "2009.11.20"),
-            ("소방안전관리자 2급", "한국소방안전원", "2020.07.15"),
+            ("정보처리기사", "한국산업인력공단", "1998.11.15"),
+            ("웹디자인기능사", "한국산업인력공단", "2021.06.18"),
         ],
         wishes=[
-            ("희망 직종", "시설관리"),
+            ("희망 직종", "웹 개발자"),
             ("희망 지역", "서울 노원구"),
             ("고용 형태", "상관없음"),
         ],  # fmt: skip
     ),
     Resume(
         persona="lee",
-        title="일반 사무 · 행정지원 경력 이력서",
+        title="앱 개발 경력 이력서",
         name="이정호",
         birth="1968년",
         phone="010-0000-0003",
         email="lee.demo@example.com",
-        education=[("1984.03 ~ 1987.02", "OO고등학교", "졸업")],
-        careers=[("2001.04 ~ 2026.08", "OO유통", "과장", "총무·행정 지원, 거래처 서류 관리")],
-        certificates=[("컴퓨터활용능력 2급", "대한상공회의소", "2005.09.02")],
+        education=[("1987.03 ~ 1994.02", "OO대학교 컴퓨터공학과", "졸업")],
+        careers=[
+            (f"2012.03 ~ {SEP}", "OO모바일", "팀장", "모바일 앱 개발·운영"),
+            ("2001.04 ~ 2012.02", "OO시스템", "대리", "웹·SI 개발"),
+        ],
+        certificates=[("정보처리기사", "한국산업인력공단", "2003.05.23")],
         wishes=[
-            ("희망 직종", "일반 사무"),
+            ("희망 직종", "모바일 앱 개발자"),
             ("희망 지역", "서울 강서구"),
             ("고용 형태", "정해지지 않은 일(정규직)"),
         ],  # fmt: skip
     ),
 ]
+
+
+def with_separation(r: Resume, separation: date) -> Resume:
+    """마지막 경력의 퇴사월({SEP})을 그 계정의 이직월로 채웁니다(seed와 같은 기준)."""
+    month = f"{separation:%Y.%m}"
+    careers = [(period.replace(SEP, month), *rest) for period, *rest in r.careers]
+    return replace(r, careers=careers)
 
 
 def sections(r: Resume) -> list[tuple[str, list[str], list[list[str]]]]:
@@ -199,9 +211,17 @@ def write_hwpx(r: Resume, path: Path) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--font", type=Path, default=DEFAULT_FONT, help="PDF용 한글 TTF")
+    parser.add_argument(
+        "--today", type=date.fromisoformat, default=date.today(), help="시연 입장일(YYYY-MM-DD)"
+    )
     args = parser.parse_args()
+    separations = {
+        p["persona_id"]: at(args.today, p["procedure"]["separation_offset"])
+        for p in read_seed_file()
+    }
     OUT_DIR.mkdir(parents=True, exist_ok=True)
-    for resume in RESUMES:
+    for base in RESUMES:
+        resume = with_separation(base, separations[base.persona])
         stem = OUT_DIR / f"{resume.persona}_resume"
         write_docx(resume, stem.with_suffix(".docx"))
         write_hwpx(resume, stem.with_suffix(".hwpx"))

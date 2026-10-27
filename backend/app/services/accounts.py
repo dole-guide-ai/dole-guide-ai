@@ -40,7 +40,7 @@ from app.schemas.resume import ResumeStatus
 from app.schemas.rounds import ActivityStatus, ApplicationStatus, RoundStatus, RoundSummary
 from app.services import messages as message_service
 from app.services.entry import ResumeState, build_entry, situation_rule_refs
-from app.services.seed import at
+from app.services.seed import at, resolve_seed
 
 # seed에서 이미 낸 회차는 인정일 이 시각에 낸 것으로 둡니다.
 SEED_SUBMITTED_AT = time(10)
@@ -110,7 +110,7 @@ def enter(
         def create() -> repo.User:
             new = repo.new_user(visitor_id, persona_id, today)
             repo.add_all(db, [new])
-            _materialize(db, new.user_id, persona.seed, today)
+            _materialize(db, new.user_id, resolve_seed(persona.seed, today), today)
             return new
 
         # 같은 계정 입장이 동시에 오면 먼저 만들어진 계정을 이어서 돌려줍니다(PUT은 멱등).
@@ -123,7 +123,9 @@ def enter(
         existing = user
 
         def backfill() -> repo.User:
-            repo.add_all(db, _import_rows(existing.user_id, persona.seed, existing.anchor_date))
+            anchor = existing.anchor_date
+            seed = resolve_seed(persona.seed, anchor)
+            repo.add_all(db, _import_rows(existing.user_id, seed, anchor))
             return existing
 
         user, _ = create_or_existing(db, backfill, lambda: existing)
