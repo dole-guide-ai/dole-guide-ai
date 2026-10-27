@@ -33,6 +33,9 @@ MIN_WORD = 2
 # 예: "건물 보수원 및 영선원(아파트 기계·전기 시설관리 제외)"는 "시설관리"로 찾지 않음
 _EXCLUDED = re.compile(r"\([^)]*제외\)")
 _WORD_SPLIT = re.compile(r"[\s·,/]+")
+# 지역 코드는 시·군·구까지라 "노원구 상계동"의 동·읍·면·리는 떼고 찾습니다. 앞이 시·군·구일 때만
+# 뗍니다("서울 강동"처럼 구를 줄여 말한 경우는 그대로 둠).
+_SUB_DISTRICT = re.compile(r"^(.*[시군구])\s+\S+[동읍면리]$")
 
 CodeKind = Literal["occupation", "region", "license", "major"]
 # 코드 종류 → work24_codes.json의 키 (고용24 공통코드 dtlGb 2·1·3·6)
@@ -61,6 +64,7 @@ def lookup_code(kind: CodeKind, text: str, limit: int = AI_CANDIDATES) -> list[C
     직종은 고용24 이력서에서 고르는 세부 직종(3단계)만, 지역은 시·군·구를 먼저 돌려줍니다.
     같은 코드가 여러 분류에 걸려 있어도 한 번만 냅니다. 말 전체로 못 찾으면 낱말별로 찾습니다.
     """
+    text = _region_text(text) if kind == "region" else text
     hits = _unique([*_aliased(kind, text), *_find(kind, text)])
     if not hits:
         words = [w for w in _WORD_SPLIT.split(text) if len(w) >= MIN_WORD]
@@ -101,7 +105,8 @@ def chosen_value(kind: CodeKind, raw: Any) -> dict[str, Any] | None:
 def match_code(kind: CodeKind, said: str) -> dict[str, Any]:
     """말한 이름 → 칸 값. 공식 이름이 똑같은 코드가 하나면 확정, 아니면 후보를 고를 차례."""
     said = said.strip()
-    same = [c for c in _find(kind, said) if _same_name(kind, c.name, said)] or _aliased(kind, said)
+    text = _region_text(said) if kind == "region" else said
+    same = [c for c in _find(kind, text) if _same_name(kind, c.name, text)] or _aliased(kind, text)
     if len(same) == 1:  # 공식 이름과 똑같거나, 짝 목록이 이름 하나로 정해 둔 말(바뀐 자격 이름 등)
         return picked(same[0], said)
     return {"code": None, "name": said, "status": CodeStatus.NEEDS_CONFIRMATION.value, "said": said}
@@ -222,6 +227,12 @@ def _unique(codes: Any) -> list[CodeRead]:
             seen |= {c.code, c.name}
             out.append(c)
     return out
+
+
+def _region_text(text: str) -> str:
+    """지역 말에서 시·군·구 아래(동·읍·면·리)를 뗍니다. "서울 노원구 상계동" → "서울 노원구"."""
+    m = _SUB_DISTRICT.match(text.strip())
+    return m[1] if m else text.strip()
 
 
 def _compact(text: str) -> str:

@@ -106,6 +106,21 @@ def test_common_words_and_renamed_licenses_use_the_alias_list() -> None:
     )
 
 
+def test_region_can_stop_at_province_and_ignores_dong() -> None:
+    # 시·군·구까지 꼭 고르지 않아도 됩니다. 시·도만 말하면 시·도 코드로 확정합니다.
+    for said in ("서울", "서울시", "서울특별시"):
+        assert match_code("region", said)["code"] == "11000"
+    assert match_code("region", "경기도")["code"] == "41000"
+    # 코드표는 시·군·구까지라 동은 떼고 찾습니다.
+    assert match_code("region", "서울 노원구 상계동")["code"] == "11350"
+    assert match_code("region", "부천시 심곡동")["name"] == "경기 부천시"
+    # 구를 줄여 말한 "서울 강동"은 시·도로 확정하지 않고 고르게 합니다.
+    assert match_code("region", "서울 강동")["status"] == "needs_confirmation"
+    assert [c.name for c in lookup_code("region", "서울 강동")] == ["서울 강동구"]
+    # 시·도 이름처럼 보여도 같은 이름의 시가 있으면 그 시입니다.
+    assert match_code("region", "제주시")["name"] == "제주 제주시"
+
+
 def test_region_code_for_search_skips_ambiguous_names() -> None:
     from app.rules.work24_codes import region_code
 
