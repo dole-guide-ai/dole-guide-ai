@@ -12,7 +12,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.core.clock import KST, get_now, get_today
+from app.core.clock import KST, get_now
 from app.main import app
 from app.models import ProcedureState, RecognitionApplication, Round
 from app.models.user import User
@@ -100,7 +100,6 @@ def test_round_moves_on_after_recognition_day(client: TestClient, entered_header
         "activity_id"
     ]
     next_day = date.fromisoformat(fourth["recognition_date"]) + timedelta(days=1)
-    app.dependency_overrides[get_today] = lambda: next_day
     app.dependency_overrides[get_now] = lambda: datetime.combine(next_day, time(9), KST)
 
     fifth = client.get("/accounts/lee/rounds/current", headers=headers).json()

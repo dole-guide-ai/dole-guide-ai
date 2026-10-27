@@ -16,9 +16,12 @@
     "expected_end_date": "2027-09-30",
     "end_reason": null,
     "remaining_rounds": null,
-    "last_round": null
+    "last_round": null,
+    "online_presubmit": true
   },
   "current_round": null,
+  "deadline": null,
+  "notices": [],
   "entry": {
     "branch_id": "E7a",
     "panel": "A",

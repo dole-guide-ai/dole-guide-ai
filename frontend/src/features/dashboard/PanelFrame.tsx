@@ -11,8 +11,8 @@ import {
 
 import { Button } from '@/components/Button';
 import { EvidenceLine } from '@/components/EvidenceLine';
+import { NoticeBox } from '@/features/dashboard/NoticeBox';
 import { PanelHeading } from '@/features/dashboard/PanelHeading';
-import { showsVisitNotice } from '@/features/dashboard/sessionNotices';
 import { BenefitEndedPanel } from '@/features/procedure/BenefitEndedPanel';
 import { RoundPanel } from '@/features/procedure/RoundPanel';
 import { RecognitionPanel } from '@/features/recognition/RecognitionPanel';
@@ -21,6 +21,7 @@ import { EducationPanel } from '@/features/steps/EducationPanel';
 import { EligibilityPanel } from '@/features/steps/EligibilityPanel';
 import { FirstDatePanel } from '@/features/steps/FirstDatePanel';
 
+import { findNotice, NOTICE_KIND } from '@/lib/notices';
 import { patchSession } from '@/lib/sessionStore';
 import { citeOf } from '@/lib/sources';
 import type { PanelId, ProgressStep, SessionRead } from '@/types/demo.types';
@@ -86,6 +87,7 @@ export const PanelFrame = ({
   onExitReview,
 }: PanelFrameProps) => {
   const { entry, state } = session;
+  const visitNotice = findNotice(session.notices, NOTICE_KIND.VISIT);
   const panel = entry.panel;
   const reviewPanel = reviewStep ? STEP_PANEL[reviewStep] : undefined;
   const [isEditingResume, setIsEditingResume] = useState(false);
@@ -146,7 +148,9 @@ export const PanelFrame = ({
               onSaved={() => setIsEditingResume(false)}
             />
           )}
-          {reviewPanel === 'E' && <EducationPanel state={state} isReadOnly />}
+          {reviewPanel === 'E' && (
+            <EducationPanel state={state} derived={session.derived} isReadOnly />
+          )}
           {reviewPanel === 'Q' && (
             <EligibilityPanel state={state} derived={session.derived} isReadOnly />
           )}
@@ -177,15 +181,10 @@ export const PanelFrame = ({
           description={info.description}
         />
 
-        {showsVisitNotice(state) && (
-          <div className="border-warn bg-warn-soft flex flex-col gap-2 rounded-xl border px-4 py-3">
-            <p className="text-warn text-base font-semibold">신청 경로 안내</p>
-            <p className="text-base">
-              이직일 기준 만 65세 이상이라 수급자격 신청은 관할 고용센터에 방문해서 해요. 인터넷
-              사전제출은 이직일 기준 만 65세 미만일 때만 할 수 있어요.
-            </p>
+        {visitNotice && (
+          <NoticeBox notice={visitNotice}>
             <EvidenceLine cite={SOURCE_WORK24} />
-          </div>
+          </NoticeBox>
         )}
 
         {panel === 'A' && <ResumePanel session={session} onEditRequest={onEditRequest} />}
@@ -210,7 +209,7 @@ export const PanelFrame = ({
           />
         )}
 
-        {panel === 'E' && <EducationPanel state={state} />}
+        {panel === 'E' && <EducationPanel state={state} derived={session.derived} />}
 
         {panel === 'Q' && <EligibilityPanel state={state} derived={session.derived} />}
       </div>

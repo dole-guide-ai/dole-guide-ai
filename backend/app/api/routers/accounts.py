@@ -11,7 +11,7 @@ from fastapi import APIRouter, Response, status
 
 from app.api.deps import CurrentAccount, CurrentVisitor, PersonaId
 from app.api.responses import error_responses
-from app.core.clock import Today
+from app.core.clock import Now
 from app.core.db import DbSession
 from app.schemas.accounts import AccountRead, PersonaList
 from app.services import accounts as account_service
@@ -36,7 +36,7 @@ def list_personas(db: DbSession, visitor: CurrentVisitor) -> PersonaList:
     responses={201: {"model": AccountRead}, **error_responses(401, 404)},
 )
 def enter_account(
-    db: DbSession, visitor: CurrentVisitor, persona_id: PersonaId, today: Today, response: Response
+    db: DbSession, visitor: CurrentVisitor, persona_id: PersonaId, now: Now, response: Response
 ) -> AccountRead:
     """카드를 눌렀을 때 부릅니다. 같은 요청을 여러 번 보내도 결과가 같습니다.
 
@@ -46,7 +46,7 @@ def enter_account(
 
     응답에는 절차 상태, 오늘이 속한 회차, 첫 화면을 그리는 진입 결과(entry)가 들어 있습니다.
     """
-    account, created = account_service.enter(db, visitor.visitor_id, persona_id, today)
+    account, created = account_service.enter(db, visitor.visitor_id, persona_id, now)
     if created:
         response.status_code = status.HTTP_201_CREATED
         response.headers["Location"] = f"/accounts/{persona_id}"
@@ -56,13 +56,13 @@ def enter_account(
 @router.get(
     "/accounts/{persona_id}", summary="계정 상태 다시 불러오기", responses=error_responses(401, 404)
 )
-def get_account(db: DbSession, account: CurrentAccount, today: Today) -> AccountRead:
+def get_account(db: DbSession, account: CurrentAccount, now: Now) -> AccountRead:
     """새로고침했을 때 부릅니다. 계정 상태를 오늘 날짜로 다시 진단해, 지금 회차와 진입 결과를 새로
     계산해 돌려줍니다.
 
     아직 입장하지 않은 계정이면 404 ACCOUNT_NOT_FOUND입니다.
     """
-    return account_service.read_account(db, account, today, greet=True)
+    return account_service.read_account(db, account, now, greet=True)
 
 
 @router.delete(

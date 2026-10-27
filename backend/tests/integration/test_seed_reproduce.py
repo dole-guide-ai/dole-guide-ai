@@ -57,7 +57,7 @@ def _snapshot(db: Session, persona_id: str, anchor: date) -> dict[str, Any]:
     now = datetime.combine(anchor, time(9), KST)
     visitor = create_visitor(db, now)
     ctx = authenticate(db, visitor.visitor_token, now)
-    account, _ = account_service.enter(db, ctx.visitor_id, persona_id, anchor)
+    account, _ = account_service.enter(db, ctx.visitor_id, persona_id, now)
     found = account_service.find_account(db, ctx.visitor_id, persona_id)
     rounds = account_service.read_rounds(db, found.user_id, anchor)
     return _relative(

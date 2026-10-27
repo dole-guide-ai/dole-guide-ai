@@ -110,6 +110,10 @@ def read_application(
         attendance_required=target.attendance_required,
         required_activities=check.required,
         required_job_search=check.required_job_search,
+        counted_activities=check.counted,
+        counted_job_search=check.counted_job_search,
+        remaining_activities=check.remaining,
+        remaining_job_search=check.remaining_job_search,
         data=RecognitionData.model_validate(data),
         job_search_rows=[JobSearchRow.model_validate(row) for row in activities.job_search],
         other_rows=[OtherActivityRow.model_validate(row) for row in activities.other],
@@ -208,7 +212,7 @@ def _submit(db, account, target, application, ops: list[JsonPatchOp], now: datet
     application.submitted_at = now
     application.lock_version += 1
     db.commit()
-    entry = account_service.read_account(db, account, now.date()).entry
+    entry = account_service.read_account(db, account, now).entry
     return UpdatesRead(
         updates=[
             _replaced("/status", ApplicationStatus.SUBMITTED),

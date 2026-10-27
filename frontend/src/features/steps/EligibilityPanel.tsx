@@ -71,7 +71,8 @@ export const EligibilityPanel = ({ state, derived, isReadOnly = false }: Eligibi
         실업급여는 그만둔 다음 날부터 12개월 안에서만 받을 수 있어요. 늦게 신청하면 남은 날을 다
         받지 못할 수 있으니 미루지 마세요.
       </p>
-      {state.age_at_separation >= 65 && (
+      {/* 이직일 만 65세 이상(서버 판정, 사전제출 대상이 아님)이면 65세 이후 고용 적용 제외도 알립니다. */}
+      {!derived.can_presubmit_online && (
         <p className="bg-warn-soft text-warn rounded-xl px-4 py-3 text-base">
           65세 이후에 새로 고용됐거나 자영업을 시작했다면 실업급여가 적용되지 않을 수 있어요.
           고용센터에 확인해 주세요.

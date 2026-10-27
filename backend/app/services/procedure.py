@@ -5,7 +5,7 @@
 회차와 회차별 신청서를 한꺼번에 만듭니다. 회차를 고르거나 바꾸는 값은 없습니다.
 """
 
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from enum import StrEnum
 from typing import Any
 
@@ -67,12 +67,13 @@ def _date(value: Any) -> date:
 
 
 def patch_procedure(
-    db: Session, account: AccountContext, patch: list[JsonPatchOp], today: date
+    db: Session, account: AccountContext, patch: list[JsonPatchOp], now: datetime
 ) -> UpdatesRead:
     """고용센터 사실 하나를 입력하고 바뀐 단계와 첫 화면(entry)을 돌려줍니다.
 
     순서가 틀리거나 이미 넣은 값이면 409 STAGE_ORDER, 날짜가 틀리면 422입니다.
     """
+    today = now.date()
     repo.lock_user(db, account.user_id)
     account_service.ensure_not_ended(db, account.user_id)
     state = repo.get_procedure(db, account.user_id)
@@ -118,7 +119,7 @@ def patch_procedure(
     state.lock_version += 1
     updates.append(_update("/stage", next_stage.value))
     db.commit()
-    entry = account_service.read_account(db, account, today).entry
+    entry = account_service.read_account(db, account, now).entry
     return UpdatesRead(updates=updates, entry=entry.model_dump(mode="json"))
 
 

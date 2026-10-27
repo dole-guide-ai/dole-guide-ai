@@ -1,10 +1,10 @@
 import uuid
-from datetime import date, timedelta
+from datetime import date, datetime, time, timedelta
 
 import pytest
 from fastapi.testclient import TestClient
 
-from app.core.clock import get_today
+from app.core.clock import KST, get_now
 from app.main import app
 
 pytestmark = pytest.mark.integration
@@ -14,9 +14,9 @@ TODAY = date(2026, 10, 21)
 
 @pytest.fixture(autouse=True)
 def fixed_today():
-    app.dependency_overrides[get_today] = lambda: TODAY
+    app.dependency_overrides[get_now] = lambda: datetime.combine(TODAY, time(10), KST)
     yield
-    app.dependency_overrides.pop(get_today, None)
+    app.dependency_overrides.pop(get_now, None)
 
 
 def new_visitor(client: TestClient) -> dict[str, str]:
@@ -73,6 +73,10 @@ def test_lee_is_in_round_four_with_relative_dates(client: TestClient) -> None:
         "draft",
     ]
     assert [r["status"] for r in rounds[:4]] == ["closed", "closed", "closed", "current"]
+    # 마감·알림은 서버가 지금 시각(10시)으로 판정해 내려 줍니다. 출석 회차라 출석 안내.
+    assert body["deadline"] == {"d_day": 6, "submit_mode": "attend", "overdue": False}
+    assert [n["key"] for n in body["notices"]] == ["attend-4"]
+    assert body["procedure"]["online_presubmit"] is True
 
 
 def test_choi_old_resume_is_outdated(client: TestClient) -> None:
@@ -80,6 +84,10 @@ def test_choi_old_resume_is_outdated(client: TestClient) -> None:
 
     assert body["entry"]["branch_id"] == "E7b"
     assert body["entry"]["ui"]["big_text"] is True
+    # 이직일 67세라 인터넷 사전제출 대상이 아니고, 신청 경로 안내가 근거와 함께 옵니다.
+    assert body["procedure"]["online_presubmit"] is False
+    assert [(n["key"], n["rule_refs"]) for n in body["notices"]] == [("visit", ["PROC-048"])]
+    assert body["deadline"] is None
 
 
 def test_other_visitor_cannot_see_account(client: TestClient) -> None:

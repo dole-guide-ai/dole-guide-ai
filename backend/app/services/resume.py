@@ -263,7 +263,7 @@ def _save(db: Session, account: AccountContext, now: datetime) -> UpdatesRead:
         procedure.lock_version += 1
     db.commit()
 
-    entry = account_service.read_account(db, account, now.date()).entry
+    entry = account_service.read_account(db, account, now).entry
     entry.messages[:0] = [
         EntryMessage(template_id=f"T-SAVE-{branch}", text=SAVED_TEXT[branch]),
         EntryMessage(template_id="T-WORK24-HINT", text=work24_hint(data)),

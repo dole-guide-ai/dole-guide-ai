@@ -28,11 +28,7 @@ const withPanel = (
 
 describe('패널 E · Q · E5b (정적)', () => {
   it('E 온라인 교육: 이수 전이면 확인 필요와 대화 안내, 다음 할 일', () => {
-    renderWithProviders(
-      <PanelFrame
-        session={withPanel('park', 'E', { stage: 'education', resume_status: 'ready' })}
-      />,
-    );
+    renderWithProviders(<PanelFrame session={withPanel('park', 'E', { stage: 'education' })} />);
 
     expect(screen.getByText('아직 이수 전')).toBeInTheDocument();
     expect(screen.getByText(/교육 다 들었어요/)).toBeInTheDocument();

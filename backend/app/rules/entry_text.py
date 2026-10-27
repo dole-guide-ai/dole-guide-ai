@@ -12,13 +12,11 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
+from app.rules.presubmit import online_presubmit, visit_to_apply
 from app.rules.resume.check import REQUIRED_SECTIONS
 
 TEMPLATES_JSON = Path(__file__).resolve().parents[2] / "data" / "templates" / "entry.json"
 _WEEKDAYS = "월화수목금토일"
-# 이직 당시 만 65세 이상이면 인터넷 사전제출 대신 센터 방문 (PROC-048, 덧붙임 M1)
-ONLINE_PRESUBMIT_MAX_AGE = 65
-M1_STAGES = ("job_registration", "education", "eligibility_application")
 GENERAL_GROUP = "general"
 WELCOME_NEW = "new"
 WELCOME_RETURNING = "returning"
@@ -157,7 +155,7 @@ def compose(branch: str, facts: EntryFacts) -> Composed:
     if key == "E4a":
         group = "general" if facts.rule_group == GENERAL_GROUP else "other"
         main += " " + t["first_round_education"][group]
-    if key == "E5a" and facts.age_at_separation < ONLINE_PRESUBMIT_MAX_AGE:
+    if key == "E5a" and online_presubmit(facts.age_at_separation):
         main += " " + t["presubmit_online"]
     messages = [(f"T-{key}", main)]
     if facts.welcome == WELCOME_NEW:
@@ -181,7 +179,7 @@ def compose(branch: str, facts: EntryFacts) -> Composed:
             t["resume_progress"].format(total=len(REQUIRED_SECTIONS), filled=facts.resume_filled)
         )
         second_ids.append("R")
-    if facts.age_at_separation >= ONLINE_PRESUBMIT_MAX_AGE and facts.stage in M1_STAGES:
+    if visit_to_apply(facts.age_at_separation, facts.stage):
         m1 = t["addons"]["M1"]
         second.append(m1["text"].format(**values))
         second_ids.append("M1")
@@ -207,7 +205,7 @@ def compose(branch: str, facts: EntryFacts) -> Composed:
 def next_step_text(facts: EntryFacts) -> str:
     """진행바 위 다음 할 일 문구 (1.8 표)."""
     t = templates()["next_step"]
-    m1 = facts.age_at_separation >= ONLINE_PRESUBMIT_MAX_AGE
+    m1 = not online_presubmit(facts.age_at_separation)
     if facts.stage == "recognition":
         if not (facts.round_no and facts.recognition_date):
             return ""

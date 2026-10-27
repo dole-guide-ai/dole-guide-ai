@@ -8,6 +8,10 @@
   "attendance_required": true,
   "required_activities": 2,
   "required_job_search": 1,
+  "counted_activities": 1,
+  "counted_job_search": 1,
+  "remaining_activities": 1,
+  "remaining_job_search": 0,
   "data": {
     "work": {
       "has_work": {

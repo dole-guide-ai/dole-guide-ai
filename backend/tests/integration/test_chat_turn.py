@@ -177,7 +177,7 @@ def committed_account(migrated_db):
         load_personas(db)
         visitor = create_visitor(db, now)
         ctx = authenticate(db, visitor.visitor_token, now)
-        account_service.enter(db, ctx.visitor_id, "lee", TEST_TODAY)
+        account_service.enter(db, ctx.visitor_id, "lee", now)
         account = account_service.find_account(db, ctx.visitor_id, "lee")
     yield account
     with SessionLocal() as db:
