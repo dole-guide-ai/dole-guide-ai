@@ -86,6 +86,10 @@ class RecordActivityInput(BaseModel):
     hours: float | None = None
 
 
+class AttachEvidenceInput(BaseModel):
+    activity_id: uuid.UUID = Field(description="check_round activities에 있는 기존 활동 ID")
+
+
 class MarkDoneInput(BaseModel):
     activity_id: uuid.UUID
     done_on: date
@@ -151,6 +155,21 @@ def _record_activity(ctx: ToolContext, args: RecordActivityInput) -> dict[str, A
     # 기록이 실패하면 증빙을 남겨 두어 모델이 다시 부를 때 그대로 붙습니다.
     ctx.take_evidence()
     return _dump(recorded)
+
+
+def _attach_evidence(ctx: ToolContext, args: AttachEvidenceInput) -> dict[str, Any]:
+    if not ctx.evidence_file_ids:
+        raise ToolError("이번에 올린 증빙 파일이 없어요.")
+    patch = [
+        JsonPatchOp(op="add", path=f"{activity_service.FILE_IDS_PATH}/-", value=file_id)
+        for file_id in ctx.evidence_file_ids
+    ]
+    updated = activity_service.patch_activity(
+        ctx.db, ctx.account, str(args.activity_id), patch, ctx.today
+    )
+    # 붙이기가 실패하면 증빙을 남겨 두어 record_activity로 새로 기록할 때 붙습니다.
+    ctx.take_evidence()
+    return _dump(updated)
 
 
 def _mark_done(ctx: ToolContext, args: MarkDoneInput) -> dict[str, Any]:
@@ -233,6 +252,12 @@ TOOLS: dict[str, Tool] = {
             _record_activity,
         ),
         Tool(
+            "attach_evidence",
+            "이번 턴에 올린 증빙 사진·문서를 이미 기록된 활동 하나에 붙임",
+            AttachEvidenceInput,
+            _attach_evidence,
+        ),
+        Tool(
             "mark_done",
             "추천받아 예정으로 둔 활동을 사용자가 실제로 했다고 할 때 완료로 바꿈",
             MarkDoneInput,
@@ -270,14 +295,16 @@ TOOLS: dict[str, Tool] = {
 }
 
 # 패널마다 LLM에 넘기는 도구 (AI 설계 6.3: 3~4개였으나 4단계에서 규칙 찾기 lookup_rules를 더하며
-# 최대 5개로 조정. 도구가 많을수록 선택이 흔들려서(1단계 실험) 늘릴 때는 골든셋으로 다시 잽니다)
-MAX_PANEL_TOOLS = 5
+# 최대 5개로 조정. 이미 기록된 활동에 증빙을 붙이는 attach_evidence를 더하며 6개. 도구가 많을수록
+# 선택이 흔들려서(1단계 실험) 늘릴 때는 골든셋으로 다시 잽니다)
+MAX_PANEL_TOOLS = 6
 TOOLS_BY_PANEL: dict[str, tuple[str, ...]] = {
     # 이력서 칸 저장은 도구가 아니라 읽기·말하기 노드가 합니다(nodes/resume)
     "resume": ("import_work24_items",),
     "round": (
         "check_round",
         "record_activity",
+        "attach_evidence",
         "mark_done",
         "recommend_activities",
         "lookup_rules",
