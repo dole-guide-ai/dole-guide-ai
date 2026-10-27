@@ -20,14 +20,18 @@ from pathlib import Path
 from string import Formatter
 from typing import Any
 
-from app.rules.resume.check import education_done, latest_career, old_careers_pending
+from app.rules.resume.check import (
+    education_done,
+    is_college,
+    latest_career,
+    old_careers_pending,
+)
 from app.rules.resume.dates import ym
 from app.rules.resume.fields import (
     CAREERS_STATUS,
     CERTIFICATIONS_STATUS,
     COMPETENCIES_STATUS,
     chosen,
-    education_rank,
     form_fields,
     is_filled,
     needs_check,
@@ -35,6 +39,7 @@ from app.rules.resume.fields import (
     occupation,
     occupation_name,
 )
+from app.rules.resume.items import new_item_id
 from app.schemas.common import FieldStatus
 from app.schemas.forms.resume import (
     ContractType,
@@ -67,6 +72,9 @@ CONFIRM_YES = "네, 맞아요"
 FILL_NOW = "지금 채울게요"
 FILL_LATER = "오른쪽 이력서에서 할게요"
 DEFERRED_REVIEW = "resume.deferred_review"
+MILITARY_PATH = "/job_preferences/military_alternative"
+MILITARY_NO = "아니요, 해당 없어요"
+MILITARY_YES = "네, 해당돼요"
 SAVE_READY = "resume.save_ready"
 # 꼭 채울 칸을 미룬 채 끝까지 왔을 때의 마지막 안내("다 채웠어요" 대신)
 SAVE_AFTER_FILL = "resume.save_after_fill"
@@ -78,6 +86,7 @@ FOLLOW_UPS: dict[tuple[str, str], str] = {
     ("resume.optional_sections", "있어요"): "resume.optional_detail",
     # "대학교"만으로는 고용24 학력(2/3년제·4년제)을 정할 수 없어 종류를 한 번 더 묻습니다.
     ("resume.education_level", "대학교 졸업"): "resume.education_kind",
+    ("resume.wish_military", MILITARY_YES): "resume.wish_military_kind",
 }
 # 이어지는 질문의 칸·파일 여부(저장은 읽기 모델의 facts로)
 _FOLLOW_STEPS: dict[str, dict[str, Any]] = {
@@ -94,6 +103,7 @@ _FOLLOW_STEPS: dict[str, dict[str, Any]] = {
     },
     "resume.optional_detail": {"paths": ("/competencies",)},
     "resume.education_kind": {"paths": ("/education",), "spec": "education_kind"},
+    "resume.wish_military_kind": {"paths": (MILITARY_PATH,), "spec": "wish_military_kind"},
 }
 CAREER_MORE = "resume.career_more"
 CAREER_END_CHECK = "resume.career_end_check"
@@ -249,7 +259,7 @@ def _education_kind(data: ResumeData, item: Any, paths: tuple[str, ...]) -> Spec
     if item is not None:
         base = f"/education/{item.item_id}"
     else:
-        base = f"/education/e{len(data.education) + 1}"
+        base = f"/education/{new_item_id(data, 'education')}"
     extra = (
         ()
         if item is not None and is_filled(item.graduation_status)
@@ -329,11 +339,19 @@ def _wish_employment(data: ResumeData, item: Any, paths: tuple[str, ...]) -> Spe
 
 
 def _wish_military(data: ResumeData, item: Any, paths: tuple[str, ...]) -> Spec:
+    """병역대체 근무 희망. 부정을 다시 묻지 않고("해당이 없으시죠?") 찾는지를 바로 묻습니다.
+
+    "해당돼요"면 종류를 이어서 묻습니다(FOLLOW_UPS → resume.wish_military_kind).
+    """
     none = (chosen(paths[0], MilitaryAlternative.NONE.value),)
+    return Spec(choices=(MILITARY_NO, MILITARY_YES), answers={MILITARY_NO: none, MILITARY_YES: ()})
+
+
+def _wish_military_kind(data: ResumeData, item: Any, paths: tuple[str, ...]) -> Spec:
+    kinds = [k.value for k in MilitaryAlternative if k != MilitaryAlternative.NONE]
     return Spec(
-        choices=("아니요",),
-        proposal=none,
-        reason="산업기능요원 같은 병역대체 근무를 찾는 경우가 아니면 해당 없음이에요",
+        choices=tuple(kinds),
+        answers={k: (chosen(MILITARY_PATH, k),) for k in kinds},
     )
 
 
@@ -496,7 +514,7 @@ def _education_steps(data: ResumeData) -> Iterator[ResumeStep]:
             )
             return
     if not any(is_filled(e.education_level) for e in data.education):
-        base = f"/education/e{len(data.education) + 1}"
+        base = f"/education/{new_item_id(data, 'education')}"
         paths = (f"{base}/education_level", f"{base}/graduation_status")
         spec = _education_level(data, None, paths)
         yield _step(
@@ -507,7 +525,7 @@ def _education_steps(data: ResumeData) -> Iterator[ResumeStep]:
         if education_done(e):
             continue
         # 전공·학점은 대학 이상만 묻습니다(스키마에서는 선택 칸, 대학 여부는 업무 규칙).
-        college = education_rank(e.education_level.value) >= education_rank(EducationLevel.COLLEGE)
+        college = is_college(e)
         for step in _field_steps(data, e, f"/education/{e.item_id}", e):
             if step.id in COLLEGE_ONLY_QUESTIONS and not college:
                 continue
@@ -656,7 +674,10 @@ def _follow_step(data: ResumeData, follow: str) -> ResumeStep:
     return _step(follow, choices=spec.choices, answers=spec.answers, **kw)
 
 
-_FOLLOW_SPEC: dict[str, SpecFn] = {"education_kind": _education_kind}
+_FOLLOW_SPEC: dict[str, SpecFn] = {
+    "education_kind": _education_kind,
+    "wish_military_kind": _wish_military_kind,
+}
 
 
 def next_resume_question(

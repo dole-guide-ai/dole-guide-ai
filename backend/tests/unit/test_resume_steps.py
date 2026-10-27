@@ -100,9 +100,10 @@ def test_button_answers_write_schema_choices() -> None:
     assert values(employment.answer_writes("상관없어요")) == {
         "/job_preferences/employment_contract_type": "관계없음"
     }
+    # 병역은 부정을 다시 묻지 않고 해당 여부를 바로 묻습니다. "해당 없어요"면 바로 저장합니다.
     military = by_id(data, "resume.wish_military")
-    assert military.choices == (ACCEPT, "아니요")  # 제안이 있으니 "네"는 하나만
-    assert values(military.answer_writes(ACCEPT)) == {
+    assert military.choices == ("아니요, 해당 없어요", "네, 해당돼요")
+    assert values(military.answer_writes("아니요, 해당 없어요")) == {
         "/job_preferences/military_alternative": "해당 없음"
     }
     # 버튼에 없는 말은 모델이 처리합니다.
@@ -301,3 +302,14 @@ def test_college_asks_major_then_gpa_but_high_school_does_not() -> None:
     assert gpa.choices == ("기억이 안 나요",) and not gpa.required
     assert gpa.paths == ("/education/e1/gpa", "/education/e1/gpa_scale")
     assert "resume.education_major" not in [s.id for s in steps(edu("고등학교"))]
+
+
+def test_military_yes_asks_which_kind_next() -> None:
+    data = ResumeData.model_validate({"careers": [CAREER]})
+    kind = steps(data, follow="resume.wish_military_kind")[0]
+    assert kind.id == "resume.wish_military_kind"
+    assert "해당 없음" not in kind.choices and "산업기능요원" in kind.choices
+    assert values(kind.answer_writes("산업기능요원")) == {
+        "/job_preferences/military_alternative": "산업기능요원"
+    }
+    assert question_text(kind) == "어떤 병역대체 근무에 해당하세요?"
