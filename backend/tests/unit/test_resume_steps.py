@@ -577,3 +577,19 @@ def test_first_career_offers_resume_file_button_that_opens_the_file_picker() -> 
     # 질문을 기다리는 동안(체크포인트)에도 같은 버튼 정보가 남습니다.
     restored = ResumeStep.from_pending(step.to_pending("가장 최근에 일하신 곳은 어디예요?"))
     assert restored.file_choice == "이력서 또는 경력증명서 파일 올리기"
+
+
+def test_file_choice_is_one_of_the_step_choices() -> None:
+    # 파일 버튼은 글자로 찾으므로 선택지와 글자가 다르면 말로 보내는 버튼이 됩니다.
+    seeds = json.loads(PERSONAS.read_text(encoding="utf-8"))
+    datas = [ResumeData()] + [
+        seed_resume(p["resume"]["data"], p["resume"]["field_status"])
+        for p in (seeds if isinstance(seeds, list) else seeds["personas"])
+        if p.get("resume")
+    ]
+    found = [
+        s for d in datas for s in steps(d, doc_failed=True, skip_confirm=False) if s.file_choice
+    ]
+    assert found
+    for step in found:
+        assert step.file_choice in step.choices, step.id

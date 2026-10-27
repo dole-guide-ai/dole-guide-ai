@@ -133,7 +133,7 @@ CAREER_MORE = "resume.career_more"
 CAREER_END_CHECK = "resume.career_end_check"
 # 누르면 화면이 파일 선택창을 여는 버튼(ResumeStep.file_choice). 말로 보내지 않습니다.
 RESUME_FILE_CHOICE = "이력서 또는 경력증명서 파일 올리기"
-PHOTO_CHOICE = "사진 올릴게요"
+LICENSE_FILE_CHOICE = "자격증 파일 올리기"
 RETAKE_CHOICE = "파일 다시 올리기"
 # 날짜를 몰라 그 칸을 미루는 답(버튼). 대화 노드가 미루기로 처리합니다.
 DONT_KNOW = "기억이 안 나요"
@@ -317,10 +317,10 @@ def _education_period(data: ResumeData, e: Any, paths: tuple[str, ...]) -> Spec:
 
 def _license(data: ResumeData, item: Any, paths: tuple[str, ...]) -> Spec:
     return Spec(
-        choices=("있어요", "없어요", PHOTO_CHOICE),
+        choices=("있어요", "없어요", LICENSE_FILE_CHOICE),
         answers={"있어요": (), "없어요": (not_applicable(CERTIFICATIONS_STATUS),)},
         accepts_file=True,
-        file_choice=PHOTO_CHOICE,
+        file_choice=LICENSE_FILE_CHOICE,
     )
 
 

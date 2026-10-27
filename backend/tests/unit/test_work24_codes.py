@@ -117,6 +117,9 @@ def test_region_can_stop_at_province_and_ignores_dong() -> None:
     # 구를 줄여 말한 "서울 강동"은 시·도로 확정하지 않고 고르게 합니다.
     assert match_code("region", "서울 강동")["status"] == "needs_confirmation"
     assert [c.name for c in lookup_code("region", "서울 강동")] == ["서울 강동구"]
+    # 시·도 이름이 "구"로 끝나도(대구) 시·군·구로 보지 않아 동을 떼지 않습니다.
+    assert match_code("region", "대구 남산동")["status"] == "needs_confirmation"
+    assert match_code("region", "대구 중구 남산동")["name"] == "대구 중구"
     # 시·도 이름처럼 보여도 같은 이름의 시가 있으면 그 시입니다.
     assert match_code("region", "제주시")["name"] == "제주 제주시"
 

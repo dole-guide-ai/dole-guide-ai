@@ -33,9 +33,9 @@ MIN_WORD = 2
 # 예: "건물 보수원 및 영선원(아파트 기계·전기 시설관리 제외)"는 "시설관리"로 찾지 않음
 _EXCLUDED = re.compile(r"\([^)]*제외\)")
 _WORD_SPLIT = re.compile(r"[\s·,/]+")
-# 지역 코드는 시·군·구까지라 "노원구 상계동"의 동·읍·면·리는 떼고 찾습니다. 앞이 시·군·구일 때만
-# 뗍니다("서울 강동"처럼 구를 줄여 말한 경우는 그대로 둠).
-_SUB_DISTRICT = re.compile(r"^(.*[시군구])\s+\S+[동읍면리]$")
+# 지역 코드는 시·군·구까지라 "노원구 상계동"의 동·읍·면·리는 떼고 찾습니다. 앞 낱말이 시·군·구일
+# 때만 뗍니다("서울 강동"처럼 구를 줄여 말했거나 "대구 남산동"처럼 시·도 바로 뒤면 그대로 둠).
+_SUB_DISTRICT = re.compile(r"^(.*?(\S+[시군구]))\s+\S+[동읍면리]$")
 
 CodeKind = Literal["occupation", "region", "license", "major"]
 # 코드 종류 → work24_codes.json의 키 (고용24 공통코드 dtlGb 2·1·3·6)
@@ -232,7 +232,8 @@ def _unique(codes: Any) -> list[CodeRead]:
 def _region_text(text: str) -> str:
     """지역 말에서 시·군·구 아래(동·읍·면·리)를 뗍니다. "서울 노원구 상계동" → "서울 노원구"."""
     m = _SUB_DISTRICT.match(text.strip())
-    return m[1] if m else text.strip()
+    provinces = {c.name for c in load_codes()["region"] if c.depth == 1}
+    return m[1] if m and m[2] not in provinces else text.strip()
 
 
 def _compact(text: str) -> str:
