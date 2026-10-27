@@ -428,7 +428,14 @@
   },
   "completeness": {
     "filled": 3,
-    "total": 5
+    "total": 5,
+    "sections": {
+      "resume_title": true,
+      "education": true,
+      "job_preferences": false,
+      "careers": true,
+      "certifications": false
+    }
   },
   "next_question": "resume.career_since_old",
   "can_save": false,

@@ -199,7 +199,14 @@
   },
   "completeness": {
     "filled": 0,
-    "total": 5
+    "total": 5,
+    "sections": {
+      "resume_title": false,
+      "education": false,
+      "job_preferences": false,
+      "careers": false,
+      "certifications": false
+    }
   },
   "next_question": "resume.career_new",
   "can_save": false,

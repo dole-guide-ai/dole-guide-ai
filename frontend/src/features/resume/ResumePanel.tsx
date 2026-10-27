@@ -26,9 +26,8 @@ import { useResumeDraft } from '@/features/resume/useResumeDraft';
 import { useResumeForm } from '@/features/resume/useResumeForm';
 
 import { ApiError } from '@/lib/api';
-import { needsCheck } from '@/lib/fieldChip';
-import type { FieldMeta } from '@/lib/formStore';
 import { PERCENT_SCALE, STICKY_FOOTER, STICKY_HEADER } from '@/lib/panelLayout';
+import { REQUIRED_SECTION, type RequiredSection } from '@/lib/resumeSections';
 import type { SessionRead } from '@/types/demo.types';
 import type { ResumeCompetencies, ResumeEducation } from '@/types/resume.types';
 
@@ -53,9 +52,6 @@ const WORK24_CHIP = { label: '고용24에서', tone: 'neutral' } as const;
 const NO_CHIP = null;
 // 고르지 않아도 되는 칸 (시연 개선 9번: '있으면' → '선택')
 const OPTIONAL_CHIP = { label: '선택', tone: 'neutral' } as const;
-
-const hasCheck = (fields: Record<string, FieldMeta>, prefix: string) =>
-  Object.entries(fields).some(([path, meta]) => path.startsWith(prefix) && needsCheck(meta));
 
 const listText = (items: string[] | undefined) => (items?.length ? items.join(', ') : null);
 
@@ -176,7 +172,6 @@ export const ResumePanel = ({
   // 고용24에서 조회되지 않는 민간등록자격 등은 기타자격으로 따로 둡니다 (데이터 설계 3.9).
   const otherCertifications = values.competencies?.other_certifications ?? [];
   const certMeta = fields['competencies.certifications'];
-  const isCertNone = certMeta?.status === 'not_applicable';
   const salary = prefs?.desired_salary;
   const salaryText = salary?.negotiable
     ? '면접 후 결정'
@@ -184,30 +179,17 @@ export const ResumePanel = ({
       ? `월 ${toManwon(salary.amount).toLocaleString('ko-KR')}만원`
       : null;
 
-  const done = {
-    title: !!values.resume_title && !needsCheck(fields.resume_title),
-    education: education.some((e) => e.level && e.school_name) && !hasCheck(fields, 'education'),
-    prefs:
-      !!prefs?.desired_occupations?.length &&
-      !!prefs.desired_regions?.length &&
-      !!salaryText &&
-      !!prefs.employment_contract_type &&
-      !hasCheck(fields, 'job_preferences'),
-    careers:
-      careers.some((c) => c.company_name && c.start_date && c.end_date && c.position) &&
-      !hasCheck(fields, 'competencies.careers'),
-    certifications:
-      (isCertNone || certifications.some((c) => c.certificate_name)) &&
-      !hasCheck(fields, 'competencies.certifications'),
-  };
+  // 항목 완료는 서버가 판정합니다(확인 필요·필수 칸 기준이 한 곳에만 있게).
+  const sections = completeness?.sections ?? {};
+  const isDone = (key: RequiredSection) => sections[key] === true;
 
   const isUpdate = session.entry.branch_id === 'E7b';
   const saveLabel =
     saveLabelOverride ?? (isUpdate ? '확인하고 이력서 최신화' : '확인하고 이력서 저장');
   const canSave = values.can_save === true && !confirm.isPending;
   const doneCount = completeness?.done ?? 0;
-  // 서버 완성도가 오기 전에는 꼭 채울 섹션 수(done의 항목 수)를 분모로 씁니다.
-  const totalCount = completeness?.total || Object.keys(done).length;
+  // 서버 완성도가 오기 전에는 꼭 채울 항목 수를 분모로 씁니다.
+  const totalCount = completeness?.total || Object.keys(REQUIRED_SECTION).length;
   const queue = questionQueue(values.next_question, values.question_queue);
   const careerYears = prefs?.experience_summary;
 
@@ -235,7 +217,7 @@ export const ResumePanel = ({
           />
         </div>
       </div>
-      <ResumeSection title="이력서 제목" isRequired isDone={done.title}>
+      <ResumeSection title="이력서 제목" isRequired isDone={isDone(REQUIRED_SECTION.TITLE)}>
         <FieldRow
           label="제목"
           value={values.resume_title}
@@ -271,7 +253,7 @@ export const ResumePanel = ({
         )}
       </ResumeSection>
 
-      <ResumeSection title="학력사항" isRequired isDone={done.education}>
+      <ResumeSection title="학력사항" isRequired isDone={isDone(REQUIRED_SECTION.EDUCATION)}>
         {education.length === 0 && (
           // 학력이 비어 있어도 학력부터 고를 수 있게 첫 학력 줄을 만듭니다 (시연 검증 5번). 나머지 칸은 고른 뒤 보입니다.
           <FieldRow
@@ -350,7 +332,7 @@ export const ResumePanel = ({
         })}
       </ResumeSection>
 
-      <ResumeSection title="희망조건" isRequired isDone={done.prefs}>
+      <ResumeSection title="희망조건" isRequired isDone={isDone(REQUIRED_SECTION.PREFERENCES)}>
         {/* 희망직종·희망지역은 공통코드에서 골라야 해서 대화로만 고칩니다 (백엔드 lookup_code). */}
         <FieldRow
           label="희망직종"
@@ -454,7 +436,11 @@ export const ResumePanel = ({
         />
       </ResumeSection>
 
-      <ResumeSection title="보유역량 · 경력사항" isRequired isDone={done.careers}>
+      <ResumeSection
+        title="보유역량 · 경력사항"
+        isRequired
+        isDone={isDone(REQUIRED_SECTION.CAREERS)}
+      >
         {careers.length === 0 && <FieldRow label="회사명" isRequired onEdit={edit('경력')} />}
         {careers.map((career) => {
           const base = `competencies.careers.${career.item_id}`;
@@ -535,7 +521,11 @@ export const ResumePanel = ({
         })}
       </ResumeSection>
 
-      <ResumeSection title="보유역량 · 보유 자격면허" isRequired isDone={done.certifications}>
+      <ResumeSection
+        title="보유역량 · 보유 자격면허"
+        isRequired
+        isDone={isDone(REQUIRED_SECTION.CERTIFICATIONS)}
+      >
         {certifications.length === 0 && (
           <FieldRow label="자격면허" meta={certMeta} isRequired onEdit={edit('자격증')} />
         )}

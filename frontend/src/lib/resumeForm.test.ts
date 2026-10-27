@@ -17,7 +17,7 @@ const empty = { value: null, status: 'missing', transformed: false };
 const read = {
   status: 'draft',
   lock_version: 3,
-  completeness: { filled: 2, total: 5 },
+  completeness: { filled: 2, total: 5, sections: { resume_title: true, education: true } },
   next_question: 'resume.wish_region',
   can_save: false,
   data: {
@@ -59,7 +59,11 @@ describe('resumeFromServer', () => {
     expect(draft.field_states.resume_title.source).toBe('direct');
     expect(draft.field_states['competencies.careers.c1.company_name'].source).toBe('doc');
     expect(draft.field_states['competencies.certifications'].status).toBe('not_applicable');
-    expect(draft.completeness).toEqual({ done: 2, total: 5 });
+    expect(draft.completeness).toEqual({
+      done: 2,
+      total: 5,
+      sections: { resume_title: true, education: true },
+    });
     expect(draft.lock_version).toBe(3);
   });
 });

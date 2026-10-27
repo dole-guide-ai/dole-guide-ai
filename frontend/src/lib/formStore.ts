@@ -120,9 +120,9 @@ export const applyFormUpdateToDraft = (draft: FormDraft, event: FormUpdateEvent)
  * 그대로 두면 `done`이 비어 진행 막대가 0으로 떨어졌다가 다시 받아올 때 채워지던 문제가 있었습니다.
  */
 const completenessOf = (event: FormUpdateEvent): Completeness | undefined => {
-  const raw = event.completeness as (Completeness & { filled?: number }) | undefined;
+  const raw = event.completeness;
   if (!raw) return undefined;
-  return { done: raw.done ?? raw.filled ?? 0, total: raw.total };
+  return { done: raw.filled, total: raw.total ?? 0, sections: raw.sections ?? {} };
 };
 
 /** 쓰기 응답 `{updates}`의 바뀐 칸을 모두 적용합니다. */

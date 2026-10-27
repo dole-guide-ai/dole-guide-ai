@@ -4,6 +4,7 @@
  */
 
 import type { ERROR_CODES } from '@/lib/errorCodes';
+import type { RequiredSection } from '@/lib/resumeSections';
 import type { SSE_EVENTS } from '@/lib/sseEvents';
 import type { components } from '@/types/api.gen';
 import type { ImportKind } from '@/types/imports.types';
@@ -59,6 +60,8 @@ export interface FieldEvidence {
 export interface Completeness {
   done: number;
   total: number;
+  /** 꼭 채울 항목별 완료 여부. 판정은 서버가 하고 화면은 그대로 씁니다(`REQUIRED_SECTION`). */
+  sections: Partial<Record<RequiredSection, boolean>>;
 }
 
 /** 백엔드(JSON Patch: add·replace·remove)와 예전 화면 연산(set·append)을 함께 받습니다. */
@@ -73,7 +76,8 @@ export interface FormUpdateEvent {
   transformed?: boolean;
   source?: FieldSource;
   evidence?: FieldEvidence;
-  completeness?: Completeness;
+  /** 서버 완성도 그대로(`{filled, total, sections}`). 패널 모양으로는 formStore가 바꿉니다. */
+  completeness?: components['schemas']['Completeness'] | null;
 }
 
 /** 말풍선이 끝날 때. 근거 줄(2-0.8)은 여기에 실어 보냅니다. */

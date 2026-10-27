@@ -1,7 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { applyFormUpdate, getFormDrafts, resetForms, toStoreUpdate } from '@/lib/formStore';
-import type { Completeness } from '@/types/chat.types';
 
 describe('formStore', () => {
   beforeEach(() => resetForms());
@@ -22,7 +21,7 @@ describe('formStore', () => {
       transformed: true,
       source: 'user_answer',
       evidence: { kind: 'utterance', date: '2026-10-12', quote: '작년 3월부터는' },
-      completeness: { done: 1, total: 5 },
+      completeness: { filled: 1, total: 5 },
     });
 
     const { values, fields, completeness } = getFormDrafts().resume;
@@ -34,7 +33,7 @@ describe('formStore', () => {
       transformed: true,
       source: 'user_answer',
     });
-    expect(completeness).toEqual({ done: 1, total: 5 });
+    expect(completeness).toEqual({ done: 1, total: 5, sections: {} });
   });
 
   it('값 없는 set은 값을 두고 칸 상태만 바꾼다 (확인 질문에 "네")', () => {
@@ -85,7 +84,7 @@ describe('toStoreUpdate', () => {
   });
 });
 
-it('이벤트의 완성도 {filled, total}을 패널 모양 {done, total}로 바꿔 둔다', () => {
+it('이벤트의 완성도 {filled, total, sections}를 패널 모양 {done, total, sections}로 바꿔 둔다', () => {
   resetForms();
   applyFormUpdate({
     form: 'resume',
@@ -93,7 +92,11 @@ it('이벤트의 완성도 {filled, total}을 패널 모양 {done, total}로 바
     op: 'replace',
     value: '물류 경력 이력서',
     status: 'confirmed',
-    completeness: { filled: 2, total: 5 } as unknown as Completeness,
+    completeness: { filled: 2, total: 5, sections: { resume_title: true } },
   });
-  expect(getFormDrafts().resume.completeness).toEqual({ done: 2, total: 5 });
+  expect(getFormDrafts().resume.completeness).toEqual({
+    done: 2,
+    total: 5,
+    sections: { resume_title: true },
+  });
 });
