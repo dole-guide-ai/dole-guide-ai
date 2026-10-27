@@ -34,7 +34,7 @@ from app.services import rounds as round_service
 from app.services.accounts import AccountContext
 from app.services.entry import ResumeState
 from app.services.visitors import authenticate, create_visitor
-from evals.golden.adapter import AgentResult
+from evals.golden.adapter import AgentResult, CaseSetupError
 from evals.golden.schema import FILES_DIR
 
 # 문항 상태값에 없는 값. 결과에 영향이 없도록 시연 계정과 비슷한 값으로 둡니다.
@@ -48,15 +48,61 @@ DEFAULT_NAME = "평가계정"
 NO_RESUME = "none"
 
 
-def run_case(db: Session, case: dict[str, Any]) -> AgentResult:
+def prepare_case(
+    db: Session, case: dict[str, Any]
+) -> tuple[AccountContext, date, datetime, dict[str, Any]]:
+    """문항 계정을 만들고 대화 전 데이터를 돌려줍니다. 시작 상태가 어긋나면 CaseSetupError."""
     case_input = case["input"]
     state = case_input["state"]
     today = date.fromisoformat(state["demo_today"])
     now = datetime.combine(today, time.fromisoformat(state["demo_time"]), KST)
     account = _enter(db, case["id"], case_input, today, now)
-
     # '변경금지' 칸은 대화 전 DB 값과 비교합니다(문항 입력과 서버 모양이 달라서).
     initial = _snapshot(db, account, today, now)
+    if problems := setup_problems(case_input, initial):
+        raise CaseSetupError("; ".join(problems))
+    return account, today, now, initial
+
+
+def setup_problems(case_input: dict[str, Any], initial: dict[str, Any]) -> list[str]:
+    """문항이 의도한 시작 상태와 실제 계정의 다른 점.
+
+    값 모양은 서버가 바꾸므로 개수와 단계만 견줍니다.
+    """
+    want_resume = case_input["data"]["resume"]
+    got_resume = initial["resume"]
+    counts = {
+        "경력": ("competencies", "careers"),
+        "자격증": ("competencies", "certifications"),
+        "학력": ("education",),
+        "희망 직종": ("job_preferences", "desired_occupations"),
+    }
+    problems = []
+    for label, path in counts.items():
+        want, got = len(_dig(want_resume, path)), len(_dig(got_resume, path))
+        if want != got:
+            problems.append(f"시작 {label} {want}개를 넣었는데 계정에는 {got}개")
+    want_activities = len(case_input["data"]["activities"])
+    if want_activities != len(initial["activities"]):
+        problems.append(
+            f"시작 활동 {want_activities}개를 넣었는데 계정에는 {len(initial['activities'])}개"
+        )
+    want_stage = case_input["state"]["stage"]
+    if initial["procedure"]["stage"] != want_stage:
+        problems.append(f"단계가 {want_stage}이어야 하는데 {initial['procedure']['stage']}")
+    return problems
+
+
+def _dig(data: dict[str, Any], path: tuple[str, ...]) -> list[Any]:
+    for key in path:
+        data = (data or {}).get(key) or {}
+    return data or []
+
+
+def run_case(db: Session, case: dict[str, Any]) -> AgentResult:
+    case_input = case["input"]
+    state = case_input["state"]
+    account, today, now, initial = prepare_case(db, case)
     replies: list[str] = []
     next_action: str | None = None
     cites: list[str] = []

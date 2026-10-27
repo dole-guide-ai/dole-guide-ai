@@ -83,6 +83,7 @@ def summary(cases: list[dict[str, Any]]) -> str:
             line("영역", Counter(case["area"] for case in cases)),
             line("방법", Counter(case["method"] for case in cases)),
             line("검수", Counter(case["review"] for case in cases)),
+            line("세트", Counter(case["set"] for case in cases)),
         ]
     )
 

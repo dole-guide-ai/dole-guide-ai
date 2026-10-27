@@ -15,7 +15,12 @@ from evals.golden.report import Record, Report
 def merge(paths: list[Path]) -> Path:
     parts = [json.loads(p.read_text(encoding="utf-8")) for p in paths]
     first = parts[0]
-    report = Report(mode=first["mode"], judge=first["judge"], shard=f"{len(parts)}조각 합침")
+    report = Report(
+        mode=first["mode"],
+        judge=first["judge"],
+        shard=f"{len(parts)}조각 합침",
+        case_set=first.get("case_set", "all"),
+    )
     for part in parts:
         report.records += [Record(r["case"], r["status"], r["reasons"]) for r in part["records"]]
     report.records.sort(key=lambda r: r.case["id"])

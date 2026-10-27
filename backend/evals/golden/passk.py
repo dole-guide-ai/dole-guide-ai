@@ -17,12 +17,12 @@ _ROW = re.compile(r"^\| ([A-Z]-\d{3}) \|")
 
 
 def failed_ids(report: Path) -> set[str]:
-    """보고서의 실패·참고 실패 표에 있는 문항(건너뛴 이유 표는 제외)."""
+    """보고서의 실패·참고 실패·문항 오류 표에 있는 문항(건너뛴 이유 표는 제외)."""
     ids: set[str] = set()
     in_failures = False
     for line in report.read_text(encoding="utf-8").splitlines():
         if line.startswith("## "):
-            in_failures = "실패" in line
+            in_failures = "실패" in line or "문항 오류" in line
         elif in_failures and (m := _ROW.match(line)):
             ids.add(m[1])
     return ids
@@ -46,6 +46,8 @@ def summarize(area: str, reports: list[Path]) -> dict[str, object]:
         "pass@k": sum(n > 0 for n in passes.values()) / len(ids),
         "mean": sum(passes.values()) / (len(ids) * k),
         "flaky": sorted(i for i, n in passes.items() if 0 < n < k),
+        # k번 모두 실패: AI 실력보다 문항·채점이 고장 났을 때가 많아 먼저 문항을 확인합니다.
+        "always_failed": sorted(i for i, n in passes.items() if n == 0),
         "per_case": passes,
     }
 

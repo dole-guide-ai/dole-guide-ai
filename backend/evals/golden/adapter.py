@@ -17,6 +17,13 @@ class AgentNotReadyError(RuntimeError):
     """AI 본체가 아직 연결되지 않았을 때. 해당 문항은 '건너뜀'으로 기록됩니다."""
 
 
+class CaseSetupError(RuntimeError):
+    """문항의 시작 상태(seed 이력서·활동·단계)가 계정에 의도대로 들어가지 않았을 때.
+
+    AI 실력이 아니라 문항·러너가 고장 난 것이라 '문항 오류'로 따로 기록합니다.
+    """
+
+
 @dataclass
 class AgentResult:
     replies: list[str]  # 사용자 말 한 번마다 AI가 보인 답 문장
@@ -43,6 +50,13 @@ def run_agent(case: dict[str, Any], db: Session) -> AgentResult:
     from evals.golden.runner import run_case  # noqa: PLC0415 - runner가 AgentResult를 import
 
     return run_case(db, case)
+
+
+def run_setup(case: dict[str, Any], db: Session) -> None:
+    """모델을 부르지 않고 문항의 시작 상태만 만들어 확인합니다. 어긋나면 CaseSetupError."""
+    from evals.golden.runner import prepare_case  # noqa: PLC0415 - runner가 AgentResult를 import
+
+    prepare_case(db, case)
 
 
 def run_selftest(case: dict[str, Any], broken: bool = False) -> AgentResult:
