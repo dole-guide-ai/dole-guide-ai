@@ -13,6 +13,7 @@ from datetime import date, timedelta
 
 _WEEKDAYS = {"월": 0, "화": 1, "수": 2, "목": 3, "금": 4, "토": 5, "일": 6}
 _WEEK_OFFSETS = {"지난주": -1, "저번주": -1, "이번주": 0, "다음주": 1}
+_MONTH_OFFSETS = {"지난달": -1, "저번달": -1, "이번달": 0, "다음달": 1}
 # 하루 단위 낱말. 긴 낱말부터 찾습니다("그끄저께"가 "그저께"보다, "엊그제"가 "그제"보다 먼저).
 _DAY_OFFSETS = {
     "그끄저께": -3, "그그저께": -3, "그저께": -2, "그지께": -2, "엊그제": -2, "그제": -2,
@@ -29,9 +30,9 @@ MAX_GUESS_DAYS = 183
 
 _FULL_DATE = re.compile(r"(\d{4})[-./년](\d{1,2})[-./월](\d{1,2})")
 _MONTH_DAY = re.compile(r"(\d{1,2})월(\d{1,2})일")
-_AGO = re.compile(r"(\d{1,3})(일|주)(?:일)?전")
+_AGO = re.compile(r"(\d{1,3})(일|주)(?:일)?(전|후|뒤)")
 _WEEK_DAY = re.compile(r"([월화수목금토일])요일")
-_DAY_ONLY = re.compile(r"(?<![\d월])(\d{1,2})일(?!전)")
+_DAY_ONLY = re.compile(r"(?<![\d월])(\d{1,2})일(?![전후뒤])")
 
 
 def normalize_day(expr: str, today: date, *, done: bool = True) -> date | None:
@@ -45,10 +46,13 @@ def normalize_day(expr: str, today: date, *, done: bool = True) -> date | None:
         return _nearest([_safe(y, month, day) for y in years], today, done)
     if m := _AGO.search(text):
         unit = DAYS_PER_WEEK if m[2] == "주" else 1
-        return today - timedelta(days=int(m[1]) * unit)
+        sign = -1 if m[3] == "전" else 1
+        return today + timedelta(days=sign * int(m[1]) * unit)
     for word, days in _SPOKEN_DAYS.items():
         if f"{word}전" in text:
             return today - timedelta(days=days)
+        if f"{word}후" in text or f"{word}뒤" in text:
+            return today + timedelta(days=days)
     if m := _WEEK_DAY.search(text):
         weekday = _WEEKDAYS[m[1]]
         for word, offset in _WEEK_OFFSETS.items():
@@ -63,6 +67,9 @@ def normalize_day(expr: str, today: date, *, done: bool = True) -> date | None:
             return today + timedelta(days=offset)
     if m := _DAY_ONLY.search(text):
         day = int(m[1])
+        for word, offset in _MONTH_OFFSETS.items():
+            if word in text:
+                return _shift_month(today, offset, day)
         this_month = _safe(today.year, today.month, day)
         other = _shift_month(today, -1 if done else 1, day)
         return _nearest([this_month, other], today, done)

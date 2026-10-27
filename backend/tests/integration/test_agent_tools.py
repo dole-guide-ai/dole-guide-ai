@@ -57,6 +57,20 @@ def test_check_round_and_record_activity(ctx) -> None:
     assert (before["check_status"], after["check_status"]) == ("short", "satisfied")
 
 
+def test_activity_not_done_yet_is_planned_even_today(ctx) -> None:
+    # "오늘 면접 볼 거예요"는 오늘 날짜여도 예정이라 인정 건수에 들지 않습니다(CodeRabbit #280).
+    added = run_tool(
+        ctx(),
+        "record_activity",
+        {"when": "오늘", "done": False, "kind": "job_application", "org_name": "OO물산"},
+    )
+
+    values = {u["path"]: u["value"] for u in added["updates"]}
+    activity = next(v for p, v in values.items() if p != "/round_check")
+    assert activity["planned"] is True
+    assert values["/round_check"]["check_status"] == "short"
+
+
 def test_uploaded_evidence_is_attached_to_first_recorded_activity(
     ctx, db_session: Session, tmp_path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
