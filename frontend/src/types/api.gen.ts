@@ -1126,6 +1126,10 @@ export interface components {
              * @default 5
              */
             total: number;
+            /** Sections */
+            sections?: {
+                [key: string]: boolean;
+            };
         };
         /** CreditAnswers */
         CreditAnswers: {
@@ -1542,10 +1546,7 @@ export interface components {
              */
             transformed: boolean;
             evidence?: components["schemas"]["FieldEvidence"] | null;
-            /** Completeness */
-            completeness?: {
-                [key: string]: number;
-            } | null;
+            completeness?: components["schemas"]["Completeness"] | null;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -2208,6 +2209,8 @@ export interface components {
             lock_version: number;
             data: components["schemas"]["ResumeData"];
             completeness: components["schemas"]["Completeness"];
+            /** Required Paths */
+            required_paths?: string[];
             /** Next Question */
             next_question?: string | null;
             /** Can Save */
@@ -2832,6 +2835,15 @@ export interface operations {
             };
             /** @description Not Found */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

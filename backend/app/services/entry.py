@@ -107,6 +107,8 @@ def _entry_facts(
     name: str = "",
     old_resume_year: int | None = None,
     round_facts: entry_text.RoundFacts | None = None,
+    welcome: str | None = None,
+    resume_filled: int | None = None,
 ) -> entry_text.EntryFacts:
     return entry_text.EntryFacts(
         name=name,
@@ -119,6 +121,8 @@ def _entry_facts(
         attendance=bool(round_ and round_.attendance_required),
         old_resume_year=old_resume_year,
         round_facts=round_facts,
+        welcome=welcome,
+        resume_filled=resume_filled,
     )
 
 
@@ -146,12 +150,17 @@ def build_entry(
     name: str = "",
     old_resume_year: int | None = None,
     round_facts: entry_text.RoundFacts | None = None,
+    welcome: str | None = None,
+    resume_filled: int | None = None,
 ) -> Entry:
+    """`welcome`: "new"면 도우미 소개를 앞에, "returning"이면 "다시 오셨네요"로 시작합니다."""
     branch = branch_id(procedure, resume_status, round_, d_day)
     step = _STAGE_STEP[procedure.stage]
     if branch == "E6":
         step = 2
-    facts = _entry_facts(procedure, round_, d_day, name, old_resume_year, round_facts)
+    facts = _entry_facts(
+        procedure, round_, d_day, name, old_resume_year, round_facts, welcome, resume_filled
+    )
     composed = entry_text.compose(branch, facts)
     next_text = entry_text.next_step_text(facts)
     title = entry_text.stage_title(procedure.stage) or _TITLE[step]

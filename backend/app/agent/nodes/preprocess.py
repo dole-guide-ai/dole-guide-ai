@@ -167,4 +167,4 @@ def preprocess(state: AgentState, config: RunnableConfig) -> dict[str, Any]:
 
 
 def after_preprocess(state: AgentState) -> str:
-    return "finish" if state.get("blocked") else "load_context"
+    return "finish" if state.get("blocked") else "apply_choice"

@@ -100,6 +100,8 @@ export interface ResumeFieldState {
 export interface ResumeDraftRead extends ResumeValues {
   field_states: Record<string, ResumeFieldState>;
   completeness: Completeness;
+  /** 고용24에 꼭 넣을 칸의 서버 경로(`/education/e1/major`). 판정은 서버가 합니다. */
+  required_paths: string[];
   next_question: string | null;
   /** 남은 질문 순서 (2-1.3). 패널의 "AI가 물어볼 순서" 미리 보기에 씁니다. */
   question_queue?: string[];

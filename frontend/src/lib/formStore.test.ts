@@ -21,7 +21,7 @@ describe('formStore', () => {
       transformed: true,
       source: 'user_answer',
       evidence: { kind: 'utterance', date: '2026-10-12', quote: '작년 3월부터는' },
-      completeness: { done: 1, total: 5 },
+      completeness: { filled: 1, total: 5 },
     });
 
     const { values, fields, completeness } = getFormDrafts().resume;
@@ -33,7 +33,7 @@ describe('formStore', () => {
       transformed: true,
       source: 'user_answer',
     });
-    expect(completeness).toEqual({ done: 1, total: 5 });
+    expect(completeness).toEqual({ done: 1, total: 5, sections: {} });
   });
 
   it('값 없는 set은 값을 두고 칸 상태만 바꾼다 (확인 질문에 "네")', () => {
@@ -48,7 +48,7 @@ describe('formStore', () => {
     applyFormUpdate({ form: 'resume', path: 'resume_title', op: 'set', status: 'confirmed' });
 
     expect(getFormDrafts().resume.values).toEqual({ resume_title: '제목' });
-    expect(getFormDrafts().resume.fields.resume_title).toEqual({ status: 'confirmed' });
+    expect(getFormDrafts().resume.fields.resume_title).toMatchObject({ status: 'confirmed' });
   });
 
   it('remove는 값과 칸 상태를 같이 지우고 다른 양식은 건드리지 않는다', () => {
@@ -81,5 +81,22 @@ describe('toStoreUpdate', () => {
   it('점 경로와 예전 연산은 그대로 둔다', () => {
     expect(toStoreUpdate('careers', 'append')).toEqual({ path: 'careers', op: 'append' });
     expect(toStoreUpdate('hope_wage', 'set')).toEqual({ path: 'hope_wage', op: 'set' });
+  });
+});
+
+it('이벤트의 완성도 {filled, total, sections}를 패널 모양 {done, total, sections}로 바꿔 둔다', () => {
+  resetForms();
+  applyFormUpdate({
+    form: 'resume',
+    path: '/resume_title',
+    op: 'replace',
+    value: '물류 경력 이력서',
+    status: 'confirmed',
+    completeness: { filled: 2, total: 5, sections: { resume_title: true } },
+  });
+  expect(getFormDrafts().resume.completeness).toEqual({
+    done: 2,
+    total: 5,
+    sections: { resume_title: true },
   });
 });

@@ -13,7 +13,9 @@ import { useChatHistory } from '@/features/chat/useChatHistory';
 import { ApiError } from '@/lib/api';
 import { streamChat } from '@/lib/chatStream';
 import { ERROR_CODES } from '@/lib/errorCodes';
+import { resetForms } from '@/lib/formStore';
 import { queryKeys } from '@/lib/queryKeys';
+import { setSession } from '@/lib/sessionStore';
 import { SSE_EVENTS } from '@/lib/sseEvents';
 import { type ChatInputKind, INPUT_KIND } from '@/types/chat.types';
 import type { SessionRead } from '@/types/demo.types';
@@ -132,6 +134,15 @@ export const useChatStream = (session: SessionRead) => {
         // 턴 시작 전 실패(409 턴 진행 중 등)는 보낸 말풍선을 지우고 글을 입력창에 되돌립니다.
         // 그 밖(연결 끊김 등)은 답을 못 만든 것으로 봅니다.
         if (!controller.signal.aborted) {
+          if (error instanceof ApiError && error.code === ERROR_CODES.ACCOUNT_NOT_FOUND) {
+            // 계정이 지워진 뒤(초기화 도중 끊김 등) 남은 화면: 세션을 비우고 첫 화면에서 다시 들어옵니다.
+            resetForms();
+            setSession(null);
+            // 계정이 사라진 뒤라 화면 상태를 모두 버리고 새로 시작해야 하므로 일부러 전체 이동합니다.
+            // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+            window.location.assign('/');
+            return;
+          }
           if (error instanceof ApiError) {
             dispatch({ type: CHAT_ACTIONS.SEND_REJECTED });
             showError(error.code, true);

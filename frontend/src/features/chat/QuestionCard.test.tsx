@@ -28,6 +28,18 @@ describe('QuestionCard', () => {
     expect(onChoice).toHaveBeenCalledWith('사진부터 올릴게요');
   });
 
+  it('같은 선택지를 한 번 더 누르면 선택이 풀려 보낼 수 없다', async () => {
+    const { onChoice } = renderCard();
+    const send = screen.getByRole('button', { name: '고른 답 보내기' });
+
+    await userEvent.click(screen.getByRole('radio', { name: '사진부터 올릴게요' }));
+    expect(send).toBeEnabled();
+
+    await userEvent.click(screen.getByRole('radio', { name: '사진부터 올릴게요' }));
+    expect(send).toBeDisabled();
+    expect(onChoice).not.toHaveBeenCalled();
+  });
+
   it('카드 안에서 숫자키로 고를 수 있다', async () => {
     renderCard();
 

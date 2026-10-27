@@ -13,7 +13,7 @@ from langchain_core.messages import AIMessage, HumanMessage
 from app.agent.events import emit
 from app.agent.graph import AgentState
 from app.agent.grounding import claims, used_in_answer
-from app.agent.nodes.route import Panel
+from app.agent.nodes.route import FORM_PANELS
 from app.agent.tools.guide import OVERVIEW_TERMS
 from app.rules.next_action import NextAction, next_action
 from app.rules.rule_cards import RuleCard, cards_by_id, cite_line
@@ -21,8 +21,6 @@ from app.schemas.messages import DoneEvent, TokenEvent
 
 # 회차 값 중 답에 "N건"으로 나오는 칸
 COUNT_KEYS = ("required", "counted", "remaining", "remaining_job_search")
-# 서류를 채우는 패널(근거 줄은 규칙명·증빙을 직접 말할 때만)
-FORM_PANELS = {Panel.RESUME, Panel.APPLICATION}
 # 상한에 걸려 모델이 마지막 답을 못 했을 때
 LIMIT_REPLY = "여기까지 정리했어요. 이어서 말씀해 주시면 계속 도와드릴게요."
 

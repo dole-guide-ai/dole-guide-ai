@@ -24,6 +24,7 @@ describe('fieldChip', () => {
 
   it('서류·불러오기 값은 파랑, 확정 값은 출처별 초록·회색', () => {
     expect(fieldChip({ status: 'extracted', source: 'doc' }).label).toBe('문서에서 확인');
+    expect(fieldChip({ status: 'extracted', source: 'user_answer' }).label).toBe('대화로 추가');
     expect(fieldChip({ status: 'extracted', source: 'seed' }).label).toBe('예전 이력서');
     expect(fieldChip({ status: 'extracted', source: 'work24_import' }).label).toBe(
       '고용24 불러오기',

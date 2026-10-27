@@ -139,7 +139,12 @@ export const resumeFromServer = (read: ResumeRead): ResumeDraftRead => {
   return {
     ...(values as unknown as Omit<ResumeDraftRead, 'field_states' | 'completeness'>),
     field_states: states,
-    completeness: { done: read.completeness.filled, total: read.completeness.total ?? 5 },
+    completeness: {
+      done: read.completeness.filled,
+      total: read.completeness.total ?? 5,
+      sections: read.completeness.sections ?? {},
+    },
+    required_paths: read.required_paths ?? [],
     next_question: read.next_question ?? null,
     can_save: read.can_save,
     lock_version: read.lock_version,

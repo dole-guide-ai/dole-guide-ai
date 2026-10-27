@@ -3,6 +3,7 @@
 시나리오별 점수와 대화 기록을 남깁니다.
 """
 
+import os
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -27,7 +28,8 @@ class InterviewReport:
 
     def write(self) -> Path:
         REPORT_DIR.mkdir(exist_ok=True)
-        path = REPORT_DIR / f"interview-{datetime.now():%Y%m%d-%H%M%S}.md"
+        # 조각을 동시에 돌리면 같은 초에 끝날 수 있어 프로세스 번호를 붙입니다.
+        path = REPORT_DIR / f"interview-{datetime.now():%Y%m%d-%H%M%S}-{os.getpid()}.md"
         path.write_text(self.markdown(), encoding="utf-8")
         return path
 

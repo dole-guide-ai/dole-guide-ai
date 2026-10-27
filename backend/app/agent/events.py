@@ -60,4 +60,8 @@ def emit(data: BaseModel) -> None:
     """
     from langgraph.config import get_stream_writer
 
-    get_stream_writer()(TurnEvent(data))
+    try:
+        writer = get_stream_writer()
+    except RuntimeError:
+        return  # 그래프 밖(노드 함수를 직접 부르는 테스트)에서는 보낼 곳이 없습니다.
+    writer(TurnEvent(data))

@@ -35,52 +35,26 @@ def _call(name: str, args: dict, call_id: str = "c1") -> AIMessage:
     return AIMessage("", tool_calls=[{"name": name, "args": args, "id": call_id}])
 
 
-@pytest.mark.parametrize(
-    ("text", "stage", "panel"),
-    [
-        ("실업급여 받으면서 알바해도 돼요?", "recognition", Panel.GUIDE),
-        ("작년 3월에 들어가서 올해 9월에 그만뒀어요", "job_registration", Panel.RESUME),
-        ("어제 OO기획 홈페이지에서 지원했어요", "recognition", Panel.ROUND),
-        ("이번 회차엔 몇 번 해야 돼요", "recognition", Panel.ROUND),
-        ("지난주에 이틀 일당 받고 일했어요", "recognition", Panel.APPLICATION),
-        ("교육 다 들었어요. 다음은 뭐예요", "education", Panel.GUIDE),
-        # 평서문 "~요"와 "자격증"은 제도 질문이 아닙니다(F-017 회귀)
-        ("지게차 자격증 있어요. 2011년에 땄어요", "job_registration", Panel.RESUME),
-        ("65세 넘으면 실업급여 자격이 없나요", "job_registration", Panel.GUIDE),
-    ],
-)
-def test_route_rules(text: str, stage: str, panel: Panel) -> None:
-    assert by_rules(text, stage) == panel
+def test_route_rules_decide_only_from_stage_and_pending_question() -> None:
+    assert by_rules("job_registration") == Panel.RESUME
+    assert by_rules("recognition", resume_pending=True) == Panel.RESUME
+    # 말의 내용으로 갈리는 것은 모델 분류에 맡깁니다.
+    assert by_rules("recognition") is None
+    assert by_rules("education") is None
 
 
-def test_route_rules_leave_ambiguous_to_model() -> None:
-    assert by_rules("음 그게요", "recognition") is None
-
-
-def test_route_ignores_words_inside_attachment() -> None:
-    # 골든셋 F-076: 증빙 사진 글의 "입사지원"이 이력서 단어로 잡혀 이력서 패널로 가던 문제
-    photo = "지원 완료 화면이에요\n\n<첨부>\n입사지원 완료\n지원 기업: OO식품\n</첨부>"
-    assert by_rules(photo, "recognition") == Panel.ROUND
-    # 실업인정 단계라도 소득을 말하면 신청서
-    income = "이거 알바했던 거예요\n\n<첨부>\n급여명세서\n</첨부>"
-    assert by_rules(income, "recognition") == Panel.APPLICATION
-    # 구직등록 단계의 경력증명서는 그대로 이력서
-    career = "경력증명서예요\n\n<첨부>\n회사명 OO산업\n</첨부>"
-    assert by_rules(career, "job_registration") == Panel.RESUME
-
-
-def test_recognition_attachment_keeps_explicit_intent() -> None:
-    # 실업인정 단계 첨부라도 제도 질문·이력서 요청이면 회차로 보내지 않습니다.
-    policy = "이 서류 있으면 실업급여 받을 수 있나요?\n\n<첨부>\n급여명세서\n</첨부>"
-    assert by_rules(policy, "recognition") == Panel.GUIDE
-    resume = "이 자격증 이력서에 넣어 주세요\n\n<첨부>\n지게차운전기능사\n</첨부>"
-    assert by_rules(resume, "recognition") == Panel.RESUME
+def test_recognition_file_without_words_goes_to_round() -> None:
+    # 실업인정 단계에서 말 없이 올린 파일은 구직활동 증빙입니다(골든셋 F-076).
+    assert by_rules("recognition", file_only=True) == Panel.ROUND
+    # 다른 단계거나 말이 함께 있으면 규칙으로 정하지 않고 모델 분류로 갑니다.
+    assert by_rules("education", file_only=True) is None
+    assert by_rules("job_registration", file_only=True) == Panel.RESUME
 
 
 def test_model_routing_never_sees_attachment_text(monkeypatch: pytest.MonkeyPatch) -> None:
     seen: list[str] = []
 
-    def classify(text: str, facts: dict) -> Panel:
+    def classify(text: str, facts: dict, *, attached: bool = False) -> Panel:
         seen.append(text)
         return Panel.GUIDE
 
@@ -90,6 +64,13 @@ def test_model_routing_never_sees_attachment_text(monkeypatch: pytest.MonkeyPatc
         route.route_turn({"messages": [message], "facts": {}})
 
     assert seen == ["음 그게요", route.ATTACHMENT_ONLY]
+
+
+def test_off_topic_during_resume_question_is_routed_again(monkeypatch: pytest.MonkeyPatch) -> None:
+    # 이력서 질문 중 "오늘 OO에 지원했어요"는 회차로, 다시 이력서로 나오면 안내 패널로 보냅니다.
+    for chosen, expected in ((Panel.ROUND, Panel.ROUND), (Panel.RESUME, Panel.GUIDE)):
+        monkeypatch.setattr(route, "by_model", lambda *a, c=chosen, **k: c)
+        assert route.panel_besides_resume("오늘 OO에 지원했어요", {}) == expected
 
 
 def test_blocking_pii_never_reaches_model_or_checkpoint(fake_agent_llm) -> None:
@@ -128,7 +109,7 @@ def test_tool_outside_panel_is_refused(fake_agent_llm) -> None:
 
 def test_ask_user_interrupts_then_resumes_with_answer(fake_agent_llm) -> None:
     ask = _call("ask_user", {"question": "언제부터 다니셨어요?", "choices": []})
-    model = fake_agent_llm([ask, AIMessage("고마워요, 저장할게요")], route="resume")
+    model = fake_agent_llm([ask, AIMessage("고마워요, 저장할게요")], route="round")
     saver, user = InMemorySaver(), uuid.uuid4()
 
     first = list(graph_responder(_turn(user, "음 그게요"), saver))

@@ -12,6 +12,10 @@ POST /accounts/{id}/messages
   → 노드에서 events.emit(...) → SSE(token · tool_call · ask_user · form_update · done · error)
 ```
 
+그래프 노드와 분기는 `docs/agent/graph.md`(LangGraph가 뽑은 Mermaid)에 있습니다.
+이력서 패널은 도구 루프가 아니라 읽기(값만 구조화 출력) → 코드 저장 → 말하기(확인 문장 + 질문 한 줄)로
+갑니다(`nodes/resume.py`). 모델에게 "저장할지·물을지"를 맡기지 않고 "무엇인지"만 맡깁니다.
+
 ## 부품
 
 | 부품 | 위치 | 쓰는 법 |
