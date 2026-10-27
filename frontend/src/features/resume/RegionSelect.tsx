@@ -7,8 +7,8 @@ import { useRegionCodes } from '@/features/resume/useWork24Codes';
 import type { CodeChoice } from '@/types/resume.types';
 
 /**
- * 고용24 근무지역 고르기: 시·도 → 시·군·구 두 단계 드롭다운. 아래 단계가 없는 시·도(세종·지역무관)는
- * 시·도를 그대로 고릅니다. 코드가 맞는지는 서버가 다시 봅니다.
+ * 고용24 근무지역 고르기: 시·도 → 시·군·구 두 단계 드롭다운. 시·군·구는 고르지 않아도 되고, 그러면
+ * 시·도 전체(예: 서울)를 고릅니다. 코드가 맞는지는 서버가 다시 봅니다.
  */
 interface RegionSelectProps {
   onPick: (choice: CodeChoice, label: string) => void;
@@ -27,7 +27,7 @@ export const RegionSelect = ({ onPick, disabled }: RegionSelectProps) => {
   const codes = regions.data ?? [];
   const provinces = codes.filter((c) => c.depth === 1);
   const districts = codes.filter((c) => c.parent === province);
-  const target = districts.length ? district : province;
+  const target = district || province;
   const chosen = codes.find((c) => c.code === target);
 
   if (regions.isError) {
@@ -64,7 +64,7 @@ export const RegionSelect = ({ onPick, disabled }: RegionSelectProps) => {
           disabled={disabled}
           className={SELECT_CLASS}
         >
-          <option value="">시·군·구</option>
+          <option value="">시·군·구 (전체)</option>
           {districts.map((c) => (
             <option key={c.code} value={c.code}>
               {c.name}

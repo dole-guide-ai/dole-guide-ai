@@ -53,6 +53,22 @@ describe('CodeListEditor', () => {
     expect(onSave).toHaveBeenCalledWith([{ code: '11500' }, { code: '11350' }, { code: '41190' }]);
   });
 
+  it('지역은 시·군·구를 고르지 않으면 시·도 전체를 더합니다', async () => {
+    mockFetchRoutes([[/\/codes\/regions/, regions]]);
+    const onSave = vi.fn().mockResolvedValue(undefined);
+    renderWithProviders(
+      <CodeListEditor kind="region" current={[]} max={3} onSave={onSave} onClose={vi.fn()} />,
+    );
+
+    const province = await screen.findByLabelText('시·도');
+    await waitFor(() => expect(province).toBeEnabled());
+    await userEvent.selectOptions(province, '경기');
+    await userEvent.click(screen.getByRole('button', { name: '추가' }));
+    await userEvent.click(screen.getByRole('button', { name: '저장' }));
+
+    expect(onSave).toHaveBeenCalledWith([{ code: '41000' }]);
+  });
+
   it('대화에서 고르기 전인 값은 빼고 다시 골라야 저장되고, 서버 오류는 그대로 보여 줍니다', async () => {
     mockFetchRoutes([[/\/codes\/occupations\?q=/, electric]]);
     const onSave = vi
