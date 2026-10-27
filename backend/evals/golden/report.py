@@ -15,7 +15,9 @@ from pathlib import Path
 from typing import Any
 
 REPORT_DIR = Path(__file__).parents[1] / "reports"
-ORDER = ["통과", "실패", "참고 실패", "판정 건너뜀", "건너뜀"]
+# 문항 오류 = 시작 상태가 의도대로 안 들어감(AI가 아니라 문항·러너 고장). 통과율에서 뺍니다.
+ORDER = ["통과", "실패", "참고 실패", "문항 오류", "판정 건너뜀", "건너뜀"]
+SET_NAMES = {"dev": "개발용", "test": "검증용", "all": "전체"}
 OFF_NOTE = " · 판정을 끈 실행은 판정 포함 실행과 점수를 견주지 않습니다"
 AREA_NAMES = {"procedure": "절차", "form_fill": "서류", "grounding": "근거", "masking": "개인정보"}
 
@@ -34,6 +36,9 @@ class Record:
     def skip(self, reason: str) -> None:
         self.status, self.reasons = "건너뜀", [reason]
 
+    def broken(self, reason: str) -> None:
+        self.status, self.reasons = "문항 오류", [reason]
+
     def finish(self, failures: list[str], judged: bool | None) -> None:
         self.reasons = failures
         if failures:
@@ -47,6 +52,7 @@ class Report:
     mode: str
     judge: str = "on"  # off면 LLM 판정 없이 규칙 채점만 한 실행
     shard: str = "1/1"
+    case_set: str = "all"  # 실행한 세트: dev(개발용) · test(검증용) · all
     records: list[Record] = field(default_factory=list)
 
     def start(self, case: dict[str, Any]) -> Record:
@@ -63,6 +69,7 @@ class Report:
         lines = [
             f"# 골든셋 결과 ({datetime.now():%Y-%m-%d %H:%M}, 모드 {self.mode})",
             "",
+            f"세트: {SET_NAMES.get(self.case_set, self.case_set)} · "
             f"LLM 판정: {self.judge} · 조각: {self.shard}"
             + (OFF_NOTE if self.judge == "off" else ""),
             "",
@@ -81,7 +88,7 @@ class Report:
                 lines.append(
                     f"| {label} | " + " | ".join(str(groups[name, s]) for s in ORDER) + " |"
                 )
-        for status in ("실패", "참고 실패"):
+        for status in ("문항 오류", "실패", "참고 실패"):
             rows = [r for r in self.records if r.status == status]
             if rows:
                 lines += [
@@ -113,7 +120,13 @@ class Report:
         path = REPORT_DIR / f"{stem}.md"
         path.write_text(text, encoding="utf-8")
         records = [{"case": r.case, "status": r.status, "reasons": r.reasons} for r in self.records]
-        meta = {"mode": self.mode, "judge": self.judge, "shard": self.shard, "records": records}
+        meta = {
+            "mode": self.mode,
+            "judge": self.judge,
+            "shard": self.shard,
+            "case_set": self.case_set,
+            "records": records,
+        }
         path.with_suffix(".json").write_text(json.dumps(meta, ensure_ascii=False), encoding="utf-8")
         if summary := os.environ.get("GITHUB_STEP_SUMMARY"):
             with open(summary, "a", encoding="utf-8") as fh:

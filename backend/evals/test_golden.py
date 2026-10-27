@@ -1,4 +1,5 @@
-"""골든셋 실행. 루트에서 `pnpm eval:golden`(실제 AI) · `pnpm eval:golden:selftest`(채점 코드 점검).
+"""골든셋 실행. 루트에서 `pnpm eval:golden`(실제 AI) · `pnpm eval:golden:selftest`(채점 코드 점검)
+· `pnpm eval:golden:setup`(모델 없이 문항 시작 상태 점검).
 
 문항은 golden/golden_set.csv가 원본이고,
 `pnpm golden:build`가 만든 scenarios/golden/*.json을 읽습니다.
@@ -12,7 +13,13 @@ from langsmith import testing as ls
 
 from app.agent import gateway
 from evals.golden import grading
-from evals.golden.adapter import AgentNotReadyError, run_agent, run_selftest
+from evals.golden.adapter import (
+    AgentNotReadyError,
+    CaseSetupError,
+    run_agent,
+    run_selftest,
+    run_setup,
+)
 from evals.golden.judge import Verdict, judge
 from evals.golden.schema import OUT_DIR
 from evals.golden.tracking import LANGSMITH_SUITE, experiment_metadata
@@ -53,8 +60,9 @@ def model_inputs(monkeypatch: pytest.MonkeyPatch) -> list[str]:
 
 @pytest.fixture
 def golden_db(golden_options, request: pytest.FixtureRequest):
-    """실제 실행만 테스트 DB를 씁니다(끝나면 롤백). selftest는 DB 없이 돕니다."""
-    return request.getfixturevalue("db_session") if golden_options.agent == "real" else None
+    """실제 실행·시작 상태 점검만 테스트 DB를 씁니다(끝나면 롤백). selftest는 DB 없이 돕니다."""
+    uses_db = golden_options.agent in ("real", "setup")
+    return request.getfixturevalue("db_session") if uses_db else None
 
 
 @pytest.mark.skipif(not CASES, reason=NO_CASES)
@@ -73,6 +81,14 @@ def test_golden(case, golden_options, golden_report, model_inputs, golden_db) ->
     mode = golden_options.agent
     # 예상 못 한 예외는 보고서에 '건너뜀'이 아니라 오류로 남깁니다.
     # 예외 메시지에는 입력값이 섞일 수 있어 종류 이름만 적습니다.
+    if mode == "setup":
+        try:
+            run_setup(case, golden_db)
+        except CaseSetupError as error:
+            record.broken(str(error))
+            pytest.fail(f"문항 오류: {error}", pytrace=False)
+        record.finish([], True)
+        return
     try:
         if mode == "real":
             result = run_agent(case, golden_db)
@@ -89,12 +105,16 @@ def test_golden(case, golden_options, golden_report, model_inputs, golden_db) ->
     except AgentNotReadyError as error:
         record.skip(str(error))
         pytest.skip(str(error))
+    except CaseSetupError as error:
+        # AI 실력이 아니라 문항·러너가 고장 난 것이라 실패와 따로 셉니다.
+        record.broken(str(error))
+        pytest.fail(f"문항 오류: {error}", pytrace=False)
     except Exception as error:
         record.finish([f"실행 오류: {type(error).__name__}"], None)
         raise
     try:
         verdict = (
-            judge(case, result.replies, mode, golden_options.threshold)
+            judge(case, result.replies, mode)
             if golden_options.judge
             else Verdict(passed=None, reason="--golden-judge off")
         )
@@ -102,8 +122,7 @@ def test_golden(case, golden_options, golden_report, model_inputs, golden_db) ->
         record.finish([*failures, f"LLM 판정 오류: {type(error).__name__}"], None)
         raise
     if verdict.passed is False:
-        score = f"{verdict.score or 0:.2f}점 (기준 {golden_options.threshold})"
-        failures.append(f"LLM 판정: {score} {verdict.reason}")
+        failures.append(f"LLM 판정: {verdict.reason}")
     record.finish(failures, verdict.passed)
     # 규칙 채점(통과 여부·실패 수)과 LLM 판정 점수를 따로 남겨 실험끼리 비교합니다.
     ls.log_feedback(key="rule_pass", score=int(not [f for f in failures if "LLM 판정" not in f]))

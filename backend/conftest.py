@@ -17,6 +17,9 @@ os.environ["DATABASE_URL"] = TEST_DATABASE_URL
 # 테스트가 .env의 LangSmith 설정으로 트레이스를 보내지 않게 끕니다.
 # 실제 모델 평가는 evals/conftest.py가 .env 값으로 되돌립니다.
 os.environ["LANGSMITH_TRACING"] = "false"
+# 근거 카드 재정렬은 실제 모델(extract)을 부르므로 테스트에서는 끕니다(검색 순위 그대로).
+# 실제 모델 평가는 evals/conftest.py가 .env·기본값으로 되돌립니다.
+os.environ["RETRIEVAL_RERANK"] = "false"
 # 테스트는 고용24 OpenAPI를 실제로 부르지 않습니다. 인증키를 비워 늘 스냅샷을 씁니다.
 os.environ["WORK24_API_KEY"] = ""
 

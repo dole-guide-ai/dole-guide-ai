@@ -14,7 +14,7 @@ import csv
 import hashlib
 import re
 from collections.abc import Callable
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from functools import lru_cache
 from pathlib import Path
 
@@ -183,11 +183,13 @@ class Profile:
 
     group: str | None = None
     round_no: int | None = None
+    # 이직 당시 50세 이상이거나 장애인(소정급여일수 표가 둘로 나뉨)
+    over_50: bool | None = None
 
     def for_query(self, query: str) -> Profile:
         """질문에 "4차"처럼 회차가 있으면 지금 회차 대신 그 회차로 고릅니다."""
         if m := _ROUND_IN_QUERY.search(query):
-            return Profile(self.group, int(m.group(1)))
+            return replace(self, round_no=int(m.group(1)))
         return self
 
     @property
@@ -211,6 +213,16 @@ def _target_groups(target: str) -> set[str] | None:
         return {"age65_or_disabled"}
     if "60세이상" in t:
         return {"age_60_64", "age65_or_disabled"}
+    return None
+
+
+def _over_50(target: str) -> bool | None:
+    """대상 칸이 "50세 미만"이면 False, "50세 이상 또는 장애인"이면 True, 구분이 없으면 None."""
+    t = target.replace(" ", "")
+    if "50세미만" in t:
+        return False
+    if "50세이상" in t:
+        return True
     return None
 
 
@@ -258,6 +270,9 @@ def applies_to(card: RuleCard, profile: Profile) -> bool:
     """이 사용자에게 맞는 카드인지. 다른 유형·회차의 규칙을 알려 주면 틀린 안내가 됩니다."""
     groups = _target_groups(card.target)
     if groups and profile.group and profile.group not in groups:
+        return False
+    band = _over_50(card.target)
+    if band is not None and profile.over_50 is not None and band != profile.over_50:
         return False
     rounds = _rounds(card.stage)
     return not (rounds and profile.round_no and not rounds(profile.round_no))

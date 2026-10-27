@@ -7,6 +7,7 @@ DB는 테스트 트랜잭션 안에서만 쓰고 끝나면 롤백합니다(`db_s
 """
 
 import shutil
+from collections import Counter
 from datetime import date, datetime, time
 from pathlib import Path
 from typing import Any
@@ -19,9 +20,11 @@ from app.repositories import accounts as account_repo
 from app.rules import periods
 from app.rules.activity_table import load_rules, required_evidence
 from app.rules.entry_text import ONLINE_PRESUBMIT_MAX_AGE
+from app.schemas.common import FieldStatus
 from app.schemas.files import FilePurpose
 from app.schemas.messages import MessageCreate
 from app.schemas.procedure import Stage
+from app.schemas.resume import ResumeStatus
 from app.services import accounts as account_service
 from app.services import activities as activity_service
 from app.services import application as application_service
@@ -30,28 +33,85 @@ from app.services import files as files_service
 from app.services import resume as resume_service
 from app.services import rounds as round_service
 from app.services.accounts import AccountContext
+from app.services.entry import ResumeState
 from app.services.visitors import authenticate, create_visitor
-from evals.golden.adapter import AgentResult
+from evals.golden.adapter import AgentResult, CaseSetupError
 from evals.golden.schema import FILES_DIR
 
 # 문항 상태값에 없는 값. 결과에 영향이 없도록 시연 계정과 비슷한 값으로 둡니다.
 INSURED_YEARS = 10.0
 RECOGNITION_INTERVAL_DAYS = 28
-EVAL_PROFILE = {"name": "평가계정"}
+# 계정 이름. 시연 계정은 합성 서류(경력증명서 등)에 적힌 이름과 같게 두어, 서류의 이름이
+# 본인과 다른지 확인하는 동작을 평가할 수 있게 합니다. 나머지는 서류와 겹치지 않는 이름입니다.
+PERSONA_NAMES = {"park": "박진수", "park2": "박진수", "choi": "최영수", "lee": "이정호"}
+DEFAULT_NAME = "평가계정"
+# 골든셋 상태값 resume_status에서 이력서가 없다는 값(나머지는 ResumeState와 같음)
+NO_RESUME = "none"
+# 골든셋 활동 칸의 종류(job_search·other) → 서버 활동 (category, kind).
+# other는 지금 문항에서 온라인 취업특강(step_online)만 쓰므로 취업특강으로 넣습니다.
+SEED_ACTIVITY = {
+    "job_search": ("job_search", "job_application"),
+    "other": ("non_job_search", "lecture"),
+}
 
 
 TEST_DB_SUFFIX = "_test"
 
 
-def run_case(db: Session, case: dict[str, Any]) -> AgentResult:
+def prepare_case(
+    db: Session, case: dict[str, Any]
+) -> tuple[AccountContext, date, datetime, dict[str, Any]]:
+    """문항 계정을 만들고 대화 전 데이터를 돌려줍니다. 시작 상태가 어긋나면 CaseSetupError."""
     case_input = case["input"]
     state = case_input["state"]
     today = date.fromisoformat(state["demo_today"])
     now = datetime.combine(today, time.fromisoformat(state["demo_time"]), KST)
     account = _enter(db, case["id"], case_input, today, now)
-
     # '변경금지' 칸은 대화 전 DB 값과 비교합니다(문항 입력과 서버 모양이 달라서).
     initial = _snapshot(db, account, today, now)
+    if problems := setup_problems(case_input, initial):
+        raise CaseSetupError("; ".join(problems))
+    return account, today, now, initial
+
+
+def setup_problems(case_input: dict[str, Any], initial: dict[str, Any]) -> list[str]:
+    """문항이 의도한 시작 상태와 실제 계정의 다른 점.
+
+    값 모양은 서버가 바꾸므로 개수와 단계만 견줍니다.
+    """
+    want_resume = case_input["data"]["resume"]
+    got_resume = initial["resume"]
+    counts = {
+        "경력": ("competencies", "careers"),
+        "자격증": ("competencies", "certifications"),
+        "학력": ("education",),
+        "희망 직종": ("job_preferences", "desired_occupations"),
+    }
+    problems = []
+    for label, path in counts.items():
+        want, got = len(_dig(want_resume, path)), len(_dig(got_resume, path))
+        if want != got:
+            problems.append(f"시작 {label} {want}개를 넣었는데 계정에는 {got}개")
+    want_kinds = Counter(SEED_ACTIVITY[a["kind"]][1] for a in case_input["data"]["activities"])
+    got_kinds = Counter(a["kind"] for a in initial["activities"])
+    if want_kinds != got_kinds:
+        problems.append(f"시작 활동 {dict(want_kinds)}을 넣었는데 계정에는 {dict(got_kinds)}")
+    want_stage = case_input["state"]["stage"]
+    if initial["procedure"]["stage"] != want_stage:
+        problems.append(f"단계가 {want_stage}이어야 하는데 {initial['procedure']['stage']}")
+    return problems
+
+
+def _dig(data: dict[str, Any], path: tuple[str, ...]) -> list[Any]:
+    for key in path:
+        data = (data or {}).get(key) or {}
+    return data or []
+
+
+def run_case(db: Session, case: dict[str, Any]) -> AgentResult:
+    case_input = case["input"]
+    state = case_input["state"]
+    account, today, now, initial = prepare_case(db, case)
     replies: list[str] = []
     next_action: str | None = None
     cites: list[str] = []
@@ -133,7 +193,7 @@ def _seed(case_input: dict[str, Any], today: date) -> dict[str, Any]:
         state["age_at_separation"], state["has_disability"], state["recipient_type"] == "repeat"
     )
     seed: dict[str, Any] = {
-        "profile": EVAL_PROFILE,
+        "profile": {"name": PERSONA_NAMES.get(case_input["persona"], DEFAULT_NAME)},
         "procedure": {
             "stage": state["stage"],
             "recipient_group": group,
@@ -149,8 +209,8 @@ def _seed(case_input: dict[str, Any], today: date) -> dict[str, Any]:
         "activities": [
             {
                 "date_offset": _offset(a["date"], today),
-                "category": "job_search",
-                "kind": "job_application",
+                "category": SEED_ACTIVITY[a["kind"]][0],
+                "kind": SEED_ACTIVITY[a["kind"]][1],
                 "route": a.get("route"),
                 "org_name": a.get("org_name"),
                 "source": "doc",
@@ -165,7 +225,7 @@ def _seed(case_input: dict[str, Any], today: date) -> dict[str, Any]:
 
 def _seed_resume(resume: dict[str, Any], status: str) -> dict[str, Any] | None:
     """프론트 모양(competencies.careers) → seed 모양(careers). 이력서가 없으면 None."""
-    if status == "none":
+    if status == NO_RESUME:
         return None
     competencies = resume["competencies"]
     data = {
@@ -175,12 +235,19 @@ def _seed_resume(resume: dict[str, Any], status: str) -> dict[str, Any] | None:
         "careers": _with_ids(competencies["careers"], "career"),
         "certifications": _with_ids(competencies["certifications"], "cert"),
     }
-    # outdated = 퇴사 전에 저장한 이력서. 저장일을 아주 예전으로 둡니다.
-    saved_offset = -3650 if status == "outdated" else -1
+    # draft = 쓰다 만 이력서(저장일 없음).
+    # outdated = 퇴사 전에 저장한 이력서라 저장일을 아주 예전으로 둡니다.
+    if status == ResumeState.DRAFT:
+        return {
+            "status": ResumeStatus.DRAFT.value,
+            "field_status": FieldStatus.CONFIRMED.value,
+            "data": data,
+        }
+    saved_offset = -3650 if status == ResumeState.OUTDATED else -1
     return {
-        "status": "saved",
+        "status": ResumeStatus.SAVED.value,
         "saved_offset": saved_offset,
-        "field_status": "confirmed",
+        "field_status": FieldStatus.CONFIRMED.value,
         "data": data,
     }
 
@@ -211,6 +278,8 @@ def _snapshot(db: Session, account: AccountContext, today: date, now: datetime) 
     procedure = account_service.read_procedure(db, account.user_id, today)
     data: dict[str, Any] = {
         "resume": values,
+        # 절차 상태: 대화로 교육 이수 등을 알렸을 때 단계가 넘어가는지 봅니다.
+        "procedure": {"stage": str(procedure.stage), "education_done": procedure.education_done},
         "activities": [_activity(a.model_dump(mode="json")) for a in activities.items],
         "derived": {
             "rule_group": procedure.recipient_group,

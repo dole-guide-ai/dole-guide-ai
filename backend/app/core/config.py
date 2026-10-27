@@ -78,8 +78,18 @@ class Settings(BaseSettings):
     # 구어 사전을 켜고 코사인 유사도 0.50 미만은 버립니다(정답 hit@3 0.87, 무관한 질문 오첨부 8%).
     retrieval_synonyms: bool = True
     retrieval_min_similarity: float = 0.50
+    # 사용자 말로 찾아 붙이는 규칙 카드 수(지금 단계·회차 카드는 따로 앞에 붙음). 골든셋 근거 영역
+    # 평균 통과 3장 96 · 5장 98.5 · 7장 98.5(절차는 차이 없음)로 5장을 씁니다.
+    retrieval_inject_limit: int = 5
     # 안내(guide) 패널에 붙이는 정책·FAQ 조각 수
     retrieval_guide_limit: int = 2
+    # 이어지는 말("그럼 그건요?")은 앞선 사용자 말을 넣어 검색 문장으로 바꿈(extract 호출 +1).
+    # 첫 말은 바꾸지 않습니다(혼자 쓴 구어 질문은 바꾸면 오히려 덜 찾았음).
+    retrieval_rewrite: bool = False
+    # 재정렬: 후보를 넉넉히 찾아 extract 모델이 질문에 필요한 카드를 고름(extract 호출 +1).
+    # 골든셋 근거 영역 4회 평균 96.25 → 98.75(같은 회차끼리 비교해 4번 모두 같거나 높음).
+    retrieval_rerank: bool = True
+    retrieval_rerank_candidates: int = 20
     # 답 검사(6단계): 근거에 없는 숫자·근거를 넘는 단정이 든 문장을 뺌. 효과를 견줄 때만 끕니다.
     answer_check: bool = True
     # 첨부 사진 처리. off: 무시 · vision: 답하는 모델에 사진째(#222 실험 사진 문항 6/9로 최고)
