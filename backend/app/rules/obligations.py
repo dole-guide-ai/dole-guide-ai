@@ -210,15 +210,15 @@ def from_tool_result(name: str, result: dict[str, Any]) -> list[Obligation]:
     """활동 기록 결과: 인정되지 않아 넣지 않았거나, 예정으로 넣었으면 그 사실."""
     if name != RECORD_ACTIVITY:
         return []
-    admission = result.get("admission")
-    if result.get("recorded") is False and admission:
-        refs = tuple(admission.get("rule_refs") or ())
+    refused = result.get("admission")
+    if result.get("recorded") is False and refused:
+        refs = tuple(refused.get("rule_refs") or ())
         tokens = (
             (("인정되지 않", "인정이 안", "인정 안"),)
-            if admission["status"] == "not_allowed"
-            else ((f"{admission['limit_max']}번", f"{admission['limit_max']}회"),)
+            if refused["status"] == ActivityStatus.NOT_ALLOWED
+            else ((f"{refused['limit_max']}번", f"{refused['limit_max']}회"),)
         )
-        return [Obligation(f"admission:{admission['kind']}", admission["message"], tokens, refs)]
+        return [Obligation(f"admission:{refused['kind']}", refused["message"], tokens, refs)]
     if result.get("planned"):
         day = date.fromisoformat(result["activity_date"])
         return [

@@ -17,6 +17,7 @@ from pydantic import BaseModel, Field
 
 from app.agent import gateway
 from app.core.config import get_settings
+from app.rules import periods
 
 PROMPT = (Path(__file__).parent / "judge_prompt.md").read_text(encoding="utf-8")
 YES = "예"
@@ -64,12 +65,19 @@ def _start_state(case: dict[str, Any]) -> str:
     state = case["input"].get("state")
     if not state:
         return ""
-    parts = [f"단계 {state.get('stage')}", f"수급자 유형 {state.get('recipient_type')}"]
+    # 수급자 유형은 러너가 계정을 만들 때와 같은 계산으로 보여 줍니다(67세 일반 → 65세 이상).
+    group = periods.recipient_group(
+        state.get("age_at_separation") or 0,
+        bool(state.get("has_disability")),
+        state.get("recipient_type") == "repeat",
+    )
+    parts = [f"단계 {state.get('stage')}", f"수급자 유형 {group}"]
     if state.get("stage") == "recognition" and state.get("completed_rounds") is not None:
         parts.append(f"지금 {state['completed_rounds'] + 1}차")
     parts.append(f"오늘 {state.get('demo_today')} {state.get('demo_time')}")
     if activities := case["input"].get("activities") or []:
-        days = ", ".join(sorted({a["date"] for a in activities}))
+        # 같은 날 여러 건이면 날짜도 건수만큼 적습니다(같은 날 활동 문항).
+        days = ", ".join(sorted(a["date"] for a in activities))
         parts.append(f"이미 기록된 활동 {len(activities)}건({days})")
     return "시작 상태: " + " · ".join(parts)
 

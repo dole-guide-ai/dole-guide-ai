@@ -5,12 +5,14 @@ DB 없이(도구 문맥 None) 가짜 모델로 한 턴씩 돌립니다. 입력�
 
 import uuid
 from datetime import date, datetime
+from types import SimpleNamespace
+from unittest.mock import MagicMock
 
 import pytest
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 from langgraph.checkpoint.memory import InMemorySaver
 
-from app.agent.nodes import route
+from app.agent.nodes import resume, route
 from app.agent.nodes.finish import LIMIT_REPLY
 from app.agent.nodes.panel import MAX_LOOP_CALLS, RESUME_ONLY_FACTS, system_prompt
 from app.agent.nodes.preprocess import BLOCKED_REPLY
@@ -18,6 +20,7 @@ from app.agent.nodes.route import Panel, RouteChoice, Scope, by_rules, fit_to_st
 from app.agent.responder import TurnInput, graph_responder
 from app.core.clock import KST
 from app.schemas.messages import AskUserEvent, DoneEvent, TokenEvent
+from app.schemas.resume import FieldWrite
 
 TODAY = date(2026, 10, 21)
 NOW = datetime(2026, 10, 21, 10, tzinfo=KST)
@@ -215,3 +218,27 @@ def test_new_turn_after_cut_stream_closes_dangling_tool_call(fake_agent_llm) -> 
     calls = {c["id"] for m in messages if isinstance(m, AIMessage) for c in m.tool_calls}
     results = {m.tool_call_id for m in messages if isinstance(m, ToolMessage)}
     assert calls <= results
+
+
+def test_resume_save_skips_write_whose_quote_carries_private_matter(monkeypatch) -> None:
+    # 날짜 값은 깨끗해도 근거로 남는 사용자 표현에 건강 사정이 있으면 칸에 쓰지 않습니다.
+    sent: list[list[FieldWrite]] = []
+    monkeypatch.setattr(
+        resume.resume_service,
+        "save_resume_fields",
+        lambda db, user_id, writes, today: sent.append(writes) or SimpleNamespace(updates=[]),
+    )
+    quoted = FieldWrite(
+        path="/careers/c1/end_date",
+        value="2025-03",
+        transformed=True,
+        evidence={"quote": "작년 3월 허리 디스크 때문에 그만둠"},
+    )
+    clean = FieldWrite(path="/careers/c1/company_name", value="OO산업")
+    memory = {"outcome": {}}
+
+    resume._save(MagicMock(), memory, [quoted, clean])
+
+    assert sent == [[clean]]
+    assert memory["outcome"]["private"] is True
+    assert [s["path"] for s in memory["outcome"]["saved"]] == ["/careers/c1/company_name"]

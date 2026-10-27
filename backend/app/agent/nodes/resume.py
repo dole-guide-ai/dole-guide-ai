@@ -255,8 +255,14 @@ def _defer(memory: ResumeMemory, keys: list[str]) -> None:
 
 def _save(ctx: ToolContext, memory: ResumeMemory, writes: list[FieldWrite]) -> None:
     # 가린 개인정보 토큰이나 건강·다툼·종교 같은 사정이 든 값은 칸에 쓰지 않습니다(같은 말의
-    # 다른 칸은 저장). 도구 저장과 같은 기준(input/pii.carries_private)입니다.
-    kept = [w for w in writes if not pii.carries_private(w.value)]
+    # 다른 칸은 저장). 도구 저장과 같은 기준(input/pii.carries_private)입니다. 근거로 남기는
+    # 사용자 표현(evidence.quote, 예: "작년 3월 건강 문제로")도 같이 봅니다.
+    kept = [
+        w
+        for w in writes
+        if not pii.carries_private(w.value)
+        and not pii.carries_private((w.evidence or {}).get("quote"))
+    ]
     if len(kept) < len(writes):
         memory["outcome"]["private"] = True
     if not kept:

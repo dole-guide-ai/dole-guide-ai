@@ -75,6 +75,8 @@ def test_judge_sees_start_state_so_it_does_not_answer_unknown(answers) -> None:
             "state": {
                 "stage": "recognition",
                 "recipient_type": "general",
+                "age_at_separation": 67,
+                "has_disability": False,
                 "completed_rounds": 3,
                 "demo_today": "2026-12-16",
                 "demo_time": "10:00",
@@ -85,7 +87,11 @@ def test_judge_sees_start_state_so_it_does_not_answer_unknown(answers) -> None:
 
     judge(case, ["답 하나", "답 둘"], "real")
 
-    assert "지금 4차" in answers.sent[0] and "이미 기록된 활동 2건(2026-12-08)" in answers.sent[0]
+    sent = answers.sent[0]
+    assert "지금 4차" in sent
+    # 같은 날 두 건은 날짜도 두 번, 67세 일반은 러너처럼 65세 이상 유형으로 보입니다.
+    assert "이미 기록된 활동 2건(2026-12-08, 2026-12-08)" in sent
+    assert "수급자 유형 age65_or_disabled" in sent
 
 
 def test_judge_prompt_reads_negative_criteria_and_skips_fact_checking() -> None:
