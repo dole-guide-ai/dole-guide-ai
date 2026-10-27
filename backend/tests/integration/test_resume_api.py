@@ -125,7 +125,10 @@ def test_direct_pick_of_occupations_and_regions_is_checked_by_server(
     assert prefs["desired_regions"]["value"][0]["name"] == "서울 노원구"
 
     keep = [{"op": "replace", "path": occupations, "value": [{"code": "834001"}]}]
-    assert _patch(client, headers, keep).status_code == 200
+    res = _patch(client, headers, keep)
+    assert res.status_code == 200
+    # 목록에서 뺀 직종의 칸은 remove 갱신으로 알립니다.
+    assert any(u["op"] == "remove" for u in res.json()["updates"])
     prefs = client.get("/accounts/park/resume", headers=headers).json()["data"]["job_preferences"]
     assert [d["occupation"]["value"]["name"] for d in prefs["desired_occupations"]] == [
         "아파트 전기관리원"
@@ -159,3 +162,10 @@ def test_direct_gpa_over_the_scale_is_422(
     bad_scale = [{"op": "replace", "path": f"{base}/gpa_scale", "value": "4.8"}]
     res = _patch(client, headers, bad_scale)
     assert res.status_code == 422 and res.json()["message"].startswith("학점 만점은 4.0·4.3")
+    # 학점 3.8은 두고 만점만 4.0으로 낮추면 되지만, 학점이 새 만점을 넘으면 막습니다.
+    assert _patch(client, headers, [{**over[0], "value": "4.0"}]).status_code == 200
+    high = [over[0], {"op": "replace", "path": f"{base}/gpa", "value": "4.3"}]
+    assert _patch(client, headers, high).status_code == 200
+    lower = [{"op": "replace", "path": f"{base}/gpa_scale", "value": "4.0"}]
+    res = _patch(client, headers, lower)
+    assert res.status_code == 422 and res.json()["message"] == "학점은 0~4.0점 사이로 적어 주세요."

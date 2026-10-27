@@ -116,8 +116,17 @@ SEEDS: dict[str, dict[str, Any]] = {
             "careers": [
                 {**_career("OO산업", "2004-03", "2026-09", "프레스 생산"), "position": "반장"}
             ],
+            # 자격면허도 고용24 공통코드를 고른 값이어야 "찼다"로 봅니다(rules/resume/codes).
             "certifications": [
-                {"certificate_name": "지게차운전기능사", "acquired_date": "2011-05-20"}
+                {
+                    "certificate_name": "지게차운전기능사",
+                    "certificate_code": {
+                        "code": "5007875",
+                        "name": "지게차운전기능사",
+                        "status": "confirmed",
+                    },
+                    "acquired_date": "2011-05-20",
+                }
             ],
         },
         "education": [
@@ -148,7 +157,17 @@ SEEDS: dict[str, dict[str, Any]] = {
     "choi_resume_2019": {
         "competencies": {
             "careers": [_career("OO웹솔루션", "2005-03", "2019-04", "웹사이트 개발")],
-            "certifications": [{"certificate_name": "정보처리기사", "acquired_date": "1998-11-15"}],
+            "certifications": [
+                {
+                    "certificate_name": "정보처리기사",
+                    "certificate_code": {
+                        "code": "5001320",
+                        "name": "정보처리기사",
+                        "status": "confirmed",
+                    },
+                    "acquired_date": "1998-11-15",
+                }
+            ],
         }
     },
 }

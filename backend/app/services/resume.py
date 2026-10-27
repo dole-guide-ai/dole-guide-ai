@@ -153,6 +153,19 @@ def save_resume_fields(
         for path, f in rules.form_fields(data)
         if old.get(path) != f
     ]
+    # 지운 항목(희망 직종 목록에서 뺀 직종 등)의 칸은 remove로 알립니다(reset_resume과 같은 모양).
+    now_paths = {path for path, _ in rules.form_fields(data)}
+    updates += [
+        FormUpdate(
+            form=FormName.RESUME,
+            path=path,
+            op="remove",
+            status=FieldStatus.MISSING,
+            completeness=completeness,
+        )
+        for path in old
+        if path not in now_paths
+    ]
     return ResumeWriteResult(updates, issues)
 
 
@@ -263,7 +276,7 @@ def patch_resume(
             value = _gpa_checked(index, op, patch, current)
             writes.append(_direct(op.path, value))
             # 자격면허명·전공을 글로 고치면 대화와 같은 규칙으로 코드 칸도 맞춥니다(resume/codes).
-            writes += [_direct(p, v) for p, v in code_for_name(op.path, value)]
+            writes += [_direct(p, v) for p, v in code_for_name(op.path, value, current)]
             continue
         # 공통코드 칸은 고른 코드가 코드표에 있는지 보고 칸 값 모양을 서버가 정합니다.
         try:
@@ -287,6 +300,14 @@ def _gpa_checked(
     if op.path.endswith(GPA_SCALE_SUFFIX):
         if (scale := rules.gpa_scale_value(op.value)) is None:
             raise _gpa_error(index, rules.GPA_SCALE_ERROR, PatchErrorType.CHOICE)
+        # 학점은 그대로 두고 만점만 바꾸면, 적힌 학점이 새 만점 안에 드는지도 봅니다.
+        gpa_path = op.path.removesuffix(GPA_SCALE_SUFFIX) + GPA_SUFFIX
+        if not any(o.path == gpa_path for o in patch):
+            written = dict(rules.form_fields(data)).get(gpa_path)
+            if written and written.value not in (None, ""):
+                _, problem = rules.gpa_value(written.value, scale)
+                if problem:
+                    raise _gpa_error(index, problem, PatchErrorType.NUMBER)
         return scale
     scale_path = op.path.removesuffix(GPA_SUFFIX) + GPA_SCALE_SUFFIX
     sent = next((o.value for o in patch if o.path == scale_path), None)

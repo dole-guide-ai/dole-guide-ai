@@ -40,6 +40,8 @@ from app.rules.resume.steps import (
     DONT_KNOW,
     FILL_NOW,
     FOLLOW_UPS,
+    REGION_PICK,
+    REGION_UNMATCHED,
     SAVE_AFTER_FILL,
     ResumeStep,
 )
@@ -391,7 +393,16 @@ def _value_writes(
     """대기 칸의 값을 칸 쓰기로(rules/resume/facts.answer_writes). 되묻기·거절은 outcome에."""
     procedure = account_service.read_procedure(ctx.db, ctx.account.user_id)
     current = resume_service.read_resume(ctx.db, ctx.account).data
-    plan = answer_writes(current, step.paths, value, ctx.today, procedure.separation_date)
+    # 지역 하나의 후보를 고르는 중이면 다른 지역은 두고 그 자리만 바꿉니다.
+    replacing = step.item if step.id in (REGION_PICK, REGION_UNMATCHED) else None
+    plan = answer_writes(
+        current,
+        step.paths,
+        value,
+        ctx.today,
+        procedure.separation_date,
+        replacing_region=replacing,
+    )
     return _checked(memory, plan)
 
 
@@ -444,9 +455,10 @@ def _speak_input(state: AgentState, memory: ResumeMemory, step: ResumeStep | Non
     progress = plan.get("progress")
     outcome = dict(memory["outcome"])
     if next_view and _is_retry(memory, step):
-        # 이유와 질문은 다시 묻는 카드가 보여 주므로 모델에는 넘기지 않습니다(두 번 말하지 않게).
+        # 부탁 문장은 다시 묻는 카드가 보여 주므로 모델에는 넘기지 않습니다(두 번 말하지 않게).
+        # 넣지 않은 값(rejected)은 카드에 없으니 모델이 이유를 말하게 남깁니다.
         next_view["retry"] = True
-        for key in ("questions", "note", "rejected"):
+        for key in ("questions", "note"):
             outcome.pop(key, None)
     payload = {
         "outcome": outcome,

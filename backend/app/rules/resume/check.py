@@ -154,7 +154,7 @@ COLLEGE_REQUIRED_FOR_SAVE = ("major",)
 
 # 학점 만점(총점)은 고용24 드롭다운 값이라 목록 값으로 저장하고, 학점은 0 ~ 만점 범위로 봅니다.
 GPA_SCALE_ERROR = "학점 만점은 " + "·".join(s.value for s in GpaScale) + "점 중 하나예요"
-_NUMBER = re.compile(r"\d+(?:\.\d+)?")
+_NUMBER = re.compile(r"-?\d+(?:\.\d+)?")  # 부호까지 읽어 "-1"을 1로 받지 않음
 
 
 def gpa_scale_value(raw: Any) -> str | None:

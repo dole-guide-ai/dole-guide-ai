@@ -23,7 +23,7 @@ from app.rules.resume.check import (
     gpa_scale_value,
     gpa_value,
 )
-from app.rules.resume.codes import code_for_name
+from app.rules.resume.codes import code_for_name, name_path_of
 from app.rules.resume.dates import DateResult, date_field, normalize_date
 from app.rules.resume.fields import (
     CERTIFICATIONS_STATUS,
@@ -153,10 +153,20 @@ def plan_writes(
     return plan
 
 
-def regions_value(data: ResumeData, names: list[Any]) -> list[dict[str, Any]]:
-    """말한 지역(3곳까지) → 칸 값. 이미 코드를 고른 같은 지역은 다시 고르게 하지 않습니다."""
+def regions_value(
+    data: ResumeData, names: list[Any], *, replacing: str | None = None
+) -> list[dict[str, Any]]:
+    """말한 지역(3곳까지) → 칸 값. 이미 코드를 고른 같은 지역은 다시 고르게 하지 않습니다.
+
+    `replacing`(후보를 고르던 지역의 말한 이름)이 있으면 목록 전체가 아니라 그 자리만 바꿉니다.
+    """
+    current = as_list(data.job_preferences.desired_regions)
+    said_names = [str(said_name(r)) for r in current]
+    if replacing is not None and replacing in said_names:
+        i = said_names.index(replacing)
+        names = [*said_names[:i], *names, *said_names[i + 1 :]]
     kept: dict[str, dict[str, Any]] = {}
-    for region in as_list(data.job_preferences.desired_regions):
+    for region in current:
         if code_done(region):
             kept |= {str(said_name(region)): region, str(region.get("name")): region}
     return [kept.get(str(n)) or match_code("region", str(n)) for n in names[:MAX_PICKS]]
@@ -302,7 +312,9 @@ def _certification(
     base = f"/certifications/{item_id}"
     name_path = f"{base}/certificate_name"
     plan.writes.append(said(name_path, fact.certificate_name))
-    plan.writes += [said(p, v) for p, v in code_for_name(name_path, fact.certificate_name)]
+    plan.writes += [
+        said(p, v) for p, v in code_for_name(name_path, fact.certificate_name, picker.data)
+    ]
     if fact.issuing_organization:
         plan.writes.append(said(f"{base}/issuing_organization", fact.issuing_organization))
     if fact.acquired:
@@ -376,13 +388,22 @@ ACQUIRED_SUFFIX = "/acquired_date"
 
 
 def answer_writes(
-    data: ResumeData, paths: tuple[str, ...], value: Any, today: date, separation_date: date
+    data: ResumeData,
+    paths: tuple[str, ...],
+    value: Any,
+    today: date,
+    separation_date: date,
+    *,
+    replacing_region: str | None = None,
 ) -> FactPlan:
     """읽기 모델이 돌려준 대기 칸의 값을 칸 쓰기로 바꿉니다.
 
     - 경로가 하나면 값 그대로, 기간(시작·끝)이면 {"start", "end"}, 여러 칸이면 {칸 이름: 값}.
     - 날짜는 연·월로, 학점 만점은 고용24 목록 값으로, 학점은 0 ~ 만점 숫자로 맞춥니다.
     - 맞출 수 없으면 저장하지 않고 사용자에게 보일 문장을 asks에 둡니다.
+    - 자격면허·전공 코드 칸에 온 글은 이름 칸에 쓰고 코드는 이름으로 다시 찾습니다(코드 칸에
+      글자를 그대로 두지 않음).
+    - `replacing_region`(지역 하나의 후보를 고르는 중)이면 그 지역 자리만 말한 지역으로 바꿉니다.
     """
     plan = FactPlan()
     # 섹션 경로(/careers 같은 반복 항목 묶음)와 *_status는 값 하나를 쓰는 칸이 아닙니다.
@@ -405,6 +426,9 @@ def answer_writes(
             else:
                 plan.asks.append(f"{GPA_SCALE_ERROR}.")
         elif path.endswith(GPA_SUFFIX):
+            sent = value.get("gpa_scale") if isinstance(value, dict) else None
+            if sent not in (None, "") and gpa_scale_value(sent) is None:
+                continue  # 함께 말한 만점이 틀렸으면 만점을 다시 받은 뒤 학점을 봅니다.
             gpa, problem = gpa_value(item, _scale(data, path, value))
             if problem:
                 plan.asks.append(f"{problem}.")
@@ -413,9 +437,16 @@ def answer_writes(
         elif choices_of(path) and item not in choices_of(path):
             # 고를 값은 질문 카드 버튼에 있으므로 목록을 되풀이하지 않습니다.
             plan.asks.append(ASK_CHOICE.format(item=item))
+        elif name_path := name_path_of(path):
+            if isinstance(item, str):
+                plan.writes.append(said(name_path, item))
+                plan.writes += [said(p, v) for p, v in code_for_name(name_path, item, data)]
+        elif path == REGIONS_PATH and replacing_region is not None:
+            names = item if isinstance(item, list) else [item]
+            plan.writes.append(said(path, regions_value(data, names, replacing=replacing_region)))
         else:
             plan.writes.append(said(path, _shaped(data, path, item)))
-            plan.writes += [said(p, v) for p, v in code_for_name(path, item)]
+            plan.writes += [said(p, v) for p, v in code_for_name(path, item, data)]
     return plan
 
 

@@ -387,3 +387,75 @@ def test_scale_and_gpa_said_together_are_normalized() -> None:
     odd = answer_writes(_college(None), paths, {"gpa_scale": 4.8, "gpa": 3.8}, TODAY, SEPARATION)
     assert "/education/e1/gpa_scale" not in _values(odd)
     assert odd.asks == ["학점 만점은 4.0·4.3·4.5·5.0·100점 중 하나예요."]
+
+
+def test_wrong_scale_holds_the_gpa_and_negative_gpa_is_refused() -> None:
+    from app.rules.resume.facts import answer_writes
+
+    paths = ("/education/e1/gpa_scale", "/education/e1/gpa")
+    # 함께 말한 만점이 틀리면 학점도 두지 않습니다(나중에 만점만 고치면 학점이 만점을 넘을 수 있음).
+    odd = answer_writes(_college(None), paths, {"gpa_scale": 4.8, "gpa": 4.7}, TODAY, SEPARATION)
+    assert _values(odd) == {}
+    negative = answer_writes(_college("4.5"), ("/education/e1/gpa",), "-1", TODAY, SEPARATION)
+    assert _values(negative) == {}
+    assert negative.asks
+
+
+def test_same_license_name_again_keeps_the_chosen_code() -> None:
+    chosen = {"code": None, "name": "정보처리", "status": "name_only", "said": "정보처리"}
+    data = ResumeData.model_validate(
+        {
+            "certifications": [
+                {
+                    "item_id": "q1",
+                    "certificate_name": {"value": "정보처리", "status": "confirmed"},
+                    "certificate_code": {"value": chosen, "status": "confirmed"},
+                }
+            ]
+        }
+    )
+
+    values = _values(
+        _plan(ResumeFacts(certifications=[CertificationFact(certificate_name="정보처리")]), data)
+    )
+
+    assert "/certifications/q1/certificate_code" not in values
+
+
+def test_other_name_said_for_a_code_field_goes_to_the_name_field() -> None:
+    from app.rules.resume.facts import answer_writes
+
+    data = ResumeData.model_validate(
+        {
+            "certifications": [
+                {
+                    "item_id": "q1",
+                    "certificate_name": {"value": "정보처리", "status": "confirmed"},
+                }
+            ]
+        }
+    )
+    base = "/certifications/q1"
+
+    values = _values(
+        answer_writes(data, (f"{base}/certificate_code",), "정보처리기사", TODAY, SEPARATION)
+    )
+
+    # 코드 칸에 글자를 두지 않고, 이름 칸을 고친 뒤 이름으로 코드를 다시 찾습니다.
+    assert values[f"{base}/certificate_name"] == "정보처리기사"
+    assert values[f"{base}/certificate_code"]["code"] == "5001320"
+
+
+def test_region_pick_answer_replaces_only_that_region() -> None:
+    from app.rules.resume.facts import answer_writes
+
+    picked = {"code": "11350", "name": "서울 노원구", "status": "confirmed", "said": "노원구"}
+    open_ = {"code": None, "name": "중구", "status": "needs_confirmation", "said": "중구"}
+    data = ResumeData.model_validate(
+        {"job_preferences": {"desired_regions": {"value": [picked, open_]}}}
+    )
+    path = "/job_preferences/desired_regions"
+
+    plan = answer_writes(data, (path,), ["부산 중구"], TODAY, SEPARATION, replacing_region="중구")
+
+    assert [r["name"] for r in _values(plan)[path]] == ["서울 노원구", "부산 중구"]

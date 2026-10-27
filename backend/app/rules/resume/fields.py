@@ -113,7 +113,8 @@ VALUE_SHAPES: dict[str, str] = {
     "/additional_info/owns_vehicle": "true | false",
 }
 # 모델이 경로로 직접 쓰지 않는 칸(반복 항목은 facts로, 상태 칸은 코드가 정함)
-_NOT_WRITABLE = ("_status", "/item_id", "/occupation")
+# 코드 칸은 이름 칸을 쓰면 코드가 따라 바뀌므로(rules/resume/codes) 모델에 따로 주지 않습니다.
+_NOT_WRITABLE = ("_status", "/item_id", "/occupation", "/certificate_code", "/major_code")
 
 
 def writable_fields(data: Any) -> list[dict[str, Any]]:
