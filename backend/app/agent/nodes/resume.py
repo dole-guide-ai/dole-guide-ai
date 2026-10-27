@@ -520,6 +520,7 @@ def _ask(memory: ResumeMemory, step: ResumeStep, text: str) -> ResumeMemory:
             choices=list(step.choices),
             import_kind=kind.value if kind else None,
             accepts_file=step.accepts_file,
+            file_choice=step.file_choice,
         )
     )
     memory["asked"][step.key] = memory["asked"].get(step.key, 0) + 1

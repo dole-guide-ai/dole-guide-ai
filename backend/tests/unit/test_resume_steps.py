@@ -369,7 +369,7 @@ def test_unpicked_occupation_offers_code_candidates() -> None:
     assert values(pick.answer_writes(NOT_IN_LIST))[OCC]["status"] == "name_only"
     assert question_text(pick) == (
         "'전기관리' 일과 가장 가까운 고용24 직종을 골라 주세요. "
-        "맞는 게 없으면 다른 말로 말씀해 주셔도 돼요."
+        "맞는 게 없으면 다른 이름으로 알려 주셔도 돼요."
     )
 
 
@@ -564,3 +564,16 @@ def test_retry_card_uses_the_rule_sentence_or_says_why_with_the_question() -> No
     assert retry_text(period, []) == (
         f"말씀하신 내용으로는 이 칸을 적지 못했어요. {question_text(period)}"
     )
+
+
+def test_first_career_offers_resume_file_button_that_opens_the_file_picker() -> None:
+    """[이력서 또는 경력증명서 파일 올리기]는 화면이 파일 선택창을 여는 버튼입니다(대화로 안 보냄).
+    고용24 불러오기는 질문 아래 목록(import_kind)으로 보여 버튼을 따로 두지 않습니다."""
+    step = by_id(ResumeData(), "resume.career_new")
+
+    assert step.choices == ("이력서 또는 경력증명서 파일 올리기",)
+    assert step.file_choice == "이력서 또는 경력증명서 파일 올리기"
+    assert step.accepts_file and step.import_kind is not None
+    # 질문을 기다리는 동안(체크포인트)에도 같은 버튼 정보가 남습니다.
+    restored = ResumeStep.from_pending(step.to_pending("가장 최근에 일하신 곳은 어디예요?"))
+    assert restored.file_choice == "이력서 또는 경력증명서 파일 올리기"

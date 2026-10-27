@@ -70,6 +70,8 @@ class Composed:
     choices: list[str]
     rule_refs: list[str]
     accepts_file: bool
+    # 누르면 말을 보내지 않고 파일 선택창을 여는 보기(choices 중 하나)
+    file_choice: str | None = None
 
 
 def korean_date(day: date) -> str:
@@ -202,6 +204,7 @@ def compose(branch: str, facts: EntryFacts) -> Composed:
         choices=list(spec["choices"]),
         rule_refs=list(dict.fromkeys(refs)),
         accepts_file=bool(spec.get("accepts_file", False)),
+        file_choice=spec.get("file_choice"),
     )
 
 

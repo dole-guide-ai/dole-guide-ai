@@ -78,6 +78,8 @@ class AskUserEvent(BaseModel):
     choices: list[str] = []
     import_kind: str | None = None
     accepts_file: bool = False
+    # 누르면 말을 보내지 않고 파일 선택창을 여는 버튼(choices 중 하나). 없으면 None
+    file_choice: str | None = None
 
 
 class DoneEvent(BaseModel):

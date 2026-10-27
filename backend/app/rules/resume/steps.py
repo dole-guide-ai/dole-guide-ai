@@ -131,6 +131,10 @@ _FOLLOW_STEPS: dict[str, dict[str, Any]] = {
 }
 CAREER_MORE = "resume.career_more"
 CAREER_END_CHECK = "resume.career_end_check"
+# 누르면 화면이 파일 선택창을 여는 버튼(ResumeStep.file_choice). 말로 보내지 않습니다.
+RESUME_FILE_CHOICE = "이력서 또는 경력증명서 파일 올리기"
+PHOTO_CHOICE = "사진 올릴게요"
+RETAKE_CHOICE = "파일 다시 올리기"
 # 날짜를 몰라 그 칸을 미루는 답(버튼). 대화 노드가 미루기로 처리합니다.
 DONT_KNOW = "기억이 안 나요"
 # 같은 칸을 이만큼 물었는데도 비어 있으면(누가 물었든) 미룬 칸으로 보고 다음 칸으로 갑니다.
@@ -158,6 +162,8 @@ class ResumeStep:
     reason: str | None = None
     accepts_file: bool = False
     import_kind: ImportKind | None = None
+    # 누르면 말을 보내지 않고 화면의 파일 선택창을 여는 버튼(choices 중 하나)
+    file_choice: str | None = None
 
     @property
     def key(self) -> str:
@@ -188,6 +194,7 @@ class ResumeStep:
             "proposal": [w.model_dump(mode="json") for w in self.proposal],
             "accepts_file": self.accepts_file,
             "import_kind": self.import_kind.value if self.import_kind else None,
+            "file_choice": self.file_choice,
         }
 
     @classmethod
@@ -204,6 +211,7 @@ class ResumeStep:
             proposal=tuple(FieldWrite.model_validate(w) for w in pending.get("proposal", [])),
             accepts_file=bool(pending.get("accepts_file", False)),
             import_kind=ImportKind(pending["import_kind"]) if pending.get("import_kind") else None,
+            file_choice=pending.get("file_choice"),
         )
 
 
@@ -231,6 +239,7 @@ class Spec:
     vars: dict[str, Any] = field(default_factory=dict)
     accepts_file: bool = False
     import_kind: ImportKind | None = None
+    file_choice: str | None = None
 
 
 # (이력서, 항목(없으면 None), 이 질문이 묻는 칸 경로들) → 대화 정보
@@ -238,10 +247,12 @@ SpecFn = Callable[[ResumeData, Any, tuple[str, ...]], Spec]
 
 
 def _career_new(data: ResumeData, item: Any, paths: tuple[str, ...]) -> Spec:
+    # 고용24 불러오기는 질문 아래 목록(import_kind)으로 바로 보여 줘 버튼을 따로 두지 않습니다.
     return Spec(
-        choices=("사진 올릴게요", "고용24에서 불러올게요"),
+        choices=(RESUME_FILE_CHOICE,),
         accepts_file=True,
         import_kind=ImportKind.CAREER_CERTIFICATE,
+        file_choice=RESUME_FILE_CHOICE,
     )
 
 
@@ -306,9 +317,10 @@ def _education_period(data: ResumeData, e: Any, paths: tuple[str, ...]) -> Spec:
 
 def _license(data: ResumeData, item: Any, paths: tuple[str, ...]) -> Spec:
     return Spec(
-        choices=("있어요", "없어요", "사진 올릴게요"),
+        choices=("있어요", "없어요", PHOTO_CHOICE),
         answers={"있어요": (), "없어요": (not_applicable(CERTIFICATIONS_STATUS),)},
         accepts_file=True,
+        file_choice=PHOTO_CHOICE,
     )
 
 
@@ -445,6 +457,7 @@ def _field_steps(
             reason=spec.reason,
             accepts_file=spec.accepts_file,
             import_kind=spec.import_kind,
+            file_choice=spec.file_choice,
         )
 
 
@@ -467,6 +480,7 @@ def _career_steps(
             paths=("/careers",),
             accepts_file=True,
             import_kind=spec.import_kind,
+            file_choice=spec.file_choice,
         )
         return
     if entry_branch == "E7b" and old_careers_pending(data):
@@ -689,7 +703,12 @@ def _steps(
     asked: Mapping[str, int] | None,
 ) -> Iterator[ResumeStep]:
     if doc_failed:
-        yield _step("resume.doc_retry", choices=("다시 찍을게요",), accepts_file=True)
+        yield _step(
+            "resume.doc_retry",
+            choices=(RETAKE_CHOICE,),
+            accepts_file=True,
+            file_choice=RETAKE_CHOICE,
+        )
     for path, f in form_fields(data):
         if not needs_check(f) or _EXPERIENCE_PATH.search(path):
             continue  # 경력 합계 제안은 희망 직종 경력 질문(_experience_steps)으로 확인받습니다.
@@ -714,6 +733,7 @@ def _steps(
             paths=paths,
             answers=spec.answers,
             accepts_file=True,
+            file_choice=spec.file_choice,
         )
     for c in data.certifications:
         yield from _named_code_picks(c, f"/certifications/{c.item_id}")

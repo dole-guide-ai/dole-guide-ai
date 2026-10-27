@@ -195,6 +195,7 @@ def build_entry(
         messages=messages,
         choices=composed.choices,
         accepts_file=composed.accepts_file,
+        file_choice=composed.file_choice,
         rule_refs=composed.rule_refs,
         ui=EntryUi(big_text=procedure.age_at_separation >= BIG_TEXT_AGE),
         flags=EntryFlags(m1=not online_presubmit(procedure.age_at_separation) and step <= 3),
