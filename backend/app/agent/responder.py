@@ -91,6 +91,17 @@ def turn_input(graph: CompiledStateGraph, turn: TurnInput, config: RunnableConfi
     return Command(resume=answer, update={"model_calls": 0, "tool_calls": 0})
 
 
+def restore_evidence(graph: CompiledStateGraph, config: RunnableConfig) -> None:
+    """질문에 답하는 재개 요청에는 첨부가 없으므로, 멈추기 전에 올린 증빙을 도구 문맥에 되살립니다.
+
+    파일이 그사이 지워졌거나 다른 계정 것이면 빠집니다(evidence_ids가 다시 확인).
+    """
+    ctx = config["configurable"].get(TOOL_CONTEXT_KEY)
+    pending = graph.get_state(config).values.get("pending_evidence") or []
+    if ctx is not None and pending and not ctx.evidence_file_ids:
+        ctx.evidence_file_ids = files_service.evidence_ids(ctx.db, ctx.account, pending)
+
+
 def graph_responder(
     turn: TurnInput, checkpointer: BaseCheckpointSaver | None = None
 ) -> Iterator[TurnEvent]:
@@ -105,6 +116,8 @@ def graph_responder(
     config = run_config(turn)
     done = TurnEvent(DoneEvent())
     payload = turn_input(graph, turn, config)
+    if isinstance(payload, Command):
+        restore_evidence(graph, config)
     if payload is None:
         yield TurnEvent(TokenEvent(text=BLOCKED_REPLY))
         yield done

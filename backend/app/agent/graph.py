@@ -57,6 +57,10 @@ class AgentState(TypedDict):
     # 이번 턴에 답하는 모델에 사진째 보내도 되는 첨부 파일 ID(받아쓴 글에 등급 0 개인정보가
     # 없는 사진만). preprocess가 턴마다 다시 정합니다. 파일 ID라 개인정보가 아닙니다.
     vision_files: NotRequired[list[str]]
+    # 이번 턴에 올렸지만 아직 활동에 붙이지 않은 구직활동 증빙 파일 ID. 질문(interrupt)에서
+    # 재개하는 요청에는 첨부가 없어서, 여기서 도구 문맥으로 되살립니다(responder). preprocess가
+    # 턴마다 다시 정하고 run_tools가 붙인 만큼 비웁니다. 파일 ID라 개인정보가 아닙니다.
+    pending_evidence: NotRequired[list[str]]
 
 
 def turn_of(config: RunnableConfig) -> Any:
@@ -64,7 +68,7 @@ def turn_of(config: RunnableConfig) -> Any:
 
 
 def tool_context_of(config: RunnableConfig) -> ToolContext | None:
-    return config["configurable"].get(TOOL_CONTEXT_KEY)
+    return config.get("configurable", {}).get(TOOL_CONTEXT_KEY)
 
 
 def build_graph(checkpointer: BaseCheckpointSaver | None = None) -> CompiledStateGraph:
