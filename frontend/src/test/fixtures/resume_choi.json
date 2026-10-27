@@ -3,7 +3,7 @@
   "lock_version": 1,
   "data": {
     "resume_title": {
-      "value": "시설관리 경력 이력서",
+      "value": "웹 개발 경력 이력서",
       "status": "extracted",
       "source": "seed",
       "transformed": false,
@@ -14,7 +14,7 @@
       {
         "item_id": "edu_001",
         "education_level": {
-          "value": "고등학교",
+          "value": "대학교(4년제)",
           "status": "extracted",
           "source": "seed",
           "transformed": false,
@@ -30,7 +30,7 @@
           "answered_on": null
         },
         "school_name": {
-          "value": "OO고등학교",
+          "value": "OO대학교",
           "status": "extracted",
           "source": "seed",
           "transformed": false,
@@ -38,7 +38,7 @@
           "answered_on": null
         },
         "start_date": {
-          "value": "1975-03",
+          "value": "1978-03",
           "status": "extracted",
           "source": "seed",
           "transformed": false,
@@ -46,7 +46,7 @@
           "answered_on": null
         },
         "end_date": {
-          "value": "1978-02",
+          "value": "1985-02",
           "status": "extracted",
           "source": "seed",
           "transformed": false,
@@ -70,9 +70,9 @@
           "answered_on": null
         },
         "major": {
-          "value": null,
-          "status": "missing",
-          "source": null,
+          "value": "전자계산학",
+          "status": "extracted",
+          "source": "seed",
           "transformed": false,
           "evidence": null,
           "answered_on": null
@@ -118,7 +118,7 @@
           "occupation": {
             "value": {
               "code": null,
-              "name": "시설관리",
+              "name": "웹 개발자",
               "status": "needs_confirmation"
             },
             "status": "extracted",
@@ -235,7 +235,7 @@
       {
         "item_id": "career_001",
         "company_name": {
-          "value": "OO아파트 관리사무소",
+          "value": "OO웹솔루션",
           "status": "extracted",
           "source": "seed",
           "transformed": false,
@@ -243,7 +243,7 @@
           "answered_on": null
         },
         "start_date": {
-          "value": "2010-03",
+          "value": "2005-03",
           "status": "extracted",
           "source": "seed",
           "transformed": false,
@@ -259,7 +259,7 @@
           "answered_on": null
         },
         "position": {
-          "value": "시설기사",
+          "value": "과장",
           "status": "extracted",
           "source": "seed",
           "transformed": false,
@@ -291,7 +291,7 @@
           "answered_on": null
         },
         "main_duties": {
-          "value": "전기·설비 점검, 보수 작업",
+          "value": "웹사이트 개발·유지보수",
           "status": "extracted",
           "source": "seed",
           "transformed": false,
@@ -320,7 +320,7 @@
       {
         "item_id": "cert_001",
         "certificate_name": {
-          "value": "전기기능사",
+          "value": "정보처리기사",
           "status": "extracted",
           "source": "seed",
           "transformed": false,
@@ -336,7 +336,7 @@
           "answered_on": null
         },
         "acquired_date": {
-          "value": "2009-11-20",
+          "value": "1998-11-15",
           "status": "extracted",
           "source": "seed",
           "transformed": false,
@@ -472,6 +472,8 @@
     "/education/edu_001/school_name",
     "/education/edu_001/start_date",
     "/education/edu_001/end_date",
+    "/education/edu_001/major",
+    "/education/edu_001/gpa",
     "/careers/career_001/company_name",
     "/careers/career_001/start_date",
     "/careers/career_001/end_date",

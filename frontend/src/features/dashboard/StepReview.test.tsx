@@ -39,7 +39,7 @@ describe('완료 단계 읽기 전용 다시 보기 (1.8)', () => {
       await screen.findByRole('button', { name: '구직등록 단계 다시 보기 (완료)' }),
     );
 
-    expect(await screen.findByText('OO유통')).toBeInTheDocument();
+    expect(await screen.findByText('OO모바일')).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: /^이력서\s*읽기 전용$/ })).toBeInTheDocument();
     expect(screen.getByText('1단계 · 구직등록 · 완료')).toBeInTheDocument();
     expect(screen.getByLabelText('구직등록 완료 · 보는 중')).toHaveAttribute(

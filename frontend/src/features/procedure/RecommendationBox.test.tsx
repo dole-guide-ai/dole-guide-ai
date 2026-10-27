@@ -13,7 +13,7 @@ const serverList = {
       recommendation_id: 'rec_4_work24_apply',
       category: 'job_search',
       kind: 'job_application',
-      title: '입사지원 (고용24) — 희망 직종 ‘일반 사무’ 공고',
+      title: '입사지원 (고용24) — 희망 직종 ‘모바일 애플리케이션 프로그래머(앱·어플 개발)’ 공고',
       reason: '구직활동 · 증빙 불필요',
       evidence_hint: null,
       external: { rule_refs: ['ACT-001', 'ACT-132'] },

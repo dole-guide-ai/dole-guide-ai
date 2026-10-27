@@ -66,6 +66,27 @@ describe('resumeFromServer', () => {
     });
     expect(draft.lock_version).toBe(3);
   });
+
+  it('경력 기간을 아직 받지 못했으면 경력 구분만 보입니다', () => {
+    const data = read.data as unknown as {
+      job_preferences: { desired_occupations: Record<string, unknown>[] };
+    };
+    const occupation = data.job_preferences.desired_occupations[0];
+    const noPeriod = {
+      ...read,
+      data: {
+        ...data,
+        job_preferences: {
+          ...data.job_preferences,
+          desired_occupations: [
+            { ...occupation, experience_years: f(null), experience_months: f(null) },
+          ],
+        },
+      },
+    } as unknown as ResumeRead;
+
+    expect(resumeFromServer(noPeriod).job_preferences.experience_summary).toBe('경력');
+  });
 });
 
 describe('resumePatchOp', () => {
