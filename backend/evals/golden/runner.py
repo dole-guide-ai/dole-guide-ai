@@ -19,7 +19,7 @@ from app.core.config import get_settings
 from app.repositories import accounts as account_repo
 from app.rules import periods
 from app.rules.activity_table import load_rules, required_evidence
-from app.rules.entry_text import ONLINE_PRESUBMIT_MAX_AGE
+from app.rules.presubmit import online_presubmit
 from app.schemas.common import FieldStatus
 from app.schemas.files import FilePurpose
 from app.schemas.messages import MessageCreate
@@ -164,7 +164,7 @@ def _enter(
     )
     visitor = create_visitor(db, now)
     ctx = authenticate(db, visitor.visitor_token, now)
-    account_service.enter(db, ctx.visitor_id, persona_id, today)
+    account_service.enter(db, ctx.visitor_id, persona_id, now)
     return account_service.find_account(db, ctx.visitor_id, persona_id)
 
 
@@ -277,7 +277,7 @@ def _snapshot(db: Session, account: AccountContext, today: date, now: datetime) 
         "derived": {
             "rule_group": procedure.recipient_group,
             # 이직 당시 만 65세 미만만 인터넷 사전제출 (entry_text, PROC-048)
-            "can_presubmit_online": procedure.age_at_separation < ONLINE_PRESUBMIT_MAX_AGE,
+            "can_presubmit_online": online_presubmit(procedure.age_at_separation),
         },
     }
     try:

@@ -10,6 +10,7 @@ from typing import Any
 
 from app.rules.activity_table import load_rules
 from app.rules.next_action import NextAction
+from app.rules.presubmit import PRESUBMIT_STAGES, visit_to_apply
 from app.rules.question_text import question_text
 from app.rules.resume import ResumeQuestion
 from app.schemas.forms.resume import ResumeData
@@ -23,8 +24,6 @@ VISIT_DEADLINE = 18
 # 실업신고일부터 구직급여를 주지 않는 대기기간 (DUE-057)
 WAITING_DAYS = 7
 # 이직 당시 만 65세 이상은 인터넷 사전제출 대신 센터 방문 (PROC-048, 화면 안내 M1과 같은 단계)
-ONLINE_PRESUBMIT_MAX_AGE = 65
-PRESUBMIT_STAGES = (Stage.JOB_REGISTRATION, Stage.EDUCATION, Stage.ELIGIBILITY_APPLICATION)
 BEFORE_FIRST_ROUND = (*PRESUBMIT_STAGES, Stage.ELIGIBILITY_APPLIED)
 # 회차 점검의 활동 상태(schemas.rounds.ActivityStatus) 중 인정되지 않은 이유
 SAME_DAY = "same_day"
@@ -171,7 +170,7 @@ def stage_rule_lines(
 ) -> list[str]:
     """단계에 따라 미리 알아야 할 규칙: 65세 이상 방문 신청, 대기기간, 1차 교육."""
     lines = []
-    if age is not None and age >= ONLINE_PRESUBMIT_MAX_AGE and stage in PRESUBMIT_STAGES:
+    if age is not None and visit_to_apply(age, stage):
         lines.append(
             f"이직 당시 만 {age}세라 수급자격 신청은 인터넷 사전제출 대신 "
             "관할 고용센터에 방문해서 해요. 실업급여를 못 받는다는 뜻은 아니에요."

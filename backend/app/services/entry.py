@@ -9,6 +9,7 @@
 from enum import StrEnum
 
 from app.rules import entry_text
+from app.rules.presubmit import online_presubmit
 from app.schemas.accounts import Entry, EntryFlags, EntryMessage, EntryUi, Progress
 from app.schemas.procedure import ProcedureRead, Stage
 from app.schemas.rounds import RoundSummary
@@ -187,5 +188,5 @@ def build_entry(
         accepts_file=composed.accepts_file,
         rule_refs=composed.rule_refs,
         ui=EntryUi(big_text=procedure.age_at_separation >= BIG_TEXT_AGE),
-        flags=EntryFlags(m1=procedure.age_at_separation >= 65 and step <= 3),
+        flags=EntryFlags(m1=not online_presubmit(procedure.age_at_separation) and step <= 3),
     )
