@@ -37,13 +37,19 @@ class AgentState(TypedDict):
     messages: Annotated[list[AnyMessage], add_messages]
     # 이번 턴에 고른 패널(resume·round·application·guide). preprocess가 턴마다 비웁니다.
     panel: NotRequired[str | None]
+    # 이번 말이 확정해 답할 범위인지(nodes/route.Scope). 라우터가 정하고 preprocess가 비웁니다.
+    scope: NotRequired[str | None]
     # 이번 턴 확정 사실(절차 단계·다음 물을 칸·회차 숫자). 개인정보 없음. 매 턴 DB에서 다시 읽음
     facts: NotRequired[dict[str, Any]]
-    # 이번 턴 호출 수. 상한을 넘으면 루프를 멈춥니다.
-    model_calls: NotRequired[int]
+    # 이번 턴 도구 루프의 답 모델 호출 수와 도구 호출 수. 상한을 넘으면 루프를 멈춥니다.
+    loop_calls: NotRequired[int]
     tool_calls: NotRequired[int]
     # 개인정보 0등급이 있어 모델에 보내지 않은 턴
     blocked: NotRequired[bool]
+    # 이번 말에 든 개인정보 종류·민감한 사정(input/pii.kinds_in). 값은 넣지 않습니다.
+    pii_kinds: NotRequired[list[str]]
+    # 이번 턴 답에 꼭 들어가야 할 사실(rules/obligations). 빠지면 finish가 덧붙입니다.
+    obligations: NotRequired[list[dict[str, Any]]]
     # 이번 턴 답의 근거로 쓴 규칙 ID(규칙 카드·규칙 함수). finish가 근거 줄을 만듭니다.
     cited: NotRequired[list[str]]
     # 이번 턴에 미리 붙인 규칙 카드 ID. 답에 내용이 나온 카드만 근거 줄에 남깁니다(finish).

@@ -843,17 +843,19 @@ def templates() -> dict[str, Any]:
     return json.loads(TEMPLATES_JSON.read_text(encoding="utf-8"))
 
 
-def retry_text(step: ResumeStep, reasons: list[str]) -> str | None:
-    """같은 질문을 다시 낼 때의 카드 문장: 저장하지 못한 이유 + 원래 질문.
+def retry_text(step: ResumeStep, asks: list[str]) -> str | None:
+    """같은 질문을 다시 낼 때의 카드 문장.
 
-    이유는 저장 규칙이 정한 문장(rules/resume/facts.FactPlan.reasons)을 그대로 씁니다. 모델이
-    이유를 빠뜨리거나 질문을 한 번 더 쓰지 않게, 다시 묻는 카드는 코드가 만듭니다.
+    저장 규칙이 만든 부탁 문장(rules/resume/facts의 asks, 예: "'봄쯤'이(가) 몇 년 몇 월인지 알려
+    주세요.")이 있으면 그 문장만 씁니다(원래 질문까지 붙이면 같은 것을 두 번 묻게 됨). 없으면(모델이
+    값을 못 옮김) "적지 못했어요"와 원래 질문을 씁니다. 모델이 빠뜨리지 않게 코드가 만듭니다.
     """
     if (question := question_text(step)) is None:
         return None
+    if asks:
+        return " ".join(asks)
     t = templates()["retry"]
-    reason = " ".join(reasons) or t["unknown"]
-    return t["text"].format(reason=reason, question=question)
+    return t["text"].format(reason=t["unknown"], question=question)
 
 
 def question_text(step: ResumeStep) -> str | None:

@@ -27,20 +27,18 @@ def test_follow_up_is_rewritten_with_earlier_user_messages(rewrites: list) -> No
             AIMessage("네, 조건을 볼게요."),
             HumanMessage("보험을 2년 부었으면 며칠 나와요?"),
         ],
-        "model_calls": 1,
     }
 
-    query, calls = context.search_text(state, "보험을 2년 부었으면 며칠 나와요?")
+    query = context.search_text(state, "보험을 2년 부었으면 며칠 나와요?")
 
     assert query == "고용보험 가입기간 2년 소정급여일수"
-    assert calls == 2  # 재작성도 모델 호출 수에 셉니다
     assert rewrites == [("보험을 2년 부었으면 며칠 나와요?", ["받을 수 있는 조건이 되나요?"])]
 
 
 def test_first_message_is_searched_as_is(rewrites: list) -> None:
     state = {"messages": [HumanMessage("날일 하면 끊겨요?")]}
 
-    assert context.search_text(state, "날일 하면 끊겨요?") == ("날일 하면 끊겨요?", 0)
+    assert context.search_text(state, "날일 하면 끊겨요?") == "날일 하면 끊겨요?"
     assert rewrites == []
 
 
@@ -48,4 +46,4 @@ def test_rewrite_off_keeps_text(rewrites: list, monkeypatch: pytest.MonkeyPatch)
     monkeypatch.setattr(get_settings(), "retrieval_rewrite", False)
     state = {"messages": [HumanMessage("앞 질문"), HumanMessage("그건요?")]}
 
-    assert context.search_text(state, "그건요?") == ("그건요?", 0)
+    assert context.search_text(state, "그건요?") == "그건요?"

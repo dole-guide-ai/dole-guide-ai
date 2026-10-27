@@ -115,8 +115,11 @@ def record_activity(
     *,
     source: FieldSource = FieldSource.DIRECT,
     result: str | None = None,
+    planned: bool = False,
 ) -> UpdatesRead:
     """활동을 직접 기록합니다. 구분은 종류로 코드가 정하고(2-2.3 표), 오늘보다 뒤면 예정입니다.
+
+    planned가 참이면 오늘 날짜여도 예정입니다(대화에서 "오늘 면접 볼 거예요").
 
     날짜·종류·회사가 같은 활동이 있으면 넣지 않고 409 DUPLICATE_ACTIVITY (2-2.11).
     """
@@ -153,7 +156,7 @@ def record_activity(
             hours=body.hours,
             result=result,
             source=source,
-            planned=day > today,
+            planned=planned or day > today,
         ),
     )
     activity_repo.link_files(db, activity.activity_id, file_ids)
@@ -166,10 +169,17 @@ def record_activity(
 
 
 def record_answered_activity(
-    db: Session, account: AccountContext, body: ActivityCreate, today: date
+    db: Session,
+    account: AccountContext,
+    body: ActivityCreate,
+    today: date,
+    *,
+    planned: bool = False,
 ) -> UpdatesRead:
     """대화에서 말한 활동을 기록하고 커밋합니다(에이전트 도구 `record_activity`의 진입점)."""
-    result = record_activity(db, account, body, today, source=FieldSource.USER_ANSWER)
+    result = record_activity(
+        db, account, body, today, source=FieldSource.USER_ANSWER, planned=planned
+    )
     db.commit()
     return result
 

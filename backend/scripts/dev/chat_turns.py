@@ -41,7 +41,7 @@ def main(texts: list[str]) -> None:
         for text in texts:
             print(f"\n>> {text}")
             turn = chat_service.start_turn(
-                db, agent.account, MessageCreate(text=text), None, agent.today
+                db, agent.account, MessageCreate(text=text), None, agent.now
             )
             try:
                 for event in turn.events():

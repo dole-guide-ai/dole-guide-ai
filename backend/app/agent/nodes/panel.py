@@ -2,7 +2,7 @@
 
 - 모델에는 그 패널 도구(registry.TOOLS_BY_PANEL)와 ask_user만 보입니다(도구 제한, ADR 0001).
 - 숫자·저장은 도구(규칙 함수)가 하고 모델은 고르고 말만 합니다.
-- 한 턴 호출 상한(MAX_MODEL_CALLS, MAX_TOOL_CALLS)을 넘으면 루프를 멈춥니다.
+- 한 턴 도구 루프 상한(MAX_LOOP_CALLS, MAX_TOOL_CALLS)을 넘으면 루프를 멈춥니다.
 - ask_user는 두 노드로 나눕니다. interrupt된 노드는 재개할 때 처음부터 다시 실행되므로,
   질문 이벤트는 앞 노드(run_tools)에서 한 번만 내고 ask 노드는 interrupt만 합니다.
 - 이력서 패널은 이 루프를 쓰지 않고 읽기·말하기 노드로 갑니다(nodes/resume).
@@ -28,20 +28,26 @@ from app.agent.events import emit
 from app.agent.graph import AgentState, tool_context_of
 from app.agent.grounding import Evidence, SentenceChecker
 from app.agent.input import images
+from app.agent.nodes.finish import deliver_missing
 from app.agent.nodes.route import FORM_PANELS
 from app.agent.output import SentenceStream
 from app.agent.prompts import load_prompt
 from app.agent.tools.registry import TOOLS, TOOLS_BY_PANEL, ToolError, run_tool
 from app.core.config import get_settings
 from app.core.errors import AppError
+from app.rules.obligations import Obligation, from_tool_result, merge, prompt_block
 from app.schemas.common import FormUpdate
 from app.schemas.messages import AskUserEvent, TokenEvent, ToolCallEvent
 from app.services import files as files_service
 
-MAX_MODEL_CALLS = 4  # 분류 1 + 패널 루프 3 (노션 「에이전트 구조 설계」 8절)
+# 도구 루프에서 답 모델을 부르는 횟수 상한. 분류·근거 재정렬·검색어 재작성·이력서 읽기처럼
+# 루프 밖의 보조 호출은 세지 않습니다(보조 호출이 도구 루프 몫을 깎아 답이 잘리지 않게).
+MAX_LOOP_CALLS = 3
 MAX_TOOL_CALLS = 6
 ASK_USER = "ask_user"
 LOOKUP_RULES = "lookup_rules"
+# 이력서 읽기·말하기만 쓰는 사실(nodes/context). 다른 패널의 프롬프트에는 넣지 않습니다.
+RESUME_ONLY_FACTS = frozenset({"resume_plan", "resume_fields", "resume_items"})
 PARAGRAPH_GAP = "\n\n"
 BASE_PROMPT = "panels/base"
 
@@ -79,17 +85,23 @@ def tool_schemas(panel: str) -> list[dict[str, Any]]:
 
 
 def system_prompt(state: AgentState) -> str:
-    facts = dict(state.get("facts", {}))
+    """이력서 외 패널(회차·신청서·안내)의 시스템 프롬프트.
+
+    이력서 진행표·칸 목록은 이력서 읽기·말하기(nodes/resume)만 씁니다. 다른 패널에 넣으면 질문과
+    무관한 이력서 안내가 답에 붙어 질문을 밀어냅니다(골든셋 2차 측정 D8).
+    """
+    facts = {k: v for k, v in state.get("facts", {}).items() if k not in RESUME_ONLY_FACTS}
     briefing = "\n".join(f"- {line}" for line in facts.pop("briefing", []))
     panel = state["panel"]
-    return "\n\n".join(
-        [
-            load_prompt(BASE_PROMPT),
-            load_prompt(f"panels/{panel}"),
-            f"## 지금 상황 (코드가 계산한 사실. 그대로 옮기고 계산하지 않음)\n{briefing}",
-            f"## 세부 값·규칙 카드 (DB 기준)\n{json.dumps(facts, ensure_ascii=False)}",
-        ]
-    )
+    duties = [Obligation.from_state(raw) for raw in state.get("obligations", [])]
+    parts = [
+        load_prompt(BASE_PROMPT),
+        load_prompt(f"panels/{panel}"),
+        f"## 지금 상황 (코드가 계산한 사실. 그대로 옮기고 계산하지 않음)\n{briefing}",
+        prompt_block(duties),
+        f"## 세부 값·규칙 카드 (DB 기준)\n{json.dumps(facts, ensure_ascii=False)}",
+    ]
+    return "\n\n".join(part for part in parts if part)
 
 
 def _with_images(messages: list[Any], file_ids: list[str], config: RunnableConfig) -> list[Any]:
@@ -146,7 +158,7 @@ def call_model(state: AgentState, config: RunnableConfig) -> dict[str, Any]:
     for piece in sentences.close():
         emit(TokenEvent(text=piece))
     message = AIMessage(content=sentences.text, tool_calls=reply.tool_calls if reply else [])
-    return {"messages": [message], "model_calls": state.get("model_calls", 0) + 1}
+    return {"messages": [message], "loop_calls": state.get("loop_calls", 0) + 1}
 
 
 def _said_this_turn(messages: list[Any]) -> bool:
@@ -186,23 +198,27 @@ def _rule_ids(result: dict[str, Any]) -> list[str]:
 
 def _run_one(
     state: AgentState, config: RunnableConfig, name: str, args: dict[str, Any]
-) -> tuple[str, list[str]]:
-    """(모델에 돌려줄 결과 글, 근거 규칙 ID). 실패도 예외로 턴을 끝내지 않고 사유로 돌려줍니다."""
+) -> tuple[str, list[str], list[Obligation]]:
+    """(모델에 돌려줄 결과 글, 근거 규칙 ID, 답에 꼭 넣을 사실).
+
+    실패도 예외로 턴을 끝내지 않고 사유로 돌려줍니다.
+    """
     ctx = tool_context_of(config)
     if name not in tool_names(state["panel"]):
-        return "이 단계에서 쓸 수 없는 도구예요.", []
+        return "이 단계에서 쓸 수 없는 도구예요.", [], []
     if ctx is None:
-        return "지금은 도구를 쓸 수 없어요.", []
+        return "지금은 도구를 쓸 수 없어요.", [], []
     emit(ToolCallEvent(name=name, status="started"))
     try:
         result = run_tool(ctx, name, args)
     except (ToolError, ValidationError, AppError) as exc:
-        return _failure(exc), []
+        return _failure(exc), [], []
     finally:
         emit(ToolCallEvent(name=name, status="finished"))
     for update in result.get("updates", []):
         emit(FormUpdate.model_validate(update))
-    return json.dumps(result, ensure_ascii=False, default=str), _rule_ids(result)
+    content = json.dumps(result, ensure_ascii=False, default=str)
+    return content, _rule_ids(result), from_tool_result(name, result)
 
 
 def run_tools(state: AgentState, config: RunnableConfig) -> dict[str, Any]:
@@ -210,6 +226,7 @@ def run_tools(state: AgentState, config: RunnableConfig) -> dict[str, Any]:
     calls = _last_ai(state).tool_calls
     used = state.get("tool_calls", 0)
     cited = list(state.get("cited", []))
+    duties: list[Obligation] = []
     results = []
     for call in calls:
         if call["name"] == ASK_USER:
@@ -218,18 +235,29 @@ def run_tools(state: AgentState, config: RunnableConfig) -> dict[str, Any]:
         if used > MAX_TOOL_CALLS:
             content = "이번 턴 도구 호출 상한에 걸려 실행하지 않았어요."
         else:
-            content, rule_ids = _run_one(state, config, call["name"], call["args"])
+            content, rule_ids, found = _run_one(state, config, call["name"], call["args"])
             cited.extend(i for i in rule_ids if i not in cited)
+            duties += found
         results.append(ToolMessage(content=content, tool_call_id=call["id"]))
     asks = [c for c in calls if c["name"] == ASK_USER]
+    duties_now = merge(state.get("obligations", []), duties)
     if asks:
+        # 되묻기로 멈추는 턴은 finish를 거치지 않으므로, 빠진 사실을 카드 앞에 먼저 내보냅니다.
+        # 대화 기록에는 넣지 않고(도구 호출·결과 순서 유지) 보낸 것만 상태에서 뺍니다.
+        sent, cited = deliver_missing({**state, "cited": cited}, duties_now)
+        duties_now = [raw for raw in duties_now if raw["key"] not in {d.key for d in sent}]
         ask = AskUserInput.model_validate(asks[0]["args"])
         emit(AskUserEvent(question_id=asks[0]["id"], text=ask.question, choices=ask.choices))
         # 두 번째 질문부터는 한 번에 하나만 묻도록 돌려보냅니다.
         results.extend(
             ToolMessage(content="한 번에 하나만 물어요.", tool_call_id=c["id"]) for c in asks[1:]
         )
-    update: dict[str, Any] = {"messages": results, "tool_calls": used, "cited": cited}
+    update: dict[str, Any] = {
+        "messages": results,
+        "tool_calls": used,
+        "cited": cited,
+        "obligations": duties_now,
+    }
     if (ctx := tool_context_of(config)) is not None:
         # 질문에서 멈췄다 재개해도 아직 붙이지 않은 증빙만 되살리도록 남은 것을 저장합니다.
         update["pending_evidence"] = list(ctx.evidence_file_ids)
@@ -239,7 +267,7 @@ def run_tools(state: AgentState, config: RunnableConfig) -> dict[str, Any]:
 def after_tools(state: AgentState) -> str:
     if any(c["name"] == ASK_USER for c in _last_ai_with_calls(state).tool_calls):
         return "ask"
-    return "call_model" if state.get("model_calls", 0) < MAX_MODEL_CALLS else "finish"
+    return "call_model" if state.get("loop_calls", 0) < MAX_LOOP_CALLS else "finish"
 
 
 def _last_ai_with_calls(state: AgentState) -> AIMessage:

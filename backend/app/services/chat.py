@@ -16,7 +16,7 @@ import logging
 import time
 from collections.abc import Iterable, Iterator
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import datetime
 from http import HTTPStatus
 from typing import Any
 
@@ -136,7 +136,7 @@ def start_turn(
     account: AccountContext,
     body: MessageCreate,
     idempotency_key: str | None,
-    today: date,
+    now: datetime,
 ) -> Turn:
     """스트림 전에 막을 것을 확인하고 사용자 말풍선을 남깁니다. 실패는 HTTP 오류로 끝납니다."""
     if not repo.try_lock_turn(db, account.user_id):
@@ -161,7 +161,7 @@ def start_turn(
         persona_id=account.persona_id,
         text=body.text,
         input_kind=body.input_kind,
-        today=today,
+        now=now,
         file_ids=body.file_ids,
         import_ids=body.import_ids,
         db=db,

@@ -551,13 +551,16 @@ def test_unfinished_field_is_asked(name: str, skip_confirm: bool) -> None:
     assert _asks(steps(data, skip_confirm=skip_confirm), path), name
 
 
-def test_retry_card_puts_the_reason_before_the_same_question() -> None:
+def test_retry_card_uses_the_rule_sentence_or_says_why_with_the_question() -> None:
     from app.rules.resume import retry_text
 
     data = ResumeData.model_validate({"careers": [CAREER | {"start_date": {}, "end_date": {}}]})
     period = by_id(data, "resume.career_period")
-    reason = "'봄쯤'은(는) 몇 년 몇 월인지 알 수 없어서 적지 못했어요."
+    ask = "'봄쯤'이(가) 몇 년 몇 월인지 알려 주세요."
 
-    assert retry_text(period, [reason]) == f"{reason} {question_text(period)}"
+    # 저장 규칙의 부탁 문장이 있으면 그것만(원래 질문을 또 붙이지 않음)
+    assert retry_text(period, [ask]) == ask
     # 이유를 모를 때(모델이 값을 못 옮김)도 같은 문구를 그대로 되풀이하지 않습니다.
-    assert retry_text(period, []).startswith("말씀하신 내용으로는 이 칸을 적지 못했어요.")
+    assert retry_text(period, []) == (
+        f"말씀하신 내용으로는 이 칸을 적지 못했어요. {question_text(period)}"
+    )

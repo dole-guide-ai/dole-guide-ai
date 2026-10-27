@@ -36,7 +36,7 @@ SAME_COMPANY_MIN = 2
 _W1 = "{day} 활동은 {count}건이지만 하루 1건만 인정돼요."
 _W2 = "{day}는 이번 회차 기간({start}~{end}) 밖이라 계산에서 뺐어요."
 _W3 = "같은 회사에만 계속 지원하면 인정되지 않을 수 있어요."
-_W4 = "{label}은 수급 기간 전체에서 {max}번까지만 인정돼요."
+_W4 = LIMIT_TEXT = "{label} 수급 기간 전체에서 {max}번까지만 인정돼요."
 _W5 = "{org} 지원은 {evidence}이 필요해요. 사진으로 올려 주세요."
 _W6 = "구직 외 활동만으로는 안 돼요. 입사지원이나 면접 1건이 꼭 필요해요."
 
@@ -73,6 +73,13 @@ class _Refs:
         self.items += [ref for ref in refs if ref not in self.items]
 
 
+def topic(word: str) -> str:
+    """받침이 있으면 "은", 없으면 "는"을 붙입니다("취업특강은", "자원봉사는")."""
+    last = word[-1] if word else ""
+    has_final = "가" <= last <= "힣" and (ord(last) - ord("가")) % 28 > 0
+    return f"{word}{'은' if has_final else '는'}"
+
+
 def _short(day: date) -> str:
     return f"{day.month}월 {day.day}일"
 
@@ -93,6 +100,48 @@ def is_not_allowed(rule: KindRule, rules: ActivityRules, group: str, round_no: i
         or (bool(rule.groups) and group not in rule.groups)
         or (rule.category == ActivityCategory.NON_JOB_SEARCH and job_only)
     )
+
+
+@dataclass(frozen=True)
+class Admission:
+    """기록하기 전에 본 이 활동의 인정 여부. 인정되면 status가 None입니다."""
+
+    kind: str
+    status: ActivityStatus | None
+    message: str | None = None
+    rule_refs: tuple[str, ...] = ()
+    limit_max: int | None = None
+
+
+NOT_ALLOWED_TEXT = "{label} 이 수급자 유형·회차에서 재취업활동으로 인정되지 않아요."
+_JOB_SEARCH_ONLY = " 이번 회차는 구직활동(입사지원·면접 등)만 인정돼요."
+
+
+def admission(kind: str, group: str, round_no: int, limits_used: LimitsUsed) -> Admission:
+    """활동 종류가 이번 회차에 인정되는지 기록 전에 봅니다(check_round 2·3단계와 같은 기준).
+
+    표에 없는 종류는 여기서 막지 않습니다(기록 뒤 회차 점검이 확인 필요로 둠).
+    """
+    rules = load_rules()
+    rule = rules.kind(kind)
+    if rule is None:
+        return Admission(kind, None)
+    if is_not_allowed(rule, rules, group, round_no):
+        message = NOT_ALLOWED_TEXT.format(label=topic(rule.label))
+        refs = list(rule.rule_refs)
+        if rule.category == ActivityCategory.NON_JOB_SEARCH and _job_search_only(
+            rules, group, round_no
+        ):
+            message += _JOB_SEARCH_ONLY
+            refs += [r for only in rules.job_search_only_from_round for r in only.rule_refs]
+        return Admission(kind, ActivityStatus.NOT_ALLOWED, message, tuple(dict.fromkeys(refs)))
+    limit = rules.limit(rule.limit_group) if rule.limit_group else None
+    if limit and getattr(limits_used, limit.group, 0) >= limit.max:
+        message = _W4.format(label=topic(limit.label), max=limit.max)
+        return Admission(
+            kind, ActivityStatus.LIMIT_OVER, message, tuple(limit.rule_refs), limit.max
+        )
+    return Admission(kind, None)
 
 
 def _evidence_ok(activity: ActivityInput, rules: ActivityRules) -> bool:
@@ -171,7 +220,7 @@ def check_round(
                 warnings.append(
                     RoundWarning(
                         id=WarningId.LIMIT_OVER,
-                        message=_W4.format(label=limit.label, max=limit.max),
+                        message=_W4.format(label=topic(limit.label), max=limit.max),
                         activity_ids=[a.activity_id],
                         rule_refs=list(limit.rule_refs),
                     )

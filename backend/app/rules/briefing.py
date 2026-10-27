@@ -9,17 +9,14 @@ from datetime import date
 from typing import Any
 
 from app.rules.activity_table import load_rules
+from app.rules.application import SEND_DEADLINE_HOUR, VISIT_DEADLINE_HOUR
 from app.rules.next_action import NextAction
 from app.rules.presubmit import PRESUBMIT_STAGES, visit_to_apply
-from app.rules.resume import REQUIRED_SECTIONS, ResumeStep, question_text
 from app.schemas.forms.resume import ResumeData
 from app.schemas.procedure import Stage
 
 WEEKDAYS = "월화수목금토일"
 DAYS_PER_WEEK = 7
-# 인정일 당일 인터넷 신청 마감과 놓쳤을 때 센터 방문 마감 (규칙표 DUE-092·093)
-ONLINE_DEADLINE = 17
-VISIT_DEADLINE = 18
 # 실업신고일부터 구직급여를 주지 않는 대기기간 (DUE-057)
 WAITING_DAYS = 7
 # 이직 당시 만 65세 이상은 인터넷 사전제출 대신 센터 방문 (PROC-048, 화면 안내 M1과 같은 단계)
@@ -60,6 +57,11 @@ ACTION_TEXT = {
     NextAction.ADD_JOB_SEARCH_ACTIVITY: "이번 회차 구직활동(입사지원·면접 등) 채우기",
     NextAction.REVIEW_FORM: "활동은 다 채웠으니 실업인정 신청서 미리 살펴보기",
     NextAction.SUBMIT_BY_SELF: "오늘이 인정일이라 고용24에서 실업인정 신청하기",
+    NextAction.ATTEND_CENTER: "오늘이 출석하는 인정일이라 고용센터에 가서 실업인정 받기",
+    NextAction.VISIT_CENTER_TODAY: (
+        "인터넷 신청 마감이 지나서 오늘 센터 방문 마감 전에 고용센터에 가서 신청하기"
+    ),
+    NextAction.CONTACT_CENTER: "오늘 신청 마감이 모두 지나서 다음 절차를 관할 고용센터에 확인하기",
 }
 
 
@@ -145,20 +147,21 @@ def deadline_lines(d_day: int, now_time: str | None) -> list[str]:
     확인하라고 합니다(놓친 뒤의 절차는 규칙표에 없음).
     """
     rule = (
-        f"실업인정일 당일 인터넷 신청은 0시부터 {ONLINE_DEADLINE}시까지예요. "
-        f"{ONLINE_DEADLINE}시까지 못 보내면 그날 {VISIT_DEADLINE}시까지 고용센터에 가서 신청해요."
+        f"실업인정일 당일 인터넷 신청은 0시부터 {SEND_DEADLINE_HOUR}시까지예요. "
+        f"{SEND_DEADLINE_HOUR}시까지 못 보내면 그날 {VISIT_DEADLINE_HOUR}시까지 "
+        "고용센터에 가서 신청해요."
     )
     hour = int(now_time.split(":")[0]) if d_day == 0 and now_time else None
-    if hour is not None and hour >= VISIT_DEADLINE:
+    if hour is not None and hour >= VISIT_DEADLINE_HOUR:
         return [
-            f"지금은 {now_time}이라 오늘 인터넷 신청({ONLINE_DEADLINE}시)과 센터 방문 신청"
-            f"({VISIT_DEADLINE}시) 마감이 모두 지났어요. "
+            f"지금은 {now_time}이라 오늘 인터넷 신청({SEND_DEADLINE_HOUR}시)과 센터 방문 신청"
+            f"({VISIT_DEADLINE_HOUR}시) 마감이 모두 지났어요. "
             "다음 절차는 관할 고용센터에 확인해야 해요.",
         ]
-    if hour is not None and hour >= ONLINE_DEADLINE:
+    if hour is not None and hour >= SEND_DEADLINE_HOUR:
         return [
-            f"지금은 {now_time}이라 오늘 인터넷 신청 마감({ONLINE_DEADLINE}시)이 지났어요. "
-            f"{VISIT_DEADLINE}시까지 고용센터에 가서 신청해야 해요.",
+            f"지금은 {now_time}이라 오늘 인터넷 신청 마감({SEND_DEADLINE_HOUR}시)이 지났어요. "
+            f"{VISIT_DEADLINE_HOUR}시까지 고용센터에 가서 신청해야 해요.",
             rule,
         ]
     return [rule]
@@ -182,19 +185,6 @@ def stage_rule_lines(
     if stage == Stage.ELIGIBILITY_APPLIED or round_no == 1:
         lines.append(FIRST_ROUND_EDUCATION.get(group or "", FIRST_ROUND_EDUCATION[GENERAL]))
     return lines
-
-
-def resume_line(question: ResumeStep | None, filled: int | None = None) -> str | None:
-    """이력서 진행과 다음에 채울 칸 한 줄. 문구는 질문 카드와 같은 템플릿(rules/resume/steps)."""
-    text = question_text(question) if question else None
-    if not text:
-        return None
-    progress = (
-        f"이력서는 꼭 채울 {len(REQUIRED_SECTIONS)}개 중 {filled}개를 채웠어요. "
-        if (filled is not None)
-        else ""
-    )
-    return f"{progress}다음 칸: {text}"
 
 
 def _val(field: Any) -> Any:
@@ -276,8 +266,6 @@ def build_briefing(
     *,
     round_: dict[str, Any] | None,
     action: NextAction | None,
-    resume_question: ResumeStep | None = None,
-    resume_filled: int | None = None,
     education_done: bool | None = None,
     person: list[str] | None = None,
     age: int | None = None,
@@ -293,9 +281,6 @@ def build_briefing(
     lines += stage_rule_lines(stage, age=age, group=group, round_no=round_no)
     if round_:
         lines += round_lines(round_)
-    resume = resume_line(resume_question, resume_filled)
-    if resume and (stage == Stage.JOB_REGISTRATION or resume_question):
-        lines.append(resume)
     if action:
         lines.append(f"지금 할 일: {ACTION_TEXT[action]}")
     return lines

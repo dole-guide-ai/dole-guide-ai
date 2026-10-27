@@ -16,6 +16,7 @@ from app.agent.grounding import claims, used_in_answer
 from app.agent.nodes.route import FORM_PANELS
 from app.agent.tools.guide import OVERVIEW_TERMS
 from app.rules.next_action import NextAction, next_action
+from app.rules.obligations import GAP, Obligation, missing
 from app.rules.rule_cards import RuleCard, cards_by_id, cite_line
 from app.schemas.messages import DoneEvent, TokenEvent
 
@@ -114,13 +115,30 @@ def done_event(state: AgentState) -> DoneEvent:
 
 
 def finish(state: AgentState) -> dict[str, Any]:
+    """턴을 마칩니다. 답에 빠진 의무사항(rules/obligations)은 그 문장을 덧붙이고 근거에 넣습니다."""
     last = state["messages"][-1]
     if state.get("blocked"):
         emit(DoneEvent())
         return {}
+    added: list[AIMessage] = []
     if not (isinstance(last, AIMessage) and last.text):
         emit(TokenEvent(text=LIMIT_REPLY))
-        emit(done_event(state))
-        return {"messages": [AIMessage(LIMIT_REPLY)]}
-    emit(done_event(state))
-    return {}
+        added.append(AIMessage(LIMIT_REPLY))
+    sent, cited = deliver_missing(state, state.get("obligations", []), added)
+    added += [AIMessage(duty.text) for duty in sent]
+    emit(done_event({**state, "messages": [*state["messages"], *added], "cited": cited}))
+    return {"messages": added} if added else {}
+
+
+def deliver_missing(
+    state: AgentState, raw_duties: list[dict[str, Any]], added: list[AIMessage] | None = None
+) -> tuple[list[Obligation], list[str]]:
+    """이번 턴 답에 빠진 의무사항을 화면에 덧붙여 내보냅니다. (보낸 것, 근거 규칙 ID)."""
+    duties = [Obligation.from_state(raw) for raw in raw_duties]
+    answer = turn_answer([*state["messages"], *(added or [])])
+    cited = list(state.get("cited", []))
+    sent = missing(duties, answer)
+    for duty in sent:
+        emit(TokenEvent(text=GAP + duty.text))
+        cited += [ref for ref in duty.rule_refs if ref not in cited]
+    return sent, cited

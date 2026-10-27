@@ -10,11 +10,13 @@ from langchain_core.runnables import RunnableConfig
 
 from app.agent.graph import AgentState, tool_context_of
 from app.agent.nodes import resume as resume_node
+from app.agent.nodes.preprocess import ATTACHMENT_OPEN
 from app.agent.nodes.route import Panel
 from app.agent.retrieval import rerank_cards, rewrite_query
 from app.agent.tools import guide
 from app.core.config import get_settings
 from app.core.errors import AppError
+from app.rules import obligations as obligation_rules
 from app.rules.briefing import build_briefing, interval_days, person_lines, resume_items
 from app.rules.next_action import next_action
 from app.rules.resume.fields import writable_fields
@@ -84,6 +86,20 @@ def load_context(state: AgentState, config: RunnableConfig) -> dict[str, Any]:
                     for a in check.activities
                     if a.status in NOT_COUNTED_REASONS
                 ],
+                # 이번 회차에 기록된 활동. 사용자가 잘못 말한 활동을 바로잡을 때(edit_activity)
+                # 가리킬 id입니다. 회사 이름은 개인정보가 아닙니다.
+                "activities": [
+                    {
+                        "activity_id": a.activity_id,
+                        "date": a.activity_date.isoformat(),
+                        "kind": a.kind,
+                        "org_name": a.org_name,
+                        "status": a.status.value,
+                    }
+                    for a in check.activities
+                ],
+                # 수급 기간 전체에서 쓴 누적 한도(특강 등). 말에 나온 활동의 한도 안내에 씁니다.
+                "limits_used": check.limits_used.model_dump(),
                 "now_time": facts["now_time"],
                 "interval_days": interval_days(procedure.recipient_group, check.round),
                 "job_search_only": bool(check.required)
@@ -99,21 +115,19 @@ def load_context(state: AgentState, config: RunnableConfig) -> dict[str, Any]:
                 facts["round"]["count_rule"] = COUNT_RULE_NOTE
     # 이력서 진행표: 남은 칸 앞 몇 개의 경로·선택지·코드 제안(nodes/resume)
     facts["resume_plan"] = resume_node.plan_facts(ctx, state, resume.completeness.filled)
-    question = resume_node.first_step(ctx, state)
     facts["resume_ready"] = account_service.resume_ready(ctx.db, user_id, procedure)
     action = next_action(
         facts["stage"],
         facts.get("round"),
         resume_ready=facts["resume_ready"],
         education_done=procedure.education_done,
+        now=ctx.now,
     )
     # 모델이 JSON을 해석하지 않아도 되게 코드가 결론을 문장으로 씁니다(rules/briefing).
     facts["briefing"] = build_briefing(
         facts["stage"],
         round_=facts.get("round"),
         action=action,
-        resume_question=question,
-        resume_filled=resume.completeness.filled,
         education_done=procedure.education_done,
         age=procedure.age_at_separation,
         group=procedure.recipient_group,
@@ -152,6 +166,23 @@ def attach_knowledge(state: AgentState, config: RunnableConfig) -> dict[str, Any
     settings = get_settings()
     text = str(state["messages"][-1].content)
     profile = Profile(**state["profile"]) if state.get("profile") else None
+    # 회차 패널의 남은 건수·주기·같은 날, 인정일 당일 마감처럼 코드가 확정한 사실은 답에 꼭 넣음.
+    round_ = state.get("facts", {}).get("round") or {}
+    panel = state.get("panel")
+    said = text.partition(ATTACHMENT_OPEN)[0]
+    group = profile.group if profile else None
+    duties = obligation_rules.merge(
+        state.get("obligations", []),
+        obligation_rules.from_round(round_, panel, group)
+        + obligation_rules.from_deadline(round_)
+        + obligation_rules.from_mentions(
+            said,
+            panel,
+            group=group,
+            round_no=profile.round_no if profile else None,
+            limits_used=round_.get("limits_used"),
+        ),
+    )
     # 질문과 상관없이 먼저 붙이는 카드: 지금 단계의 규칙(첫 안내와 같은 분기)과 이 수급자 유형·
     # 회차에 정해진 규칙(질문에 "4차"가 있으면 그 회차).
     cards = [c for i in state.get("situation_rules", []) if (c := cards_by_id().get(i))]
@@ -159,14 +190,13 @@ def attach_knowledge(state: AgentState, config: RunnableConfig) -> dict[str, Any
         cards += cards_for(profile.for_query(text))
     cards = list({c.rule_id: c for c in cards}.values())
     guides = []
-    calls = state.get("model_calls", 0)
     if settings.rule_cards_mode == "inject":
         ctx = tool_context_of(config)
         if ctx is None:  # DB 없이 그래프만 도는 단위 테스트: 단어 검색만
             found_cards = search_cards(text, settings.retrieval_inject_limit, profile)
         else:
             guide_limit = settings.retrieval_guide_limit if state.get("panel") == Panel.GUIDE else 0
-            query, calls = search_text(state, text)
+            query = search_text(state, text)
             limit = settings.retrieval_inject_limit
             # 재정렬하면 후보를 넉넉히 찾고 모델이 limit장을 고릅니다.
             wanted = settings.retrieval_rerank_candidates if settings.retrieval_rerank else limit
@@ -174,24 +204,22 @@ def attach_knowledge(state: AgentState, config: RunnableConfig) -> dict[str, Any
             found_cards, guides = knowledge_service.rule_cards_of(found.rules), found.guides
             if settings.retrieval_rerank and found_cards:
                 found_cards = rerank_cards(query, found_cards, limit)
-                calls += 1
         cards += [c for c in found_cards if c.rule_id not in {x.rule_id for x in cards}]
     if not cards and not guides:
-        return {"attached": [], "model_calls": calls}
+        return {"attached": [], "obligations": duties}
     facts = {**state.get("facts", {}), "rules": [c.for_model() for c in cards]}
     if guides:
         facts["guides"] = [knowledge_service.guide_for_model(g) for g in guides]
     # 붙인 근거 중 답에 실제로 쓴 것만 finish가 근거 줄에 남깁니다(agent/grounding.used_in_answer).
-    return {"facts": facts, "attached": [c.rule_id for c in cards], "model_calls": calls}
+    return {"facts": facts, "attached": [c.rule_id for c in cards], "obligations": duties}
 
 
-def search_text(state: AgentState, text: str) -> tuple[str, int]:
-    """검색할 문장과 이번 턴 모델 호출 수. 이어지는 말만 앞선 사용자 말을 넣어 바꿉니다.
+def search_text(state: AgentState, text: str) -> str:
+    """검색할 문장. 이어지는 말만 앞선 사용자 말을 넣어 바꿉니다.
 
     앞선 말은 preprocess가 가린 뒤 저장한 글이라 개인정보가 없습니다.
     """
-    calls = state.get("model_calls", 0)
     earlier = [str(m.content) for m in state["messages"][:-1] if isinstance(m, HumanMessage)]
     if not get_settings().retrieval_rewrite or not earlier:
-        return text, calls
-    return rewrite_query(text, earlier[-REWRITE_HISTORY:]), calls + 1
+        return text
+    return rewrite_query(text, earlier[-REWRITE_HISTORY:])
