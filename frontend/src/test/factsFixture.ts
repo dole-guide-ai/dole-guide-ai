@@ -9,7 +9,7 @@ export const LEE_FACTS: FactList = {
       fact_id: 'resume.saved',
       group: 'resume',
       label: '이력서',
-      value: '저장 완료 (일반 사무)',
+      value: '저장 완료 (앱 개발)',
       answered_on: null,
       is_deletable: false,
     },

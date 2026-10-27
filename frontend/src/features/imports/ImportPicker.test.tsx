@@ -24,8 +24,8 @@ const CAREERS = {
 };
 const APPLICATIONS = {
   items: [
-    item('wa_001', 'job_search', 'OO물류 · 일반 사무', true),
-    item('wa_003', 'job_search', 'OO물산 · 사무보조'),
+    item('wa_001', 'job_search', 'OO물류 · 앱 개발', true),
+    item('wa_003', 'job_search', 'OO물산 · 모바일 앱 개발'),
   ],
   total: 2,
   source_note: '모의 목록이에요.',
