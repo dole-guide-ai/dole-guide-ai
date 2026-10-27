@@ -3,6 +3,8 @@ from collections.abc import Callable
 import pytest
 from fastapi.testclient import TestClient
 
+from app.rules.resume import REQUIRED_SECTIONS
+
 pytestmark = pytest.mark.integration
 
 # 박진수(합성) 이력서의 꼭 묻는 5개를 채우는 직접 고치기
@@ -46,7 +48,9 @@ def test_empty_resume_then_fill_and_save(
     res = client.get("/accounts/park/resume", headers=headers)
     assert res.status_code == 200 and res.headers["ETag"] == '"0"'
     body = res.json()
-    assert body["completeness"] == {"filled": 0, "total": 5} and not body["can_save"]
+    assert body["completeness"]["filled"] == 0 and not body["can_save"]
+    # 항목별 완료 여부도 서버가 판정해 내려 줍니다(화면은 그대로 씀).
+    assert body["completeness"]["sections"] == dict.fromkeys(REQUIRED_SECTIONS, False)
     assert body["next_question"] == "resume.career_new"
 
     not_ready = _patch(client, headers, [{"op": "replace", "path": "/status", "value": "saved"}])

@@ -35,7 +35,7 @@ from app.schemas.common import (
 )
 from app.schemas.forms import resume as resume_form
 from app.schemas.procedure import Stage
-from app.schemas.resume import Completeness, FieldWrite, ResumeRead, ResumeStatus
+from app.schemas.resume import FieldWrite, ResumeRead, ResumeStatus
 from app.services import accounts as account_service
 from app.services.accounts import AccountContext, seed_resume
 from app.services.profile import read_profile_display
@@ -192,7 +192,7 @@ def read_resume(db: Session, account: AccountContext) -> ResumeRead:
         status=resume.status if resume else ResumeStatus.DRAFT,
         lock_version=resume.lock_version if resume else 0,
         data=data,
-        completeness=Completeness(filled=rules.resume_completeness(data, outdated=outdated).filled),
+        completeness=rules.resume_completeness(data, outdated=outdated),
         next_question=question.id,
         can_save=rules.can_save_resume(data, outdated=outdated),
         profile_display=read_profile_display(db, account.user_id),

@@ -11,7 +11,7 @@ from typing import Any
 from pydantic import BaseModel
 from pydantic import Field as PydanticField
 
-from app.schemas.common import FieldSource, FieldStatus
+from app.schemas.common import Completeness, FieldSource, FieldStatus
 from app.schemas.forms.resume import ResumeData
 from app.schemas.profile import ProfileDisplay
 
@@ -19,11 +19,6 @@ from app.schemas.profile import ProfileDisplay
 class ResumeStatus(StrEnum):
     DRAFT = "draft"
     SAVED = "saved"
-
-
-class Completeness(BaseModel):
-    filled: int
-    total: int = 5
 
 
 class FieldWrite(BaseModel):

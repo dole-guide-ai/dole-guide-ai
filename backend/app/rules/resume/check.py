@@ -209,7 +209,8 @@ def resume_completeness(data: ResumeData, *, outdated: bool = False) -> Complete
 
     `outdated`(이직일 전에 저장한 예전 이력서)면 그 뒤 경력을 묻기 전까지 경력을 세지 않습니다.
     """
-    return Completeness(filled=sum(section_done(data, outdated=outdated).values()))
+    sections = section_done(data, outdated=outdated)
+    return Completeness(filled=sum(sections.values()), sections=sections)
 
 
 def can_save_resume(data: ResumeData, *, outdated: bool = False) -> bool:

@@ -1126,6 +1126,10 @@ export interface components {
              * @default 5
              */
             total: number;
+            /** Sections */
+            sections?: {
+                [key: string]: boolean;
+            };
         };
         /** CreditAnswers */
         CreditAnswers: {
@@ -1542,10 +1546,7 @@ export interface components {
              */
             transformed: boolean;
             evidence?: components["schemas"]["FieldEvidence"] | null;
-            /** Completeness */
-            completeness?: {
-                [key: string]: number;
-            } | null;
+            completeness?: components["schemas"]["Completeness"] | null;
         };
         /** HTTPValidationError */
         HTTPValidationError: {

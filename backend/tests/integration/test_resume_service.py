@@ -30,7 +30,8 @@ def test_writes_new_career_and_derives_values(
     paths = {u.path for u in result.updates}
     assert "/careers/c1/company_name" in paths
     assert "/careers/c1/employment_status" in paths  # 자동 값(퇴직)도 알림
-    assert result.updates[0].completeness == {"filled": 0, "total": 5}
+    completeness = result.updates[0].completeness
+    assert completeness is not None and completeness.filled == 0 and completeness.total == 5
     # 직급(꼭 채울 칸)을 하던 일(더 좋게 하는 칸)보다 먼저 묻습니다.
     assert read_resume(db_session, park).next_question == "resume.career_position"
 
