@@ -8,6 +8,7 @@ import { recognitionFromApplication } from '@/lib/applicationForm';
 import { IF_MATCH_HEADER, ifMatch } from '@/lib/etag';
 import { getFormDrafts, replaceFormDraft } from '@/lib/formStore';
 import { queryKeys } from '@/lib/queryKeys';
+import { refreshAccount } from '@/lib/refreshAccount';
 import type { components } from '@/types/api.gen';
 import type {
   AttendItem,
@@ -63,6 +64,8 @@ export const useConfirmRecognition = (
     mutationFn: (body: ConfirmBody): Promise<RecognitionFormRead | null> =>
       submitToServer(personaId, round, body),
     onSuccess: (form, body) => {
+      // 낸 회차의 지남·출석 알림은 서버가 거두므로 계정을 다시 받습니다.
+      void refreshAccount(personaId);
       // 신청서 쿼리는 다시 받지 않으므로(staleTime: Infinity) 제출 뒤 값으로 캐시도 바꿉니다.
       const key = sessionId ? queryKeys.recognitionForm(sessionId, round) : null;
       const cached = key ? queryClient.getQueryData<RecognitionFormRead>(key) : undefined;

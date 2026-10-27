@@ -15,6 +15,7 @@ import { streamChat } from '@/lib/chatStream';
 import { ERROR_CODES } from '@/lib/errorCodes';
 import { resetForms } from '@/lib/formStore';
 import { queryKeys } from '@/lib/queryKeys';
+import { refreshAccount } from '@/lib/refreshAccount';
 import { setSession } from '@/lib/sessionStore';
 import { SSE_EVENTS } from '@/lib/sseEvents';
 import { type ChatInputKind, INPUT_KIND } from '@/types/chat.types';
@@ -99,6 +100,8 @@ export const useChatStream = (session: SessionRead) => {
       // 대화가 이력서를 고치면 서버 버전(lock_version)이 오릅니다. 턴이 끝나면 이력서를 다시 받아
       // 패널 직접 고치기의 If-Match가 옛 버전으로 409를 받지 않게 합니다.
       let resumeChanged = false;
+      // 절차(단계·회차)가 바뀌면 턴이 끝난 뒤 계정을 다시 받아 서버 판정(알림·마감)을 맞춥니다.
+      let procedureChanged = false;
       dispatch({ type: CHAT_ACTIONS.USER_SENT, text: message, inputKind, attachments });
       setInputText('');
       setIsStreaming(true);
@@ -128,6 +131,7 @@ export const useChatStream = (session: SessionRead) => {
           else if (event.event === SSE_EVENTS.FORM_UPDATE) {
             applyFormUpdateEvent(event.data);
             resumeChanged ||= event.data.form === 'resume';
+            procedureChanged ||= event.data.form === 'procedure';
           } else if (event.event === SSE_EVENTS.ERROR) showError(event.data.code);
         }
       } catch (error) {
@@ -153,6 +157,7 @@ export const useChatStream = (session: SessionRead) => {
         if (resumeChanged) {
           void queryClient.invalidateQueries({ queryKey: queryKeys.resumeForm(sessionId) });
         }
+        if (procedureChanged) void refreshAccount(personaId);
         setActiveTool(null);
         setIsStreaming(false);
       }
