@@ -32,6 +32,7 @@ export interface ToolCallEvent {
  * 불러오기 종류만 화면이 아는 값으로 좁힙니다.
  * - `import_kind`: 고용24 불러오기 목록을 열 때 (2-0.4)
  * - `accepts_file`: 서류·사진을 요청할 때만 true. 이때만 `파일 올리기`를 켭니다 (2-0.4)
+ * - `file_choice`: 누르면 말을 보내지 않고 파일 선택창을 여는 선택지(예: 이력서 또는 경력증명서 파일 올리기)
  */
 export type AskUserEvent = Omit<
   components['schemas']['AskUserEvent'],

@@ -89,4 +89,25 @@ describe('QuestionCard', () => {
     await userEvent.type(screen.getByRole('textbox', { name: '직접 답변' }), '창고 관리{Enter}');
     expect(handlers.onAnswer).toHaveBeenCalledWith('창고 관리');
   });
+
+  it('파일 선택지는 고르지 않고 바로 파일 선택창을 열며 말로 보내지 않는다', async () => {
+    const handlers = { onChoice: vi.fn(), onAnswer: vi.fn(), onDismiss: vi.fn() };
+    const onFileChoice = vi.fn();
+    renderWithProviders(
+      <QuestionCard
+        choices={['이력서 또는 경력증명서 파일 올리기']}
+        fileChoice="이력서 또는 경력증명서 파일 올리기"
+        onFileChoice={onFileChoice}
+        {...handlers}
+      />,
+    );
+
+    await userEvent.click(
+      screen.getByRole('radio', { name: '이력서 또는 경력증명서 파일 올리기' }),
+    );
+
+    expect(onFileChoice).toHaveBeenCalledOnce();
+    expect(handlers.onChoice).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: '고른 답 보내기' })).toBeDisabled();
+  });
 });

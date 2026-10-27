@@ -53,6 +53,7 @@
     ],
     "choices": ["네, 고칠게요", "새로 쓸래요", "전체 순서가 궁금해요"],
     "accepts_file": false,
+    "file_choice": null,
     "ui": {
       "big_text": true
     },

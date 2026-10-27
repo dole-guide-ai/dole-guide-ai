@@ -966,6 +966,8 @@ export interface components {
              * @default false
              */
             accepts_file: boolean;
+            /** File Choice */
+            file_choice?: string | null;
         };
         /** Body_create_transcription */
         Body_create_transcription: {
@@ -1410,6 +1412,8 @@ export interface components {
              * @default false
              */
             accepts_file: boolean;
+            /** File Choice */
+            file_choice?: string | null;
             /**
              * @default {
              *       "big_text": false

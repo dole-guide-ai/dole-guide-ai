@@ -65,6 +65,7 @@
     ],
     "choices": ["부족한 활동 추천해 주세요", "새 활동 기록할게요", "신청서 미리 볼래요"],
     "accepts_file": false,
+    "file_choice": null,
     "ui": {
       "big_text": false
     },

@@ -21,6 +21,8 @@ interface ChatPanelProps {
   question?: string | null;
   /** 마지막 질문이 연 고용24 불러오기 목록 (2-0.4) */
   importKind?: ImportKind | null;
+  /** 누르면 파일 선택창을 여는 질문 선택지 (서버 `file_choice`) */
+  fileChoice?: string | null;
   sessionId?: string;
   /** 불러오기 목록을 받을 계정 */
   personaId?: string;
@@ -47,6 +49,7 @@ export const ChatPanel = ({
   choices,
   question = null,
   importKind,
+  fileChoice = null,
   sessionId,
   personaId,
   onImport,
@@ -65,6 +68,8 @@ export const ChatPanel = ({
   voiceError,
 }: ChatPanelProps) => {
   const logRef = useRef<HTMLDivElement>(null);
+  // 질문 카드의 파일 선택지가 입력창과 같은 파일 선택창을 엽니다(올리기 처리도 한 곳).
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const lastText = messages[messages.length - 1]?.text;
   // 질문 카드는 건너뛰면 닫히고, 새 질문(말풍선 수·선택지가 바뀜)이 오면 다시 뜹니다.
   const questionKey = `${messages.length}:${question ?? ''}:${choices.join('|')}`;
@@ -124,6 +129,8 @@ export const ChatPanel = ({
             onAnswer={onSend}
             onDismiss={() => setDismissedKey(questionKey)}
             isDisabled={isStreaming}
+            fileChoice={fileChoice}
+            onFileChoice={() => fileInputRef.current?.click()}
           />
         </div>
       )}
@@ -139,6 +146,7 @@ export const ChatPanel = ({
         onVoiceToggle={onVoiceToggle}
         voiceStatus={voiceStatus}
         voiceError={voiceError}
+        fileInputRef={fileInputRef}
       />
     </section>
   );

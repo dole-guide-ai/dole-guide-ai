@@ -69,7 +69,9 @@ export const ImportPicker = ({
         <p className="text-muted text-sm">{query.data.source_note}</p>
       </div>
       {query.data.items.length === 0 ? (
-        <p className="text-muted text-base">불러올 내역이 없어요. 말로 알려 주셔도 돼요.</p>
+        <p className="text-muted text-base">
+          불러올 내역이 없어요. 음성이나 채팅으로 알려 주셔도 돼요.
+        </p>
       ) : (
         <ul className="flex flex-col gap-2">
           {query.data.items.map((item) => (

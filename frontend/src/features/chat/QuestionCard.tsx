@@ -14,6 +14,8 @@ import { ICON_SIZE, ICON_STROKE } from '@/lib/iconSize';
  * - 고르기만 해서는 보내지 않습니다(누르기 실수 방지). 숫자키 1·2·3으로도 고를 수 있습니다(카드 안에 포커스가 있을 때).
  * - 직접 답을 적으면 고른 선택지가 풀리고, 글이 그대로 보내집니다.
  * - `건너뛰기`·닫기는 카드만 닫고, 아래 입력창에 자유롭게 적을 수 있습니다.
+ * - 파일 선택지(`fileChoice`, 예: 이력서 또는 경력증명서 파일 올리기)는 고르지 않고 바로
+ *   파일 선택창을 엽니다. 대화로 보내지 않습니다(보내면 AI가 그 글자를 답으로 읽으려 함).
  */
 /** 질문 문장이 없을 때(진입 선택지) 카드 제목 */
 const DEFAULT_TITLE = '알맞은 답을 골라 주세요';
@@ -26,6 +28,9 @@ interface QuestionCardProps {
   onAnswer: (text: string) => void;
   onDismiss: () => void;
   isDisabled?: boolean;
+  /** 누르면 파일 선택창을 여는 선택지(서버 `file_choice`)와 그때 부를 함수 */
+  fileChoice?: string | null;
+  onFileChoice?: () => void;
 }
 
 export const QuestionCard = ({
@@ -35,6 +40,8 @@ export const QuestionCard = ({
   onAnswer,
   onDismiss,
   isDisabled = false,
+  fileChoice = null,
+  onFileChoice,
 }: QuestionCardProps) => {
   const [selected, setSelected] = useState<string | null>(null);
   const [draft, setDraft] = useState('');
@@ -49,6 +56,10 @@ export const QuestionCard = ({
   };
 
   const select = (choice: string) => {
+    if (choice === fileChoice && onFileChoice) {
+      onFileChoice();
+      return;
+    }
     setSelected((current) => (current === choice ? null : choice));
     setDraft('');
   };
