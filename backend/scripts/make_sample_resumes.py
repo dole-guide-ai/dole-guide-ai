@@ -1,11 +1,13 @@
-"""시연 계정별 테스트용 이력서 파일(pdf·docx·hwpx)을 만듭니다. 모두 합성 값입니다.
+r"""시연 계정별 테스트용 이력서 파일(pdf·docx·hwpx)을 만듭니다. 모두 합성 값입니다.
 
 대화에 서류를 올려 판독(agent/input/documents.py)을 확인할 때 씁니다. 만든 파일은
 data/samples/resumes/에 커밋되어 있습니다. 마지막 경력의 퇴사월은 seed의 이직일(입장일 기준
 상대값)에 맞춰 만들므로, 시연하는 달이 바뀌면 그날로 다시 만듭니다.
 
-    uv run --with reportlab --with python-hwpx python -m scripts.make_sample_resumes
-        --today 2026-10-27   # 생략하면 오늘
+    uv run --with reportlab --with python-hwpx \
+        python -m scripts.make_sample_resumes --today 2026-10-27
+
+--today를 생략하면 오늘(한국 시간)입니다.
 
 PDF에는 한글 글꼴이 필요합니다(기본: Windows 맑은 고딕, 다른 경로는 --font). reportlab·python-hwpx는
 이 스크립트에서만 써서 프로젝트 의존성에 넣지 않았습니다.
@@ -20,6 +22,7 @@ from xml.sax.saxutils import escape
 from docx import Document
 from docx.oxml.ns import qn
 
+from app.core.clock import today_kst
 from app.services.seed import at, read_seed_file
 
 OUT_DIR = Path(__file__).resolve().parents[1] / "data" / "samples" / "resumes"
@@ -212,7 +215,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--font", type=Path, default=DEFAULT_FONT, help="PDF용 한글 TTF")
     parser.add_argument(
-        "--today", type=date.fromisoformat, default=date.today(), help="시연 입장일(YYYY-MM-DD)"
+        "--today", type=date.fromisoformat, default=today_kst(), help="시연 입장일(YYYY-MM-DD)"
     )
     args = parser.parse_args()
     separations = {

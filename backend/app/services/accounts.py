@@ -25,10 +25,12 @@ from app.core.errors import ConflictError, NotFoundError
 from app.repositories import accounts as repo
 from app.repositories import imports as import_repo
 from app.repositories import messages as message_repo
+from app.rules import imports as import_rules
 from app.rules import notices as notice_rules
 from app.rules import periods, presubmit
 from app.rules import resume as resume_rules
 from app.rules.entry_text import WELCOME_NEW, WELCOME_RETURNING, RoundFacts
+from app.rules.resume.items import ItemPicker
 from app.schemas.accounts import AccountRead, PersonaCard, PersonaDisplay, PersonaList
 from app.schemas.application import SubmitMode
 from app.schemas.common import ErrorCode
@@ -125,7 +127,9 @@ def enter(
         def backfill() -> repo.User:
             anchor = existing.anchor_date
             seed = resolve_seed(persona.seed, anchor)
-            repo.add_all(db, _import_rows(existing.user_id, seed, anchor))
+            rows = _import_rows(existing.user_id, seed, anchor)
+            _unmark_missing_from_resume(db, existing.user_id, rows)
+            repo.add_all(db, rows)
             return existing
 
         user, _ = create_or_existing(db, backfill, lambda: existing)
@@ -399,6 +403,25 @@ def _import_rows(user_id: uuid.UUID, seed: dict[str, Any], anchor: date) -> list
                 )
             )
     return rows
+
+
+def _unmark_missing_from_resume(
+    db: Session, user_id: uuid.UUID, rows: list[repo.Work24Import]
+) -> None:
+    """seed에서 '이미 넣음'인 경력·자격이라도 지금 이력서에 같은 항목이 없으면 넣을 수 있게 둡니다.
+
+    예전 seed로 만든 계정은 이력서 항목이 지금 seed와 다를 수 있습니다. 같은 항목인지는
+    불러오기를 넣을 때와 같은 이름 기준(rules/resume/items)으로 봅니다.
+    """
+    # 이력서 서비스가 이 모듈을 쓰므로 여기서 가져옵니다(순환 import 피하기).
+    from app.services.resume import read_resume_data  # noqa: PLC0415
+
+    data = read_resume_data(repo.get_resume(db, user_id))
+    for row in rows:
+        target = import_rules.resume_target(row.category, row.title)
+        if row.is_recorded and target:
+            section, name = target
+            row.is_recorded = not ItemPicker(data).pick(section, values=(name,)).is_new
 
 
 def _materialize(db: Session, user_id: uuid.UUID, seed: dict[str, Any], anchor: date) -> None:

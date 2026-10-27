@@ -106,7 +106,7 @@ def _apply_application(
 def _resume_writes(row: Work24Import, picker: ItemPicker) -> list[FieldWrite]:
     if row.category == ImportCategory.CAREER:
         v = import_rules.career_values(row.title, row.detail)
-        section, name = "careers", v.company_name
+        section, name = import_rules.RESUME_SECTIONS[ImportCategory.CAREER], v.company_name
         fields = {
             "company_name": v.company_name,
             "start_date": v.start_date,
@@ -114,7 +114,7 @@ def _resume_writes(row: Work24Import, picker: ItemPicker) -> list[FieldWrite]:
         }
     else:
         lic = import_rules.license_values(row.title, row.detail)
-        section, name = "certifications", lic.certificate_name
+        section, name = import_rules.RESUME_SECTIONS[ImportCategory.LICENSE], lic.certificate_name
         fields = {
             "certificate_name": lic.certificate_name,
             "issuing_organization": lic.issuing_organization,
