@@ -27,9 +27,14 @@ def main(texts: list[str]) -> None:
     from app.repositories import accounts as repo  # noqa: PLC0415
     from app.schemas.messages import MessageCreate  # noqa: PLC0415
     from app.services import chat as chat_service  # noqa: PLC0415
+    from evals.golden.runner import TEST_DB_SUFFIX  # noqa: PLC0415
     from evals.interview.driver import AgentDriver  # noqa: PLC0415
 
     db = SessionLocal()
+    # 지우기 전에 테스트 DB인지 먼저 봅니다(TEST_DATABASE_URL이 다른 DB를 가리켜도 건드리지 않게).
+    if not str(db.get_bind().engine.url.database or "").endswith(TEST_DB_SUFFIX):
+        db.close()
+        sys.exit("이 스크립트는 _test로 끝나는 DB에서만 돌릴 수 있어요(TEST_DATABASE_URL).")
     try:
         _cleanup(db, repo)
         agent = AgentDriver(db, CASE_ID)
