@@ -21,7 +21,14 @@ os.environ["LANGSMITH_TRACING"] = "false"
 # 실제 모델 평가는 evals/conftest.py가 .env·기본값으로 되돌립니다.
 os.environ["RETRIEVAL_RERANK"] = "false"
 # 테스트는 고용24 OpenAPI를 실제로 부르지 않습니다. 인증키를 비워 늘 스냅샷을 씁니다.
-os.environ["WORK24_API_KEY"] = ""
+# (키는 API마다 따로라 모두 비웁니다. 코드표는 저장된 JSON이라 키와 관계없습니다.)
+for _key in (
+    "WORK24_API_KEY",
+    "WORK24_TRAINING_API_KEY",
+    "WORK24_PROGRAM_API_KEY",
+    "WORK24_CODE_API_KEY",
+):
+    os.environ[_key] = ""
 
 from alembic.config import Config  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
