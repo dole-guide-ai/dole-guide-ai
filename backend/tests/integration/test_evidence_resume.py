@@ -77,6 +77,33 @@ def test_evidence_survives_question_and_is_attached_after_answer(
     assert _files_of(db_session, account, "OO상사") == [photo.file_id]
 
 
+def test_answer_with_new_evidence_keeps_earlier_one(
+    db_session: Session,
+    entered_account: Callable[[str], AccountContext],
+    fake_agent_llm,
+) -> None:
+    account = entered_account("lee")
+
+    def upload(name: str) -> str:
+        png = PNG + name.encode()  # 내용이 달라야 서로 다른 파일
+        return files_service.upload(
+            db_session, account, name, io.BytesIO(png), FilePurpose.EVIDENCE, None
+        ).file_id
+
+    notice, done = upload("공고.png"), upload("완료.png")
+    items = activity_service.list_activities(db_session, account, None, TEST_TODAY).items
+    trading = next(a for a in items if a.org_name == "OO상사")
+    ask = _call("ask_user", {"question": "지원 완료 화면도 있으세요?", "choices": []}, "c1")
+    attach = _call("attach_evidence", {"activity_id": trading.activity_id}, "c2")
+    fake_agent_llm([ask, attach, AIMessage("둘 다 붙였어요.")], route="round")
+    saver = InMemorySaver()
+
+    list(graph_responder(_turn(account, db_session, "", [notice]), saver))
+    list(graph_responder(_turn(account, db_session, "여기요", [done]), saver))
+
+    assert sorted(_files_of(db_session, account, "OO상사")) == sorted([notice, done])
+
+
 def test_new_turn_does_not_reuse_earlier_evidence(
     db_session: Session,
     entered_account: Callable[[str], AccountContext],

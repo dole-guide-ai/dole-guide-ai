@@ -94,12 +94,14 @@ def turn_input(graph: CompiledStateGraph, turn: TurnInput, config: RunnableConfi
 def restore_evidence(graph: CompiledStateGraph, config: RunnableConfig) -> None:
     """질문에 답하는 재개 요청에는 첨부가 없으므로, 멈추기 전에 올린 증빙을 도구 문맥에 되살립니다.
 
-    파일이 그사이 지워졌거나 다른 계정 것이면 빠집니다(evidence_ids가 다시 확인).
+    파일이 그사이 지워졌거나 다른 계정 것이면 빠집니다(evidence_ids가 다시 확인). 답과 함께 새
+    증빙을 올렸으면 앞서 올린 것 뒤에 이어 붙입니다.
     """
     ctx = config["configurable"].get(TOOL_CONTEXT_KEY)
     pending = graph.get_state(config).values.get("pending_evidence") or []
-    if ctx is not None and pending and not ctx.evidence_file_ids:
-        ctx.evidence_file_ids = files_service.evidence_ids(ctx.db, ctx.account, pending)
+    if ctx is not None and pending:
+        kept = files_service.evidence_ids(ctx.db, ctx.account, pending)
+        ctx.evidence_file_ids = list(dict.fromkeys([*kept, *ctx.evidence_file_ids]))
 
 
 def graph_responder(
