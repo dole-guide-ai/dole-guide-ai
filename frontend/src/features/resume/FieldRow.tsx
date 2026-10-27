@@ -37,6 +37,11 @@ interface FieldRowProps {
   options?: readonly string[];
   /** 글 칸 입력 예시 (예: 2004-03 ~ 2026-09) */
   placeholder?: string;
+  /**
+   * 글 한 칸으로 받을 수 없는 직접 입력(공통코드 드롭다운·경력여부). 저장·오류 표시는 편집기가 하고,
+   * 끝나면 `close`를 부릅니다.
+   */
+  editor?: (close: () => void) => ReactNode;
 }
 
 const evidenceText = (meta?: FieldMeta) => {
@@ -71,8 +76,10 @@ export const FieldRow = ({
   inputKind = 'text',
   options = [],
   placeholder,
+  editor,
 }: FieldRowProps) => {
   const [draft, setDraft] = useState<string | null>(null);
+  const [isCustomEditing, setIsCustomEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   // 대화·직접 입력으로 방금 바뀐 값(updatedAt이 있음)이면 그 칸으로 스크롤하고 잠깐 표시합니다.
@@ -107,7 +114,7 @@ export const FieldRow = ({
       : rawSpec;
   const isMissingRequired = isRequired && isEmpty && !isNotApplicable;
   const evidence = evidenceText(meta);
-  const isEditing = draft !== null;
+  const isEditing = draft !== null || isCustomEditing;
 
   const handleSave = async () => {
     if (!onDirectSave || draft === null) return;
@@ -133,11 +140,13 @@ export const FieldRow = ({
           {label}
           {isRequired && <RequiredMark />}
         </dt>
-        {isEditing ? (
+        {isCustomEditing && editor ? (
+          <dd className="flex min-w-0 flex-1">{editor(() => setIsCustomEditing(false))}</dd>
+        ) : isEditing ? (
           <dd className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
             {inputKind === 'select' ? (
               <select
-                value={draft}
+                value={draft ?? ''}
                 onChange={(event) => setDraft(event.target.value)}
                 disabled={isSaving}
                 aria-label={`${label} 직접 입력`}
@@ -156,7 +165,7 @@ export const FieldRow = ({
               <input
                 type={inputKind === 'number' ? 'number' : 'text'}
                 inputMode={inputKind === 'number' ? 'numeric' : undefined}
-                value={draft}
+                value={draft ?? ''}
                 placeholder={placeholder}
                 onChange={(event) => setDraft(event.target.value)}
                 onKeyDown={(event) => {
@@ -199,10 +208,10 @@ export const FieldRow = ({
             고치기
           </button>
         )}
-        {!isEditing && onDirectSave && (
+        {!isEditing && (onDirectSave || editor) && (
           <button
             type="button"
-            onClick={() => setDraft(rawValue ?? '')}
+            onClick={() => (editor ? setIsCustomEditing(true) : setDraft(rawValue ?? ''))}
             className={LINK_CLASS}
             title="여기서 바로 입력하기"
           >

@@ -4,6 +4,8 @@ export const STALE_TIME = {
   UNTIL_UPDATED: Infinity,
   /** 열 때마다 새로 불러오는 목록(내 정보·불러오기). */
   ALWAYS_REFETCH: 0,
+  /** 고용24 공통코드(고정 기준표). 한 번 받으면 다시 부르지 않습니다. */
+  CODES: Infinity,
   /** 거의 바뀌지 않는 계정 카드 목록. */
   PERSONAS_MS: 5 * 60_000,
 } as const;
