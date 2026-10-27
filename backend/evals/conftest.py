@@ -63,9 +63,16 @@ def pytest_addoption(parser: pytest.Parser) -> None:
     group = parser.getgroup("golden", "골든셋")
     group.addoption(
         "--golden-agent",
-        choices=["real", "selftest", "broken"],
+        choices=["real", "selftest", "broken", "setup"],
         default="real",
-        help="real: 실제 AI · selftest: 채점 코드 점검(모두 통과해야 정상) · broken: 일부러 틀리기",
+        help="real: 실제 AI · selftest: 채점 코드 점검(확정 문항은 모두 통과해야 정상) · "
+        "broken: 일부러 틀리기 · setup: 모델 없이 문항 시작 상태만 점검(DB 필요)",
+    )
+    group.addoption(
+        "--golden-set",
+        choices=["dev", "test", "all"],
+        default="dev",
+        help="dev: 개발용(고칠 때 보는 문항) · test: 검증용(최종 확인 때만) · all: 전체",
     )
     group.addoption(
         "--golden-area",
@@ -96,7 +103,17 @@ def _shard(config: pytest.Config) -> tuple[int, int]:
 
 
 def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
-    """골든셋 문항 중 이 조각에 해당하는 것만 남깁니다(문항 순서의 i번째마다)."""
+    """고른 세트의 골든셋 문항 중 이 조각에 해당하는 것만 남깁니다(문항 순서의 i번째마다)."""
+    chosen = config.getoption("--golden-set", default="all")
+    if chosen != "all":
+        other = [
+            item
+            for item in items
+            if item.originalname == "test_golden" and item.callspec.params["case"]["set"] != chosen
+        ]
+        if other:
+            config.hook.pytest_deselected(items=other)
+            items[:] = [item for item in items if id(item) not in {id(o) for o in other}]
     index, total = _shard(config)
     if total == 1:
         return
@@ -129,7 +146,10 @@ def golden_options(request: pytest.FixtureRequest) -> SimpleNamespace:
 def golden_report(request: pytest.FixtureRequest) -> Report:
     get = request.config.getoption
     report = Report(
-        mode=get("--golden-agent"), judge=get("--golden-judge"), shard=get("--golden-shard")
+        mode=get("--golden-agent"),
+        judge=get("--golden-judge"),
+        shard=get("--golden-shard"),
+        case_set=get("--golden-set"),
     )
     request.config.stash[GOLDEN_REPORT] = report
     return report
