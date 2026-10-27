@@ -73,6 +73,13 @@ class RecordActivityInput(BaseModel):
     when: str = Field(
         description="사용자가 말한 날짜 표현 그대로(예: 어제, 지난주 금요일, 11월 20일)"
     )
+    done: bool = Field(
+        True,
+        description=(
+            "사용자가 이미 한 활동이면 true, 앞으로 할 예정이면 false. "
+            "요일·날짜만 말했을 때 지난 날인지 다가올 날인지를 이 값으로 정합니다"
+        ),
+    )
     kind: str = Field(description="job_application·interview·lecture 등 활동 종류")
     route: ActivityRoute | None = None
     org_name: str | None = Field(
@@ -143,13 +150,13 @@ def _recommend(ctx: ToolContext, _: NoInput) -> dict[str, Any]:
 
 
 def _record_activity(ctx: ToolContext, args: RecordActivityInput) -> dict[str, Any]:
-    day = normalize_day(args.when, ctx.today)
+    day = normalize_day(args.when, ctx.today, done=args.done)
     if day is None:
         raise ToolError(f"'{args.when}'이(가) 며칠인지 정하지 못했어요. 날짜를 다시 물어 주세요.")
     body = ActivityCreate(
         activity_date=day,
         file_ids=list(ctx.evidence_file_ids),
-        **args.model_dump(exclude={"when"}),
+        **args.model_dump(exclude={"when", "done"}),
     )
     recorded = activity_service.record_answered_activity(ctx.db, ctx.account, body, ctx.today)
     # 기록이 실패하면 증빙을 남겨 두어 모델이 다시 부를 때 그대로 붙습니다.
