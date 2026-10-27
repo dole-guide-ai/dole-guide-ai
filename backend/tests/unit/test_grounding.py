@@ -4,7 +4,7 @@ import pytest
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 
 from app.agent import grounding
-from app.agent.grounding import Evidence, SentenceChecker, claims
+from app.agent.grounding import Evidence, SentenceChecker, claims, korean_counts
 from app.agent.nodes.finish import done_event
 from app.agent.output import CHECK_NOTE, SentenceStream
 
@@ -40,6 +40,29 @@ def test_evidence_accepts_facts_tool_results_and_user_words_but_not_past_answers
     assert evidence.ungrounded("12월 22일까지 1건 더 하면 돼요.") == []
     assert evidence.ungrounded("4차는 2건이 필요해요.") == []  # 사용자 말·도구 결과
     assert evidence.ungrounded("15시까지 가세요.") == ["15시"]  # 모델의 예전 답은 근거가 아님
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        ("보험 칠 년 부었는데", "보험 7년 부었는데"),
+        ("두 달 쉬었어요", "2달 쉬었어요"),
+        ("열 번 넘게", "10번 넘게"),
+        ("삼십 년 일했고", "30년 일했고"),
+        ("일하는 날 오늘 사장님이", "일하는 날 오늘 사장님이"),  # 수가 아닌 말은 그대로
+        ("십일월에 그만뒀어요", "십일월에 그만뒀어요"),  # 달 이름은 일수가 아님
+    ],
+)
+def test_korean_counts_become_digits(text: str, expected: str) -> None:
+    assert korean_counts(text) == expected
+
+
+def test_user_number_in_korean_words_grounds_answer() -> None:
+    evidence = Evidence(["보험 칠 년 부었는데 며칠 받아요?", "5년 이상 10년 미만이면 240일"])
+
+    assert evidence.ungrounded("피보험기간이 7년이면 소정급여일수는 240일이에요.") == []
+    # 한글로 말한 수는 단위까지 같아야 근거입니다("칠 년"이 "7개월"을 받쳐 주지 않음).
+    assert set(evidence.ungrounded("7개월이면 120일이에요.")) == {"7개월", "120일"}
 
 
 def test_risky_sentence_is_checked_by_model_and_limited(monkeypatch: pytest.MonkeyPatch) -> None:

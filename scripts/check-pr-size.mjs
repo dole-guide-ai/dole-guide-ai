@@ -11,6 +11,7 @@ const EXCLUDED = [
   /^backend\/alembic\/versions\//,
   /^backend\/data\/reference\/work24_codes\.json$/, // scripts/fetch_work24_codes.py가 만듦
   /^backend\/data\/rules\/rule_questions\.csv$/, // scripts/generate_rule_questions.py가 만듦
+  /^backend\/evals\/retrieval\/guide_queries\.jsonl$/, // scripts/generate_guide_questions.py가 만듦
 ];
 
 const out = execFileSync('git', ['diff', '--numstat', `${base}...HEAD`], { encoding: 'utf8' });

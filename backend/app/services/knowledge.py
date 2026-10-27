@@ -257,13 +257,17 @@ def _search_group(
         # 다른 고용 형태·수급자 유형을 거른 뒤에도 후보 수가 남게 넉넉히 받습니다.
         near = knowledge_repo.nearest(db, vector, kinds, options.candidates * PROFILE_OVERFETCH)
         rankings.append([c.chunk_id for c, _ in near if allowed(c)][: options.candidates])
-    top = [chunk_id for chunk_id, _ in rrf(rankings)][:limit]
+    # 임계값으로 버린 자리는 RRF 다음 순위로 채웁니다(버린 만큼 덜 붙지 않게).
+    ranked = [chunk_id for chunk_id, _ in rrf(rankings)]
+    top = ranked if options.min_similarity is not None else ranked[:limit]
     found = knowledge_repo.get_many(db, top, vector)
     if missing := len(set(top) - found.keys()):
         # 규칙표는 바뀌었는데 색인을 다시 채우지 않은 경우(scripts.ingest.index를 돌려야 함)
         logger.warning("knowledge_index_missing_rows", extra={"count": missing})
-    hits = []
+    hits: list[KnowledgeHit] = []
     for chunk_id in (c for c in top if c in found):
+        if len(hits) == limit:
+            break
         chunk, similarity = found[chunk_id]
         if options.min_similarity is not None and (similarity or 0) < options.min_similarity:
             continue
