@@ -36,6 +36,7 @@ describe('ResumePanel (실제 이력서 API 응답)', () => {
 
     expect(await screen.findByText('전공')).toBeInTheDocument();
     expect(screen.getByText('전자계산학')).toBeInTheDocument();
+    expect(screen.getByText('빈칸 (고용24 입력 때 필요)')).toBeInTheDocument();
   });
 
   it('서버가 전공을 꼭 넣을 칸으로 주지 않으면(고등학교 학력) 전공 칸이 없다', async () => {

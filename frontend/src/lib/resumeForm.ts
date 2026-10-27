@@ -68,6 +68,8 @@ const keep = (states: Record<string, ResumeFieldState>, path: string, f: FormFie
 const experienceSummary = (item: Record<string, unknown> | undefined) => {
   if (!item?.experience_type) return null;
   if (item.experience_type === '신입') return '신입';
+  // 기간을 아직 받지 못했으면 0년 0개월이 아니라 구분만 보입니다.
+  if (item.experience_years == null && item.experience_months == null) return '경력';
   const years = Number(item.experience_years ?? 0);
   const months = Number(item.experience_months ?? 0);
   return `경력 ${years}년 ${months}개월`;
