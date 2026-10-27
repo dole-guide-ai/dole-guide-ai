@@ -91,7 +91,7 @@ def turn_input(graph: CompiledStateGraph, turn: TurnInput, config: RunnableConfi
     if blocked:
         return None
     # 재개한 턴도 호출 상한은 새로 셉니다.
-    return Command(resume=answer, update={"model_calls": 0, "tool_calls": 0})
+    return Command(resume=answer, update={"loop_calls": 0, "tool_calls": 0})
 
 
 def restore_evidence(graph: CompiledStateGraph, config: RunnableConfig) -> None:

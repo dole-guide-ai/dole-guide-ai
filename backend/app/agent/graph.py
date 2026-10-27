@@ -37,10 +37,12 @@ class AgentState(TypedDict):
     messages: Annotated[list[AnyMessage], add_messages]
     # 이번 턴에 고른 패널(resume·round·application·guide). preprocess가 턴마다 비웁니다.
     panel: NotRequired[str | None]
+    # 이번 말이 확정해 답할 범위인지(nodes/route.Scope). 라우터가 정하고 preprocess가 비웁니다.
+    scope: NotRequired[str | None]
     # 이번 턴 확정 사실(절차 단계·다음 물을 칸·회차 숫자). 개인정보 없음. 매 턴 DB에서 다시 읽음
     facts: NotRequired[dict[str, Any]]
-    # 이번 턴 호출 수. 상한을 넘으면 루프를 멈춥니다.
-    model_calls: NotRequired[int]
+    # 이번 턴 도구 루프의 답 모델 호출 수와 도구 호출 수. 상한을 넘으면 루프를 멈춥니다.
+    loop_calls: NotRequired[int]
     tool_calls: NotRequired[int]
     # 개인정보 0등급이 있어 모델에 보내지 않은 턴
     blocked: NotRequired[bool]
