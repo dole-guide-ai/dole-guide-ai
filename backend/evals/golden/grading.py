@@ -14,6 +14,8 @@ if TYPE_CHECKING:
 
 TOKEN = re.compile(r"([^.\[\]]+)|\[(-?\d+)\]")
 MISSING = object()
+# 꼭포함 칸에서 같은 뜻의 다른 표현을 나누는 글자("17시|17:00")
+ALTERNATIVE = "|"
 
 
 def _tokens(path: str) -> list[str | int]:
@@ -106,8 +108,9 @@ def check(case: dict[str, Any], result: AgentResult) -> list[str]:
             failures.append(f"변경금지: {path}이(가) 바뀜")
     last_reply = result.replies[-1] if result.replies else ""
     all_replies = "\n".join(result.replies)
+    # 꼭포함 "A|B"는 같은 뜻의 다른 표현이라 하나만 있으면 됩니다("17시|17:00").
     failures += [f"꼭포함: '{word}'이(가) 답에 없음" for word in expected["must_include"]
-                 if word not in last_reply]  # fmt: skip
+                 if not any(alt in last_reply for alt in word.split(ALTERNATIVE))]  # fmt: skip
     failures += [f"포함금지: '{word}'이(가) 답에 있음" for word in expected["must_not_include"]
                  if word in all_replies]  # fmt: skip
     patterns = expected["forbidden_patterns"]

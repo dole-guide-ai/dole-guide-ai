@@ -24,6 +24,11 @@ def park(db_session: Session, entered_account: Callable[[str], AccountContext]) 
     return ToolContext(db_session, entered_account("park"), TEST_TODAY, NOW)
 
 
+def _saved(outcome: dict) -> dict:
+    """저장한 칸 목록(nodes/resume Outcome.saved) → {경로: 값}."""
+    return {item["path"]: item["value"] for item in outcome.get("saved", [])}
+
+
 def memory(pending_key: str | None = None) -> node.ResumeMemory:
     """save_answer는 단계를 직접 받으므로 여기서는 빈 기억만 만듭니다."""
     del pending_key
@@ -58,7 +63,7 @@ def test_facts_from_free_text_are_saved_with_code_decided_paths(park: ToolContex
         park, mem, step_of(park, mem, "resume.career_new"), Reading(kind="value", facts=facts)
     )
 
-    saved = out["outcome"]["saved"]
+    saved = _saved(out["outcome"])
     assert saved["/careers/c1/company_name"] == "OO산업"
     assert saved["/careers/c1/start_date"] == "2004-03"
     assert out["pending"] is None
@@ -76,7 +81,7 @@ def test_value_for_a_choice_field_outside_schema_is_rejected(park: ToolContext) 
     ok = node.save_answer(
         park, memory("resume.wish_employment"), step, Reading(kind="value", value="관계없음")
     )
-    assert ok["outcome"]["saved"] == {"/job_preferences/employment_contract_type": "관계없음"}
+    assert _saved(ok["outcome"]) == {"/job_preferences/employment_contract_type": "관계없음"}
 
 
 def test_spoken_period_is_turned_into_year_month_or_asked_again(park: ToolContext) -> None:
@@ -90,8 +95,8 @@ def test_spoken_period_is_turned_into_year_month_or_asked_again(park: ToolContex
         step,
         Reading(kind="value", value={"start": "재작년 겨울", "end": "지금까지"}),
     )
-    assert "clarify" in vague["outcome"]
-    assert vague["outcome"]["saved"] == {"/careers/c1/end_date": "2026-09"}  # 확실한 쪽만 저장
+    assert vague["outcome"]["questions"]  # 다시 물을 문장(사용자에게 그대로 보임)
+    assert _saved(vague["outcome"]) == {"/careers/c1/end_date": "2026-09"}  # 확실한 쪽만 저장
 
     clear = node.save_answer(
         park,
@@ -99,7 +104,7 @@ def test_spoken_period_is_turned_into_year_month_or_asked_again(park: ToolContex
         step,
         Reading(kind="value", value={"start": "2012년 3월"}),
     )
-    assert clear["outcome"]["saved"] == {"/careers/c1/start_date": "2012-03"}
+    assert _saved(clear["outcome"]) == {"/careers/c1/start_date": "2012-03"}
     assert data_of(park).careers[0].start_date.value == "2012-03"
 
 
@@ -130,7 +135,7 @@ def test_region_list_and_education_choice_and_correction(park: ToolContext) -> N
         step_of(park, memory(), "resume.wish_region"),
         Reading(kind="value", value=["인천", "부천", "김포", "서울"]),
     )
-    assert [r["name"] for r in region["outcome"]["saved"]["/job_preferences/desired_regions"]] == [
+    assert [r["name"] for r in _saved(region["outcome"])["/job_preferences/desired_regions"]] == [
         "인천",
         "부천",
         "김포",
@@ -152,7 +157,7 @@ def test_region_list_and_education_choice_and_correction(park: ToolContext) -> N
             correction=Correction(path="/careers/c1/company_name", value="OO산업(주)"),
         ),
     )
-    assert fixed["outcome"]["saved"] == {"/careers/c1/company_name": "OO산업(주)"}
+    assert _saved(fixed["outcome"]) == {"/careers/c1/company_name": "OO산업(주)"}
     bad = node.save_answer(
         park,
         memory(),
@@ -183,7 +188,7 @@ def test_fields_outside_facts_are_saved_by_schema_path(park: ToolContext) -> Non
 
     out = node.save_answer(park, memory(), None, reading)
 
-    saved = out["outcome"]["saved"]
+    saved = _saved(out["outcome"])
     assert [r["name"] for r in saved["/job_preferences/desired_regions"]] == [
         "강원",
         "서울",
@@ -220,4 +225,4 @@ def test_correction_goes_through_the_same_checks_as_answers(park: ToolContext) -
             correction=Correction(path="/careers/c1/start_date", value="2012년 3월"),
         ),
     )
-    assert dated["outcome"]["saved"] == {"/careers/c1/start_date": "2012-03"}
+    assert _saved(dated["outcome"]) == {"/careers/c1/start_date": "2012-03"}

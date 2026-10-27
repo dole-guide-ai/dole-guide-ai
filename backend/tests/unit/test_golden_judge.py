@@ -64,3 +64,36 @@ def test_selftest_and_missing_key_do_not_call_model(monkeypatch: pytest.MonkeyPa
         judge_module, "get_settings", lambda: SimpleNamespace(has_llm_key=lambda role: False)
     )
     assert judge(CASE, [], "real").passed is None
+
+
+def test_judge_sees_start_state_so_it_does_not_answer_unknown(answers) -> None:
+    # 시작 상태(단계·회차·시작 활동)를 몰라 "모름"으로 떨어지던 문제(골든셋 G-096 등)
+    answers.table.update({"날짜를 되묻는가": "예", "기록하지 않는가": "예"})
+    case = CASE | {
+        "input": CASE["input"]
+        | {
+            "state": {
+                "stage": "recognition",
+                "recipient_type": "general",
+                "age_at_separation": 67,
+                "has_disability": False,
+                "completed_rounds": 3,
+                "demo_today": "2026-12-16",
+                "demo_time": "10:00",
+            },
+            "activities": [{"date": "2026-12-08"}, {"date": "2026-12-08"}],
+        }
+    }
+
+    judge(case, ["답 하나", "답 둘"], "real")
+
+    sent = answers.sent[0]
+    assert "지금 4차" in sent
+    # 같은 날 두 건은 날짜도 두 번, 67세 일반은 러너처럼 65세 이상 유형으로 보입니다.
+    assert "이미 기록된 활동 2건(2026-12-08, 2026-12-08)" in sent
+    assert "수급자 유형 age65_or_disabled" in sent
+
+
+def test_judge_prompt_reads_negative_criteria_and_skips_fact_checking() -> None:
+    prompt = judge_module.PROMPT
+    assert "하지 않는가" in prompt and "판정하지 않습니다" in prompt
