@@ -703,6 +703,12 @@ export interface components {
             today: string;
             procedure: components["schemas"]["ProcedureRead"];
             current_round?: components["schemas"]["RoundSummary"] | null;
+            deadline?: components["schemas"]["RoundDeadline"] | null;
+            /**
+             * Notices
+             * @default []
+             */
+            notices: components["schemas"]["Notice"][];
             entry: components["schemas"]["Entry"];
             pending_ask?: components["schemas"]["AskUserEvent"] | null;
         };
@@ -866,6 +872,14 @@ export interface components {
             required_activities: number | null;
             /** Required Job Search */
             required_job_search: number | null;
+            /** Counted Activities */
+            counted_activities: number;
+            /** Counted Job Search */
+            counted_job_search: number;
+            /** Remaining Activities */
+            remaining_activities: number;
+            /** Remaining Job Search */
+            remaining_job_search: number;
             data: components["schemas"]["RecognitionData"];
             /**
              * Job Search Rows
@@ -1788,6 +1802,29 @@ export interface components {
             created_at: string;
         };
         /**
+         * Notice
+         * @description 대시보드 알림 하나. 문구는 템플릿(data/templates/notices.json), 근거는 rule_refs.
+         */
+        Notice: {
+            kind: components["schemas"]["NoticeKind"];
+            /** Key */
+            key: string;
+            /** Title */
+            title: string;
+            /** Text */
+            text: string;
+            /**
+             * Rule Refs
+             * @default []
+             */
+            rule_refs: string[];
+        };
+        /**
+         * NoticeKind
+         * @enum {string}
+         */
+        NoticeKind: "visit" | "overdue" | "attend";
+        /**
          * OtherActivityRow
          * @description 구직활동 외 활동사항 한 줄 (취업특강·직업훈련 등). 인정 활동에서 만듭니다.
          */
@@ -1888,6 +1925,11 @@ export interface components {
             remaining_rounds?: number | null;
             /** Last Round */
             last_round?: number | null;
+            /**
+             * Online Presubmit
+             * @default true
+             */
+            online_presubmit: boolean;
         };
         /** ProfileDisplay */
         ProfileDisplay: {
@@ -2299,6 +2341,17 @@ export interface components {
              * @default []
              */
             rule_refs: string[];
+        };
+        /**
+         * RoundDeadline
+         * @description 지금 회차의 인정일까지 남은 날과 지금 시각의 제출 방식. 판정은 서버(rules/application)만.
+         */
+        RoundDeadline: {
+            /** D Day */
+            d_day: number;
+            submit_mode: components["schemas"]["SubmitMode"];
+            /** Overdue */
+            overdue: boolean;
         };
         /**
          * RoundStatus

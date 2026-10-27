@@ -46,3 +46,5 @@ class ProcedureRead(BaseModel):
     # remaining_rounds: 오늘이 속한 회차를 포함한 남은 회차 수 · last_round: 마지막 회차 번호
     remaining_rounds: int | None = None
     last_round: int | None = None
+    # 인터넷 사전제출 대상인지(이직일 만 65세 미만, PROC-048). 판정은 rules/presubmit 한 곳.
+    online_presubmit: bool = True

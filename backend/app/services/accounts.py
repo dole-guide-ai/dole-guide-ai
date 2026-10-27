@@ -24,10 +24,16 @@ from app.core.db import create_or_existing
 from app.core.errors import ConflictError, NotFoundError
 from app.repositories import accounts as repo
 from app.repositories import imports as import_repo
-from app.rules import periods
+from app.rules import notices as notice_rules
+from app.rules import periods, presubmit
 from app.rules import resume as resume_rules
 from app.rules.entry_text import RoundFacts
-from app.schemas.accounts import AccountRead, PersonaCard, PersonaDisplay, PersonaList
+from app.schemas.accounts import (
+    AccountRead,
+    PersonaCard,
+    PersonaDisplay,
+    PersonaList,
+)
 from app.schemas.application import SubmitMode
 from app.schemas.common import ErrorCode
 from app.schemas.forms import recognition as recognition_form
@@ -96,9 +102,10 @@ def list_persona_cards(db: Session, visitor_id: uuid.UUID) -> PersonaList:
 
 
 def enter(
-    db: Session, visitor_id: uuid.UUID, persona_id: str, today: date
+    db: Session, visitor_id: uuid.UUID, persona_id: str, now: datetime
 ) -> tuple[AccountRead, bool]:
     """있으면 그대로, 없으면 seed로 만듭니다. 두 번째 값은 새로 만들었는지."""
+    today = now.date()
     persona = _persona_or_404(db, persona_id)
     user = repo.get_user(db, visitor_id, persona_id)
     created = False
@@ -125,7 +132,7 @@ def enter(
 
         user, _ = create_or_existing(db, backfill, lambda: existing)
     account = AccountContext(user.user_id, user.persona_id, user.anchor_date)
-    return read_account(db, account, today), created
+    return read_account(db, account, now), created
 
 
 def delete_account(db: Session, account: AccountContext) -> None:
@@ -144,11 +151,14 @@ def delete_account(db: Session, account: AccountContext) -> None:
     shutil.rmtree(Path(get_settings().upload_dir) / str(account.user_id), ignore_errors=True)
 
 
-def read_account(db: Session, account: AccountContext, today: date) -> AccountRead:
+def read_account(db: Session, account: AccountContext, now: datetime) -> AccountRead:
+    """계정 상태. 지금 시각(KST)으로 인정일 마감(17·18시)과 알림까지 서버가 판정합니다."""
+    today = now.date()
     procedure = read_procedure(db, account.user_id, today)
     rounds = read_rounds(db, account.user_id, today)
     current = next((r for r in rounds if r.status == RoundStatus.CURRENT), None)
-    d_day = (current.recognition_date - today).days if current else None
+    deadline = notice_rules.round_deadline(current, now) if current else None
+    d_day = deadline.d_day if deadline else None
     resume_state = _resume_status(db, account.user_id, procedure)
     entry = build_entry(
         procedure,
@@ -164,6 +174,10 @@ def read_account(db: Session, account: AccountContext, today: date) -> AccountRe
         today=today,
         procedure=procedure,
         current_round=current,
+        deadline=deadline,
+        notices=notice_rules.account_notices(
+            procedure, current, deadline, notice_rules.missed_round(rounds, today)
+        ),
         entry=entry,
         # 새로고침하면 답을 기다리던 질문과 선택지를 다시 띄웁니다 (F-03).
         pending_ask=message_service.pending_ask(db, account.user_id),
@@ -238,6 +252,7 @@ def read_procedure(db: Session, user_id: uuid.UUID, today: date | None = None) -
             else None
         ),
         last_round=len(recognition_dates) or None,
+        online_presubmit=presubmit.online_presubmit(state.age_at_separation),
     )
 
 

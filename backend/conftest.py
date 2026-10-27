@@ -36,7 +36,7 @@ from sqlalchemy.orm import Session  # noqa: E402
 
 from alembic import command  # noqa: E402
 from app.agent import gateway  # noqa: E402
-from app.core.clock import KST, get_today  # noqa: E402
+from app.core.clock import KST, get_now  # noqa: E402
 from app.core.config import get_settings  # noqa: E402
 from app.core.db import engine, get_db  # noqa: E402
 from app.main import app  # noqa: E402
@@ -156,6 +156,8 @@ def fake_agent_llm(monkeypatch: pytest.MonkeyPatch):
 
 
 TEST_TODAY = date(2026, 10, 21)
+# API 테스트의 지금 시각. 인정일 마감(17·18시) 판정이 흔들리지 않게 오전으로 고정합니다.
+TEST_NOW = datetime.combine(TEST_TODAY, time(10), KST)
 
 
 @pytest.fixture
@@ -163,9 +165,9 @@ def entered_headers(client: TestClient) -> Callable[[str], dict[str, str]]:
     """API 테스트용: 새 방문자로 시연 계정에 입장하고 요청 헤더를 돌려줍니다.
 
     사용: headers = entered_headers("lee"); client.get("/accounts/lee/rounds", headers=headers)
-    오늘 날짜는 TEST_TODAY로 고정됩니다.
+    지금 시각은 TEST_NOW(TEST_TODAY 10시)로 고정됩니다.
     """
-    app.dependency_overrides[get_today] = lambda: TEST_TODAY
+    app.dependency_overrides[get_now] = lambda: TEST_NOW
 
     def _enter(persona_id: str) -> dict[str, str]:
         token = client.post("/visitors").json()["visitor_token"]
@@ -189,7 +191,7 @@ def entered_account(db_session: Session) -> Callable[[str], AccountContext]:
         now = datetime.combine(TEST_TODAY, time(9), KST)
         visitor = create_visitor(db_session, now)
         ctx = authenticate(db_session, visitor.visitor_token, now)
-        account_service.enter(db_session, ctx.visitor_id, persona_id, TEST_TODAY)
+        account_service.enter(db_session, ctx.visitor_id, persona_id, now)
         return account_service.find_account(db_session, ctx.visitor_id, persona_id)
 
     return _enter

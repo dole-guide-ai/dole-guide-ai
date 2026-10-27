@@ -34,6 +34,13 @@ def test_lee_current_application_uses_recorded_activities(
     assert body["status"] == "draft"
     assert body["attendance_required"] is True
     assert (body["required_activities"], body["required_job_search"]) == (2, 1)
+    # 인정·부족 건수도 회차 점검과 같은 계산으로 내려 줍니다(화면이 행 개수로 세지 않게).
+    check = client.get("/accounts/lee/rounds/current", headers=headers).json()
+    assert (body["counted_activities"], body["remaining_activities"]) == (
+        check["counted"],
+        check["remaining"],
+    )
+    assert body["remaining_job_search"] == check["remaining_job_search"]
     # seed: 같은 날 OO물류(고용24 불러오기)·OO상사 → OO물류만 신청서, OO상사는 참고
     assert [r["company_name"] for r in body["job_search_rows"]] == ["OO물류"]
     assert body["job_search_rows"][0]["application_method"] == "고용24(워크넷)"

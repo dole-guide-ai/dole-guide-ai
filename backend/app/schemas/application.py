@@ -83,6 +83,11 @@ class ApplicationRead(BaseModel):
     # 회차 점검과 같은 값. 규칙으로 셀 수 없으면(대상기간 변경 등) None
     required_activities: int | None
     required_job_search: int | None
+    # 인정된 활동 수와 더 해야 하는 수(회차 점검과 같은 계산). 화면은 이 값을 그대로 씁니다.
+    counted_activities: int
+    counted_job_search: int
+    remaining_activities: int
+    remaining_job_search: int
     data: RecognitionData
     job_search_rows: list[JobSearchRow] = []
     other_rows: list[OtherActivityRow] = []
