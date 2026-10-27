@@ -154,7 +154,9 @@ def preprocess(state: AgentState, config: RunnableConfig) -> dict[str, Any]:
         if attachments.text:
             text = f"{text}\n\n{wrap_attachment(attachments.text)}"
     repairs = close_dangling_tool_calls(state.get("messages", []))
+    ctx = tool_context_of(config)
     return {
+        "pending_evidence": list(ctx.evidence_file_ids) if ctx else [],
         "messages": [*repairs, HumanMessage(text)],
         "blocked": blocked,
         "panel": None,

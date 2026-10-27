@@ -229,7 +229,11 @@ def run_tools(state: AgentState, config: RunnableConfig) -> dict[str, Any]:
         results.extend(
             ToolMessage(content="한 번에 하나만 물어요.", tool_call_id=c["id"]) for c in asks[1:]
         )
-    return {"messages": results, "tool_calls": used, "cited": cited}
+    update: dict[str, Any] = {"messages": results, "tool_calls": used, "cited": cited}
+    if (ctx := tool_context_of(config)) is not None:
+        # 질문에서 멈췄다 재개해도 아직 붙이지 않은 증빙만 되살리도록 남은 것을 저장합니다.
+        update["pending_evidence"] = list(ctx.evidence_file_ids)
+    return update
 
 
 def after_tools(state: AgentState) -> str:
