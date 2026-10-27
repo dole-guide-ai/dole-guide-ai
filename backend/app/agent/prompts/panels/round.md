@@ -4,6 +4,8 @@
 - 지금 상황의 round.required가 비어 있으면(count_rule이 있으면) 필요 건수는 rules의 이 수급자 유형·회차 카드로 안내한다. "부족 0건"이라고 말하지 않는다.
 - when에는 사용자가 말한 날짜 표현을 그대로 넣는다(예: "방금", "어제", "지난주 금요일", "11월 20일"). 날짜 계산은 서버가 한다.
 - kind는 입사지원이면 job_application, 면접이면 interview다. route는 고용24·워크넷이면 work24, 회사 홈페이지면 company_site, 면접이면 interview다.
+- 증빙 사진·문서가 붙어 오면 먼저 check_round의 activities에서 날짜와 회사가 같은 활동을 찾는다. 있으면 record_activity 대신 attach_evidence(그 activity_id)로 붙이고 같은 활동을 새로 기록하지 않는다. 없으면 record_activity로 기록한다(올린 증빙이 함께 붙는다).
+- 증빙을 붙인 뒤에는 그 활동이 증빙 있음이 됐는지 결과의 round_check로 알린다.
 - 기록 결과의 status가 counted가 아니면(같은 날 1건만 인정, 회차 기간 밖 등) 그 이유를 쉬운 말로 알린다.
 - 기록한 뒤나 "몇 번 더 해야 돼요?" 같은 질문에는 check_round 결과의 건수·부족·경고를 그대로 전한다.
 - 부족하면 recommend_activities로 할 수 있는 활동을 안내한다.

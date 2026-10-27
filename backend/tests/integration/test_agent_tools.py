@@ -1,6 +1,7 @@
 """에이전트 도구를 그래프 없이 바로 불러 서비스와 같은 결과가 나오는지 확인합니다 (AI 설계 6.3)."""
 
 import io
+import uuid
 from collections.abc import Callable
 from datetime import datetime, time
 
@@ -12,7 +13,7 @@ from app.agent.tools import TOOLS, TOOLS_BY_PANEL, ToolContext, ToolError, run_t
 from app.agent.tools.registry import MAX_PANEL_TOOLS
 from app.core.clock import KST
 from app.core.config import get_settings
-from app.core.errors import ConflictError
+from app.core.errors import ConflictError, NotFoundError
 from app.schemas.files import FilePurpose
 from app.services import activities as activity_service
 from app.services import files as files_service
@@ -76,6 +77,49 @@ def test_uploaded_evidence_is_attached_to_first_recorded_activity(
     by_org = {a.org_name: a.file_ids for a in activities}
     assert by_org["OO물산"] == [photo.file_id]
     assert by_org["OO상사"] == []
+
+
+def test_uploaded_evidence_is_attached_to_existing_activity(
+    ctx, db_session: Session, tmp_path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # 시드의 OO상사(홈페이지 지원) 캡처를 올리면 새로 기록하지 않고 그 활동에 붙어야 함
+    monkeypatch.setattr(get_settings(), "upload_dir", str(tmp_path))
+    c = ctx()
+    png = b"\x89PNG\r\n\x1a\n" + b"\x00" * 32
+    photo = files_service.upload(
+        db_session, c.account, "지원완료.png", io.BytesIO(png), FilePurpose.EVIDENCE, None
+    )
+    c.evidence_file_ids = files_service.evidence_ids(db_session, c.account, [photo.file_id])
+    before = activity_service.list_activities(db_session, c.account, None, TEST_TODAY).items
+    trading = next(a for a in before if a.org_name == "OO상사")
+
+    result = run_tool(c, "attach_evidence", {"activity_id": trading.activity_id})
+
+    check = next(u["value"] for u in result["updates"] if u["path"] == "/round_check")
+    row = next(a for a in check["activities"] if a["activity_id"] == trading.activity_id)
+    assert row["has_evidence"] is True
+    after = activity_service.list_activities(db_session, c.account, None, TEST_TODAY).items
+    assert len(after) == len(before)
+    assert c.evidence_file_ids == []
+    with pytest.raises(ToolError):  # 한 번 붙인 증빙은 다시 내주지 않음
+        run_tool(c, "attach_evidence", {"activity_id": trading.activity_id})
+
+
+def test_attach_evidence_to_unknown_activity_keeps_evidence(
+    ctx, db_session: Session, tmp_path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(get_settings(), "upload_dir", str(tmp_path))
+    c = ctx()
+    png = b"\x89PNG\r\n\x1a\n" + b"\x00" * 32
+    photo = files_service.upload(
+        db_session, c.account, "지원완료.png", io.BytesIO(png), FilePurpose.EVIDENCE, None
+    )
+    c.evidence_file_ids = [photo.file_id]
+
+    with pytest.raises(NotFoundError):
+        run_tool(c, "attach_evidence", {"activity_id": str(uuid.uuid4())})
+
+    assert c.evidence_file_ids == [photo.file_id]
 
 
 def test_evidence_stays_when_recording_fails(
