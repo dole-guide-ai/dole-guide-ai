@@ -194,3 +194,30 @@ def test_fields_outside_facts_are_saved_by_schema_path(park: ToolContext) -> Non
     assert saved["/additional_info/owns_vehicle"] is True
     assert "/job_preferences/no_such_field" not in saved
     assert data_of(park).job_preferences.employment_contract_type.value == "관계없음"
+
+
+def test_correction_goes_through_the_same_checks_as_answers(park: ToolContext) -> None:
+    """정정도 선택지 밖 값은 거절하고, 말로 한 날짜는 연·월로 바꿔 저장합니다."""
+    with_career(park)
+
+    bad = node.save_answer(
+        park,
+        memory(),
+        None,
+        Reading(
+            kind="correction",
+            correction=Correction(path="/job_preferences/employment_contract_type", value="정규직"),
+        ),
+    )
+    assert "saved" not in bad["outcome"] and bad["outcome"]["rejected"]
+
+    dated = node.save_answer(
+        park,
+        memory(),
+        None,
+        Reading(
+            kind="correction",
+            correction=Correction(path="/careers/c1/start_date", value="2012년 3월"),
+        ),
+    )
+    assert dated["outcome"]["saved"] == {"/careers/c1/start_date": "2012-03"}

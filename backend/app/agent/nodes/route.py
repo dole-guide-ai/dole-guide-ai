@@ -85,5 +85,12 @@ def route_turn(state: AgentState) -> dict[str, Any]:
     return {"panel": panel.value, "model_calls": calls}
 
 
+def panel_besides_resume(text: str, facts: dict[str, Any]) -> Panel:
+    """이력서 질문을 기다리는 중 딴 얘기로 읽힌 말이 갈 패널. 다시 이력서로 나오면 안내 패널."""
+    said, attached, _ = text.partition(ATTACHMENT_OPEN)
+    panel = by_model(said.strip() or ATTACHMENT_ONLY, facts, attached=bool(attached))
+    return Panel.GUIDE if panel == Panel.RESUME else panel
+
+
 def after_route(state: AgentState) -> str:
     return "read_answer" if state.get("panel") == Panel.RESUME else "attach_knowledge"

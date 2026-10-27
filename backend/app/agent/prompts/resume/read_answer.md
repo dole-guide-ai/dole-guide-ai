@@ -11,7 +11,7 @@
   - none: 위 어느 것도 아니다(인사, "네" 같은 맞장구만).
 - facts: 기다리는 칸과 상관없이 함께 말한 경력·학력·자격증·희망 직종·지역. 말한 것만 넣고, 없으면 비운다. kind가 value여도 다른 사실이 함께 있으면 넣는다.
 - fields: facts에 없는 칸(희망 월급·고용형태·병역대체·운전 가능·차량 소지·그 밖의 역량·제목 등)을 함께 말했으면 fields 목록의 경로(path)에서 골라 {path, value}로 넣는다. allowed가 있는 칸은 그 값 하나로, shape가 있는 칸은 그 모양으로. 목록에 없는 경로는 만들지 않는다.
-  예: "운전면허 있고 차량 있어요" → fields [{"/additional_info/can_drive": true}, {"/additional_info/owns_vehicle": true}] + facts.certifications에 운전면허.
+  예: "운전면허 있고 차량 있어요" → fields [{"path": "/additional_info/can_drive", "value": true}, {"path": "/additional_info/owns_vehicle", "value": true}] + facts.certifications에 운전면허.
 - note: 값이 있는데 모호해서 되물어야 할 때 무엇이 모호한지(예: "재작년 겨울이라 연·월을 알 수 없음").
 
 ## 값 쓰는 법

@@ -25,18 +25,19 @@ from pydantic import BaseModel, Field
 from app.agent import gateway
 from app.agent.events import emit
 from app.agent.graph import AgentState, tool_context_of
+from app.agent.nodes import route
 from app.agent.output import SentenceStream
 from app.agent.prompts import load_prompt
 from app.agent.tools.registry import ToolContext
 from app.rules import entry_text
 from app.rules import resume as rules
-from app.rules.resume.facts import ResumeFacts, answer_writes, plan_writes
-from app.rules.resume.fields import said
+from app.rules.resume.facts import FactPlan, ResumeFacts, answer_writes, plan_writes
 from app.rules.resume.steps import (
     DEFERRED_REVIEW,
     DONT_KNOW,
     FILL_NOW,
     FOLLOW_UPS,
+    SAVE_AFTER_FILL,
     ResumeStep,
 )
 from app.schemas.forms.resume import choices_of
@@ -51,7 +52,6 @@ READ_PROMPT = "resume/read_answer"
 SPEAK_PROMPT = "resume/speak"
 # 읽기에 함께 주는 최근 대화 수(사람 말·도우미 말)
 READ_HISTORY = 4
-GUIDE_PANEL = "guide"
 RESET_RESUME = "reset_resume"
 # 버튼 답을 비교할 때 빼는 글자(공백·문장부호). "없었어요."도 "없었어요"로 봅니다.
 _IGNORED = re.compile(r"[\s.,!?~…]")
@@ -199,7 +199,7 @@ def apply_choice(state: AgentState, config: RunnableConfig) -> dict[str, Any]:
         return {"resume": memory}
     answer = _last_user_text(state)
     choice = _matching_choice(step, answer)
-    if step.id == DEFERRED_REVIEW and choice:
+    if step.id in (DEFERRED_REVIEW, SAVE_AFTER_FILL) and choice:
         if choice == FILL_NOW:
             memory["deferred"], memory["asked"] = [], {}  # 두 번 물어 넘긴 칸도 다시 묻습니다.
         else:
@@ -298,10 +298,14 @@ def read_answer(state: AgentState, config: RunnableConfig) -> dict[str, Any]:
         [SystemMessage(load_prompt(READ_PROMPT)), HumanMessage(_read_input(state, memory))]
     )
     memory = save_answer(ctx, memory, pending_step(memory), reading)
-    update: dict[str, Any] = {"resume": memory, "model_calls": state.get("model_calls", 0) + 1}
+    calls = state.get("model_calls", 0) + 1
+    update: dict[str, Any] = {"resume": memory}
     if memory["outcome"].get("off_topic"):
-        update["panel"] = GUIDE_PANEL  # 제도 질문은 안내 패널이 답하고, 대기 질문은 남겨 둡니다.
-    return update
+        # 딴 얘기는 맡을 패널을 다시 골라 그 패널이 답하고, 대기 질문은 남겨 둡니다.
+        text = str(state["messages"][-1].content)
+        update["panel"] = route.panel_besides_resume(text, state.get("facts", {})).value
+        calls += 1
+    return {**update, "model_calls": calls}
 
 
 def save_answer(
@@ -321,26 +325,17 @@ def save_answer(
     writes: list[FieldWrite] = []
     if reading.kind == "value" and step:
         writes += _value_writes(ctx, memory, step, reading.value)
+    # 정정과 함께 말한 칸은 둘 다 "경로 + 값"이라 같은 검증(날짜·선택지·있는 칸)을 거칩니다.
+    by_path = [(f.path, f.value) for f in reading.fields or []]
     if reading.kind == "correction" and reading.correction:
-        writes += _correction_writes(ctx, reading.correction)
-    if reading.fields:
-        procedure = account_service.read_procedure(ctx.db, ctx.account.user_id)
-        current = resume_service.read_resume(ctx.db, ctx.account).data
-        known = {p for p, _ in rules.form_fields(current)}
-        for item in reading.fields:
-            if item.path not in known:
-                continue  # 스키마에 없는 경로는 버립니다(지어낸 칸 방지).
-            plan = answer_writes((item.path,), item.value, ctx.today, procedure.separation_date)
-            writes += plan.writes
-            if plan.rejected:
-                outcome.setdefault("rejected", []).extend(plan.rejected)
+        by_path.append((reading.correction.path, reading.correction.value))
+    if by_path:
+        writes += _path_writes(ctx, memory, by_path)
     if reading.facts:
         procedure = account_service.read_procedure(ctx.db, ctx.account.user_id)
         current = resume_service.read_resume(ctx.db, ctx.account).data
         plan = plan_writes(current, reading.facts, ctx.today, procedure.separation_date)
-        writes += plan.writes
-        if plan.asks:
-            outcome["clarify"] = " / ".join([*filter(None, [outcome.get("clarify")]), *plan.asks])
+        writes += _checked(memory, plan)
     if reading.note and not writes:
         outcome["clarify"] = reading.note
     _save(ctx, memory, writes)
@@ -355,19 +350,31 @@ def _value_writes(
 ) -> list[FieldWrite]:
     """대기 칸의 값을 칸 쓰기로(rules/resume/facts.answer_writes). 되묻기·거절은 outcome에."""
     procedure = account_service.read_procedure(ctx.db, ctx.account.user_id)
-    plan = answer_writes(step.paths, value, ctx.today, procedure.separation_date)
+    return _checked(memory, answer_writes(step.paths, value, ctx.today, procedure.separation_date))
+
+
+def _path_writes(
+    ctx: ToolContext, memory: ResumeMemory, items: list[tuple[str, Any]]
+) -> list[FieldWrite]:
+    """경로로 받은 값(정정·함께 말한 칸). 스키마에 없는 경로는 버립니다(지어낸 칸 방지)."""
+    procedure = account_service.read_procedure(ctx.db, ctx.account.user_id)
+    known = {p for p, _ in rules.form_fields(resume_service.read_resume(ctx.db, ctx.account).data)}
+    writes: list[FieldWrite] = []
+    for path, value in items:
+        if path in known:
+            plan = answer_writes((path,), value, ctx.today, procedure.separation_date)
+            writes += _checked(memory, plan)
+    return writes
+
+
+def _checked(memory: ResumeMemory, plan: FactPlan) -> list[FieldWrite]:
+    """다시 물을 것은 outcome.clarify에, 선택지 밖 값은 outcome.rejected에 적고 쓰기를 돌려줌."""
     outcome = memory["outcome"]
     if plan.asks:
-        outcome["clarify"] = " / ".join(plan.asks)
+        outcome["clarify"] = " / ".join([*filter(None, [outcome.get("clarify")]), *plan.asks])
     if plan.rejected:
         outcome.setdefault("rejected", []).extend(plan.rejected)
     return plan.writes
-
-
-def _correction_writes(ctx: ToolContext, correction: Correction) -> list[FieldWrite]:
-    data = resume_service.read_resume(ctx.db, ctx.account).data
-    known = {path for path, _ in rules.form_fields(data)}
-    return [said(correction.path, correction.value)] if correction.path in known else []
 
 
 def after_read(state: AgentState) -> str:

@@ -66,6 +66,13 @@ def test_model_routing_never_sees_attachment_text(monkeypatch: pytest.MonkeyPatc
     assert seen == ["음 그게요", route.ATTACHMENT_ONLY]
 
 
+def test_off_topic_during_resume_question_is_routed_again(monkeypatch: pytest.MonkeyPatch) -> None:
+    # 이력서 질문 중 "오늘 OO에 지원했어요"는 회차로, 다시 이력서로 나오면 안내 패널로 보냅니다.
+    for chosen, expected in ((Panel.ROUND, Panel.ROUND), (Panel.RESUME, Panel.GUIDE)):
+        monkeypatch.setattr(route, "by_model", lambda *a, c=chosen, **k: c)
+        assert route.panel_besides_resume("오늘 OO에 지원했어요", {}) == expected
+
+
 def test_blocking_pii_never_reaches_model_or_checkpoint(fake_agent_llm) -> None:
     model = fake_agent_llm([AIMessage("합성 답")])
     saver, user = InMemorySaver(), uuid.uuid4()
