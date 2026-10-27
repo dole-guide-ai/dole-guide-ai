@@ -211,8 +211,10 @@ def locked_reason(data: dict[str, Any]) -> str | None:
 
 # ── 제출 방식 · 체크리스트 (F-26, 상세기획 2-3.6) ─────────────────────────────
 
-SEND_DEADLINE_HOUR = 17  # 인정일 당일 인터넷 제출 마감
-VISIT_DEADLINE_HOUR = 18  # 인정일 당일 센터 방문 신청 마감
+# 인정일 당일 인터넷 제출 마감과 놓쳤을 때 센터 방문 신청 마감 (규칙표 DUE-092·093).
+# 화면 알림·제출 버튼·대화 안내·다음 할 일이 모두 이 두 값을 씁니다.
+SEND_DEADLINE_HOUR = 17
+VISIT_DEADLINE_HOUR = 18
 
 ATTEND = "attend"
 PREVIEW = "preview"

@@ -64,15 +64,13 @@ def get_current_round(db: DbSession, account: CurrentAccount, today: Today) -> R
     summary="부족한 활동 추천",
     responses=error_responses(401, 404),
 )
-def list_recommendations(
-    db: DbSession, account: CurrentAccount, today: Today
-) -> RecommendationList:
+def list_recommendations(db: DbSession, account: CurrentAccount, now: Now) -> RecommendationList:
     """이번 회차에 활동이 모자랄 때 증빙이 쉬운 순서로 추천 최대 3개와 기한 문구를 돌려줍니다.
 
     부족하지 않으면 빈 목록입니다. 오늘이 속한 회차가 없으면 404 NO_ACTIVE_ROUND.
     고른 추천은 `POST …/activities`에 `recommendation_id`만 보내 예정 활동으로 넣습니다.
     """
-    return recommendation_service.list_recommendations(db, account, today)
+    return recommendation_service.list_recommendations(db, account, now)
 
 
 @router.get(

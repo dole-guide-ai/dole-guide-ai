@@ -1,6 +1,7 @@
 """AI 공용 뼈대: 응답기 연결, 도구 어댑터, 프롬프트 로더, 체크포인터 접속 문자열."""
 
 import uuid
+from dataclasses import replace
 from datetime import date, datetime
 from unittest.mock import MagicMock
 
@@ -10,7 +11,7 @@ from langgraph.checkpoint.memory import InMemorySaver
 
 from app.agent.checkpointer import conninfo
 from app.agent.prompts import load_prompt
-from app.agent.responder import TurnInput, graph_responder, run_config
+from app.agent.responder import TurnInput, graph_responder, run_config, tool_context
 from app.agent.tools.langchain import as_langchain_tools
 from app.agent.tools.registry import TOOLS_BY_PANEL, ToolContext
 from app.core.clock import KST
@@ -18,16 +19,28 @@ from app.schemas.messages import DoneEvent, TokenEvent
 from app.services.accounts import AccountContext
 
 TODAY = date(2026, 10, 21)
+NOW = datetime(2026, 10, 21, 10, tzinfo=KST)
 
 
 def _turn(user_id: uuid.UUID, text: str = "합성 입력 문장") -> TurnInput:
-    return TurnInput(user_id, "lee", text, "text", TODAY)
+    return TurnInput(user_id, "lee", text, "text", NOW)
 
 
 def _ctx(allowed: tuple[str, ...] | None = None) -> ToolContext:
     account = AccountContext(uuid.uuid4(), "lee", TODAY)
     now = datetime(2026, 10, 21, 10, tzinfo=KST)
     return ToolContext(MagicMock(), account, TODAY, now, allowed_paths=allowed)
+
+
+def test_tool_context_uses_the_turn_clock() -> None:
+    # 인정일 17:20 문항이 실제 실행 시각이 아니라 턴의 시각으로 판단되게(골든셋 P-018).
+    evening = datetime(2026, 10, 27, 17, 20, tzinfo=KST)
+    turn = replace(_turn(uuid.uuid4()), now=evening, db=MagicMock(), anchor_date=TODAY)
+
+    ctx = tool_context(turn)
+
+    assert ctx is not None
+    assert (ctx.today, ctx.now) == (evening.date(), evening)
 
 
 def test_graph_responder_streams_tokens_then_done(fake_agent_llm) -> None:

@@ -27,7 +27,6 @@ from app.agent.graph import TOOL_CONTEXT_KEY, TURN_KEY, build_graph
 from app.agent.nodes.finish import done_event
 from app.agent.nodes.preprocess import BLOCKED_REPLY, gate
 from app.agent.tools.registry import ToolContext
-from app.core.clock import KST
 from app.schemas.messages import DoneEvent, InputKind, TokenEvent
 from app.services import files as files_service
 from app.services.accounts import AccountContext
@@ -39,12 +38,17 @@ class TurnInput:
     persona_id: str
     text: str
     input_kind: InputKind
-    today: date
+    # 턴의 지금 시각(KST). 날짜·마감·다음 할 일이 모두 이 값 하나에서 나옵니다.
+    now: datetime
     file_ids: list[str] = field(default_factory=list)
     import_ids: list[str] = field(default_factory=list)
     # 도구가 쓰는 DB 세션과 계정 기준일. 대화 턴 서비스가 넣습니다(단위 테스트는 비워 둠).
     db: Session | None = None
     anchor_date: date | None = None
+
+    @property
+    def today(self) -> date:
+        return self.now.date()
 
 
 Responder = Callable[[TurnInput], Iterator[TurnEvent]]
@@ -54,10 +58,9 @@ def tool_context(turn: TurnInput) -> ToolContext | None:
     if turn.db is None or turn.anchor_date is None:
         return None
     account = AccountContext(turn.user_id, turn.persona_id, turn.anchor_date)
-    now = datetime.combine(turn.today, datetime.now(KST).time(), KST)
     evidence = files_service.evidence_ids(turn.db, account, turn.file_ids) if turn.file_ids else []
     return ToolContext(
-        db=turn.db, account=account, today=turn.today, now=now, evidence_file_ids=evidence
+        db=turn.db, account=account, today=turn.today, now=turn.now, evidence_file_ids=evidence
     )
 
 

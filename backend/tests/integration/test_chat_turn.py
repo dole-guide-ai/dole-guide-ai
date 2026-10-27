@@ -30,7 +30,7 @@ from app.services import chat as chat_service
 from app.services import messages as message_service
 from app.services.seed import load_personas
 from app.services.visitors import authenticate, create_visitor
-from conftest import TEST_TODAY
+from conftest import TEST_NOW, TEST_TODAY
 
 pytestmark = pytest.mark.integration
 
@@ -189,16 +189,16 @@ def test_second_turn_while_first_runs_is_409(committed_account, fake_agent_llm):
     fake_agent_llm([AIMessage("합성 답")])
     body = MessageCreate(text="합성 질문")
     with SessionLocal() as first_db, SessionLocal() as second_db:
-        turn = chat_service.start_turn(first_db, committed_account, body, None, TEST_TODAY)
+        turn = chat_service.start_turn(first_db, committed_account, body, None, TEST_NOW)
         events = turn.events()
         next(events)  # 첫 턴이 스트리밍 중
 
         with pytest.raises(Exception) as exc:
-            chat_service.start_turn(second_db, committed_account, body, None, TEST_TODAY)
+            chat_service.start_turn(second_db, committed_account, body, None, TEST_NOW)
         assert getattr(exc.value, "code", None) == "TURN_IN_PROGRESS"
 
         events.close()  # 첫 턴이 끝나면(끊김 포함) 잠금이 풀립니다
-        turn2 = chat_service.start_turn(second_db, committed_account, body, None, TEST_TODAY)
+        turn2 = chat_service.start_turn(second_db, committed_account, body, None, TEST_NOW)
         assert list(turn2.events())[-1].name == "done"
 
 
@@ -215,7 +215,7 @@ def test_closing_stream_stops_responder_and_saves(committed_account, monkeypatch
     use_responder(monkeypatch, long_answer)
     with SessionLocal() as db:
         turn = chat_service.start_turn(
-            db, committed_account, MessageCreate(text="합성 질문"), None, TEST_TODAY
+            db, committed_account, MessageCreate(text="합성 질문"), None, TEST_NOW
         )
         events = turn.events()
         next(events), next(events)

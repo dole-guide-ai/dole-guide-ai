@@ -121,7 +121,7 @@ def run_case(db: Session, case: dict[str, Any]) -> AgentResult:
         for text in case_input["messages"]:
             message = MessageCreate(text=text, file_ids=file_ids)
             file_ids = []
-            turn = chat_service.start_turn(db, account, message, None, today)
+            turn = chat_service.start_turn(db, account, message, None, now)
             events = list(turn.events())
             turn.finish()
             # 화면에 보이는 답 = 글자 + 되묻기 질문(ask_user). 질문만 하고 끝난 턴도 답이 있습니다.

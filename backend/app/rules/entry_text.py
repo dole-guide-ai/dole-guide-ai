@@ -12,6 +12,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
+from app.rules.application import SEND_DEADLINE_HOUR, VISIT_DEADLINE_HOUR
 from app.rules.presubmit import online_presubmit, visit_to_apply
 from app.rules.resume.check import REQUIRED_SECTIONS
 
@@ -141,6 +142,8 @@ def compose(branch: str, facts: EntryFacts) -> Composed:
         "d": facts.d_day,
         "old_resume_year": facts.old_resume_year or "",
         "age": facts.age_at_separation,
+        "online_deadline": SEND_DEADLINE_HOUR,
+        "visit_deadline": VISIT_DEADLINE_HOUR,
     }
     # 저장 연도를 모르는 예전 이력서는 연도 없는 문구를 씁니다.
     text = spec["text_no_year"] if key == "E7b" and not facts.old_resume_year else spec["text"]

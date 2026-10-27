@@ -1,10 +1,13 @@
 """다음 할 일(rules/next_action.py)과 done 이벤트 조립(nodes/finish.py)."""
 
+from datetime import date, datetime, time
+
 import pytest
 from langchain_core.messages import AIMessage
 
 from app.agent.nodes.finish import done_event
 from app.agent.nodes.panel import _failure
+from app.core.clock import KST
 from app.core.errors import ConflictError
 from app.rules.next_action import NextAction, next_action
 
@@ -51,6 +54,48 @@ def test_finished_education_points_to_eligibility() -> None:
 )
 def test_next_action_in_recognition(round_facts: dict, expected: NextAction) -> None:
     assert next_action("recognition", round_facts) == expected
+
+
+RECOGNITION_DAY = date(2026, 10, 27)
+
+
+def _on_recognition_day(**overrides: object) -> dict:
+    return {
+        "remaining": 0,
+        "remaining_job_search": 0,
+        "d_day": 0,
+        "recognition_date": RECOGNITION_DAY.isoformat(),
+        "attendance_required": False,
+    } | overrides
+
+
+@pytest.mark.parametrize(
+    ("hour", "minute", "round_facts", "expected"),
+    [
+        # 골든셋 P-017·P-018: 인정일 당일 마감 전후로 할 일이 바뀝니다(17시 인터넷·18시 방문).
+        (16, 50, _on_recognition_day(), NextAction.SUBMIT_BY_SELF),
+        (17, 20, _on_recognition_day(), NextAction.VISIT_CENTER_TODAY),
+        (18, 30, _on_recognition_day(), NextAction.CONTACT_CENTER),
+        # 출석 회차는 시각과 관계없이 오늘 센터에 갑니다(18시 뒤는 마감 지남).
+        (10, 0, _on_recognition_day(attendance_required=True), NextAction.ATTEND_CENTER),
+        # 활동이 모자라도 인터넷 마감이 지났으면 오늘 센터 방문이 먼저입니다.
+        (17, 20, _on_recognition_day(remaining=1), NextAction.VISIT_CENTER_TODAY),
+        (10, 0, _on_recognition_day(remaining=1), NextAction.ADD_ACTIVITY),
+    ],
+)
+def test_recognition_day_follows_the_clock(
+    hour: int, minute: int, round_facts: dict, expected: NextAction
+) -> None:
+    now = datetime.combine(RECOGNITION_DAY, time(hour, minute), KST)
+
+    assert next_action("recognition", round_facts, now=now) == expected
+
+
+def test_uncountable_round_asks_for_activities_instead_of_crashing() -> None:
+    # 필요 건수를 셀 수 없는 회차(반복수급자 등)는 remaining이 None입니다(nodes/context).
+    facts = {"remaining": None, "remaining_job_search": None, "d_day": 5}
+
+    assert next_action("recognition", facts) == NextAction.ADD_ACTIVITY
 
 
 def test_done_event_has_cite_from_used_rules_and_next_action() -> None:

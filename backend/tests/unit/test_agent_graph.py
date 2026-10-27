@@ -4,7 +4,7 @@ DB 없이(도구 문맥 None) 가짜 모델로 한 턴씩 돌립니다. 입력�
 """
 
 import uuid
-from datetime import date
+from datetime import date, datetime
 
 import pytest
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
@@ -16,14 +16,16 @@ from app.agent.nodes.panel import MAX_MODEL_CALLS
 from app.agent.nodes.preprocess import BLOCKED_REPLY
 from app.agent.nodes.route import Panel, by_rules
 from app.agent.responder import TurnInput, graph_responder
+from app.core.clock import KST
 from app.schemas.messages import AskUserEvent, DoneEvent, TokenEvent
 
 TODAY = date(2026, 10, 21)
+NOW = datetime(2026, 10, 21, 10, tzinfo=KST)
 SYNTHETIC_RRN = "900101-1234568"
 
 
 def _turn(user_id: uuid.UUID, text: str) -> TurnInput:
-    return TurnInput(user_id, "lee", text, "text", TODAY)
+    return TurnInput(user_id, "lee", text, "text", NOW)
 
 
 def _messages(saver: InMemorySaver, user_id: uuid.UUID) -> list:

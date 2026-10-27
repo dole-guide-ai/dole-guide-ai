@@ -9,7 +9,6 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
-from app.core.clock import KST
 from app.core.errors import ConflictError, ExternalUnavailableError, NotFoundError
 from app.models import Activity
 from app.repositories import accounts as repo
@@ -74,10 +73,10 @@ def _external(
     return external
 
 
-def list_recommendations(db: Session, account: AccountContext, today: date) -> RecommendationList:
+def list_recommendations(db: Session, account: AccountContext, now: datetime) -> RecommendationList:
+    today = now.date()
     target, picks, _, busy, weekly = _current(db, account, today)
     occupation = training_service.desired_occupation(db, account.user_id)
-    now = datetime.combine(today, datetime.now(KST).time(), KST)
     items = [
         Recommendation(
             recommendation_id=rules.recommendation_id(target.round_no, pick.candidate.key),
