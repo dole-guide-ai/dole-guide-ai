@@ -166,3 +166,32 @@ def test_briefing_stage_rules():
         "recognition", round_=ROUND | {"round": 1}, action=None, group="age_60_64"
     )
     assert "1차 교육은 온라인 또는 고용센터에서 들어요." in older
+
+
+def test_every_panel_gets_the_server_resume_progress_in_job_registration():
+    """화면의 n/5와 같은 서버 판정을 "지금 상황"에 넣어, 안내 패널이 3/5인 이력서를
+    "모두 작성했어요"라고 짐작하지 않게 합니다(2026-10-27 화면에서 나온 오답)."""
+    from app.rules.briefing import resume_progress_line
+    from app.schemas.common import Completeness
+
+    sections = {
+        "resume_title": True,
+        "education": True,
+        "job_preferences": False,
+        "careers": False,
+        "certifications": True,
+    }
+    progress = resume_progress_line(Completeness(filled=3, sections=sections), can_save=False)
+    lines = build_briefing(
+        "job_registration", round_=None, action=NextAction.WRITE_RESUME, resume_progress=progress
+    )
+
+    assert progress in lines
+    assert "5개 중 3개" in progress and "희망조건, 경력사항" in progress
+    assert "아직 다 쓰지 않았어요" in progress
+    # 실업인정 단계처럼 이력서가 끝난 단계에는 넣지 않습니다.
+    later = build_briefing("recognition", round_=None, action=None, resume_progress=progress)
+    assert progress not in later
+    done = Completeness(filled=5, sections=dict.fromkeys(sections, True))
+    assert "저장할 수 있어요" in resume_progress_line(done, can_save=True)
+    assert "아직 저장할 수 없어요" in resume_progress_line(done, can_save=False)

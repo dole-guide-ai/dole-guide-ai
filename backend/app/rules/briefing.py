@@ -12,6 +12,8 @@ from app.rules.activity_table import load_rules
 from app.rules.application import SEND_DEADLINE_HOUR, VISIT_DEADLINE_HOUR
 from app.rules.next_action import NextAction
 from app.rules.presubmit import PRESUBMIT_STAGES, visit_to_apply
+from app.rules.resume.check import REQUIRED_SECTIONS, SECTION_LABELS
+from app.schemas.common import Completeness
 from app.schemas.forms.resume import ResumeData
 from app.schemas.procedure import Stage
 
@@ -261,6 +263,21 @@ def resume_items(resume: ResumeData) -> dict[str, list[dict[str, Any]]]:
     }
 
 
+def resume_progress_line(completeness: Completeness, *, can_save: bool) -> str:
+    """이력서가 다 찼는지(서버 판정, 패널의 n/5와 같은 값)를 문장으로. 모든 패널이 같은 문장을
+    받아, 어느 패널이 답하든 이력서를 다 썼는지 짐작하지 않게 합니다."""
+    left = [SECTION_LABELS[k] for k in REQUIRED_SECTIONS if not completeness.sections.get(k)]
+    total = completeness.total
+    if left:
+        return (
+            f"이력서 꼭 채울 항목 {total}개 중 {completeness.filled}개를 채웠어요. "
+            f"아직 남은 항목: {', '.join(left)}. 이력서는 아직 다 쓰지 않았어요."
+        )
+    if can_save:
+        return f"이력서 꼭 채울 항목 {total}개를 다 채워 저장할 수 있어요."
+    return f"이력서 꼭 채울 항목 {total}개는 찼지만 확인 필요 표시가 남아 아직 저장할 수 없어요."
+
+
 def build_briefing(
     stage: str | None,
     *,
@@ -270,11 +287,17 @@ def build_briefing(
     person: list[str] | None = None,
     age: int | None = None,
     group: str | None = None,
+    resume_progress: str | None = None,
 ) -> list[str]:
-    """모델 입력 맨 앞에 둘 "지금 상황" 문장들. 사람 요약(person_lines)이 맨 앞에 옵니다."""
+    """모델 입력 맨 앞에 둘 "지금 상황" 문장들. 사람 요약(person_lines)이 맨 앞에 옵니다.
+
+    `resume_progress`(resume_progress_line)는 구직등록 단계에서만 넣습니다.
+    """
     lines: list[str] = list(person or [])
     if stage in STAGE_TEXT:
         lines.append(STAGE_TEXT[Stage(stage)])
+    if stage == Stage.JOB_REGISTRATION and resume_progress:
+        lines.append(resume_progress)
     if stage == Stage.EDUCATION and education_done is False:
         lines.append("수급자격 신청자 교육을 아직 듣지 않았어요.")
     round_no = round_["round"] if round_ else None

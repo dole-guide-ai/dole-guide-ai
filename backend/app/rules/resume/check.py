@@ -43,6 +43,14 @@ from app.schemas.resume import Completeness
 MAX_PICKS = 3  # 희망 직종·지역은 고용24에서 3개까지
 OVERLAP_MONTHS = 3
 REQUIRED_SECTIONS = ("resume_title", "education", "job_preferences", "careers", "certifications")
+# 꼭 묻는 항목의 화면 이름(패널 제목과 같음). 대화의 "지금 상황"에 남은 항목을 쓸 때 씁니다.
+SECTION_LABELS = {
+    "resume_title": "이력서 제목",
+    "education": "학력사항",
+    "job_preferences": "희망조건",
+    "careers": "경력사항",
+    "certifications": "보유 자격면허",
+}
 
 
 # ── 자동 값 ─────────────────────────────────────────────
