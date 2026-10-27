@@ -6,7 +6,7 @@
 from copy import deepcopy
 
 from evals.golden.presets import resolve_input
-from evals.golden.runner import setup_problems
+from evals.golden.runner import SEED_ACTIVITY, setup_problems
 
 
 def _case(persona: str, state: dict) -> dict:
@@ -19,7 +19,9 @@ def _initial(case_input: dict) -> dict:
     """문항 의도대로 들어간 계정의 대화 전 데이터."""
     return {
         "resume": deepcopy(case_input["data"]["resume"]),
-        "activities": deepcopy(case_input["data"]["activities"]),
+        "activities": [
+            {"kind": SEED_ACTIVITY[a["kind"]][1]} for a in case_input["data"]["activities"]
+        ],
         "procedure": {"stage": case_input["state"]["stage"], "education_done": False},
     }
 
@@ -50,5 +52,19 @@ def test_missing_activities_and_wrong_stage_are_reported() -> None:
 
     problems = setup_problems(case_input, initial)
 
-    assert "시작 활동 2개를 넣었는데 계정에는 0개" in problems
+    assert "시작 활동 {'job_application': 2}을 넣었는데 계정에는 {}" in problems
     assert "단계가 recognition이어야 하는데 education" in problems
+
+
+def test_activity_kind_is_compared_not_only_count() -> None:
+    # other(온라인 취업특강) 활동이 입사지원으로 들어가던 문제(#262 리뷰)를 잡는지
+    case_input = _case("lee", {})
+    case_input["data"]["activities"] = [
+        {"date": "2026-12-08", "kind": "other", "route": "step_online", "org_name": ""}
+    ]
+    initial = _initial(case_input)
+    initial["activities"] = [{"kind": "job_application"}]
+
+    problems = setup_problems(case_input, initial)
+
+    assert problems == ["시작 활동 {'lecture': 1}을 넣었는데 계정에는 {'job_application': 1}"]
