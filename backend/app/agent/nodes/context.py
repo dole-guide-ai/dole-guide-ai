@@ -106,6 +106,7 @@ def load_context(state: AgentState, config: RunnableConfig) -> dict[str, Any]:
         facts.get("round"),
         resume_ready=facts["resume_ready"],
         education_done=procedure.education_done,
+        now=ctx.now,
     )
     # 모델이 JSON을 해석하지 않아도 되게 코드가 결론을 문장으로 씁니다(rules/briefing).
     facts["briefing"] = build_briefing(

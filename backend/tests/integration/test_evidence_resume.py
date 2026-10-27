@@ -17,7 +17,7 @@ from app.schemas.files import FilePurpose
 from app.services import activities as activity_service
 from app.services import files as files_service
 from app.services.accounts import AccountContext
-from conftest import TEST_TODAY
+from conftest import TEST_NOW, TEST_TODAY
 
 pytestmark = pytest.mark.integration
 
@@ -41,7 +41,7 @@ def _turn(account: AccountContext, db: Session, text: str, file_ids: list[str]) 
         account.persona_id,
         text,
         "text",
-        TEST_TODAY,
+        TEST_NOW,
         file_ids=file_ids,
         db=db,
         anchor_date=account.anchor_date,

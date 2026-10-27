@@ -14,7 +14,7 @@ from starlette.concurrency import run_in_threadpool
 
 from app.api.deps import CurrentAccount, IdempotencyKey
 from app.api.responses import error_responses
-from app.core.clock import Today
+from app.core.clock import Now
 from app.core.db import DbSession
 from app.schemas.messages import MessageCreate, MessageList
 from app.services import chat as chat_service
@@ -56,7 +56,7 @@ async def send_message(
     request: Request,
     db: DbSession,
     account: CurrentAccount,
-    today: Today,
+    now: Now,
     body: MessageCreate,
     idempotency_key: IdempotencyKey = None,
 ) -> EventSourceResponse:
@@ -70,9 +70,7 @@ async def send_message(
     턴 도중 실패는 error 이벤트로 보내고, 3분을 넘으면 error{TIMEOUT}으로 끝납니다.
     연결이 끊기면(멈추기·탭 닫기) 턴을 멈추고 그때까지의 말풍선을 저장합니다.
     """
-    turn = await run_in_threadpool(
-        chat_service.start_turn, db, account, body, idempotency_key, today
-    )
+    turn = await run_in_threadpool(chat_service.start_turn, db, account, body, idempotency_key, now)
     return EventSourceResponse(_stream(request, turn), headers={"X-Accel-Buffering": "no"})
 
 

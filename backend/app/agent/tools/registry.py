@@ -139,7 +139,7 @@ def _check_round(ctx: ToolContext, _: NoInput) -> dict[str, Any]:
 
 
 def _recommend(ctx: ToolContext, _: NoInput) -> dict[str, Any]:
-    return _dump(recommendation_service.list_recommendations(ctx.db, ctx.account, ctx.today))
+    return _dump(recommendation_service.list_recommendations(ctx.db, ctx.account, ctx.now))
 
 
 def _record_activity(ctx: ToolContext, args: RecordActivityInput) -> dict[str, Any]:

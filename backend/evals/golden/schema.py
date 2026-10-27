@@ -4,6 +4,8 @@ import re
 from pathlib import Path
 from typing import Any
 
+from app.rules.next_action import NextAction
+
 GOLDEN_DIR = Path(__file__).parent
 CSV_PATH = GOLDEN_DIR / "golden_set.csv"
 FILES_DIR = GOLDEN_DIR / "files"
@@ -21,11 +23,8 @@ REVIEWS = {"확정", "확인필요", "보류"}
 # 개발용: 프롬프트·규칙을 고칠 때 보고 돌리는 문항.
 # 검증용: 최종 확인 때만 돌리고, 보고 고치지 않는 문항.
 SETS = {"개발": "dev", "검증": "test"}
-# 다음할일 값(가칭). 에이전트 응답 형식이 정해지면 여기와 README를 같이 고칩니다.
-NEXT_ACTIONS = {
-    "write_resume", "complete_education", "prepare_eligibility", "enter_recognition_date",
-    "add_activity", "add_job_search_activity", "review_form", "submit_by_self",
-}  # fmt: skip
+# 다음할일 값은 에이전트가 done 이벤트에 싣는 값(rules/next_action.NextAction)과 같습니다.
+NEXT_ACTIONS = {action.value for action in NextAction}
 PRIVACY_SCOPES = {"전체": "all", "답": "reply", "저장": "stored", "모델": "model"}
 ROUTES = {
     "work24", "portal", "email", "company_site", "newspaper", "mail", "fax", "visit", "referral",

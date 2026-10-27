@@ -31,7 +31,7 @@ class AgentDriver:
     def send(self, text: str) -> str:
         """사용자 말 하나 → 화면에 보인 답(글자 + 질문 카드 문장·선택지)."""
         turn = chat_service.start_turn(
-            self.db, self.account, MessageCreate(text=text), None, self.today
+            self.db, self.account, MessageCreate(text=text), None, self.now
         )
         events = list(turn.events())
         turn.finish()
