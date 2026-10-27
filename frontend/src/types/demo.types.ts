@@ -1,3 +1,4 @@
+import type { components } from '@/types/api.gen';
 import type { AskUserEvent } from '@/types/chat.types';
 
 /**
@@ -13,45 +14,29 @@ export type Stage =
   | 'recognition'
   | 'ended';
 
-export type ResumeStatus = 'none' | 'outdated' | 'draft' | 'ready';
-
-export type RecipientType = 'general' | 'repeat';
-
-/** 1.2 상태 값 */
+/** 1.2 상태 값 (서버 `ProcedureRead`·`RoundSummary` 그대로) */
 export interface UserState {
-  separation_date: string;
-  age_at_separation: number;
-  has_disability: boolean;
-  recipient_type: RecipientType;
-  employment_type: 'regular';
   stage: Stage;
-  resume_status: ResumeStatus;
   education_done: boolean;
   eligibility_applied_date: string | null;
-  completed_rounds: number;
-  last_recognition_date: string | null;
   next_recognition_date: string | null;
-  demo_today: string;
-  demo_time: string;
 }
-
-export type RuleGroup = 'general' | 'age_60_64' | 'age65_or_disabled';
 
 export interface DatePeriod {
   start: string;
   end: string;
 }
 
-/** 1.2 파생값 */
+/** 1.2 파생값. 판정은 모두 서버가 하고 여기서는 계산하지 않습니다(`lib/accountSession.ts`). */
 export interface DerivedState {
-  rule_group: RuleGroup;
-  rule_set: string | null;
   current_round: number | null;
+  /** 인정일까지 남은 날(서버 `deadline.d_day`) */
   d_day: number | null;
+  /** 인정일 당일 18시가 지나 변경 신청만 남음(서버 `deadline.overdue`) */
+  is_overdue: boolean;
   period: DatePeriod | null;
   is_attendance_round: boolean;
-  required: number | null;
-  required_job_search: number | null;
+  /** 인터넷 사전제출 대상(이직일 만 65세 미만, PROC-048 · 서버 `procedure.online_presubmit`) */
   can_presubmit_online: boolean;
   /** 수급 종료 예정일(급여 소진일·수급기간 끝 중 이른 날), 남은 회차(이번 포함), 마지막 회차 (F-33) */
   expected_end_date?: string | null;
@@ -93,11 +78,15 @@ export interface EntryResult {
   rule_refs: string[];
 }
 
+/** 대시보드 알림(서버 `AccountRead.notices`). 무엇을 알릴지·문구·근거는 서버가 정합니다. */
+export type Notice = components['schemas']['Notice'];
+
 /** 화면이 쓰는 세션. `AccountRead`에서 만듭니다(`lib/accountSession.ts`). */
 export interface SessionRead {
   session_id: string;
   persona_id: string;
   state: UserState;
   derived: DerivedState;
+  notices: Notice[];
   entry: EntryResult;
 }

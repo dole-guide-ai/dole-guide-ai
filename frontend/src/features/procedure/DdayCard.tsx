@@ -12,11 +12,10 @@ interface DdayCardProps {
 
 export const DdayCard = ({ state, derived }: DdayCardProps) => {
   const { next_recognition_date } = state;
-  const { current_round, d_day, is_attendance_round, period } = derived;
+  const { current_round, d_day, is_overdue, is_attendance_round, period } = derived;
 
   if (!next_recognition_date || current_round === null || d_day === null) return null;
 
-  const isOverdue = d_day < 0;
   const MethodIcon = is_attendance_round ? Building2 : Monitor;
 
   return (
@@ -30,7 +29,7 @@ export const DdayCard = ({ state, derived }: DdayCardProps) => {
         </div>
         <span
           className={`rounded-full px-4 py-1.5 text-lg font-bold ${
-            isOverdue ? 'bg-danger-soft text-danger' : 'bg-brand-soft text-brand'
+            is_overdue ? 'bg-danger-soft text-danger' : 'bg-brand-soft text-brand'
           }`}
         >
           {formatDday(d_day)}

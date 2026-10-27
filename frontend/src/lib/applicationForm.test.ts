@@ -23,6 +23,10 @@ const application = (overrides: Partial<ApplicationRead> = {}): ApplicationRead 
   recognition_date: '2026-12-22',
   attendance_required: true,
   required_activities: 2,
+  counted_activities: 1,
+  counted_job_search: 1,
+  remaining_activities: 1,
+  remaining_job_search: 0,
   required_job_search: 1,
   data: {
     work: { has_work: empty(), entries: empty() },

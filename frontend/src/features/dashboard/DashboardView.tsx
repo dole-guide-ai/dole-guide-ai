@@ -13,7 +13,6 @@ import { DashboardHeader } from '@/features/dashboard/DashboardHeader';
 import { NoticeToast } from '@/features/dashboard/NoticeToast';
 import { PanelFrame } from '@/features/dashboard/PanelFrame';
 import { ResetAccountButton } from '@/features/dashboard/ResetAccountButton';
-import { sessionNotices } from '@/features/dashboard/sessionNotices';
 import { SplitHandle } from '@/features/dashboard/SplitHandle';
 import { useSplitRatio } from '@/features/dashboard/useSplitRatio';
 import { MyDataDialog } from '@/features/myData/MyDataDialog';
@@ -125,7 +124,7 @@ export const DashboardView = ({ session, personaName }: DashboardViewProps) => {
         devActions={<ResetAccountButton personaId={session.persona_id} />}
         onOpenMyData={() => setIsMyDataOpen(true)}
       />
-      <NoticeToast key={session.session_id} notices={sessionNotices(session)} />
+      <NoticeToast key={session.session_id} notices={session.notices} />
       {isSwitchOpen && (
         <AccountSwitchDialog
           currentPersonaId={session.persona_id}

@@ -16,9 +16,20 @@
     "expected_end_date": "2027-09-30",
     "end_reason": null,
     "remaining_rounds": null,
-    "last_round": null
+    "last_round": null,
+    "online_presubmit": false
   },
   "current_round": null,
+  "deadline": null,
+  "notices": [
+    {
+      "kind": "visit",
+      "key": "visit",
+      "title": "신청 경로 안내",
+      "text": "이직일 기준 만 67세라 수급자격 신청은 인터넷 사전제출 대신 관할 고용센터에 방문해서 해요. 실업급여를 못 받는다는 뜻은 아니에요.",
+      "rule_refs": ["PROC-048"]
+    }
+  ],
   "entry": {
     "branch_id": "E7b",
     "panel": "A",
