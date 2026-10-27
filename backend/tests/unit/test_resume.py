@@ -267,7 +267,7 @@ def test_chat_skips_value_confirm_and_asks_period_before_duties() -> None:
     data.careers[0].main_duties = f(
         "신입 안전교육(2025-03~)", "extracted", "user_answer", transformed=True
     )
-    # 대화에서는 확인 질문을 건너뛰고 다음 빈 칸으로 갑니다(확인은 패널에서).
+    # 말한 표현(근거)이 없는 확인은 대화에서 건너뛰고 다음 빈 칸으로 갑니다(확인은 패널에서).
     chat = next_resume_question(
         data, entry_branch="E7a", separation_date=PARK_SEPARATION, skip_confirm=True
     )

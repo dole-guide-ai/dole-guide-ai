@@ -6,7 +6,14 @@ from datetime import date
 import pytest
 
 from app.rules.resume import ResumeStep, question_text, resume_steps
-from app.rules.resume.steps import ACCEPT, DEFERRED_REVIEW, NEGOTIABLE_SALARY, templates
+from app.rules.resume.steps import (
+    ACCEPT,
+    DEFERRED_REVIEW,
+    NEGOTIABLE_SALARY,
+    SAVE_AFTER_FILL,
+    templates,
+)
+from app.schemas.common import FormField
 from app.schemas.forms.resume import ResumeData
 
 SEPARATION = date(2026, 9, 30)
@@ -113,6 +120,9 @@ def test_deferred_steps_are_skipped_then_reviewed_once() -> None:
     assert left[0].vars == {"count": len(every_required)}
     again = steps(data, deferred=every_required | {"resume.career_more", DEFERRED_REVIEW})
     assert all(not s.required for s in again)
+    # 미룬 칸이 남은 채 끝까지 오면 "다 채웠어요" 대신 채운 뒤 저장하라고 안내합니다.
+    assert again[-1].id == SAVE_AFTER_FILL
+    assert again[-1].vars == {"count": len(every_required)}
 
 
 def test_previous_company_is_a_chat_only_question() -> None:
@@ -196,7 +206,26 @@ def test_unnamed_and_fallback_wording() -> None:
     assert question_text(end_check).startswith("실업급여 기준 이직일보다 전에")
     named = ResumeStep("resume.career_end_check", {"company": "OO물류", "year": 2026, "month": 9})
     assert question_text(named).startswith("실업급여 기준 이직일은 2026년 9월인데, OO물류")
-    assert question_text(ResumeStep("resume.value_confirm")) is None
+    # 말한 표현(quote)이 없는 확인은 패널을 보라고 안내합니다.
+    assert "확인 필요" in (question_text(ResumeStep("resume.value_confirm")) or "")
+
+
+def test_value_written_from_speech_is_confirmed_in_chat() -> None:
+    """ "2022년"을 2022년 3월로 바꿔 적었으면 대화가 확인을 묻고, "네, 맞아요"면 확정합니다."""
+    data = ResumeData.model_validate({"careers": [CAREER]})
+    data.careers[0].start_date = FormField(
+        value="2012-03",
+        status="extracted",
+        source="user_answer",
+        transformed=True,
+        evidence={"kind": "utterance", "quote": "2012년"},
+    )
+    first = steps(data)[0]
+    assert first.id == "resume.value_confirm"
+    assert question_text(first).startswith('"2012년"라고 하신 것을 2012년 3월로 적었어요.')
+    (write,) = first.answer_writes("네, 맞아요") or ()
+    assert (write.path, write.value) == ("/careers/c1/start_date", "2012-03")
+    assert write.status == "confirmed"
 
 
 def test_plan_view_gives_the_model_paths_choices_and_proposal() -> None:

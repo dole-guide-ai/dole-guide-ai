@@ -30,6 +30,7 @@ export const QUESTION_LABEL: Record<string, string> = {
   'resume.resume_title': '이력서 제목',
   'resume.optional_sections': '그 밖의 보유역량',
   'resume.save_ready': '저장 확인',
+  'resume.save_after_fill': '미룬 칸 채우고 저장',
 };
 
 /** `YYYY-MM` → `YYYY.MM`, `YYYY-MM-DD` → `YYYY.MM.DD` */

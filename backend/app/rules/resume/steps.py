@@ -60,10 +60,16 @@ WON_PER_MANWON = 10_000
 # "말로 할게요" 같은 버튼은 두지 않습니다.
 # 코드가 계산한 제안을 받아들이는 답(버튼). 여러 칸을 묶어 제안할 때도 같은 답을 씁니다.
 ACCEPT = "네, 좋아요"
+VALUE_CONFIRM = "resume.value_confirm"
+# 코드가 바꿔 적은 값(예: "2022년" → 2022년 3월)을 그대로 두는 버튼. 누르면 확정합니다.
+CONFIRM_YES = "네, 맞아요"
 # 미룬 칸만 남았을 때의 답
 FILL_NOW = "지금 채울게요"
 FILL_LATER = "오른쪽 이력서에서 할게요"
 DEFERRED_REVIEW = "resume.deferred_review"
+SAVE_READY = "resume.save_ready"
+# 꼭 채울 칸을 미룬 채 끝까지 왔을 때의 마지막 안내("다 채웠어요" 대신)
+SAVE_AFTER_FILL = "resume.save_after_fill"
 # "있어요"처럼 값 없이 다음 질문을 부르는 버튼 → 이어서 낼 질문(선택지 없이 말로 받음)
 FOLLOW_UPS: dict[tuple[str, str], str] = {
     ("resume.license", "있어요"): "resume.license_name",
@@ -529,6 +535,13 @@ def _preference_steps(data: ResumeData) -> Iterator[ResumeStep]:
     yield from _field_steps(data, prefs, base)
 
 
+def _shown(value: Any) -> str:
+    """확인 질문에 보일 값. 연-월은 "2022년 3월"로 씁니다."""
+    if parts := ym(value):
+        return f"{parts[0]}년 {parts[1]}월"
+    return str(value)
+
+
 def _steps(
     data: ResumeData,
     *,
@@ -540,15 +553,20 @@ def _steps(
 ) -> Iterator[ResumeStep]:
     if doc_failed:
         yield _step("resume.doc_retry", choices=("다시 찍을게요",), accepts_file=True)
-    if not skip_confirm:
-        for path, f in form_fields(data):
-            if needs_check(f):
-                yield _step(
-                    "resume.value_confirm",
-                    vars={"path": path},
-                    choices=("네, 맞아요", "아니요, 다시 말할게요"),
-                    paths=(path,),
-                )
+    for path, f in form_fields(data):
+        if not needs_check(f):
+            continue
+        quote = f.evidence.quote if f.evidence else None
+        if skip_confirm and not quote:
+            continue  # 말에서 온 값이 아니면(서류끼리 다른 값 등) 패널에서 확인합니다.
+        yield _step(
+            VALUE_CONFIRM,
+            vars={"path": path, "quote": quote, "value": _shown(f.value)},
+            item=path,
+            choices=(CONFIRM_YES,),
+            paths=(path,),
+            answers={CONFIRM_YES: (chosen(path, f.value),)},
+        )
     yield from _career_steps(data, entry_branch, separation_date, asked)
     if not data.certifications and data.certifications_status.status == FieldStatus.MISSING:
         paths = ("/certifications", CERTIFICATIONS_STATUS)
@@ -576,9 +594,7 @@ def _steps(
             paths=("/competencies", COMPETENCIES_STATUS),
             answers={"있어요": (), "없어요": (not_applicable(COMPETENCIES_STATUS),)},
         )
-    yield _step(
-        "resume.save_ready", required=False, choices=("확인하고 저장할게요", "고칠 게 있어요")
-    )
+    yield _step(SAVE_READY, required=False, choices=("확인하고 저장할게요", "고칠 게 있어요"))
 
 
 def resume_steps(
@@ -595,8 +611,8 @@ def resume_steps(
     """남은 단계를 순서대로. 미룬 단계는 빼고, 꼭 채울 칸이 미룬 것만 남으면 미룬 칸 확인을
     앞에 둡니다. `follow`("있어요" 뒤에 이어 물을 질문 ID)가 있으면 그 질문을 맨 앞에 둡니다.
 
-    `skip_confirm`: 대화에서는 "바꾼 값 확인"을 건너뜁니다. 확인은 사용자가 패널의 "확인 필요"
-    표시로 하고, 대화로 "네"라고 해도 확정되지 않아 같은 확인이 되풀이되기 때문입니다.
+    `skip_confirm`: 대화에서는 말에서 온 값의 "바꾼 값 확인"만 묻습니다("네, 맞아요"를 누르면
+    확정). 서류끼리 다른 값처럼 말로 답할 수 없는 확인은 패널의 "확인 필요" 표시로 합니다.
     """
     steps = list(
         _steps(
@@ -624,6 +640,11 @@ def resume_steps(
                 required=False,
                 choices=(FILL_NOW, FILL_LATER),
             ),
+        )
+    if held and left and left[-1].id == SAVE_READY:
+        # 미룬 꼭 채울 칸이 남았으면 "다 채웠어요"라고 하지 않고 채운 뒤 저장하라고 안내합니다.
+        left[-1] = _step(
+            SAVE_AFTER_FILL, vars={"count": len(held)}, required=False, choices=(FILL_NOW,)
         )
     return left
 

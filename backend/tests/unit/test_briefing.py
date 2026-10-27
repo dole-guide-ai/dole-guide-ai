@@ -55,8 +55,6 @@ def test_resume_line_uses_question_template():
 
 def test_resume_line_missing_var_and_unknown_id():
     assert "{" not in (resume_line(ResumeStep("resume.career_duties")) or "")
-    # 바꾼 값 확인은 대화에서 묻지 않으므로 템플릿이 없습니다.
-    assert resume_line(ResumeStep("resume.value_confirm")) is None
     assert resume_line(None) is None
 
 
