@@ -89,3 +89,13 @@ def test_attendance_notice_is_not_shown_with_overdue() -> None:
     assert keys(attend) == ["attend-4"] and attend[0].title == "4차는 고용센터 출석 회차예요"
     missed = round_(3, date(2026, 10, 14), status=RoundStatus.CLOSED)
     assert keys(account_notices(procedure(), current, deadline, missed)) == ["overdue-2026-10-14"]
+
+
+def test_submitted_current_round_has_no_overdue_or_attend_notice() -> None:
+    # 18시가 지나도 이미 낸 회차는 미제출 알림을, 출석 회차도 낸 뒤에는 출석 알림을 내지 않습니다.
+    sent = round_(4, TODAY, attend=True, submitted=True)
+    evening = round_deadline(sent, datetime.combine(TODAY, time(18, 30), KST))
+
+    assert account_notices(procedure(), sent, evening, None) == []
+    missed = round_(3, date(2026, 10, 14), status=RoundStatus.CLOSED)
+    assert keys(account_notices(procedure(), sent, evening, missed)) == ["overdue-2026-10-14"]

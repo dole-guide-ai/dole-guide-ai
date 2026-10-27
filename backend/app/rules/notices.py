@@ -6,6 +6,7 @@
 - 인정일 지남(overdue): 지금 회차 인정일 18시가 지났거나, 지난 회차를 내지 않았는데 인정일부터
   14일이 안 지났으면 변경 신청 안내 (DUE-089·094)
 - 출석 회차(attend): 지금 회차가 출석 회차면 직접 방문 (ACT-040). 인정일 지남과는 함께 내지 않음
+- 지금 회차 신청서를 이미 냈으면 그 회차의 지남·출석 알림은 내지 않음
 
 문구는 `data/templates/notices.json`에 둡니다.
 """
@@ -73,7 +74,10 @@ def account_notices(
         )
     if procedure.stage != Stage.RECOGNITION:
         return notices
-    overdue = current if deadline and deadline.overdue else missed
+    # 이미 낸 지금 회차는 놓칠 것도 출석 준비할 것도 없습니다(지난 회차를 놓친 알림만 남김).
+    if current is not None and current.application_status == ApplicationStatus.SUBMITTED:
+        current = None
+    overdue = current if current and deadline and deadline.overdue else missed
     if overdue is not None:
         day = overdue.recognition_date
         notices.append(
