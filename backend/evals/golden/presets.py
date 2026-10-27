@@ -141,7 +141,8 @@ SEEDS: dict[str, dict[str, Any]] = {
                     },
                 }
             ],
-            "desired_regions": [{"code": None, "name": "서울 OO구"}],
+            # 지역도 고용24 공통코드로 고른 값이어야 "찼다"로 봅니다(rules/work24_codes.code_done).
+            "desired_regions": [{"code": "11620", "name": "서울 관악구", "status": "confirmed"}],
         },
     },
     "choi_resume_2019": {
