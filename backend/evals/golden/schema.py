@@ -143,7 +143,8 @@ def row_to_case(row: dict[str, str]) -> dict[str, Any]:
         "forbidden_patterns": split_list(cell["금지패턴"]),
         "privacy": parse_privacy(cell["개인정보검사"]),
         "cite_required": cell["근거표시"] == "Y",
-        "judge": cell["채점기준"] or None,
+        # 채점기준은 ';'로 여러 기준을 적을 수 있고, 기준마다 따로 판정합니다(#261).
+        "judge": split_list(cell["채점기준"]) or None,
     }
     if not any(expected.values()):
         raise GoldenError(

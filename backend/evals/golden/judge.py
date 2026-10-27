@@ -1,31 +1,40 @@
-"""채점기준 칸의 LLM 판정 (DeepEval G-Eval).
+"""채점기준 칸의 LLM 판정. 기준마다 판정 모델을 따로 불러 예·아니오·모름 중 하나로 답하게 합니다.
+
+점수(0~1)와 통과 기준 대신 이진 판정을 씁니다. 점수는 실행마다 흔들리고, 여러 조건을 한 번에
+물으면 어느 조건에서 떨어졌는지 알 수 없기 때문입니다(#261). 모든 기준이 '예'여야 통과이고,
+'모름'은 판단할 정보가 없다는 뜻이라 통과로 치지 않습니다.
 
 판정 모델도 gateway를 거칩니다(JUDGE_MODEL, 비우면 AGENT_MODEL).
-
 판정 모델 공급자 키가 없으면 판정을 건너뛰고 '판정 건너뜀'으로 기록합니다.
 """
 
-import os
 from dataclasses import dataclass
-from typing import Any
+from pathlib import Path
+from typing import Any, Literal
+
+from langchain_core.messages import HumanMessage, SystemMessage
+from pydantic import BaseModel, Field
 
 from app.agent import gateway
 from app.core.config import get_settings
 
-# 평가 데이터를 외부 통계로 보내지 않음. 다른 값이 있어도 항상 끕니다.
-os.environ["DEEPEVAL_TELEMETRY_OPT_OUT"] = "1"
+PROMPT = (Path(__file__).parent / "judge_prompt.md").read_text(encoding="utf-8")
+YES = "예"
 
-DEFAULT_THRESHOLD = 0.7
+
+class CriterionVerdict(BaseModel):
+    answer: Literal["예", "아니오", "모름"]
+    reason: str = Field(description="판정 근거 한 문장")
 
 
 @dataclass
 class Verdict:
     passed: bool | None  # None = 판정 건너뜀
-    score: float | None = None
+    score: float | None = None  # '예'인 기준의 비율(실험 비교용)
     reason: str = ""
 
 
-def judge(case: dict[str, Any], replies: list[str], mode: str, threshold: float) -> Verdict:
+def judge(case: dict[str, Any], replies: list[str], mode: str) -> Verdict:
     criteria = case["expected"]["judge"]
     if not criteria:
         return Verdict(passed=True)
@@ -34,37 +43,26 @@ def judge(case: dict[str, Any], replies: list[str], mode: str, threshold: float)
     if not get_settings().has_llm_key("judge"):
         return Verdict(passed=None, reason="판정 모델 공급자 키가 없어 LLM 판정 건너뜀")
 
-    from deepeval.metrics import GEval
-    from deepeval.test_case import LLMTestCase, SingleTurnParams
+    model = gateway.get_chat_model(role="judge").with_structured_output(CriterionVerdict)
+    conversation = _conversation(case, replies)
+    misses = []
+    for n, criterion in enumerate(criteria, 1):
+        verdict = model.invoke(
+            [
+                SystemMessage(PROMPT),
+                HumanMessage(f"{conversation}\n\n<기준>\n{criterion}\n</기준>"),
+            ]
+        )
+        if verdict.answer != YES:
+            misses.append(f"기준{n} {verdict.answer}: {verdict.reason}")
+    yes = len(criteria) - len(misses)
+    return Verdict(passed=not misses, score=yes / len(criteria), reason=" / ".join(misses))
 
-    metric = GEval(
-        name=case["id"],
-        criteria=criteria,
-        evaluation_params=[SingleTurnParams.INPUT, SingleTurnParams.ACTUAL_OUTPUT],
-        model=_gateway_judge(),
-        threshold=threshold,
-        async_mode=False,
-        verbose_mode=False,
-    )
-    situation = f"상황: {case['description']}\n사용자: " + " / ".join(case["input"]["messages"])
-    metric.measure(LLMTestCase(input=situation, actual_output="\n".join(replies)))
-    return Verdict(passed=bool(metric.success), score=metric.score, reason=metric.reason or "")
 
-
-def _gateway_judge() -> Any:
-    from deepeval.models import DeepEvalBaseLLM
-
-    class GatewayJudge(DeepEvalBaseLLM):
-        def load_model(self) -> Any:
-            return gateway.get_chat_model(role="judge")
-
-        def generate(self, prompt: str) -> str:
-            return self.model.invoke(prompt).text
-
-        async def a_generate(self, prompt: str) -> str:
-            return (await self.model.ainvoke(prompt)).text
-
-        def get_model_name(self) -> str:
-            return "gateway:judge"
-
-    return GatewayJudge()
+def _conversation(case: dict[str, Any], replies: list[str]) -> str:
+    """판정 모델에 보이는 대화. 턴마다 사용자 말과 챗봇 답을 짝지어 보여 줍니다."""
+    lines = [f"<상황>\n{case['description']}\n</상황>", "<대화>"]
+    for n, (said, reply) in enumerate(zip(case["input"]["messages"], replies, strict=False), 1):
+        lines += [f"[{n}] 사용자: {said}", f"[{n}] 챗봇: {reply}"]
+    lines.append("</대화>")
+    return "\n".join(lines)

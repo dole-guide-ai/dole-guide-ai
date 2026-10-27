@@ -114,7 +114,7 @@ def test_golden(case, golden_options, golden_report, model_inputs, golden_db) ->
         raise
     try:
         verdict = (
-            judge(case, result.replies, mode, golden_options.threshold)
+            judge(case, result.replies, mode)
             if golden_options.judge
             else Verdict(passed=None, reason="--golden-judge off")
         )
@@ -122,8 +122,7 @@ def test_golden(case, golden_options, golden_report, model_inputs, golden_db) ->
         record.finish([*failures, f"LLM 판정 오류: {type(error).__name__}"], None)
         raise
     if verdict.passed is False:
-        score = f"{verdict.score or 0:.2f}점 (기준 {golden_options.threshold})"
-        failures.append(f"LLM 판정: {score} {verdict.reason}")
+        failures.append(f"LLM 판정: {verdict.reason}")
     record.finish(failures, verdict.passed)
     # 규칙 채점(통과 여부·실패 수)과 LLM 판정 점수를 따로 남겨 실험끼리 비교합니다.
     ls.log_feedback(key="rule_pass", score=int(not [f for f in failures if "LLM 판정" not in f]))
