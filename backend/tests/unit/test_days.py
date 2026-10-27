@@ -50,6 +50,10 @@ def test_normalize_day(expr: str, expected: date) -> None:
         ("내일", date(2026, 12, 17)),
         ("12월 20일", date(2026, 12, 20)),
         ("1월 5일", date(2027, 1, 5)),
+        # 방향을 말한 표현은 일만 있는 표현("20일")보다 먼저 봅니다(CodeRabbit #280).
+        ("3일 후", date(2026, 12, 19)),
+        ("이틀 뒤", date(2026, 12, 18)),
+        ("다음 달 20일", date(2027, 1, 20)),
     ],
 )
 def test_planned_activity_looks_forward(expr: str, expected: date) -> None:

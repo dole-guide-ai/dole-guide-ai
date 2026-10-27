@@ -192,14 +192,17 @@ def _record_activity(ctx: ToolContext, args: RecordActivityInput) -> dict[str, A
         file_ids=list(ctx.evidence_file_ids),
         **args.model_dump(exclude={"when", "done"}),
     )
-    recorded = activity_service.record_answered_activity(ctx.db, ctx.account, body, ctx.today)
+    # 아직 하지 않은 일은 오늘 날짜여도 예정으로 둡니다(인정 건수에 넣지 않음).
+    recorded = activity_service.record_answered_activity(
+        ctx.db, ctx.account, body, ctx.today, planned=not args.done
+    )
     # 기록이 실패하면 증빙을 남겨 두어 모델이 다시 부를 때 그대로 붙습니다.
     ctx.take_evidence()
     return {
         **_dump(recorded),
         "recorded": True,
         "activity_date": day.isoformat(),
-        "planned": day > ctx.today,
+        "planned": not args.done or day > ctx.today,
     }
 
 
