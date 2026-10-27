@@ -102,13 +102,50 @@ def _value_of(claim: str) -> str:
     return re.sub(r"[^\d]", "", claim.split("-")[-1]) if "-" in claim else re.sub(r"\D", "", claim)
 
 
+_SINO = {"일": 1, "이": 2, "삼": 3, "사": 4, "오": 5, "육": 6, "칠": 7, "팔": 8, "구": 9}
+_NATIVE = {
+    "한": 1, "두": 2, "세": 3, "네": 4, "다섯": 5,
+    "여섯": 6, "일곱": 7, "여덟": 8, "아홉": 9, "열": 10,
+}  # fmt: skip
+_KOREAN_COUNT = re.compile(
+    r"(?<![가-힣])((?:[일이삼사오육칠팔구]?십)?[일이삼사오육칠팔구]?|"
+    + "|".join(sorted(_NATIVE, key=len, reverse=True))
+    # "십일월"처럼 뒤에 "월"이 오면 날짜라 일수로 바꾸지 않습니다.
+    + r")\s*(년|개월|달|주|일|시간|번|건|회)(?!월)"
+)
+
+
+def _sino_value(word: str) -> int | None:
+    if not word:
+        return None
+    if "십" not in word:
+        return _SINO.get(word)
+    tens, _, ones = word.partition("십")
+    return (_SINO.get(tens, 1) if tens else 1) * 10 + (_SINO.get(ones, 0) if ones else 0)
+
+
+def korean_counts(text: str) -> str:
+    """한글로 쓴 수("칠 년", "두 달", "열 번")를 숫자로 바꾼 글. 사용자 말을 근거로 견줄 때."""
+
+    def to_digits(m: re.Match[str]) -> str:
+        value = _NATIVE.get(m.group(1)) or _sino_value(m.group(1))
+        return f"{value}{m.group(2)}" if value else m.group(0)
+
+    return _KOREAN_COUNT.sub(to_digits, text)
+
+
 class Evidence:
-    """이번 턴의 근거. 숫자 주장 집합과 모델 판정에 넘길 글을 함께 둡니다."""
+    """이번 턴의 근거. 숫자 주장 집합과 모델 판정에 넘길 글을 함께 둡니다.
+
+    사용자는 "보험 칠 년 부었는데"처럼 수를 한글로 말하기도 해서, 숫자로 바꾼 글도 근거로 봅니다
+    ("7년이면 240일이에요"가 근거 없는 숫자로 빠지지 않게).
+    """
 
     def __init__(self, texts: Iterable[str]) -> None:
         joined = "\n".join(t for t in texts if t)
         self.text = joined
-        self.claims = claims(joined)
+        # 바꾼 글은 단위가 붙은 주장만 더합니다("칠 년"의 7을 단위 없이 넣으면 "7개월"도 통과).
+        self.claims = claims(joined) | claims(korean_counts(joined))
         self.bare = _bare_numbers(joined)
 
     @classmethod
