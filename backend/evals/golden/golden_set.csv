@@ -41,9 +41,9 @@ P-039,절차,회귀,확정,개발,활동 추천 메시지 가독성,lee,,,어떤
 P-040,절차,회귀,확정,검증,자격증만 불러온 뒤 대화가 멈춤,park,import_ids=cc_license_001,,고용24에서 고른 1건 넣어 주세요,,,,,,,,,,자격증만 넣은 뒤에도 남은 항목(경력 등)을 알려 주고 다음 질문이나 선택지를 주는가,시연플로우 개선사항 10번
 F-001,서류,기본,확정,개발,상대 날짜를 기준일로 바꿈(오늘 2026-10-12),park,,,작년 3월에 들어가서 올해 9월에 그만뒀어요,,,resume.competencies.careers[-1].start_date=2025-03; resume.competencies.careers[-1].end_date=2026-09,,,,,,,,"기획서 7쪽('작년 3월' → 2025.03, 기준일로 계산)"
 F-002,서류,경계값,확정,개발,달이 정해지지 않은 말,park,,,재작년 겨울부터 일했어요,,,,resume.competencies.careers,,,,,,'재작년 겨울'처럼 달이 정해지지 않은 말을 짐작해 넣지 않는가; 몇 월인지 되묻는가,기획서 5쪽(본인 진술만)
-F-003,서류,기본,확정,검증,한 문장에 학력과 경력,park,,,"1990년에 OO고등학교 졸업했고, OO산업에서 2004년 3월부터 2026년 9월까지 일했어요",,,resume.education[-1].school_name=OO고등학교; resume.education[-1].level=고등학교; resume.education[-1].graduation_status=졸업; resume.education[-1].end_date^=1990; resume.competencies.careers[-1].company_name=OO산업; resume.competencies.careers[-1].start_date=2004-03; resume.competencies.careers[-1].end_date=2026-09,,,,,,,,"기획서 5쪽, 시연플로우 개선사항 7번(한 문장 여러 정보)"
+F-003,서류,기본,확정,검증,한 문장에 학력과 경력,park,,,"1984년에 OO공업고등학교 졸업했고, OO산업에서 2004년 3월부터 2026년 9월까지 일했어요",,,resume.education[-1].school_name=OO공업고등학교; resume.education[-1].level=고등학교; resume.education[-1].graduation_status=졸업; resume.education[-1].end_date^=1984; resume.competencies.careers[-1].company_name=OO산업; resume.competencies.careers[-1].start_date=2004-03; resume.competencies.careers[-1].end_date=2026-09,,,,,,,,"기획서 5쪽, 시연플로우 개선사항 7번(한 문장 여러 정보)"
 F-004,서류,기본,확정,개발,"직무만 말함, 다른 칸은 비워 둠",park,seed=park_career,,주로 프레스 했어요,,,resume.competencies.careers[0].main_duties*=프레스; resume.competencies.careers[0].position=null; resume.competencies.careers[0].monthly_salary=null,,,,,,,,"기획서 5쪽(말하지 않은 값은 안 씀, 칸마다 진술·증빙 출처)"
-F-005,서류,기본,확정,검증,고용24 지원 기록(오늘 2026-12-16),lee,,,방금 고용24로 OO물산 사무보조에 지원했어요,,,activities[-1].date=2026-12-16; activities[-1].category=입사지원; activities[-1].route=work24; activities[-1].org_name=OO물산; activities[-1].job_title=사무보조; activities[-1].evidence.required=[],,,,,,,,"1350 인정·증빙(고용24 지원은 별도 증빙 불필요, 2026-08-20), 대본 ACT-001·132"
+F-005,서류,기본,확정,검증,고용24 지원 기록(오늘 2026-12-16),lee,,,방금 고용24로 OO물산 앱 개발자 자리에 지원했어요,,,activities[-1].date=2026-12-16; activities[-1].category=입사지원; activities[-1].route=work24; activities[-1].org_name=OO물산; activities[-1].job_title*=앱 개발; activities[-1].evidence.required=[],,,,,,,,"1350 인정·증빙(고용24 지원은 별도 증빙 불필요, 2026-08-20), 대본 ACT-001·132"
 F-006,서류,기본,확정,개발,회사 홈페이지 지원 기록,lee,,,어제 OO기획 홈페이지에서 지원했어요,,,activities[-1].date=2026-12-15; activities[-1].route=company_site; activities[-1].evidence.required*=지원 완료 화면 캡처,,,,,,,,"1350 인정·증빙(회사 홈페이지는 지원 완료 화면 캡처, 2026-08-20), 대본 ACT-001·136"
 F-007,서류,경계값,확정,검증,'지난주 금요일'을 날짜로,lee,,,지난주 금요일에 OO물산 면접 봤어요,,,activities[-1].date=2026-12-11; activities[-1].category=면접; activities[-1].route=interview,,,,,,,,기획서 7쪽(말한 날짜를 기준일로 계산)
 F-008,서류,경계값,확정,개발,이번 회차 기간(11.25~12.22) 밖 활동,lee,,,11월 20일에 OO유통에 지원했어요,,,round.counted=1,activities,기간,,,,,,대본(대상 기간 11.25~12.22) · 2026-10-25 결정: 지난 회차 활동은 기록하지 않고 기간을 안내(F-28 회차 자동 전환과 맞춤)
@@ -52,7 +52,7 @@ F-010,서류,바꿔말하기,확정,개발,F-001을 한글 숫자·사투리로,
 F-011,서류,바꿔말하기,확정,검증,'워크넷'을 고용24로,lee,,,방금 워크넷으로 OO물산 넣었어요,,,activities[-1].route=work24; activities[-1].org_name=OO물산; activities[-1].date=2026-12-16,,,,,,,,대본(고용24(워크넷))
 F-012,서류,여러턴,확정,개발,경력을 나눠서 말함,park,,,OO산업 다녔어요 || 2004년 3월부터요 || 올해 9월에 그만뒀어요,,,resume.competencies.careers.length=1; resume.competencies.careers[0].company_name=OO산업; resume.competencies.careers[0].start_date=2004-03; resume.competencies.careers[0].end_date=2026-09,,,,,,,,기획서 5쪽
 F-013,서류,여러턴,확정,검증,말한 날짜를 바로 고침,park,,,"OO산업에 2004년 3월에 들어갔어요 || 아니다, 4월이었어요",,,resume.competencies.careers.length=1; resume.competencies.careers[0].start_date=2004-04,,,,,,,,기획서 5쪽
-F-014,서류,회귀,확정,개발,같은 경력을 두 번 말함,choi,seed=choi_resume_2019,,2022년 7월부터 OO빌딩에서 일했어요 || 2022년 7월부터 OO빌딩에서 일했어요,,,resume.competencies.careers.length=2,,,,,,,,시연플로우 개선사항 11번
+F-014,서류,회귀,확정,개발,같은 경력을 두 번 말함,choi,seed=choi_resume_2019,,2022년 7월부터 OO에이전시에서 일했어요 || 2022년 7월부터 OO에이전시에서 일했어요,,,resume.competencies.careers.length=2,,,,,,,,시연플로우 개선사항 11번
 F-015,서류,회귀,확정,검증,이미 있는 경력에 직급만 더함,park,seed=park_career,,OO산업에서 프레스 반장으로 일했어요,,,resume.competencies.careers.length=1; resume.competencies.careers[0].position*=반장,,,,,,,,시연플로우 개선사항 11번(PPT 점검 13)
 F-016,서류,경계값,확정,개발,기간을 모름,park,,,"언제부터 다녔는지 모르겠어요, 한 20년 됐나",,,,resume.competencies.careers,,,,,,정확한 날짜를 짐작해 넣지 않는가; 경력증명서 사진이나 고용24 불러오기로 확인하자고 제안하는가,기획서 1·5쪽
 F-017,서류,기본,확정,개발,자격증과 취득 연도,park,,,지게차 자격증 있어요. 2011년에 땄어요,,,resume.competencies.certifications[-1].certificate_name*=지게차; resume.competencies.certifications[-1].acquired_date^=2011,,,,,,,,기획서 5쪽
@@ -320,7 +320,7 @@ P-158,절차,여러턴,확인필요,검증,교육 중단 뒤 이어 듣기,edu,,
 P-159,절차,여러턴,확정,개발,충족 뒤 불인정 이유,general2,,2026-10-05 job_search portal OO식품; 2026-09-29 job_search work24 OO계전,두 건이면 채운 거죠? || 하나는 왜 안 된대요?,,,round.counted=1,,기간,,,,,,대본(대상기간 9.30~10.27)
 P-160,절차,여러턴,확정,검증,이력서 뒤 교육 필요성,park,resume_status=ready,,이력서 다 됐어요 || 교육은 꼭 들어야 해요?,,complete_education,,,교육,,,,,,고용24 실업급여(2026-08-25)
 P-161,절차,여러턴,확정,개발,마감 지난 시각,general4,demo_today=2026-12-22; demo_time=17:30,,오늘 신청해야 하는 날이죠? || 지금 5시 반인데 괜찮아요?,,,,,17시,,,,,마감(17시)이 지났음을 사실대로 알리고 14일 내 변경 신청 등 다음 조치를 안내하는가,규칙표 DUE-009·DUE-094
-P-162,절차,여러턴,확정,개발,고령자 신청 경로,choi,,,나는 늙어서 인터넷 못 해 || 그럼 어떻게 신청하나?,,,,,방문,,,,,,고용24 실업급여(2026-08-25)
+P-162,절차,여러턴,확정,개발,고령자 신청 경로,choi,,,나이 때문에 인터넷 신청은 안 된다던데 || 그럼 어떻게 신청하나?,,,,,방문,,,,,,고용24 실업급여(2026-08-25)
 P-163,절차,여러턴,확정,검증,자원봉사 누적 한도,general3,,,자원봉사 했는데요 || 지난 회차에도 한 번 했었고요,,,,,1회,,,,,자원봉사는 수급 기간 전체 1회 한도라 이번 건은 인정되지 않을 수 있음을 안내하는가,활동 규칙 표(자원봉사 1회)
 P-164,절차,여러턴,확정,개발,접수 확인 뒤 불인정,applied,,,신청서 접수됐는지 어떻게 알아요? || 떨어지면요?,,,,,통지,,,,,,규칙표 PROC-062
 P-165,절차,여러턴,확정,검증,D-day 뒤 요건,general2,,,디데이가 며칠이에요? || 그때까지 뭘 몇 건요?,,,derived.d_day=6,,1건,,,,,,"대본(D-day 계산), 1350 의무 횟수"
@@ -426,7 +426,7 @@ F-044,서류,기본,확정,개발,자격증 연도,base,,,지게차 자격증 �
 F-045,서류,기본,확인필요,검증,학력과 졸업 연도,base,,,고졸이에요. 85년에 졸업했고요,,,resume.education[-1].end_date^=19,,,,,,,,대본 RES-008. 두 자리 연도(85년) 해석은 확인필요
 F-046,서류,기본,확정,개발,희망 직종,park,,,사무 보조 쪽 일을 찾고 있어요,,,resume.job_preferences.desired_occupations.length=1,,,,,,,,대본 RES-010
 F-047,서류,기본,확정,검증,희망 지역 두 곳,park,,,관악구나 동작구 쪽이면 좋겠어요,,,resume.job_preferences.desired_regions.length=2,,,,,,,,대본 RES-011
-F-048,서류,기본,확정,개발,자격증 추가,choi,seed=choi_resume_2019,,경비 자격증도 추가해 줘요. 작년에 땄어요,,,resume.competencies.certifications[-1].certificate_name*=경비; resume.competencies.certifications[-1].acquired_date^=2025,,,,,,,,대본 RES-006
+F-048,서류,기본,확정,개발,자격증 추가,choi,seed=choi_resume_2019,,리눅스마스터 자격증도 추가해 줘요. 작년에 땄어요,,,resume.competencies.certifications[-1].certificate_name*=리눅스; resume.competencies.certifications[-1].acquired_date^=2025,,,,,,,,대본 RES-006
 F-049,서류,기본,확정,개발,직위 추가,park,seed=park_career,,거기서 조장이었어요,,,resume.competencies.careers[-1].position*=조장,,,,,,,,대본 RES-004
 F-050,서류,기본,확인필요,검증,발급 기관,park,seed=park_career,,지게차 자격증은 산업인력공단에서 받았어요,,,,,,,,,,발급 기관을 지게차운전기능사 자격증에 채워 넣었다고 알리는가,대본 RES-006. issuing_organization 경로 이름 확인필요
 F-051,서류,기본,확정,개발,오늘 지원과 인정 반영,general2,,,오늘 OO식품에 지원했어요,,,activities[-1].date=2026-10-21; round.counted=1,,,,,,,,대본 ACT-001(대상기간 9.30~10.27)
@@ -441,9 +441,9 @@ F-059,서류,경계값,확정,검증,회사 이름 기억 안 남,general2,,,"�
 F-060,서류,기본,확정,개발,면접 결과 언급과 기록,lee,,,어제 면접 봤는데 떨어진 것 같아요,,,activities[-1].category=면접; activities[-1].date=2026-12-15,,,,,,,결과와 무관하게 면접 활동으로 인정됨을 알리고 위로를 덧붙이는가,1350 인정·증빙(2026-08-20)
 F-061,서류,기본,확정,검증,특강 수강 기록,general2,,,오늘 온라인 취업특강 들었어요,,,activities[-1].route=step_online; activities[-1].date=2026-10-21,,,,,,,,대본 ACT-003
 F-062,서류,기본,확정,개발,박람회 면접 기록,general4,,,어제 박람회에서 면접까지 봤어요,,,activities[-1].date=2026-12-15,,,,,,,박람회 면접(구직활동)으로 기록했음을 알리는가,활동 규칙 표(채용행사 면접)
-F-063,서류,기본,확정,검증,지원 직무 함께 말함,lee,,,오늘 OO물류에 창고관리로 지원했어요,,,activities[-1].job_title*=창고,,,,,,,,대본 ACT-001
+F-063,서류,기본,확정,검증,지원 직무 함께 말함,lee,,,오늘 OO물류에 안드로이드 개발로 지원했어요,,,activities[-1].job_title*=안드로이드,,,,,,,,대본 ACT-001
 F-064,서류,기본,확정,개발,경력 하나 더 추가,park,seed=park_career,,그 전에는 OO섬유에서 95년부터 2003년까지 일했어요,,,resume.competencies.careers.length=2,,,,,,,,대본 RES-003(경력 여러 개)
-F-065,서류,기본,확정,개발,희망 직종 두 개,choi,,,경비나 시설 관리 쪽이요,,,resume.job_preferences.desired_occupations.length=2,,,,,,,,대본 RES-010
+F-065,서류,기본,확정,개발,희망 직종 두 개,choi,,,웹 개발이나 웹 디자인 쪽이요,,,resume.job_preferences.desired_occupations.length=2,,,,,,,,대본 RES-010
 F-066,서류,기본,확정,검증,오늘 두 번째 지원,general2,,2026-10-21 job_search work24 OO식품,方금 OO상사에도 넣었어요,,,activities.length=2; round.counted=1,,같은 날,,,,,,1350 인정·증빙(같은 날 1건)
 F-067,서류,기본,확정,개발,단골 표현 '넣다',general2,,,오늘 고용24에서 두 군데 넣었어요. OO식품이랑 OO물산,,,activities.length=2,,,,,,,같은 날 2건은 1건만 인정됨을 함께 알리는가,1350 인정·증빙(같은 날 1건)
 F-068,서류,기본,확정,검증,이력서 불러오기 문의,choi,,,고용24에 있던 예전 이력서 그대로 가져올 수 있어요?,,,,,,,,,,불러오기 기능 또는 새로 쓰는 방법을 안내하는가; 내용을 지어내지 않는가,대본 RES-013
@@ -488,9 +488,9 @@ F-106,서류,여러턴,확정,검증,활동 날짜 번복,general2,,,어제 특�
 F-107,서류,여러턴,확정,개발,질문 뒤 기록,general4,,,면접도 구직활동이죠? || 그럼 어제 본 OO건설 면접 올려줘요,,,activities[-1].category=면접; activities[-1].date=2026-12-15,,,,,,,,활동 규칙 표(면접=구직활동)
 F-108,서류,여러턴,확인필요,검증,지원 취소의 인정,lee,,,"OO물류 지원이 취소됐대요, 회사 사정으로 || 그래도 활동으로 인정돼요?",,,,,,,,,,인정 여부를 단정하지 않는가; 증빙과 센터 확인을 안내하는가,확인필요(공식 문구 없음)
 F-109,서류,회귀,확정,개발,회사명에 '채용' 금지,lee,,,OO물산 채용에 지원했어요. 오늘요,,,activities[-1].org_name=OO물산,,,,,,,,회귀: org_name에는 회사 이름만(#217 프롬프트)
-F-110,서류,회귀,확정,검증,공고 제목 분리,lee,,,'급구! 경비원 모집' 공고에 지원했어요. OO빌딩관리예요. 오늘,,,activities[-1].org_name=OO빌딩관리; activities[-1].job_title*=경비,,,,,,,,회귀: 공고 제목은 org_name에 넣지 않음(#217 프롬프트)
+F-110,서류,회귀,확정,검증,공고 제목 분리,lee,,,'급구! iOS 개발자 모집' 공고에 지원했어요. OO테크랩이에요. 오늘,,,activities[-1].org_name=OO테크랩; activities[-1].job_title*=iOS,,,,,,,,회귀: 공고 제목은 org_name에 넣지 않음(#217 프롬프트)
 F-111,서류,회귀,확정,개발,면접확인서는 면접,lee,,,면접확인서 받아 왔어요. 어제 OO상사요,,,activities[-1].category=면접; activities[-1].date=2026-12-15,,,,,,,,회귀: 면접확인서면 kind=interview(#217 프롬프트)
-F-112,서류,회귀,확정,개발,자격증 중복 저장 방지,choi,seed=choi_resume_2019,,전기기능사 자격증 있어요,,,resume.competencies.certifications.length=1,,,,,,,,회귀: 중복 저장 제거(#217 코드래빗 수정)
+F-112,서류,회귀,확정,개발,자격증 중복 저장 방지,choi,seed=choi_resume_2019,,정보처리기사 자격증 있어요,,,resume.competencies.certifications.length=1,,,,,,,,회귀: 중복 저장 제거(#217 코드래빗 수정)
 F-113,서류,회귀,확인필요,검증,미래 날짜 말함,lee,,,12월 20일에 지원했어요. OO테크요,,,,activities,,,,,,아직 오지 않은 날짜임을 알아차리고 언제인지 확인하는가(작년으로 임의 보정해 기간 밖 처리하지 않음),회귀: 날짜 보정 규칙. 미래 날짜 처리 방침은 확인필요
 F-114,서류,기본,확정,검증,오늘 면접 기록,general4,,,오늘 면접 보고 왔어요. OO식품이요,,,activities[-1].category=면접; activities[-1].date=2026-12-16,,,,,,,,대본 ACT-002
 F-115,서류,기본,확정,개발,경력 추가 없음 확인,park,seed=park_career,,경력은 그거 하나뿐이에요,,,,resume.competencies.careers,,,,,,새 경력을 만들지 않는가; 있는 경력을 확인만 하는가,대본 RES-003
