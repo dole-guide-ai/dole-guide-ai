@@ -6,7 +6,7 @@
 from typing import Any
 
 from app.schemas.common import EvidenceKind, FieldEvidence, FieldSource, FieldStatus, FormField
-from app.schemas.forms.resume import EducationLevel, OccupationStatus
+from app.schemas.forms.resume import EducationLevel
 from app.schemas.resume import FieldWrite
 
 
@@ -45,7 +45,7 @@ def occupation_value(f: FormField) -> dict[str, Any]:
 
 
 def occupation_name(f: FormField) -> str | None:
-    """직종 칸 값 {code, name, status}에서 이름. 모양이 다르면 None."""
+    """직종 칸 값 {code, name, status, said}에서 이름. 모양이 다르면 None."""
     return occupation_value(f).get("name")
 
 
@@ -74,6 +74,11 @@ def suggested(value: Any, note: str) -> FormField:
 
 # ── 칸 쓰기 ─────────────────────────────────────────────
 
+# 여러 규칙·서비스가 같이 쓰는 칸 경로
+OCCUPATIONS_PATH = "/job_preferences/desired_occupations"
+REGIONS_PATH = "/job_preferences/desired_regions"
+GPA_SUFFIX = "/gpa"
+GPA_SCALE_SUFFIX = "/gpa_scale"
 CAREERS_STATUS = "/careers_status"
 CERTIFICATIONS_STATUS = "/certifications_status"
 COMPETENCIES_STATUS = "/competencies_status"
@@ -93,11 +98,6 @@ def not_applicable(path: str) -> FieldWrite:
     return FieldWrite(path=path, status=FieldStatus.NOT_APPLICABLE, source=FieldSource.USER_ANSWER)
 
 
-def occupation(name: str) -> dict[str, Any]:
-    """직종은 이름만 받습니다. 고용24 직종 코드는 아직 고르지 않은 상태(name_only)입니다."""
-    return {"code": None, "name": name, "status": OccupationStatus.NAME_ONLY.value}
-
-
 # ── 모델에 보여 줄 칸 목록 ───────────────────────────────
 
 # 값 모양이 글자 하나가 아닌 칸. 읽기 모델이 이 모양으로 넣습니다.
@@ -106,7 +106,7 @@ VALUE_SHAPES: dict[str, str] = {
         '{"amount": 원 단위 숫자, "unit": "monthly", "currency": "KRW", "negotiable": false}'
         " · 면접 후 결정이면 amount null, negotiable true"
     ),
-    "/job_preferences/desired_regions": '["인천", "부천"] 지역 이름 목록(3곳까지)',
+    REGIONS_PATH: '["인천", "부천"] 지역 이름 목록(3곳까지)',
     "/competencies/computer_skills": '{"selected_skills": ["엑셀"], "other_skills": null}',
     "/competencies/languages": '["토익 800"] 글자 목록',
     "/additional_info/can_drive": "true | false",

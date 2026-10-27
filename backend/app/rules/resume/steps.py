@@ -25,21 +25,33 @@ from app.rules.resume.check import (
     is_college,
     latest_career,
     old_careers_pending,
+    unpicked_regions,
 )
+from app.rules.resume.codes import NAMED_CODES, name_for_code
 from app.rules.resume.dates import ym
 from app.rules.resume.fields import (
     CAREERS_STATUS,
     CERTIFICATIONS_STATUS,
     COMPETENCIES_STATUS,
+    as_list,
     chosen,
     form_fields,
     is_filled,
     needs_check,
     not_applicable,
-    occupation,
     occupation_name,
 )
 from app.rules.resume.items import new_item_id
+from app.rules.work24_codes import (
+    CodeKind,
+    code_done,
+    code_settled,
+    lookup_code,
+    match_code,
+    name_only,
+    picked,
+    said_name,
+)
 from app.schemas.common import FieldStatus
 from app.schemas.forms.resume import (
     ContractType,
@@ -75,6 +87,18 @@ DEFERRED_REVIEW = "resume.deferred_review"
 MILITARY_PATH = "/job_preferences/military_alternative"
 MILITARY_NO = "아니요, 해당 없어요"
 MILITARY_YES = "네, 해당돼요"
+# 희망 직종·지역은 고용24 공통코드 후보(최대 3개)에서 고릅니다 (2-1.4). 후보가 없거나 다 아니면
+# 말한 이름만 적고(name_only) 저장 후 고용24에서 고르라고 안내합니다.
+OCCUPATION_PICK = "resume.wish_job_pick"
+OCCUPATION_UNMATCHED = "resume.wish_job_unmatched"
+REGION_PICK = "resume.wish_region_pick"
+REGION_UNMATCHED = "resume.wish_region_unmatched"
+NOT_IN_LIST = "목록에 없어요"
+NAME_ONLY_ANSWER = "이름만 적을게요"
+# 희망 직종 경력 합계 제안(질문 12)을 받지 않을 때. 말로 받은 값은 모델이 읽습니다.
+EXPERIENCE_OTHER = "다르게 말할게요"
+EXPERIENCE_FIELDS = ("experience_type", "experience_years", "experience_months")
+_EXPERIENCE_PATH = re.compile(r"/desired_occupations/[^/]+/experience_")
 SAVE_READY = "resume.save_ready"
 # 꼭 채울 칸을 미룬 채 끝까지 왔을 때의 마지막 안내("다 채웠어요" 대신)
 SAVE_AFTER_FILL = "resume.save_after_fill"
@@ -295,7 +319,7 @@ def _wish_job(data: ResumeData, item: Any, paths: tuple[str, ...]) -> Spec:
         return Spec()
     return Spec(
         choices=("다른 일 할래요",),
-        proposal=(chosen(paths[0], occupation(name)),),
+        proposal=(chosen(paths[0], match_code("occupation", name)),),
         reason=f"{latest.company_name.value or '최근 회사'}에서 {name} 일을 하셨어요",
         vars={"occupation": name},
     )
@@ -530,6 +554,8 @@ def _education_steps(data: ResumeData) -> Iterator[ResumeStep]:
             if step.id in COLLEGE_ONLY_QUESTIONS and not college:
                 continue
             yield step
+        if college:
+            yield from _named_code_picks(e, f"/education/{e.item_id}")
 
 
 def _preference_steps(data: ResumeData) -> Iterator[ResumeStep]:
@@ -546,11 +572,104 @@ def _preference_steps(data: ResumeData) -> Iterator[ResumeStep]:
             proposal=spec.proposal,
             reason=spec.reason,
         )
+    # 꼭 채울 칸 판정(check.occupation_done·unpicked_regions)과 같은 기준(code_done)으로
+    # 공통코드를 고를 차례인 직종·지역을 묻습니다.
     for d in prefs.desired_occupations:
-        yield from _field_steps(
-            data, d, f"{base}/desired_occupations/{d.item_id}", d, only={"resume.wish_experience"}
+        item_base = f"{base}/desired_occupations/{d.item_id}"
+        if not code_done(d.occupation.value):
+            yield from _field_steps(data, d, item_base, d, only={"resume.wish_job"})
+            if said := said_name(d.occupation.value):
+                path = f"{item_base}/occupation"
+                yield _code_pick("occupation", str(said), path, d.item_id, lambda v: v)
+        yield from _experience_steps(data, d, item_base)
+    regions = as_list(prefs.desired_regions)
+    for region in unpicked_regions(prefs):
+        i = regions.index(region)
+        yield _code_pick(
+            "region",
+            str(said_name(region)),
+            f"{base}/desired_regions",
+            str(said_name(region)),
+            lambda v, i=i: [*regions[:i], v, *regions[i + 1 :]],
         )
     yield from _field_steps(data, prefs, base)
+
+
+def _experience_steps(data: ResumeData, d: Any, base: str) -> Iterator[ResumeStep]:
+    """희망 직종 경력여부 (질문 12). 코드가 같은 직종 경력 합계를 제안했으면(derive_resume_values,
+    확인 필요) "경력 9년 2개월로 적을까요?" 한 질문으로 확인받습니다. 세 칸을 따로 묻지 않습니다."""
+    proposed = [n for n in EXPERIENCE_FIELDS if needs_check(getattr(d, n))]
+    if not proposed:
+        yield from _field_steps(data, d, base, d, only={"resume.wish_experience"})
+        return
+    paths = tuple(f"{base}/{n}" for n in proposed)
+    spec = _wish_experience(data, d, (f"{base}/experience_type",))
+    if not is_filled(d.experience_years):  # 경력이 없어 신입을 제안한 경우는 경력 여부를 묻습니다.
+        yield _step(
+            "resume.wish_experience",
+            vars=spec.vars,
+            item=d.item_id,
+            choices=spec.choices,
+            paths=paths,
+            answers=spec.answers,
+        )
+        return
+    years, months = d.experience_years.value, d.experience_months.value or 0
+    evidence = d.experience_type.evidence
+    yield _step(
+        "resume.wish_experience",
+        vars={**spec.vars, "years": years, "months": months},
+        item=d.item_id,
+        choices=(EXPERIENCE_OTHER,),
+        paths=paths,
+        proposal=tuple(chosen(f"{base}/{n}", getattr(d, n).value) for n in proposed),
+        reason=evidence.note if evidence else None,
+    )
+
+
+_PICK_IDS: dict[CodeKind, tuple[str, str]] = {
+    "occupation": (OCCUPATION_PICK, OCCUPATION_UNMATCHED),
+    "region": (REGION_PICK, REGION_UNMATCHED),
+    "license": ("resume.license_pick", "resume.license_unmatched"),
+    "major": ("resume.major_pick", "resume.major_unmatched"),
+}
+
+
+def _named_code_picks(item: Any, base: str) -> Iterator[ResumeStep]:
+    """이름은 있는데 코드를 아직 고르지 않은 자격면허·전공의 후보 고르기(짝: rules/resume/codes).
+    꼭 채울 칸 판정(check.code_settled)과 같은 기준이라, 코드표가 없는 종류는 묻지 않습니다."""
+    for name_field, (code_field, kind) in NAMED_CODES.items():
+        if name_field not in type(item).model_fields:
+            continue
+        name, code = getattr(item, name_field), getattr(item, code_field)
+        if is_filled(name) and not code_settled(kind, code.value):
+            said = said_name(code.value) or str(name.value)
+            yield _code_pick(kind, said, f"{base}/{code_field}", item.item_id, lambda v: v)
+
+
+def _code_pick(
+    kind: CodeKind, said: str, path: str, item: str, value: Callable[[Any], Any]
+) -> ResumeStep:
+    """말한 이름의 공통코드 후보(최대 3개)를 버튼으로. `value`는 고른 값 → 칸에 쓸 값."""
+    candidates = lookup_code(kind, said)
+    pick_id, unmatched_id = _PICK_IDS[kind]
+    fallback = NOT_IN_LIST if candidates else NAME_ONLY_ANSWER
+
+    def writes(code_value: dict[str, Any]) -> tuple[FieldWrite, ...]:
+        # 자격면허·전공은 이름 칸도 공식 이름으로 같이 씁니다(rules/resume/codes).
+        names = name_for_code(path, code_value) if code_value.get("code") else []
+        return (chosen(path, value(code_value)), *(chosen(p, n) for p, n in names))
+
+    answers = {c.name: writes(picked(c, said)) for c in candidates}
+    answers[fallback] = writes(name_only(said))
+    return _step(
+        pick_id if candidates else unmatched_id,
+        vars={"said": said},
+        item=item,
+        choices=tuple(answers),
+        paths=(path,),
+        answers=answers,
+    )
 
 
 def _shown(value: Any) -> str:
@@ -572,8 +691,8 @@ def _steps(
     if doc_failed:
         yield _step("resume.doc_retry", choices=("다시 찍을게요",), accepts_file=True)
     for path, f in form_fields(data):
-        if not needs_check(f):
-            continue
+        if not needs_check(f) or _EXPERIENCE_PATH.search(path):
+            continue  # 경력 합계 제안은 희망 직종 경력 질문(_experience_steps)으로 확인받습니다.
         quote = f.evidence.quote if f.evidence else None
         if skip_confirm and not quote:
             continue  # 말에서 온 값이 아니면(서류끼리 다른 값 등) 패널에서 확인합니다.
@@ -596,6 +715,8 @@ def _steps(
             answers=spec.answers,
             accepts_file=True,
         )
+    for c in data.certifications:
+        yield from _named_code_picks(c, f"/certifications/{c.item_id}")
     yield from _education_steps(data)
     yield from _preference_steps(data)
     yield from _field_steps(data, data, "", only={"resume.resume_title"})
@@ -720,6 +841,19 @@ def suggest_resume_title(data: ResumeData) -> str:
 @cache
 def templates() -> dict[str, Any]:
     return json.loads(TEMPLATES_JSON.read_text(encoding="utf-8"))
+
+
+def retry_text(step: ResumeStep, reasons: list[str]) -> str | None:
+    """같은 질문을 다시 낼 때의 카드 문장: 저장하지 못한 이유 + 원래 질문.
+
+    이유는 저장 규칙이 정한 문장(rules/resume/facts.FactPlan.reasons)을 그대로 씁니다. 모델이
+    이유를 빠뜨리거나 질문을 한 번 더 쓰지 않게, 다시 묻는 카드는 코드가 만듭니다.
+    """
+    if (question := question_text(step)) is None:
+        return None
+    t = templates()["retry"]
+    reason = " ".join(reasons) or t["unknown"]
+    return t["text"].format(reason=reason, question=question)
 
 
 def question_text(step: ResumeStep) -> str | None:

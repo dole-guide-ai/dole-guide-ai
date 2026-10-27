@@ -116,6 +116,7 @@ def test_upgrades_resume_saved_in_old_structure(
     assert data["careers"][0]["company_name"]["source"] == "seed"
     occ = data["job_preferences"]["desired_occupations"][0]["occupation"]["value"]
     assert occ["name"] == "시설관리"
+    # 상태가 없던 예전 지역은 코드가 없어 고를 차례(needs_confirmation)로 채워 둡니다.
     assert data["job_preferences"]["desired_regions"]["value"] == [
-        {"code": None, "name": "서울 노원구"}
+        {"code": None, "name": "서울 노원구", "status": "needs_confirmation"}
     ]

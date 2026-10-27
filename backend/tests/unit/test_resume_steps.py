@@ -1,20 +1,36 @@
 """이력서 대화 단계(rules/resume/steps): 순서·문구·버튼 답·제안·미루기. 합성 값만 씁니다."""
 
+import json
 import re
 from datetime import date
+from pathlib import Path
 
 import pytest
 
-from app.rules.resume import ResumeStep, question_text, resume_steps
+from app.rules.resume import (
+    ResumeStep,
+    derive_resume_values,
+    question_text,
+    resume_steps,
+    section_done,
+)
 from app.rules.resume.steps import (
     ACCEPT,
     DEFERRED_REVIEW,
+    NAME_ONLY_ANSWER,
     NEGOTIABLE_SALARY,
+    NOT_IN_LIST,
+    OCCUPATION_PICK,
+    OCCUPATION_UNMATCHED,
+    REGION_PICK,
     SAVE_AFTER_FILL,
     templates,
 )
 from app.schemas.common import FormField
 from app.schemas.forms.resume import ResumeData
+from app.services.accounts import seed_resume
+
+PERSONAS = Path(__file__).resolve().parents[2] / "data" / "seeds" / "personas.json"
 
 SEPARATION = date(2026, 9, 30)
 TODAY = date(2026, 10, 21)
@@ -34,9 +50,8 @@ CAREER = {
 
 def steps(data: ResumeData, **kw) -> list[ResumeStep]:
     kw.setdefault("asked", {})
-    return resume_steps(
-        data, entry_branch="E7a", separation_date=SEPARATION, skip_confirm=True, **kw
-    )
+    kw.setdefault("skip_confirm", True)
+    return resume_steps(data, entry_branch="E7a", separation_date=SEPARATION, **kw)
 
 
 def by_id(data: ResumeData, step_id: str, **kw) -> ResumeStep:
@@ -62,11 +77,13 @@ def test_proposals_come_from_the_career() -> None:
     data = ResumeData.model_validate({"careers": [CAREER]})
     job = by_id(data, "resume.wish_job")
     assert job.choices[0] == ACCEPT
+    # 제안을 받으면 그 이름으로 고용24 직종 후보를 고를 차례가 됩니다.
     assert values(job.answer_writes(ACCEPT)) == {
         "/job_preferences/desired_occupations/o1/occupation": {
             "code": None,
             "name": "물류",
-            "status": "name_only",
+            "status": "needs_confirmation",
+            "said": "물류",
         }
     }
     assert question_text(job) == "물류 일을 이어서 하고 싶으세요?"
@@ -298,9 +315,10 @@ def test_college_asks_major_then_gpa_but_high_school_does_not() -> None:
 
     ids = [s.id for s in steps(edu("대학교(4년제)"))]
     assert ids.index("resume.education_major") < ids.index("resume.wish_job")
+    # "몇 점 만점에 몇 점"으로 한 번에 묻고, 값 확인(만점 목록·0~만점 범위)은 저장 규칙이 합니다.
     gpa = by_id(edu("대학교(4년제)"), "resume.education_gpa")
     assert gpa.choices == ("기억이 안 나요",) and not gpa.required
-    assert gpa.paths == ("/education/e1/gpa", "/education/e1/gpa_scale")
+    assert gpa.paths == ("/education/e1/gpa_scale", "/education/e1/gpa")
     assert "resume.education_major" not in [s.id for s in steps(edu("고등학교"))]
 
 
@@ -313,3 +331,233 @@ def test_military_yes_asks_which_kind_next() -> None:
         "/job_preferences/military_alternative": "산업기능요원"
     }
     assert question_text(kind) == "어떤 병역대체 근무에 해당하세요?"
+
+
+# ── 고용24 공통코드 고르기 (2-1.4) ──
+
+OCC = "/job_preferences/desired_occupations/o1/occupation"
+REGIONS = "/job_preferences/desired_regions"
+
+
+def _unpicked(said: str) -> dict:
+    return {"code": None, "name": said, "status": "needs_confirmation", "said": said}
+
+
+def _with_wish(occupation: dict, regions: list[dict] | None = None) -> ResumeData:
+    prefs: dict = {
+        "desired_occupations": [
+            {"item_id": "o1", "occupation": {"value": occupation, "status": "extracted"}}
+        ]
+    }
+    if regions is not None:
+        prefs["desired_regions"] = {"value": regions, "status": "extracted"}
+    return ResumeData.model_validate({"careers": [CAREER], "job_preferences": prefs})
+
+
+def test_unpicked_occupation_offers_code_candidates() -> None:
+    pick = by_id(_with_wish(_unpicked("전기관리")), OCCUPATION_PICK)
+
+    assert pick.choices == ("빌딩 전기관리원", "공장 전기관리원", "아파트 전기관리원", NOT_IN_LIST)
+    assert values(pick.answer_writes("아파트 전기관리원")) == {
+        OCC: {
+            "code": "834001",
+            "name": "아파트 전기관리원",
+            "status": "confirmed",
+            "said": "전기관리",
+        }
+    }
+    assert values(pick.answer_writes(NOT_IN_LIST))[OCC]["status"] == "name_only"
+    assert question_text(pick) == (
+        "'전기관리' 일과 가장 가까운 고용24 직종을 골라 주세요. "
+        "맞는 게 없으면 다른 말로 말씀해 주셔도 돼요."
+    )
+
+
+def test_no_candidate_asks_other_words_or_name_only() -> None:
+    step = by_id(_with_wish(_unpicked("우주비행사")), OCCUPATION_UNMATCHED)
+
+    assert step.choices == (NAME_ONLY_ANSWER,)
+    assert values(step.answer_writes(NAME_ONLY_ANSWER))[OCC]["status"] == "name_only"
+
+
+def test_unpicked_region_replaces_only_that_region() -> None:
+    picked = {"code": "11350", "name": "서울 노원구", "status": "confirmed", "said": "노원구"}
+    data = _with_wish(
+        _unpicked("택배원") | {"code": "624100", "status": "confirmed"},
+        [
+            picked,
+            _unpicked("중구"),
+        ],
+    )
+    pick = by_id(data, REGION_PICK)
+
+    assert pick.item == "중구" and NOT_IN_LIST in pick.choices
+    written = values(pick.answer_writes("부산 중구"))[REGIONS]
+    assert written[0] == picked
+    assert (written[1]["code"], written[1]["status"]) == ("26110", "confirmed")
+
+
+def test_suggested_experience_is_one_proposal_question() -> None:
+    # 같은 직종 경력 합계를 코드가 제안하면(확인 필요) 세 칸을 따로 묻지 않고 한 번에 확인받습니다.
+    occ = _unpicked("물류") | {"code": "028408", "status": "confirmed"}
+    data = _with_wish(occ)
+    d = data.job_preferences.desired_occupations[0]
+    note = {"kind": "computed", "note": "같은 직종 경력 합계 14년 7개월"}
+    for name, value in (
+        ("experience_type", "경력"),
+        ("experience_years", 14),
+        ("experience_months", 7),
+    ):
+        setattr(
+            d, name, FormField(value=value, status="extracted", transformed=True, evidence=note)
+        )
+
+    ids = [s.id for s in steps(data, skip_confirm=False)]
+    step = by_id(data, "resume.wish_experience")
+
+    assert "resume.value_confirm" not in ids
+    assert step.choices[0] == ACCEPT
+    assert len(step.answer_writes(ACCEPT)) == 3
+    assert question_text(step).startswith("물류 경력을 14년 7개월로 적을까요?")
+
+
+# ── 판정과 질문이 어긋나지 않음 ──
+# 꼭 채울 항목이 덜 찼는데 질문 목록에 그 항목을 묻는 필수 질문이 없으면, 화면은 4/5인데 AI는
+# "다 채웠어요"라고 하게 됩니다(박진수 확인 값, 최영수 직종 확인 필요가 이 모양이었음).
+
+SECTION_OF_HEAD = {"careers_status": "careers", "certifications_status": "certifications"}
+
+
+def _section(path: str) -> str:
+    head = path.strip("/").split("/")[0]
+    return SECTION_OF_HEAD.get(head, head)
+
+
+def _seed_resumes() -> dict[str, ResumeData]:
+    raw = json.loads(PERSONAS.read_text(encoding="utf-8"))
+    out = {}
+    for persona in raw if isinstance(raw, list) else raw["personas"]:
+        if resume := persona.get("resume"):
+            data = seed_resume(resume["data"], resume["field_status"])
+            out[persona["persona_id"]] = derive_resume_values(data, SEPARATION)
+    return out
+
+
+def _mutations() -> dict[str, tuple[ResumeData, str]]:
+    """이정호 이력서에서 칸 하나를 비우거나 고르기 전으로 바꾼 상태와, 그 칸을 묻는 질문의 경로."""
+    base = _seed_resumes()["lee"]
+    cases = {}
+
+    def case(name: str, path: str, change) -> None:
+        data = base.model_copy(deep=True)
+        change(data)
+        cases[name] = (data, path)
+
+    occ = "/job_preferences/desired_occupations/occ_001/occupation"
+    case("제목 없음", "/resume_title", lambda d: setattr(d, "resume_title", FormField()))
+    case("학력 없음", "/education", lambda d: setattr(d, "education", []))
+    case(
+        "직종 고르기 전",
+        occ,
+        lambda d: setattr(
+            d.job_preferences.desired_occupations[0],
+            "occupation",
+            FormField(value=_unpicked("물류"), status="extracted"),
+        ),
+    )
+    case(
+        "직종 후보 없음",
+        occ,
+        lambda d: setattr(
+            d.job_preferences.desired_occupations[0],
+            "occupation",
+            FormField(value=_unpicked("우주비행사"), status="extracted"),
+        ),
+    )
+    case(
+        "지역 고르기 전",
+        REGIONS,
+        lambda d: setattr(
+            d.job_preferences,
+            "desired_regions",
+            FormField(value=[_unpicked("중구")], status="extracted"),
+        ),
+    )
+    case(
+        "경력 합계 확인 전",
+        "/job_preferences/desired_occupations/occ_001/experience",
+        _suggest_experience,
+    )
+    case(
+        "월급 없음",
+        "/job_preferences/desired_salary",
+        lambda d: setattr(d.job_preferences, "desired_salary", FormField()),
+    )
+    case(
+        "직급 없음",
+        "/careers/career_001/position",
+        lambda d: setattr(d.careers[0], "position", FormField()),
+    )
+    case(
+        "자격 답 없음",
+        "/certifications",
+        _no_certifications,
+    )
+    return cases
+
+
+def _no_certifications(data: ResumeData) -> None:
+    data.certifications = []
+    data.certifications_status = FormField()
+
+
+def _suggest_experience(data: ResumeData) -> None:
+    d = data.job_preferences.desired_occupations[0]
+    note = {"kind": "computed", "note": "같은 직종 경력 합계 25년 5개월"}
+    for name, value in (
+        ("experience_type", "경력"),
+        ("experience_years", 25),
+        ("experience_months", 5),
+    ):
+        setattr(
+            d, name, FormField(value=value, status="extracted", transformed=True, evidence=note)
+        )
+
+
+def _asks(asked: list[ResumeStep], path: str) -> bool:
+    return any(s.required and any(p.startswith(path) for p in s.paths) for s in asked)
+
+
+@pytest.mark.parametrize("skip_confirm", [False, True], ids=["패널", "대화"])
+@pytest.mark.parametrize("name", list(_seed_resumes()))
+def test_every_unfinished_seed_section_has_a_required_question(
+    name: str, skip_confirm: bool
+) -> None:
+    data = _seed_resumes()[name]
+    asked = steps(data, skip_confirm=skip_confirm)
+
+    for section, done in section_done(data).items():
+        assert done or any(
+            s.required and any(_section(p) == section for p in s.paths) for s in asked
+        ), f"{name}: {section}이(가) 덜 찼는데 묻는 질문이 없음 {[s.id for s in asked]}"
+
+
+@pytest.mark.parametrize("skip_confirm", [False, True], ids=["패널", "대화"])
+@pytest.mark.parametrize("name", list(_mutations()))
+def test_unfinished_field_is_asked(name: str, skip_confirm: bool) -> None:
+    data, path = _mutations()[name]
+
+    assert not all(section_done(data).values())
+    assert _asks(steps(data, skip_confirm=skip_confirm), path), name
+
+
+def test_retry_card_puts_the_reason_before_the_same_question() -> None:
+    from app.rules.resume import retry_text
+
+    data = ResumeData.model_validate({"careers": [CAREER | {"start_date": {}, "end_date": {}}]})
+    period = by_id(data, "resume.career_period")
+    reason = "'봄쯤'은(는) 몇 년 몇 월인지 알 수 없어서 적지 못했어요."
+
+    assert retry_text(period, [reason]) == f"{reason} {question_text(period)}"
+    # 이유를 모를 때(모델이 값을 못 옮김)도 같은 문구를 그대로 되풀이하지 않습니다.
+    assert retry_text(period, []).startswith("말씀하신 내용으로는 이 칸을 적지 못했어요.")
