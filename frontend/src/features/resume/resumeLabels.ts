@@ -1,4 +1,4 @@
-import type { OccupationRef, ResumeEducation } from '@/types/resume.types';
+import type { OccupationRef } from '@/types/resume.types';
 
 /** `next_question` ID → 패널에 보여 줄 "AI가 물어볼 것" 문구 (상세기획 2-1.3 질문 19개 + 근무 기간). */
 export const QUESTION_LABEL: Record<string, string> = {
@@ -26,7 +26,8 @@ export const QUESTION_LABEL: Record<string, string> = {
   'resume.wish_region': '희망 근무지역',
   'resume.wish_wage': '희망 월급',
   'resume.wish_employment': '고용형태',
-  'resume.wish_military': '병역대체 근무 희망 확인',
+  'resume.wish_military': '병역대체 근무 해당 여부',
+  'resume.wish_military_kind': '병역대체 근무 종류',
   'resume.resume_title': '이력서 제목',
   'resume.optional_sections': '그 밖의 보유역량',
   'resume.save_ready': '저장 확인',
@@ -52,16 +53,6 @@ export const occupationText = (occupation: OccupationRef | null | undefined) => 
   if (occupation.status === 'name_only') return `${occupation.name} (고용24에서 직종 선택)`;
   return occupation.name;
 };
-
-/** 대학 이상이면 학점/총점·전공을 받습니다 (2-1.2). */
-export const isCollegeLevel = (item: ResumeEducation) => !!item.level?.includes('대학');
-
-/**
- * 학점/총점 칸 값 (2-1.2). 대학 이상은 고용24에서 학점/총점이 필수라,
- * 비어 있으면 고용24 입력 때 필요하다고 남깁니다 (2-1.8).
- */
-export const gpaText = (item: ResumeEducation) =>
-  item.gpa ?? (isCollegeLevel(item) ? '빈칸 (고용24 입력 때 필요)' : null);
 
 /** 고용24 이력서 선택지 (2-1.2 · 데이터 설계 3장). 패널 직접 입력의 선택 상자에 씁니다. */
 export const EDUCATION_LEVELS = [

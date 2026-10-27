@@ -9,9 +9,7 @@ import {
   EMPLOYMENT_STATUSES,
   formatPeriod,
   formatYm,
-  gpaText,
   GRADUATION_STATUSES,
-  isCollegeLevel,
   MILITARY_OPTIONS,
   occupationText,
   OPTIONAL_SECTIONS,
@@ -69,6 +67,8 @@ const toYesNo = (text: string) => text === '예';
 
 // 희망임금은 원 단위로 저장합니다(대화·seed와 같음). 화면과 직접 입력은 만원으로 보여 주고 받습니다.
 const WON_PER_MANWON = 10_000;
+// 학점은 빈칸으로도 저장할 수 있지만 고용24 입력 때는 필요합니다(2-1.8).
+const GPA_EMPTY_TEXT = '빈칸 (고용24 입력 때 필요)';
 const toMonthlyWage = (text: string) => ({
   // 만원 단위 입력("250.5")을 원으로. 소수 곱셈 오차가 원 단위에 남지 않게 반올림합니다.
   amount: Math.round(Number(text) * WON_PER_MANWON),
@@ -179,6 +179,8 @@ export const ResumePanel = ({
       ? `월 ${toManwon(salary.amount).toLocaleString('ko-KR')}만원`
       : null;
 
+  const requiredPaths = new Set(values.required_paths ?? []);
+  const isRequiredPath = (path: string) => requiredPaths.has(path);
   // 항목 완료는 서버가 판정합니다(확인 필요·필수 칸 기준이 한 곳에만 있게).
   const sections = completeness?.sections ?? {};
   const isDone = (key: RequiredSection) => sections[key] === true;
@@ -306,7 +308,8 @@ export const ResumePanel = ({
                 onDirectSave={directPeriod(base)}
                 placeholder="1975-03 ~ 1978-02"
               />
-              {isCollegeLevel(item) && (
+              {/* 대학 이상이면 서버가 전공·학점을 꼭 넣을 칸으로 줍니다(required_paths). */}
+              {isRequiredPath(`/education/${item.item_id}/major`) && (
                 <>
                   <FieldRow
                     label="전공"
@@ -318,7 +321,7 @@ export const ResumePanel = ({
                   />
                   <FieldRow
                     label="학점/총점"
-                    value={gpaText(item)}
+                    value={item.gpa ?? GPA_EMPTY_TEXT}
                     rawValue={item.gpa}
                     meta={fields[`${base}.gpa`]}
                     isRequired

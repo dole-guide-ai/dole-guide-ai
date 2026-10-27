@@ -465,6 +465,23 @@
       "certifications": true
     }
   },
+  "required_paths": [
+    "/resume_title",
+    "/education/edu_001/education_level",
+    "/education/edu_001/graduation_status",
+    "/education/edu_001/school_name",
+    "/education/edu_001/start_date",
+    "/education/edu_001/end_date",
+    "/careers/career_001/company_name",
+    "/careers/career_001/start_date",
+    "/careers/career_001/end_date",
+    "/careers/career_001/position",
+    "/certifications/cert_001/certificate_name",
+    "/job_preferences/desired_regions",
+    "/job_preferences/desired_salary",
+    "/job_preferences/employment_contract_type",
+    "/job_preferences/military_alternative"
+  ],
   "next_question": "resume.career_since_old",
   "can_save": false,
   "profile_display": {

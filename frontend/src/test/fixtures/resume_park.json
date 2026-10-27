@@ -208,6 +208,13 @@
       "certifications": false
     }
   },
+  "required_paths": [
+    "/resume_title",
+    "/job_preferences/desired_regions",
+    "/job_preferences/desired_salary",
+    "/job_preferences/employment_contract_type",
+    "/job_preferences/military_alternative"
+  ],
   "next_question": "resume.career_new",
   "can_save": false,
   "profile_display": {

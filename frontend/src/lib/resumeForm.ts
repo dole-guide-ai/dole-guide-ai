@@ -144,6 +144,7 @@ export const resumeFromServer = (read: ResumeRead): ResumeDraftRead => {
       total: read.completeness.total ?? 5,
       sections: read.completeness.sections ?? {},
     },
+    required_paths: read.required_paths ?? [],
     next_question: read.next_question ?? null,
     can_save: read.can_save,
     lock_version: read.lock_version,
