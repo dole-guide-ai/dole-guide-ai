@@ -12,7 +12,6 @@ from app.rules.activity_table import load_rules
 from app.rules.application import SEND_DEADLINE_HOUR, VISIT_DEADLINE_HOUR
 from app.rules.next_action import NextAction
 from app.rules.presubmit import PRESUBMIT_STAGES, visit_to_apply
-from app.rules.resume import REQUIRED_SECTIONS, ResumeStep, question_text
 from app.schemas.forms.resume import ResumeData
 from app.schemas.procedure import Stage
 
@@ -188,19 +187,6 @@ def stage_rule_lines(
     return lines
 
 
-def resume_line(question: ResumeStep | None, filled: int | None = None) -> str | None:
-    """이력서 진행과 다음에 채울 칸 한 줄. 문구는 질문 카드와 같은 템플릿(rules/resume/steps)."""
-    text = question_text(question) if question else None
-    if not text:
-        return None
-    progress = (
-        f"이력서는 꼭 채울 {len(REQUIRED_SECTIONS)}개 중 {filled}개를 채웠어요. "
-        if (filled is not None)
-        else ""
-    )
-    return f"{progress}다음 칸: {text}"
-
-
 def _val(field: Any) -> Any:
     return getattr(field, "value", None)
 
@@ -280,8 +266,6 @@ def build_briefing(
     *,
     round_: dict[str, Any] | None,
     action: NextAction | None,
-    resume_question: ResumeStep | None = None,
-    resume_filled: int | None = None,
     education_done: bool | None = None,
     person: list[str] | None = None,
     age: int | None = None,
@@ -297,9 +281,6 @@ def build_briefing(
     lines += stage_rule_lines(stage, age=age, group=group, round_no=round_no)
     if round_:
         lines += round_lines(round_)
-    resume = resume_line(resume_question, resume_filled)
-    if resume and (stage == Stage.JOB_REGISTRATION or resume_question):
-        lines.append(resume)
     if action:
         lines.append(f"지금 할 일: {ACTION_TEXT[action]}")
     return lines

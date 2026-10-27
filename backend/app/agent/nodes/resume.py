@@ -298,14 +298,13 @@ def read_answer(state: AgentState, config: RunnableConfig) -> dict[str, Any]:
         [SystemMessage(load_prompt(READ_PROMPT)), HumanMessage(_read_input(state, memory))]
     )
     memory = save_answer(ctx, memory, pending_step(memory), reading)
-    calls = state.get("model_calls", 0) + 1
     update: dict[str, Any] = {"resume": memory}
     if memory["outcome"].get("off_topic"):
         # 딴 얘기는 맡을 패널을 다시 골라 그 패널이 답하고, 대기 질문은 남겨 둡니다.
         text = str(state["messages"][-1].content)
-        update["panel"] = route.panel_besides_resume(text, state.get("facts", {})).value
-        calls += 1
-    return {**update, "model_calls": calls}
+        choice = route.panel_besides_resume(text, state.get("facts", {}))
+        update |= {"panel": choice.panel.value, "scope": choice.scope.value}
+    return update
 
 
 def save_answer(
@@ -435,7 +434,7 @@ def speak(state: AgentState, config: RunnableConfig) -> dict[str, Any]:
             out.append(AIMessage(card))
     else:
         memory["pending"] = None
-    return {"messages": out, "resume": memory, "model_calls": state.get("model_calls", 0) + 1}
+    return {"messages": out, "resume": memory}
 
 
 def _stream(pieces: list[str]) -> list[str]:

@@ -2,7 +2,7 @@
 
 - 모델에는 그 패널 도구(registry.TOOLS_BY_PANEL)와 ask_user만 보입니다(도구 제한, ADR 0001).
 - 숫자·저장은 도구(규칙 함수)가 하고 모델은 고르고 말만 합니다.
-- 한 턴 호출 상한(MAX_MODEL_CALLS, MAX_TOOL_CALLS)을 넘으면 루프를 멈춥니다.
+- 한 턴 도구 루프 상한(MAX_LOOP_CALLS, MAX_TOOL_CALLS)을 넘으면 루프를 멈춥니다.
 - ask_user는 두 노드로 나눕니다. interrupt된 노드는 재개할 때 처음부터 다시 실행되므로,
   질문 이벤트는 앞 노드(run_tools)에서 한 번만 내고 ask 노드는 interrupt만 합니다.
 - 이력서 패널은 이 루프를 쓰지 않고 읽기·말하기 노드로 갑니다(nodes/resume).
@@ -38,10 +38,14 @@ from app.schemas.common import FormUpdate
 from app.schemas.messages import AskUserEvent, TokenEvent, ToolCallEvent
 from app.services import files as files_service
 
-MAX_MODEL_CALLS = 4  # 분류 1 + 패널 루프 3 (노션 「에이전트 구조 설계」 8절)
+# 도구 루프에서 답 모델을 부르는 횟수 상한. 분류·근거 재정렬·검색어 재작성·이력서 읽기처럼
+# 루프 밖의 보조 호출은 세지 않습니다(보조 호출이 도구 루프 몫을 깎아 답이 잘리지 않게).
+MAX_LOOP_CALLS = 3
 MAX_TOOL_CALLS = 6
 ASK_USER = "ask_user"
 LOOKUP_RULES = "lookup_rules"
+# 이력서 읽기·말하기만 쓰는 사실(nodes/context). 다른 패널의 프롬프트에는 넣지 않습니다.
+RESUME_ONLY_FACTS = frozenset({"resume_plan", "resume_fields", "resume_items"})
 PARAGRAPH_GAP = "\n\n"
 BASE_PROMPT = "panels/base"
 
@@ -79,7 +83,12 @@ def tool_schemas(panel: str) -> list[dict[str, Any]]:
 
 
 def system_prompt(state: AgentState) -> str:
-    facts = dict(state.get("facts", {}))
+    """이력서 외 패널(회차·신청서·안내)의 시스템 프롬프트.
+
+    이력서 진행표·칸 목록은 이력서 읽기·말하기(nodes/resume)만 씁니다. 다른 패널에 넣으면 질문과
+    무관한 이력서 안내가 답에 붙어 질문을 밀어냅니다(골든셋 2차 측정 D8).
+    """
+    facts = {k: v for k, v in state.get("facts", {}).items() if k not in RESUME_ONLY_FACTS}
     briefing = "\n".join(f"- {line}" for line in facts.pop("briefing", []))
     panel = state["panel"]
     return "\n\n".join(
@@ -146,7 +155,7 @@ def call_model(state: AgentState, config: RunnableConfig) -> dict[str, Any]:
     for piece in sentences.close():
         emit(TokenEvent(text=piece))
     message = AIMessage(content=sentences.text, tool_calls=reply.tool_calls if reply else [])
-    return {"messages": [message], "model_calls": state.get("model_calls", 0) + 1}
+    return {"messages": [message], "loop_calls": state.get("loop_calls", 0) + 1}
 
 
 def _said_this_turn(messages: list[Any]) -> bool:
@@ -239,7 +248,7 @@ def run_tools(state: AgentState, config: RunnableConfig) -> dict[str, Any]:
 def after_tools(state: AgentState) -> str:
     if any(c["name"] == ASK_USER for c in _last_ai_with_calls(state).tool_calls):
         return "ask"
-    return "call_model" if state.get("model_calls", 0) < MAX_MODEL_CALLS else "finish"
+    return "call_model" if state.get("loop_calls", 0) < MAX_LOOP_CALLS else "finish"
 
 
 def _last_ai_with_calls(state: AgentState) -> AIMessage:

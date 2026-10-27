@@ -12,9 +12,9 @@ from langgraph.checkpoint.memory import InMemorySaver
 
 from app.agent.nodes import route
 from app.agent.nodes.finish import LIMIT_REPLY
-from app.agent.nodes.panel import MAX_MODEL_CALLS
+from app.agent.nodes.panel import MAX_LOOP_CALLS, RESUME_ONLY_FACTS, system_prompt
 from app.agent.nodes.preprocess import BLOCKED_REPLY
-from app.agent.nodes.route import Panel, by_rules
+from app.agent.nodes.route import Panel, RouteChoice, Scope, by_rules, fit_to_stage
 from app.agent.responder import TurnInput, graph_responder
 from app.core.clock import KST
 from app.schemas.messages import AskUserEvent, DoneEvent, TokenEvent
@@ -37,12 +37,54 @@ def _call(name: str, args: dict, call_id: str = "c1") -> AIMessage:
     return AIMessage("", tool_calls=[{"name": name, "args": args, "id": call_id}])
 
 
-def test_route_rules_decide_only_from_stage_and_pending_question() -> None:
-    assert by_rules("job_registration") == Panel.RESUME
+def test_route_rules_decide_only_from_pending_question_and_files() -> None:
     assert by_rules("recognition", resume_pending=True) == Panel.RESUME
-    # 말의 내용으로 갈리는 것은 모델 분류에 맡깁니다.
+    # 말의 내용으로 갈리는 것은 모델 분류에 맡깁니다. 구직등록 단계라는 것만으로 이력서로
+    # 보내지 않습니다(이 단계의 제도·개인정보 질문에 이력서 질문이 붙던 문제, 골든셋 D8).
+    assert by_rules("job_registration") is None
     assert by_rules("recognition") is None
     assert by_rules("education") is None
+
+
+@pytest.mark.parametrize(
+    ("stage", "chosen", "expected"),
+    [
+        ("education", Panel.ROUND, Panel.GUIDE),
+        ("job_registration", Panel.APPLICATION, Panel.GUIDE),
+        ("recognition", Panel.ROUND, Panel.ROUND),
+        ("job_registration", Panel.RESUME, Panel.RESUME),
+    ],
+)
+def test_model_choice_is_fitted_to_stage(stage: str, chosen: Panel, expected: Panel) -> None:
+    # 회차·신청서 패널은 실업인정 단계에만 있습니다. scope는 그대로 둡니다.
+    choice = RouteChoice(panel=chosen, scope=Scope.CENTER_JUDGMENT)
+
+    fitted = fit_to_stage(choice, stage)
+
+    assert (fitted.panel, fitted.scope) == (expected, Scope.CENTER_JUDGMENT)
+
+
+def test_route_turn_keeps_scope_and_rules_default_to_in_scope(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        route, "by_model", lambda *a, **k: RouteChoice(panel=Panel.GUIDE, scope=Scope.OUT_OF_SCOPE)
+    )
+    said = {"messages": [HumanMessage("국민연금은 언제 나와요?")], "facts": {}}
+    pending = {**said, "resume": {"pending": {"key": "resume.license"}}}
+
+    assert route.route_turn(said) == {"panel": "guide", "scope": "out_of_scope"}
+    assert route.route_turn(pending) == {"panel": "resume", "scope": "in_scope"}
+
+
+def test_other_panels_do_not_get_resume_only_facts() -> None:
+    facts = {"stage": "job_registration", "briefing": ["지금 할 일: 이력서 마저 쓰기"]}
+    facts |= {key: {"합성": "이력서 칸"} for key in RESUME_ONLY_FACTS}
+
+    prompt = system_prompt({"messages": [], "panel": "guide", "facts": facts})
+
+    assert "이력서 칸" not in prompt
+    assert "지금 할 일: 이력서 마저 쓰기" in prompt
 
 
 def test_recognition_file_without_words_goes_to_round() -> None:
@@ -56,9 +98,9 @@ def test_recognition_file_without_words_goes_to_round() -> None:
 def test_model_routing_never_sees_attachment_text(monkeypatch: pytest.MonkeyPatch) -> None:
     seen: list[str] = []
 
-    def classify(text: str, facts: dict, *, attached: bool = False) -> Panel:
+    def classify(text: str, facts: dict, *, attached: bool = False) -> RouteChoice:
         seen.append(text)
-        return Panel.GUIDE
+        return RouteChoice(panel=Panel.GUIDE)
 
     monkeypatch.setattr(route, "by_model", classify)
     for said in ("음 그게요", ""):
@@ -71,8 +113,8 @@ def test_model_routing_never_sees_attachment_text(monkeypatch: pytest.MonkeyPatc
 def test_off_topic_during_resume_question_is_routed_again(monkeypatch: pytest.MonkeyPatch) -> None:
     # 이력서 질문 중 "오늘 OO에 지원했어요"는 회차로, 다시 이력서로 나오면 안내 패널로 보냅니다.
     for chosen, expected in ((Panel.ROUND, Panel.ROUND), (Panel.RESUME, Panel.GUIDE)):
-        monkeypatch.setattr(route, "by_model", lambda *a, c=chosen, **k: c)
-        assert route.panel_besides_resume("오늘 OO에 지원했어요", {}) == expected
+        monkeypatch.setattr(route, "by_model", lambda *a, c=chosen, **k: RouteChoice(panel=c))
+        assert route.panel_besides_resume("오늘 OO에 지원했어요", {}).panel == expected
 
 
 def test_blocking_pii_never_reaches_model_or_checkpoint(fake_agent_llm) -> None:
@@ -148,8 +190,9 @@ def test_tool_loop_stops_at_model_call_limit(fake_agent_llm) -> None:
 
     out = list(graph_responder(_turn(user, "음 그게요"), saver))
 
-    # 상한에는 라우팅 분류 1회가 포함됩니다("음 그게요"는 규칙으로 못 정함).
-    assert model.calls == MAX_MODEL_CALLS - 1
+    # 상한은 도구 루프의 답 모델 호출만 셉니다. 라우팅 분류("음 그게요"는 규칙으로 못 정함)는
+    # 상한 밖이라 도구 루프는 MAX_LOOP_CALLS번 모두 돕니다.
+    assert model.calls == MAX_LOOP_CALLS
     assert out[-2].data.text == LIMIT_REPLY
 
 

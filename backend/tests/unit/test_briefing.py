@@ -5,11 +5,9 @@ from app.rules.briefing import (
     interval_days,
     md,
     person_lines,
-    resume_line,
     round_lines,
 )
 from app.rules.next_action import NextAction
-from app.rules.resume import ResumeStep
 from app.schemas.forms.resume import ResumeData
 
 ROUND = {
@@ -48,25 +46,12 @@ def test_round_lines_satisfied_and_attendance():
     assert "출석" in lines[2]
 
 
-def test_resume_line_uses_question_template():
-    line = resume_line(ResumeStep("resume.career_duties", {"company": "한빛물류"}))
-    assert line is not None and "한빛물류에서는 주로 어떤 일을 하셨어요?" in line
-
-
-def test_resume_line_missing_var_and_unknown_id():
-    assert "{" not in (resume_line(ResumeStep("resume.career_duties")) or "")
-    assert resume_line(None) is None
-
-
-def test_briefing_job_registration_suggests_resume():
-    lines = build_briefing(
-        "job_registration",
-        round_=None,
-        action=NextAction.WRITE_RESUME,
-        resume_question=ResumeStep("resume.license"),
-    )
+def test_briefing_job_registration_suggests_resume_without_next_field():
+    lines = build_briefing("job_registration", round_=None, action=NextAction.WRITE_RESUME)
     assert lines[0].startswith("구직등록 단계")
-    assert any("자격증" in line for line in lines)
+    # 다음에 채울 이력서 칸은 이력서 대화(nodes/resume)만 알립니다. 다른 패널의 "지금 상황"에
+    # 넣으면 질문과 무관한 이력서 질문이 답에 붙습니다(골든셋 D8).
+    assert not any("다음 칸" in line for line in lines)
     assert lines[-1].startswith("지금 할 일: 이력서")
 
 
