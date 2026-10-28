@@ -128,7 +128,8 @@ export const ChatPanel = ({
             onChoice={onChoice}
             onAnswer={onSend}
             onDismiss={() => setDismissedKey(questionKey)}
-            isDisabled={isStreaming}
+            // 올리는 중에 또 고르면 첫 파일의 판독 요청이 빠질 수 있어 막습니다.
+            isDisabled={isStreaming || isUploading}
             fileChoice={fileChoice}
             onFileChoice={() => fileInputRef.current?.click()}
           />
