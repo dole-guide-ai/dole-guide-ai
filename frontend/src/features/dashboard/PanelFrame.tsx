@@ -34,7 +34,7 @@ const PANEL_INFO: Record<PanelId, { name: string; description: string; icon: Luc
   A: {
     name: '이력서',
     icon: FileText,
-    description: '고용24 이력서 항목을 같은 순서로 채워요.',
+    description: '고용24 이력서 항목을 AI와 함께 작성해요.',
   },
   E: {
     name: '온라인 교육',
