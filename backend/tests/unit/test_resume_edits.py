@@ -133,3 +133,62 @@ def test_clearing_a_license_code_clears_its_name_and_picking_a_code_keeps_the_op
     edit = code_edit(data, "/job_preferences/desired_occupations", [{"code": "624100"}])
     assert edit.removed == []
     assert [p for p, _ in edit.writes] == ["/job_preferences/desired_occupations/o1/occupation"]
+
+
+def test_switching_a_picked_occupation_to_name_only_keeps_the_item() -> None:
+    from app.rules.resume.edits import code_edit
+    from app.schemas.forms.resume import ResumeData
+
+    picked = {"code": "624100", "name": "택배원", "status": "confirmed", "said": "택배"}
+    data = ResumeData.model_validate(
+        {
+            "job_preferences": {
+                "desired_occupations": [
+                    {
+                        "item_id": "o1",
+                        "occupation": {"value": picked},
+                        "experience_type": {"value": "경력", "status": "confirmed"},
+                    }
+                ]
+            }
+        }
+    )
+
+    edit = code_edit(data, "/job_preferences/desired_occupations", [{"name": "택배원"}])
+
+    assert edit.removed == []
+    assert [(p, v["status"]) for p, v in edit.writes] == [
+        ("/job_preferences/desired_occupations/o1/occupation", "name_only")
+    ]
+
+
+def test_without_a_code_table_the_old_code_does_not_stay(monkeypatch) -> None:
+    from app.rules.resume import codes, edits
+    from app.schemas.forms.resume import ResumeData
+
+    monkeypatch.setattr(codes, "has_codes", lambda kind: False)
+    monkeypatch.setattr(edits, "has_codes", lambda kind: False)
+    old = {"code": "5001320", "name": "정보처리기사", "status": "confirmed"}
+    data = ResumeData.model_validate(
+        {
+            "certifications": [
+                {
+                    "item_id": "q1",
+                    "certificate_name": {"value": "정보처리기사", "status": "confirmed"},
+                    "certificate_code": {"value": old, "status": "confirmed"},
+                }
+            ]
+        }
+    )
+    base = "/certifications/q1"
+
+    # 이름을 글로 고치면 예전 코드를 비웁니다.
+    assert codes.code_for_name(f"{base}/certificate_name", "정보보안기사", data) == [
+        (f"{base}/certificate_code", None)
+    ]
+    # 화면에서 이름만 고르면 코드 칸도 이름만 적은 값으로 씁니다.
+    written = dict(
+        edits.code_edit(data, f"{base}/certificate_code", {"name": "정보보안기사"}).writes
+    )
+    assert written[f"{base}/certificate_code"]["status"] == "name_only"
+    assert written[f"{base}/certificate_name"] == "정보보안기사"

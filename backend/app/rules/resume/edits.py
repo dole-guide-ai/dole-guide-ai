@@ -80,8 +80,10 @@ def code_edit(data: ResumeData, path: str, value: Any) -> CodeEdit:
         return CodeEdit(writes=[(path, None), *([(name_path, None)] if name_path else [])])
     kind = code_kind(path) or "occupation"
     if code_kind_of(path) and not has_codes(kind):
-        # 코드표가 아직 없는 자격면허·전공은 고를 코드가 없으니 이름 칸만 씁니다.
-        return CodeEdit(writes=name_for_code(path, _chosen(kind, value)))
+        # 코드표가 아직 없는 자격면허·전공은 고를 코드가 없으니 이름만 적은 값으로 코드 칸도
+        # 같이 씁니다(예전 코드가 새 이름과 어긋나게 남지 않게).
+        chosen = _chosen(kind, value)
+        return CodeEdit(writes=[(path, chosen), *name_for_code(path, chosen)])
     chosen = _chosen(kind, value)
     # 자격면허·전공은 이름 칸도 고른 공식 이름으로 같이 씁니다(짝: rules/resume/codes).
     return CodeEdit(writes=[(path, chosen), *name_for_code(path, chosen)])
@@ -111,15 +113,14 @@ def _occupations(data: ResumeData, values: Any) -> CodeEdit:
 
 
 def _same(current: Any, chosen: dict[str, Any]) -> bool:
-    """같은 직종인지: 둘 다 코드가 있으면 코드로, 아니면 이름으로 봅니다. 대화에서 고르기 전이던
-    항목(코드 없음)에 같은 이름의 코드를 고르면 같은 항목으로 봐 경력여부·희망직무내용을
-    지키게 합니다."""
+    """같은 직종인지: 둘 다 코드가 있으면 코드로, 아니면 이름(공식 이름·말한 이름)으로 봅니다.
+    같은 항목이면 경력여부·희망직무내용을 지키고 직종 값만 바꿉니다."""
     if not isinstance(current, dict):
         return False
     if current.get("code") and chosen.get("code"):
         return current["code"] == chosen["code"]
-    if current.get("code"):
-        return False
+    # 한쪽만 코드가 있으면(고르기 전 항목에 코드를 고름, 고른 직종을 이름만 적기로 바꿈)
+    # 이름으로 봅니다.
     names = {current.get("name"), said_name(current)}
     return any(same_name(n, chosen.get("name")) for n in names if n)
 

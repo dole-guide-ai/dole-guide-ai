@@ -32,12 +32,14 @@ def code_for_name(name_path: str, text: Any, data: Any = None) -> list[tuple[str
         return []
     code_field, kind = NAMED_CODES[field]
     code_path = f"{base}/{code_field}"
-    if data is not None:
-        current = dict(form_fields(data)).get(code_path)
-        value = current.value if current else None
-        if code_done(value) and text.strip() in {said_name(value), value.get("name")}:
-            return []
-    return [(code_path, match_code(kind, text))] if has_codes(kind) else []
+    current = dict(form_fields(data)).get(code_path) if data is not None else None
+    value = current.value if current else None
+    if code_done(value) and text.strip() in {said_name(value), value.get("name")}:
+        return []
+    if not has_codes(kind):
+        # 고를 코드표가 없어도, 예전 이름의 코드가 남아 새 이름과 어긋나지 않게 비웁니다.
+        return [(code_path, None)] if value else []
+    return [(code_path, match_code(kind, text))]
 
 
 def name_path_of(code_path: str) -> str | None:
