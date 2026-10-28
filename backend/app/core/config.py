@@ -3,13 +3,15 @@ from dataclasses import dataclass
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import field_validator, model_validator
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 logger = logging.getLogger(__name__)
 
 # LLM·임베딩 공급자. 둘 다 OpenAI 호환 API라 gateway가 주소만 바꿔 부릅니다.
 Provider = Literal["openai", "upstage"]
+# 고용24 OpenAPI 종류 (인증키가 API마다 다름)
+Work24Api = Literal["training", "program", "code"]
 ModelRole = Literal["agent", "extract", "judge"]
 
 
@@ -70,12 +72,46 @@ class Settings(BaseSettings):
     embedding_provider: Provider = "openai"
     embedding_model: str = ""
     embedding_query_model: str = ""
+    # 규칙 카드(팀 규칙표)를 모델에 주는 방식. tool: 모델이 lookup_rules로 찾음,
+    # inject: 코드가 사용자 말로 미리 찾아 프롬프트에 붙임.
+    # 4단계 측정(절차 영역 평균 통과율 63% 대 56%)으로 inject를 기본값으로 정했습니다.
+    rule_cards_mode: Literal["tool", "inject"] = "inject"
+    # 검색(5단계): 단어(BM25)+벡터를 RRF로 합침. 측정(규칙 카드 질문 54개, 상위 3장 기준)으로
+    # 구어 사전을 켜고 코사인 유사도 0.50 미만은 버립니다(정답 hit@3 0.87, 무관한 질문 오첨부 8%).
+    retrieval_synonyms: bool = True
+    retrieval_min_similarity: float = 0.50
+    # 사용자 말로 찾아 붙이는 규칙 카드 수(지금 단계·회차 카드는 따로 앞에 붙음). 골든셋 근거 영역
+    # 평균 통과 3장 96 · 5장 98.5 · 7장 98.5(절차는 차이 없음)로 5장을 씁니다.
+    retrieval_inject_limit: int = 5
+    # 안내(guide) 패널에 붙이는 정책·FAQ 조각 수
+    retrieval_guide_limit: int = 2
+    # 이어지는 말("그럼 그건요?")은 앞선 사용자 말을 넣어 검색 문장으로 바꿈(extract 호출 +1).
+    # 첫 말은 바꾸지 않습니다(혼자 쓴 구어 질문은 바꾸면 오히려 덜 찾았음).
+    retrieval_rewrite: bool = False
+    # 재정렬: 후보를 넉넉히 찾아 extract 모델이 질문에 필요한 카드를 고름(extract 호출 +1).
+    # 골든셋 근거 영역 4회 평균 96.25 → 98.75(같은 회차끼리 비교해 4번 모두 같거나 높음).
+    retrieval_rerank: bool = True
+    retrieval_rerank_candidates: int = 20
+    # 답 검사(6단계): 근거에 없는 숫자·근거를 넘는 단정이 든 문장을 뺌. 효과를 견줄 때만 끕니다.
+    answer_check: bool = True
+    # 첨부 사진 처리. off: 무시 · vision: 답하는 모델에 사진째(#222 실험 사진 문항 6/9로 최고)
+    # · transcribe: 추출 모델이 글자만 받아써 가린 뒤 글로 넘김. 어느 방식이든 사진이 외부 모델로
+    # 나갑니다. 데모는 합성 서류만 받으므로 vision이 기본이고, 실서비스 전에 로컬 OCR로 바꿉니다.
+    image_mode: Literal["off", "vision", "transcribe"] = "vision"
+    # 음성 인식(말하기 버튼). OpenAI 키로 부르며, 비우면 말하기가 503 LLM_UNAVAILABLE입니다.
+    stt_model: str = ""
+    # 계정마다 1분에 음성 인식을 부를 수 있는 횟수. 넘으면 429 RATE_LIMITED(비용 남용 방지)
+    stt_rate_limit_per_minute: int = Field(default=10, gt=0)
 
     # BFF(Next)가 붙이는 X-Internal-Secret 값. local에서 비우면 확인하지 않습니다.
     internal_api_secret: str = ""
     # 계좌 암호화 키(Fernet). local에서 비우면 개발용 키를 씁니다.
     account_encryption_key: str = ""
-    # 고용24 OpenAPI 인증키. 비우면 스냅샷만 씁니다.
+    # 고용24 OpenAPI 인증키는 API마다 따로 발급됩니다. 비우면 그 API는 스냅샷만 씁니다
+    # (코드표는 저장된 JSON). 예전 공용 키(work24_api_key)는 API별 키가 비었을 때만 씁니다.
+    work24_training_api_key: str = ""  # 국민내일배움카드 훈련과정 목록 (310L01)
+    work24_program_api_key: str = ""  # 구직자취업역량 강화프로그램 (217L01)
+    work24_code_api_key: str = ""  # 공통코드 (21L01, dtlGb 1~9 한 키) — 코드표 받는 스크립트만
     work24_api_key: str = ""
     # 고용24 OpenAPI 호출 하나의 대기 시간과 실패 시 다시 부르는 횟수 (설계 3.11: 5초·재시도 1회)
     external_api_timeout_seconds: float = 5
@@ -95,8 +131,9 @@ class Settings(BaseSettings):
     upload_dir: str = "./uploads"
     max_upload_mb: int = 4
     turn_timeout_seconds: int = 180
-    # 모델 호출 하나의 대기 시간. 턴 타임아웃보다 짧아야 턴 안에서 실패를 알릴 수 있습니다.
-    llm_timeout_seconds: int = 60
+    # 모델 호출 하나의 대기 시간. 턴은 이 시간 × (재시도 1 + 1) × 호출 수만큼 계정을 잠그므로
+    # 턴 타임아웃(180초) 안에 들어오게 둡니다(이력서 턴은 읽기 1 + 말하기 1).
+    llm_timeout_seconds: int = 40
     # POST 재시도 방지 키(Idempotency-Key)를 보관하는 시간
     idempotency_ttl_hours: int = 24
 
@@ -125,6 +162,10 @@ class Settings(BaseSettings):
         if role == "extract":
             return self.extract_provider, self.extract_model
         return self.agent_provider, self.agent_model
+
+    def work24_key(self, api: Work24Api) -> str:
+        """고용24 API별 인증키. 그 API의 키가 비었으면 예전 공용 키."""
+        return getattr(self, f"work24_{api}_api_key") or self.work24_api_key
 
     def api_key_for(self, provider: Provider) -> str:
         return getattr(self, PROVIDERS[provider].key_setting)

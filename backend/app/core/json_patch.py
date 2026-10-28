@@ -91,6 +91,18 @@ def set_field(root: dict[str, Any], path: str, field: dict[str, Any]) -> None:
         raise UnprocessableError("고칠 칸을 찾지 못했어요.") from None
 
 
+def remove_item(root: dict[str, Any], path: str) -> None:
+    """반복 항목 하나(`/job_preferences/desired_occupations/o2`)를 지웁니다. 없는 항목이면 422."""
+    try:
+        *parents, last = _segments(path)
+        items = _resolve(root, parents)
+        if not isinstance(items, list):
+            raise _BadPathError
+        items.pop(_item_index(items, last))
+    except _BadPathError:
+        raise UnprocessableError("고칠 칸을 찾지 못했어요.") from None
+
+
 def _has_id(item: Any, item_id: str) -> bool:
     return isinstance(item, dict) and item.get(ITEM_ID) == item_id
 

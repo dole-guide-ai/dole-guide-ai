@@ -5,9 +5,11 @@ import type { ChatMessage, ChatRole } from '@/features/chat/chat.types';
 import { apiFetch } from '@/lib/api';
 import { API_PATHS } from '@/lib/apiPaths';
 import { queryKeys } from '@/lib/queryKeys';
+import { SSE_EVENTS } from '@/lib/sseEvents';
 import type { components } from '@/types/api.gen';
 import type { ChatInputKind } from '@/types/chat.types';
-import type { SessionRead } from '@/types/demo.types';
+import type { EntryResult, SessionRead } from '@/types/demo.types';
+import type { ImportKind } from '@/types/imports.types';
 
 type MessageList = components['schemas']['MessageList'];
 type MessageRead = components['schemas']['MessageRead'];
@@ -28,6 +30,27 @@ export const toChatMessage = (message: MessageRead): ChatMessage => {
   };
 };
 
+/**
+ * 마지막 말풍선이 질문(ask_user)이면 아직 답하지 않은 질문입니다(서버 `pending_ask`와 같은 규칙).
+ * 로그인 때 저장한 세션의 pending_ask는 그 뒤 대화를 모르므로 기록에서 다시 구합니다.
+ */
+export const pendingAskOf = (messages: MessageRead[]): EntryResult['pending_ask'] => {
+  const last = messages.at(-1);
+  if (!last || last.kind !== SSE_EVENTS.ASK_USER || !last.payload) return null;
+  const {
+    choices,
+    import_kind: importKind,
+    accepts_file: acceptsFile,
+    file_choice: fileChoice,
+  } = last.payload;
+  return {
+    choices: Array.isArray(choices) ? choices.filter((c) => typeof c === 'string') : [],
+    import_kind: typeof importKind === 'string' ? (importKind as ImportKind) : null,
+    accepts_file: acceptsFile === true,
+    file_choice: typeof fileChoice === 'string' ? fileChoice : null,
+  };
+};
+
 /** 저장된 대화를 처음부터 끝까지 받습니다(한 번에 100개씩, next_cursor로 이어 받기). */
 const fetchAll = async (personaId: string) => {
   const items: MessageRead[] = [];
@@ -40,7 +63,7 @@ const fetchAll = async (personaId: string) => {
     items.push(...page.items);
     cursor = page.next_cursor;
   }
-  return items.map(toChatMessage);
+  return { messages: items.map(toChatMessage), pendingAsk: pendingAskOf(items) };
 };
 
 /**

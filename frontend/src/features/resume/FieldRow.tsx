@@ -1,6 +1,6 @@
 'use client';
 
-import { type ReactNode, useState } from 'react';
+import { type ReactNode, useEffect, useRef, useState } from 'react';
 
 import { MessageSquareText, PencilLine } from 'lucide-react';
 
@@ -37,6 +37,11 @@ interface FieldRowProps {
   options?: readonly string[];
   /** 글 칸 입력 예시 (예: 2004-03 ~ 2026-09) */
   placeholder?: string;
+  /**
+   * 글 한 칸으로 받을 수 없는 직접 입력(공통코드 드롭다운·경력여부). 저장·오류 표시는 편집기가 하고,
+   * 끝나면 `close`를 부릅니다.
+   */
+  editor?: (close: () => void) => ReactNode;
 }
 
 const evidenceText = (meta?: FieldMeta) => {
@@ -49,6 +54,9 @@ const evidenceText = (meta?: FieldMeta) => {
   ].filter(Boolean);
   return parts.join(' · ');
 };
+
+// 대화로 방금 바뀐 칸은 화면에 보이도록 스크롤하고 이 시간 동안 밝게 표시합니다.
+const HIGHLIGHT_MS = 2_000;
 
 const INPUT_CLASS =
   'border-line focus-visible:border-accent focus-visible:ring-brand min-w-40 flex-1 rounded-lg border px-3 py-1.5 text-base focus-visible:ring-3 focus-visible:outline-hidden';
@@ -68,10 +76,28 @@ export const FieldRow = ({
   inputKind = 'text',
   options = [],
   placeholder,
+  editor,
 }: FieldRowProps) => {
   const [draft, setDraft] = useState<string | null>(null);
+  const [isCustomEditing, setIsCustomEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  // 대화·직접 입력으로 방금 바뀐 값(updatedAt이 있음)이면 그 칸으로 스크롤하고 잠깐 표시합니다.
+  // 처음 불러온 값에는 updatedAt이 없습니다. 표시는 시간이 지나면 끕니다(fadedAt).
+  const [fadedAt, setFadedAt] = useState<number | null>(null);
+  const rowRef = useRef<HTMLDivElement>(null);
+  const updatedAt = meta?.updatedAt;
+  const isHighlighted = !!updatedAt && fadedAt !== updatedAt;
+
+  useEffect(() => {
+    if (!updatedAt) return;
+    // 패널을 다시 열 때 예전 변경까지 다시 스크롤·강조하지 않도록 남은 시간만큼만 표시합니다.
+    const left = HIGHLIGHT_MS - (Date.now() - updatedAt);
+    // 테스트 환경(jsdom)에는 scrollIntoView가 없습니다.
+    if (left > 0) rowRef.current?.scrollIntoView?.({ block: 'center', behavior: 'smooth' });
+    const timer = window.setTimeout(() => setFadedAt(updatedAt), Math.max(left, 0));
+    return () => window.clearTimeout(timer);
+  }, [updatedAt]);
 
   const isEmpty = value === null || value === undefined || value === '';
   // 값은 있는데 저장 상태가 없는 칸(예: 직종 이름)은 '아직 없음' 칩을 달지 않습니다 (PPT 점검 N1).
@@ -88,7 +114,7 @@ export const FieldRow = ({
       : rawSpec;
   const isMissingRequired = isRequired && isEmpty && !isNotApplicable;
   const evidence = evidenceText(meta);
-  const isEditing = draft !== null;
+  const isEditing = draft !== null || isCustomEditing;
 
   const handleSave = async () => {
     if (!onDirectSave || draft === null) return;
@@ -106,18 +132,21 @@ export const FieldRow = ({
 
   return (
     <div
-      className={`flex flex-col gap-1 py-2.5 ${isMissingRequired ? 'border-warn -ml-3 border-l-3 pl-2.5' : ''}`}
+      ref={rowRef}
+      className={`flex flex-col gap-1 rounded-lg py-2.5 transition-colors duration-700 ${isMissingRequired ? 'border-warn -ml-3 border-l-3 pl-2.5' : ''} ${isHighlighted ? 'bg-brand-soft' : ''}`}
     >
       <div className="flex min-h-9 flex-wrap items-center gap-x-3 gap-y-1">
         <dt className="text-neutral w-28 shrink-0 text-sm font-medium">
           {label}
           {isRequired && <RequiredMark />}
         </dt>
-        {isEditing ? (
+        {isCustomEditing && editor ? (
+          <dd className="flex min-w-0 flex-1">{editor(() => setIsCustomEditing(false))}</dd>
+        ) : isEditing ? (
           <dd className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
             {inputKind === 'select' ? (
               <select
-                value={draft}
+                value={draft ?? ''}
                 onChange={(event) => setDraft(event.target.value)}
                 disabled={isSaving}
                 aria-label={`${label} 직접 입력`}
@@ -136,7 +165,7 @@ export const FieldRow = ({
               <input
                 type={inputKind === 'number' ? 'number' : 'text'}
                 inputMode={inputKind === 'number' ? 'numeric' : undefined}
-                value={draft}
+                value={draft ?? ''}
                 placeholder={placeholder}
                 onChange={(event) => setDraft(event.target.value)}
                 onKeyDown={(event) => {
@@ -179,10 +208,10 @@ export const FieldRow = ({
             고치기
           </button>
         )}
-        {!isEditing && onDirectSave && (
+        {!isEditing && (onDirectSave || editor) && (
           <button
             type="button"
-            onClick={() => setDraft(rawValue ?? '')}
+            onClick={() => (editor ? setIsCustomEditing(true) : setDraft(rawValue ?? ''))}
             className={LINK_CLASS}
             title="여기서 바로 입력하기"
           >

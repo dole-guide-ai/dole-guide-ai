@@ -12,12 +12,16 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
+from app.rules.application import SEND_DEADLINE_HOUR, VISIT_DEADLINE_HOUR
+from app.rules.presubmit import online_presubmit, visit_to_apply
+from app.rules.resume.check import REQUIRED_SECTIONS
+
 TEMPLATES_JSON = Path(__file__).resolve().parents[2] / "data" / "templates" / "entry.json"
 _WEEKDAYS = "월화수목금토일"
-# 이직 당시 만 65세 이상이면 인터넷 사전제출 대신 센터 방문 (PROC-048, 덧붙임 M1)
-ONLINE_PRESUBMIT_MAX_AGE = 65
-M1_STAGES = ("job_registration", "education", "eligibility_application")
 GENERAL_GROUP = "general"
+WELCOME_NEW = "new"
+WELCOME_RETURNING = "returning"
+RESUME_BRANCHES = ("E7b", "E7c")
 
 
 @lru_cache(maxsize=1)
@@ -53,6 +57,11 @@ class EntryFacts:
     attendance: bool = False
     old_resume_year: int | None = None
     round_facts: RoundFacts | None = None
+    # 첫 인사: "new"(처음, 도우미 소개를 앞에), "returning"(대화 기록이 있음), None(인사 없음,
+    # 저장 같은 동작 뒤 다시 만든 안내)
+    welcome: str | None = None
+    # 쓰는 중인 이력서의 꼭 채울 칸 수(이력서 단계에서 진행을 알려 줌)
+    resume_filled: int | None = None
 
 
 @dataclass(frozen=True)
@@ -61,6 +70,8 @@ class Composed:
     choices: list[str]
     rule_refs: list[str]
     accepts_file: bool
+    # 누르면 말을 보내지 않고 파일 선택창을 여는 보기(choices 중 하나)
+    file_choice: str | None = None
 
 
 def korean_date(day: date) -> str:
@@ -114,7 +125,10 @@ def _summary(facts: EntryFacts) -> str | None:
 
 
 def compose(branch: str, facts: EntryFacts) -> Composed:
-    """분기 하나의 첫 안내 말풍선·선택지·근거 규칙을 만듭니다. 말풍선은 최대 2개입니다."""
+    """분기 하나의 첫 안내 말풍선·선택지·근거 규칙을 만듭니다.
+
+    말풍선은 최대 2개이고, 처음 온 사람이면 앞에 도우미 소개가 하나 더 붙습니다.
+    """
     t = templates()
     key = branch
     if branch == "E3":
@@ -130,18 +144,27 @@ def compose(branch: str, facts: EntryFacts) -> Composed:
         "d": facts.d_day,
         "old_resume_year": facts.old_resume_year or "",
         "age": facts.age_at_separation,
+        "online_deadline": SEND_DEADLINE_HOUR,
+        "visit_deadline": VISIT_DEADLINE_HOUR,
     }
     # 저장 연도를 모르는 예전 이력서는 연도 없는 문구를 씁니다.
     text = spec["text_no_year"] if key == "E7b" and not facts.old_resume_year else spec["text"]
     main = text.format(**values)
+    if facts.welcome == WELCOME_RETURNING:
+        # "{이름}님, 반가워요." 대신 "{이름}님, 다시 오셨네요."로 시작합니다.
+        greeting = t["greeting"]["returning"].format(**values)
+        rest = main.removeprefix(f"{facts.name}님, ").removeprefix("반가워요. ")
+        main = f"{greeting} {rest}"
     refs = list(spec.get("rule_refs", []))
     cite_ids = list(spec.get("cite", []))
     if key == "E4a":
         group = "general" if facts.rule_group == GENERAL_GROUP else "other"
         main += " " + t["first_round_education"][group]
-    if key == "E5a" and facts.age_at_separation < ONLINE_PRESUBMIT_MAX_AGE:
+    if key == "E5a" and online_presubmit(facts.age_at_separation):
         main += " " + t["presubmit_online"]
     messages = [(f"T-{key}", main)]
+    if facts.welcome == WELCOME_NEW:
+        messages.insert(0, ("T-INTRO", t["greeting"]["intro"]))
 
     # 둘째 말풍선: 현황 요약(E4b) + 덧붙임(M3 출석 회차, M1 65세 이상 신청 경로)
     second: list[str] = []
@@ -156,7 +179,12 @@ def compose(branch: str, facts: EntryFacts) -> Composed:
         second.append(m3["text"].format(**values))
         second_ids.append("M3")
         refs += m3["rule_refs"]
-    if facts.age_at_separation >= ONLINE_PRESUBMIT_MAX_AGE and facts.stage in M1_STAGES:
+    if key in RESUME_BRANCHES and facts.resume_filled is not None:
+        second.append(
+            t["resume_progress"].format(total=len(REQUIRED_SECTIONS), filled=facts.resume_filled)
+        )
+        second_ids.append("R")
+    if visit_to_apply(facts.age_at_separation, facts.stage):
         m1 = t["addons"]["M1"]
         second.append(m1["text"].format(**values))
         second_ids.append("M1")
@@ -176,13 +204,14 @@ def compose(branch: str, facts: EntryFacts) -> Composed:
         choices=list(spec["choices"]),
         rule_refs=list(dict.fromkeys(refs)),
         accepts_file=bool(spec.get("accepts_file", False)),
+        file_choice=spec.get("file_choice"),
     )
 
 
 def next_step_text(facts: EntryFacts) -> str:
     """진행바 위 다음 할 일 문구 (1.8 표)."""
     t = templates()["next_step"]
-    m1 = facts.age_at_separation >= ONLINE_PRESUBMIT_MAX_AGE
+    m1 = not online_presubmit(facts.age_at_separation)
     if facts.stage == "recognition":
         if not (facts.round_no and facts.recognition_date):
             return ""
@@ -197,3 +226,8 @@ def next_step_text(facts: EntryFacts) -> str:
 
 def stage_title(stage: str) -> str | None:
     return templates()["titles"].get(stage)
+
+
+def action_of(label: str) -> str | None:
+    """첫 안내 보기 글자 → 코드가 하는 행동 이름(예: "새로 쓸래요" → reset_resume). 없으면 None."""
+    return templates().get("actions", {}).get(label.strip())

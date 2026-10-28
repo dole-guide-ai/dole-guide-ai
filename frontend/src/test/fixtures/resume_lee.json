@@ -3,7 +3,7 @@
   "lock_version": 1,
   "data": {
     "resume_title": {
-      "value": "일반 사무 · 행정지원 경력 이력서",
+      "value": "앱 개발 경력 이력서",
       "status": "confirmed",
       "source": "seed",
       "transformed": false,
@@ -14,7 +14,7 @@
       {
         "item_id": "edu_001",
         "education_level": {
-          "value": "고등학교",
+          "value": "대학교(4년제)",
           "status": "confirmed",
           "source": "seed",
           "transformed": false,
@@ -30,7 +30,7 @@
           "answered_on": null
         },
         "school_name": {
-          "value": "OO고등학교",
+          "value": "OO대학교",
           "status": "confirmed",
           "source": "seed",
           "transformed": false,
@@ -38,7 +38,7 @@
           "answered_on": null
         },
         "start_date": {
-          "value": "1984-03",
+          "value": "1987-03",
           "status": "confirmed",
           "source": "seed",
           "transformed": false,
@@ -46,17 +46,9 @@
           "answered_on": null
         },
         "end_date": {
-          "value": "1987-02",
+          "value": "1994-02",
           "status": "confirmed",
           "source": "seed",
-          "transformed": false,
-          "evidence": null,
-          "answered_on": null
-        },
-        "gpa": {
-          "value": null,
-          "status": "missing",
-          "source": null,
           "transformed": false,
           "evidence": null,
           "answered_on": null
@@ -69,10 +61,31 @@
           "evidence": null,
           "answered_on": null
         },
-        "major": {
+        "gpa": {
           "value": null,
           "status": "missing",
           "source": null,
+          "transformed": false,
+          "evidence": null,
+          "answered_on": null
+        },
+        "major": {
+          "value": "컴퓨터공학과",
+          "status": "confirmed",
+          "source": "seed",
+          "transformed": false,
+          "evidence": null,
+          "answered_on": null
+        },
+        "major_code": {
+          "value": {
+            "code": "04080100061",
+            "name": "컴퓨터공학과",
+            "said": "컴퓨터공학",
+            "status": "confirmed"
+          },
+          "status": "confirmed",
+          "source": "seed",
           "transformed": false,
           "evidence": null,
           "answered_on": null
@@ -117,8 +130,8 @@
           "item_id": "occ_001",
           "occupation": {
             "value": {
-              "code": null,
-              "name": "일반 사무",
+              "code": "133207",
+              "name": "모바일 애플리케이션 프로그래머(앱·어플 개발)",
               "status": "confirmed"
             },
             "status": "confirmed",
@@ -128,9 +141,9 @@
             "answered_on": null
           },
           "experience_type": {
-            "value": null,
-            "status": "missing",
-            "source": null,
+            "value": "경력",
+            "status": "confirmed",
+            "source": "seed",
             "transformed": false,
             "evidence": null,
             "answered_on": null
@@ -164,8 +177,10 @@
       "desired_regions": {
         "value": [
           {
-            "code": null,
-            "name": "서울 강서구"
+            "code": "11500",
+            "name": "서울 강서구",
+            "said": "서울 강서구",
+            "status": "confirmed"
           }
         ],
         "status": "confirmed",
@@ -175,17 +190,22 @@
         "answered_on": null
       },
       "desired_salary": {
-        "value": null,
-        "status": "missing",
-        "source": null,
+        "value": {
+          "unit": "monthly",
+          "amount": null,
+          "currency": "KRW",
+          "negotiable": true
+        },
+        "status": "confirmed",
+        "source": "seed",
         "transformed": false,
         "evidence": null,
         "answered_on": null
       },
       "employment_contract_type": {
-        "value": null,
-        "status": "missing",
-        "source": null,
+        "value": "기간의 정함이 없는 근로계약",
+        "status": "confirmed",
+        "source": "seed",
         "transformed": false,
         "evidence": null,
         "answered_on": null
@@ -207,9 +227,9 @@
         "answered_on": null
       },
       "military_alternative": {
-        "value": null,
-        "status": "missing",
-        "source": null,
+        "value": "해당 없음",
+        "status": "confirmed",
+        "source": "seed",
         "transformed": false,
         "evidence": null,
         "answered_on": null
@@ -235,7 +255,87 @@
       {
         "item_id": "career_001",
         "company_name": {
-          "value": "OO유통",
+          "value": "OO모바일",
+          "status": "confirmed",
+          "source": "seed",
+          "transformed": false,
+          "evidence": null,
+          "answered_on": null
+        },
+        "start_date": {
+          "value": "2012-03",
+          "status": "confirmed",
+          "source": "seed",
+          "transformed": false,
+          "evidence": null,
+          "answered_on": null
+        },
+        "end_date": {
+          "value": "2026-07",
+          "status": "confirmed",
+          "source": "seed",
+          "transformed": false,
+          "evidence": null,
+          "answered_on": null
+        },
+        "position": {
+          "value": "팀장",
+          "status": "confirmed",
+          "source": "seed",
+          "transformed": false,
+          "evidence": null,
+          "answered_on": null
+        },
+        "employment_status": {
+          "value": "퇴직",
+          "status": "confirmed",
+          "source": "seed",
+          "transformed": false,
+          "evidence": null,
+          "answered_on": null
+        },
+        "occupation": {
+          "value": {
+            "code": "133207",
+            "name": "모바일 애플리케이션 프로그래머(앱·어플 개발)",
+            "said": "앱 개발",
+            "status": "confirmed"
+          },
+          "status": "confirmed",
+          "source": "seed",
+          "transformed": false,
+          "evidence": null,
+          "answered_on": null
+        },
+        "monthly_salary": {
+          "value": null,
+          "status": "missing",
+          "source": null,
+          "transformed": false,
+          "evidence": null,
+          "answered_on": null
+        },
+        "main_duties": {
+          "value": "모바일 앱 개발·운영",
+          "status": "confirmed",
+          "source": "seed",
+          "transformed": false,
+          "evidence": null,
+          "answered_on": null
+        },
+        "additional_details": {
+          "value": null,
+          "status": "missing",
+          "source": null,
+          "transformed": false,
+          "evidence": null,
+          "answered_on": null
+        }
+      },
+      {
+        "item_id": "career_002",
+        "company_name": {
+          "value": "OO시스템",
           "status": "confirmed",
           "source": "seed",
           "transformed": false,
@@ -251,7 +351,7 @@
           "answered_on": null
         },
         "end_date": {
-          "value": "2026-08",
+          "value": "2012-02",
           "status": "confirmed",
           "source": "seed",
           "transformed": false,
@@ -259,7 +359,7 @@
           "answered_on": null
         },
         "position": {
-          "value": "과장",
+          "value": "대리",
           "status": "confirmed",
           "source": "seed",
           "transformed": false,
@@ -267,17 +367,22 @@
           "answered_on": null
         },
         "employment_status": {
-          "value": null,
-          "status": "missing",
-          "source": null,
+          "value": "퇴직",
+          "status": "confirmed",
+          "source": "seed",
           "transformed": false,
           "evidence": null,
           "answered_on": null
         },
         "occupation": {
-          "value": null,
-          "status": "missing",
-          "source": null,
+          "value": {
+            "code": "133301",
+            "name": "웹 개발자(웹 엔지니어·웹 프로그래머)",
+            "said": "웹·SI 개발",
+            "status": "confirmed"
+          },
+          "status": "confirmed",
+          "source": "seed",
           "transformed": false,
           "evidence": null,
           "answered_on": null
@@ -291,7 +396,7 @@
           "answered_on": null
         },
         "main_duties": {
-          "value": "총무·행정 지원",
+          "value": "웹·SI 개발",
           "status": "confirmed",
           "source": "seed",
           "transformed": false,
@@ -316,7 +421,48 @@
       "evidence": null,
       "answered_on": null
     },
-    "certifications": [],
+    "certifications": [
+      {
+        "item_id": "cert_001",
+        "certificate_name": {
+          "value": "정보처리기사",
+          "status": "confirmed",
+          "source": "seed",
+          "transformed": false,
+          "evidence": null,
+          "answered_on": null
+        },
+        "certificate_code": {
+          "value": {
+            "code": "5001320",
+            "name": "정보처리기사",
+            "said": "정보처리기사",
+            "status": "confirmed"
+          },
+          "status": "confirmed",
+          "source": "seed",
+          "transformed": false,
+          "evidence": null,
+          "answered_on": null
+        },
+        "issuing_organization": {
+          "value": "한국산업인력공단",
+          "status": "confirmed",
+          "source": "seed",
+          "transformed": false,
+          "evidence": null,
+          "answered_on": null
+        },
+        "acquired_date": {
+          "value": "2003-05-23",
+          "status": "confirmed",
+          "source": "seed",
+          "transformed": false,
+          "evidence": null,
+          "answered_on": null
+        }
+      }
+    ],
     "certifications_status": {
       "value": null,
       "status": "missing",
@@ -427,11 +573,42 @@
     }
   },
   "completeness": {
-    "filled": 3,
-    "total": 5
+    "filled": 5,
+    "total": 5,
+    "sections": {
+      "resume_title": true,
+      "education": true,
+      "job_preferences": true,
+      "careers": true,
+      "certifications": true
+    }
   },
+  "required_paths": [
+    "/resume_title",
+    "/education/edu_001/education_level",
+    "/education/edu_001/graduation_status",
+    "/education/edu_001/school_name",
+    "/education/edu_001/start_date",
+    "/education/edu_001/end_date",
+    "/education/edu_001/major",
+    "/education/edu_001/gpa_scale",
+    "/education/edu_001/gpa",
+    "/careers/career_001/company_name",
+    "/careers/career_001/start_date",
+    "/careers/career_001/end_date",
+    "/careers/career_001/position",
+    "/careers/career_002/company_name",
+    "/careers/career_002/start_date",
+    "/careers/career_002/end_date",
+    "/careers/career_002/position",
+    "/certifications/cert_001/certificate_name",
+    "/job_preferences/desired_regions",
+    "/job_preferences/desired_salary",
+    "/job_preferences/employment_contract_type",
+    "/job_preferences/military_alternative"
+  ],
   "next_question": "resume.career_since_old",
-  "can_save": false,
+  "can_save": true,
   "profile_display": {
     "name": "이정호",
     "birth_year": 1968,

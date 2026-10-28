@@ -1,0 +1,98 @@
+import type { ReactNode } from 'react';
+
+import { ClipboardCheck, FilePen, FileText, type LucideIcon, Route } from 'lucide-react';
+
+import { ICON_SIZE, ICON_STROKE } from '@/lib/iconSize';
+
+/**
+ * 로그인 화면 맨 위 서비스 소개: 로고와 무엇을 위해 만들었는지(제목·두 줄)를 한 행에 두고, 아래에 도와주는 일 4가지(한 줄씩).
+ * 처음 온 사람이 계정을 고르기 전에 한눈에 알 수 있게 짧게 둡니다.
+ */
+// 글이 많은 화면이라 핵심 낱말만 진하게(본문 색·굵게) 보여 줍니다.
+const EM_CLASS = 'text-ink font-semibold';
+
+const CAPABILITIES: { icon: LucideIcon; title: string; description: ReactNode }[] = [
+  {
+    icon: FileText,
+    title: '이력서 작성',
+    description: (
+      <>
+        <strong className={EM_CLASS}>에이전트와 대화</strong>하거나 파일·음성으로{' '}
+        <strong className={EM_CLASS}>고용24 이력서를 양식 그대로</strong> 채워요.
+      </>
+    ),
+  },
+  {
+    icon: Route,
+    title: '절차 안내 및 상담',
+    description: (
+      <>
+        따로 찾아볼 필요 없이 <strong className={EM_CLASS}>실업급여에 대해 무엇이든</strong> 묻고,{' '}
+        <strong className={EM_CLASS}>지금 할 일과 기한</strong>까지 안내받아요.
+      </>
+    ),
+  },
+  {
+    icon: ClipboardCheck,
+    title: '구직활동 점검',
+    description: (
+      <>
+        <strong className={EM_CLASS}>회차마다 활동을 제대로 했는지</strong> 확인하고, 부족하면{' '}
+        <strong className={EM_CLASS}>추천해 함께 기록</strong>해요.
+      </>
+    ),
+  },
+  {
+    icon: FilePen,
+    title: '신청서 검토',
+    description: (
+      <>
+        센터에 가거나 따로 알아보지 않고,{' '}
+        <strong className={EM_CLASS}>한곳에서 직접 확인하고 제출까지</strong> 해요.
+      </>
+    ),
+  },
+];
+
+interface ServiceIntroProps {
+  /** 소개 문구 왼쪽에 한 행으로 둘 로고 */
+  logo: ReactNode;
+}
+
+export const ServiceIntro = ({ logo }: ServiceIntroProps) => (
+  <section aria-labelledby="service-heading" className="flex flex-col gap-5">
+    <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
+      <div className="shrink-0">{logo}</div>
+      <div className="flex min-w-0 flex-1 flex-col gap-2">
+        <h1 id="service-heading" className="text-3xl font-bold">
+          복잡한 실업급여 신청 과정을 도와드려요
+        </h1>
+        <p className="text-muted text-lg">
+          {/* 두 문장을 한 줄씩 보여 줍니다. */}
+          <span className="block">
+            어려운 <strong className={EM_CLASS}>이력서 작성부터 구직등록, 실업급여 신청까지</strong>{' '}
+            한 번에 간단하게 끝내요.
+          </span>
+          <span className="block">
+            수급 조건에 따라 달라지는 절차를 안내하고,{' '}
+            <strong className={EM_CLASS}>서류를 잘못 내지 않도록</strong> 함께 확인해요.
+          </span>
+        </p>
+      </div>
+    </div>
+    <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4" aria-label="도와 드리는 일">
+      {CAPABILITIES.map(({ icon: Icon, title, description }) => (
+        <li key={title} className="bg-panel flex flex-col gap-2 rounded-2xl p-4">
+          <span
+            aria-hidden
+            className="bg-surface text-brand flex size-10 items-center justify-center rounded-xl"
+          >
+            <Icon size={ICON_SIZE.lg} strokeWidth={ICON_STROKE} />
+          </span>
+          <h2 className="text-lg font-bold">{title}</h2>
+          <p className="text-muted text-base">{description}</p>
+        </li>
+      ))}
+    </ul>
+  </section>
+);

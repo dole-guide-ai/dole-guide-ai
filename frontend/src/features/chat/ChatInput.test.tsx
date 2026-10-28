@@ -71,4 +71,59 @@ describe('ChatInput', () => {
     expect(onSend).toHaveBeenCalledWith('시설관리 반장이었어요');
     expect(dialog).not.toBeInTheDocument();
   });
+
+  it('말하기는 누르면 녹음 상태가 되고, 받아쓰는 중에는 눌리지 않으며 실패 안내를 보여 준다', async () => {
+    const onVoiceToggle = vi.fn();
+    const props = { value: '', onChange: vi.fn(), onSend: vi.fn(), onVoiceToggle };
+    const { rerender } = render(<ChatInput {...props} />);
+
+    await userEvent.click(screen.getByRole('button', { name: '눌러서 말하기' }));
+    expect(onVoiceToggle).toHaveBeenCalledTimes(1);
+
+    rerender(<ChatInput {...props} voiceStatus="recording" />);
+    expect(screen.getByRole('button', { name: '말하기 끝내기' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    expect(screen.getByRole('status')).toHaveTextContent('듣고 있어요');
+
+    // 답을 만드는 중(isDisabled)에도 녹음은 끝낼 수 있어야 합니다.
+    rerender(<ChatInput {...props} voiceStatus="recording" isDisabled />);
+    expect(screen.getByRole('button', { name: '말하기 끝내기' })).toBeEnabled();
+
+    rerender(<ChatInput {...props} voiceStatus="transcribing" />);
+    expect(screen.getByRole('button', { name: '눌러서 말하기' })).toBeDisabled();
+    expect(screen.getByText('받아쓰는 중…')).toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent('글로 바꾸고 있어요');
+
+    rerender(<ChatInput {...props} voiceError="마이크를 쓸 수 없어요." />);
+    expect(screen.getByRole('alert')).toHaveTextContent('마이크를 쓸 수 없어요.');
+  });
+
+  it('말하기 연결이 없으면 버튼이 꺼져 있다', () => {
+    render(<ChatInput value="" onChange={vi.fn()} onSend={vi.fn()} />);
+    expect(screen.getByRole('button', { name: '눌러서 말하기' })).toBeDisabled();
+  });
+
+  it('실업인정 단계에서는 AI 요청이 없어도 증빙을 올릴 수 있고, 강조·안내 문구는 띄우지 않는다', async () => {
+    const onFileSelect = vi.fn();
+    render(
+      <ChatInput
+        value=""
+        onChange={vi.fn()}
+        onSend={vi.fn()}
+        onFileSelect={onFileSelect}
+        canAttachEvidence
+      />,
+    );
+
+    const button = screen.getByRole('button', { name: '파일 올리기' });
+    expect(button).toBeEnabled();
+    expect(button).toHaveAttribute('title', expect.stringContaining('구직활동 증빙'));
+    expect(screen.queryByText(/서류를 올릴 수 있어요/)).not.toBeInTheDocument();
+
+    const file = new File(['png'], '지원완료.png', { type: 'image/png' });
+    await userEvent.upload(screen.getByLabelText('올릴 파일 선택'), file);
+    expect(onFileSelect).toHaveBeenCalledWith(file);
+  });
 });

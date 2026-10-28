@@ -1,5 +1,5 @@
 {
-  "_note": "시연 계정 seed. 인물·회사·연락처·계좌는 모두 가상 값입니다. 날짜 *_offset은 입장일(T) 기준 일수(T-21 → -21). 설계 9절.",
+  "_note": "시연 계정 seed. 인물·회사·연락처·계좌는 모두 가상 값입니다. 날짜 *_offset은 입장일(T) 기준 일수(T-21 → -21). 마지막 경력의 퇴사월은 이직일에 맞춰 {sep:%Y-%m}(불러오기 설명은 {sep:%Y.%m})으로 씁니다. 설계 9절.",
   "personas": [
     {
       "persona_id": "park",
@@ -38,9 +38,9 @@
       "activities": [],
       "imports": {
         "career_certificates": [
-          { "import_id": "cc_career_001", "category": "career", "title": "OO산업", "detail": "고용보험 상용 이력 · 2004.03 ~ 2026.09" },
-          { "import_id": "cc_license_001", "category": "license", "title": "지게차운전기능사", "detail": "한국산업인력공단 · 2011.05.20 취득" },
-          { "import_id": "cc_training_001", "category": "training", "title": "용접 기초 과정", "detail": "직업훈련 이수 · 2009.03 ~ 2009.06" }
+          { "import_id": "cc_career_001", "category": "career", "title": "OO산업", "detail": "고용보험 상용 이력 · 2004.03 ~ {sep:%Y.%m}" },
+          { "import_id": "cc_career_002", "category": "career", "title": "OO기계", "detail": "고용보험 상용 이력 · 1990.03 ~ 2004.02" },
+          { "import_id": "cc_license_001", "category": "license", "title": "지게차운전기능사", "detail": "한국산업인력공단 · 2011.05.20 취득" }
         ],
         "job_applications": []
       }
@@ -51,7 +51,7 @@
       "display": {
         "name": "최영수",
         "age": 67,
-        "job": "시설관리",
+        "job": "웹 개발",
         "quote": "예전에 써 둔 이력서가 있는데, 그걸 그대로 쓰면 되는 건가요?",
         "summary": "구직등록 전 · 예전 이력서 최신화"
       },
@@ -81,19 +81,19 @@
         "saved_offset": -2720,
         "field_status": "extracted",
         "data": {
-          "resume_title": "시설관리 경력 이력서",
+          "resume_title": "웹 개발 경력 이력서",
           "education": [
-            { "item_id": "edu_001", "education_level": "고등학교", "graduation_status": "졸업", "school_name": "OO고등학교", "start_date": "1975-03", "end_date": "1978-02", "is_highest_education": true }
+            { "item_id": "edu_001", "education_level": "대학교(4년제)", "graduation_status": "졸업", "school_name": "OO대학교", "start_date": "1978-03", "end_date": "1985-02", "major": "전자계산학과", "major_code": { "code": "04080100048", "name": "전자계산학과", "status": "confirmed", "said": "전자계산학" }, "is_highest_education": true }
           ],
           "job_preferences": {
-            "desired_occupations": [{ "item_id": "occ_001", "occupation": { "code": null, "name": "시설관리", "status": "needs_confirmation" } }],
-            "desired_regions": [{ "code": null, "name": "서울 노원구" }]
+            "desired_occupations": [{ "item_id": "occ_001", "occupation": { "code": "133300", "name": "웹 개발자", "status": "confirmed", "said": "웹 개발자" } }],
+            "desired_regions": [{ "code": "11350", "name": "서울 노원구", "status": "confirmed", "said": "서울 노원구" }]
           },
           "careers": [
-            { "item_id": "career_001", "company_name": "OO아파트 관리사무소", "start_date": "2010-03", "end_date": "2019-04", "position": "시설기사", "main_duties": "전기·설비 점검, 보수 작업" }
+            { "item_id": "career_001", "company_name": "OO웹솔루션", "start_date": "2005-03", "end_date": "2019-04", "position": "과장", "occupation": { "code": "133300", "name": "웹 개발자", "status": "confirmed", "said": "웹 개발" }, "main_duties": "웹사이트 개발·유지보수" }
           ],
           "certifications": [
-            { "item_id": "cert_001", "certificate_name": "전기기능사", "issuing_organization": "한국산업인력공단", "acquired_date": "2009-11-20" }
+            { "item_id": "cert_001", "certificate_name": "정보처리기사", "certificate_code": { "code": "5001320", "name": "정보처리기사", "status": "confirmed", "said": "정보처리기사" }, "issuing_organization": "한국산업인력공단", "acquired_date": "1998-11-15" }
           ],
           "competencies": {}
         }
@@ -103,9 +103,10 @@
       "activities": [],
       "imports": {
         "career_certificates": [
-          { "import_id": "cc_career_002", "category": "career", "title": "OO빌딩", "detail": "고용보험 상용 이력 · 2022.07 ~ 2026.09" },
-          { "import_id": "cc_career_001", "category": "career", "title": "OO아파트 관리사무소", "detail": "고용보험 상용 이력 · 2010.03 ~ 2019.04", "is_recorded": true },
-          { "import_id": "cc_license_001", "category": "license", "title": "전기기능사", "detail": "한국산업인력공단 · 2009.11.20 취득", "is_recorded": true }
+          { "import_id": "cc_career_002", "category": "career", "title": "OO에이전시", "detail": "고용보험 상용 이력 · 2022.07 ~ {sep:%Y.%m}" },
+          { "import_id": "cc_career_001", "category": "career", "title": "OO웹솔루션", "detail": "고용보험 상용 이력 · 2005.03 ~ 2019.04", "is_recorded": true },
+          { "import_id": "cc_license_002", "category": "license", "title": "웹디자인기능사", "detail": "한국산업인력공단 · 2021.06.18 취득" },
+          { "import_id": "cc_license_001", "category": "license", "title": "정보처리기사", "detail": "한국산업인력공단 · 1998.11.15 취득", "is_recorded": true }
         ],
         "job_applications": []
       }
@@ -116,7 +117,7 @@
       "display": {
         "name": "이정호",
         "age": 58,
-        "job": "일반 사무 · 행정지원",
+        "job": "앱 개발",
         "quote": "회사에 지원은 했는데 증빙을 뭘 올려야 하는지, 이번 회차에 몇 번 했는지 기억이 안 납니다.",
         "summary": "수급 중 · 4차 실업인정 준비 · 이력서 있음"
       },
@@ -136,7 +137,7 @@
         "age_at_separation": 58,
         "has_disability": false,
         "separation_offset": -107,
-        "insured_years": 25.4,
+        "insured_years": 25.3,
         "education_done": true,
         "eligibility_applied_offset": -92,
         "first_recognition_offset": -78
@@ -146,18 +147,30 @@
         "saved_offset": -100,
         "field_status": "confirmed",
         "data": {
-          "resume_title": "일반 사무 · 행정지원 경력 이력서",
+          "resume_title": "앱 개발 경력 이력서",
           "education": [
-            { "item_id": "edu_001", "education_level": "고등학교", "graduation_status": "졸업", "school_name": "OO고등학교", "start_date": "1984-03", "end_date": "1987-02", "is_highest_education": true }
+            { "item_id": "edu_001", "education_level": "대학교(4년제)", "graduation_status": "졸업", "school_name": "OO대학교", "start_date": "1987-03", "end_date": "1994-02", "major": "컴퓨터공학과", "major_code": { "code": "04080100061", "name": "컴퓨터공학과", "status": "confirmed", "said": "컴퓨터공학" }, "is_highest_education": true }
           ],
           "job_preferences": {
-            "desired_occupations": [{ "item_id": "occ_001", "occupation": { "code": null, "name": "일반 사무", "status": "confirmed" } }],
-            "desired_regions": [{ "code": null, "name": "서울 강서구" }]
+            "desired_occupations": [
+              {
+                "item_id": "occ_001",
+                "occupation": { "code": "133207", "name": "모바일 애플리케이션 프로그래머(앱·어플 개발)", "status": "confirmed" },
+                "experience_type": "경력"
+              }
+            ],
+            "desired_regions": [{ "code": "11500", "name": "서울 강서구", "status": "confirmed", "said": "서울 강서구" }],
+            "desired_salary": { "amount": null, "unit": "monthly", "currency": "KRW", "negotiable": true },
+            "employment_contract_type": "기간의 정함이 없는 근로계약",
+            "military_alternative": "해당 없음"
           },
           "careers": [
-            { "item_id": "career_001", "company_name": "OO유통", "start_date": "2001-04", "end_date": "2026-08", "position": "과장", "main_duties": "총무·행정 지원" }
+            { "item_id": "career_001", "company_name": "OO모바일", "start_date": "2012-03", "end_date": "{sep:%Y-%m}", "position": "팀장", "employment_status": "퇴직", "occupation": { "code": "133207", "name": "모바일 애플리케이션 프로그래머(앱·어플 개발)", "status": "confirmed", "said": "앱 개발" }, "main_duties": "모바일 앱 개발·운영" },
+            { "item_id": "career_002", "company_name": "OO시스템", "start_date": "2001-04", "end_date": "2012-02", "position": "대리", "employment_status": "퇴직", "occupation": { "code": "133301", "name": "웹 개발자(웹 엔지니어·웹 프로그래머)", "status": "confirmed", "said": "웹·SI 개발" }, "main_duties": "웹·SI 개발" }
           ],
-          "certifications": [],
+          "certifications": [
+            { "item_id": "cert_001", "certificate_name": "정보처리기사", "certificate_code": { "code": "5001320", "name": "정보처리기사", "status": "confirmed", "said": "정보처리기사" }, "issuing_organization": "한국산업인력공단", "acquired_date": "2003-05-23" }
+          ],
           "competencies": {}
         }
       },
@@ -173,8 +186,8 @@
       "imports": {
         "career_certificates": [],
         "job_applications": [
-          { "import_id": "wa_001", "category": "job_search", "title": "OO물류 · 일반 사무", "detail": "고용24 입사지원 · 서류전형 심사진행 중", "date_offset": -8, "is_recorded": true },
-          { "import_id": "wa_003", "category": "job_search", "title": "OO물산 · 사무보조", "detail": "고용24 입사지원 · 서류전형 심사진행 중", "date_offset": 0 }
+          { "import_id": "wa_001", "category": "job_search", "title": "OO물류 · 앱 개발", "detail": "고용24 입사지원 · 서류전형 심사진행 중", "date_offset": -8, "is_recorded": true },
+          { "import_id": "wa_003", "category": "job_search", "title": "OO물산 · 모바일 앱 개발", "detail": "고용24 입사지원 · 서류전형 심사진행 중", "date_offset": 0 }
         ]
       }
     }

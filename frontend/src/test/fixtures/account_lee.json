@@ -16,7 +16,8 @@
     "expected_end_date": "2027-04-23",
     "end_reason": null,
     "remaining_rounds": 8,
-    "last_round": 11
+    "last_round": 11,
+    "online_presubmit": true
   },
   "current_round": {
     "round": 4,
@@ -27,6 +28,20 @@
     "status": "current",
     "application_status": "draft"
   },
+  "deadline": {
+    "d_day": 6,
+    "submit_mode": "attend",
+    "overdue": false
+  },
+  "notices": [
+    {
+      "kind": "attend",
+      "key": "attend-4",
+      "title": "4차는 고용센터 출석 회차예요",
+      "text": "인터넷으로 내지 않고 담당 창구에 직접 가요. 신분증과 수급자격증을 챙기세요.",
+      "rule_refs": ["ACT-040"]
+    }
+  ],
   "entry": {
     "branch_id": "E4b",
     "panel": "B",
@@ -50,6 +65,7 @@
     ],
     "choices": ["부족한 활동 추천해 주세요", "새 활동 기록할게요", "신청서 미리 볼래요"],
     "accepts_file": false,
+    "file_choice": null,
     "ui": {
       "big_text": false
     },

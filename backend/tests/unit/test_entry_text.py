@@ -98,3 +98,30 @@ def test_e7b_without_saved_year() -> None:
     )
 
     assert "예전에 쓰신 이력서" in compose("E7b", choi).messages[0][1]
+
+
+PARK = EntryFacts(
+    name="박진수", stage="job_registration", rule_group="general", age_at_separation=52
+)
+
+
+def test_first_visit_starts_with_who_the_helper_is() -> None:
+    c = compose("E7a", replace(PARK, welcome="new"))
+
+    assert c.messages[0][0] == "T-INTRO"
+    assert c.messages[0][1].startswith("저는 실업급여 서류를 같이 준비하는 도우미예요.")
+    assert c.messages[1][1].startswith("박진수님, 반가워요. 아직 이력서가 없으시군요.")
+
+
+def test_returning_visit_says_welcome_back_and_resume_progress() -> None:
+    c = compose("E7c", replace(PARK, welcome="returning", resume_filled=3))
+
+    assert [m[0] for m in c.messages] == ["T-E7c", "T-R"]
+    assert c.messages[0][1].startswith("박진수님, 다시 오셨네요. 쓰다 만 이력서가 있어요.")
+    assert c.messages[1][1] == "이력서는 꼭 채울 5칸 중 3칸을 채웠어요."
+
+
+def test_no_greeting_after_an_action() -> None:
+    c = compose("E7a", PARK)
+
+    assert [m[0] for m in c.messages] == ["T-E7a"]

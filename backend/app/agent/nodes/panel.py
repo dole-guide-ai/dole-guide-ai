@@ -1,0 +1,284 @@
+"""패널 안의 제한된 도구 루프: call_model ⇄ run_tools, 되묻기는 ask(interrupt).
+
+- 모델에는 그 패널 도구(registry.TOOLS_BY_PANEL)와 ask_user만 보입니다(도구 제한, ADR 0001).
+- 숫자·저장은 도구(규칙 함수)가 하고 모델은 고르고 말만 합니다.
+- 한 턴 도구 루프 상한(MAX_LOOP_CALLS, MAX_TOOL_CALLS)을 넘으면 루프를 멈춥니다.
+- ask_user는 두 노드로 나눕니다. interrupt된 노드는 재개할 때 처음부터 다시 실행되므로,
+  질문 이벤트는 앞 노드(run_tools)에서 한 번만 내고 ask 노드는 interrupt만 합니다.
+- 이력서 패널은 이 루프를 쓰지 않고 읽기·말하기 노드로 갑니다(nodes/resume).
+"""
+
+import json
+from typing import Any
+
+from langchain_core.messages import (
+    AIMessage,
+    AIMessageChunk,
+    HumanMessage,
+    SystemMessage,
+    ToolMessage,
+)
+from langchain_core.runnables import RunnableConfig
+from langchain_core.utils.function_calling import convert_to_openai_tool
+from langgraph.types import interrupt
+from pydantic import BaseModel, Field, ValidationError
+
+from app.agent import gateway
+from app.agent.events import emit
+from app.agent.graph import AgentState, tool_context_of
+from app.agent.grounding import Evidence, SentenceChecker
+from app.agent.input import images
+from app.agent.nodes.finish import deliver_missing
+from app.agent.nodes.route import FORM_PANELS
+from app.agent.output import SentenceStream
+from app.agent.prompts import load_prompt
+from app.agent.tools.registry import TOOLS, TOOLS_BY_PANEL, ToolError, run_tool
+from app.core.config import get_settings
+from app.core.errors import AppError
+from app.rules.obligations import Obligation, from_tool_result, merge, prompt_block
+from app.schemas.common import FormUpdate
+from app.schemas.messages import AskUserEvent, TokenEvent, ToolCallEvent
+from app.services import files as files_service
+
+# 도구 루프에서 답 모델을 부르는 횟수 상한. 분류·근거 재정렬·검색어 재작성·이력서 읽기처럼
+# 루프 밖의 보조 호출은 세지 않습니다(보조 호출이 도구 루프 몫을 깎아 답이 잘리지 않게).
+MAX_LOOP_CALLS = 3
+MAX_TOOL_CALLS = 6
+ASK_USER = "ask_user"
+LOOKUP_RULES = "lookup_rules"
+# 이력서 읽기·말하기만 쓰는 사실(nodes/context). 다른 패널의 프롬프트에는 넣지 않습니다.
+RESUME_ONLY_FACTS = frozenset({"resume_plan", "resume_fields", "resume_items"})
+PARAGRAPH_GAP = "\n\n"
+BASE_PROMPT = "panels/base"
+
+
+class AskUserInput(BaseModel):
+    """사용자에게 하나만 묻습니다. 고를 수 있으면 choices를 줍니다(버튼으로 보임)."""
+
+    question: str = Field(description="한 문장 질문. 쉬운 말로")
+    choices: list[str] = Field(
+        default_factory=list, max_length=4, description="선택지(없으면 빈 목록)"
+    )
+
+
+def _tool_schema(name: str, description: str, model: type[BaseModel]) -> dict[str, Any]:
+    schema = convert_to_openai_tool(model)
+    schema["function"].update(name=name, description=description)
+    return schema
+
+
+def tool_names(panel: str) -> tuple[str, ...]:
+    """패널 도구. 규칙 카드를 미리 붙이는 방식(inject)이면 찾기 도구는 빼서 비교 조건을 맞춥니다."""
+    names = TOOLS_BY_PANEL[panel]
+    if get_settings().rule_cards_mode == "inject":
+        names = tuple(n for n in names if n != LOOKUP_RULES)
+    return names
+
+
+def tool_schemas(panel: str) -> list[dict[str, Any]]:
+    schemas = [
+        _tool_schema(t.name, t.description, t.input_model)
+        for t in (TOOLS[name] for name in tool_names(panel))
+    ]
+    schemas.append(_tool_schema(ASK_USER, "사용자에게 하나 되묻기", AskUserInput))
+    return schemas
+
+
+def system_prompt(state: AgentState) -> str:
+    """이력서 외 패널(회차·신청서·안내)의 시스템 프롬프트.
+
+    이력서 진행표·칸 목록은 이력서 읽기·말하기(nodes/resume)만 씁니다. 다른 패널에 넣으면 질문과
+    무관한 이력서 안내가 답에 붙어 질문을 밀어냅니다(골든셋 2차 측정 D8).
+    """
+    facts = {k: v for k, v in state.get("facts", {}).items() if k not in RESUME_ONLY_FACTS}
+    briefing = "\n".join(f"- {line}" for line in facts.pop("briefing", []))
+    panel = state["panel"]
+    duties = [Obligation.from_state(raw) for raw in state.get("obligations", [])]
+    parts = [
+        load_prompt(BASE_PROMPT),
+        load_prompt(f"panels/{panel}"),
+        f"## 지금 상황 (코드가 계산한 사실. 그대로 옮기고 계산하지 않음)\n{briefing}",
+        prompt_block(duties),
+        f"## 세부 값·규칙 카드 (DB 기준)\n{json.dumps(facts, ensure_ascii=False)}",
+    ]
+    return "\n\n".join(part for part in parts if part)
+
+
+def _with_images(messages: list[Any], file_ids: list[str], config: RunnableConfig) -> list[Any]:
+    """preprocess가 사진째 보내도 된다고 정한 사진(vision_files)을 마지막 사용자 말에 붙입니다.
+
+    모델에 보내는 복사본에만 붙이고 상태(체크포인트)에는 남기지 않습니다. 사진 내용은
+    preprocess가 받아써 가린 글로 이미 대화 기록에 있어 다음 턴에도 씁니다.
+    """
+    ctx = tool_context_of(config)
+    if not file_ids or ctx is None:
+        return messages
+    paths = [
+        str(path)
+        for file_id in file_ids
+        if (path := files_service.open_attachment(ctx.db, ctx.account, file_id))
+    ]
+    try:
+        parts = images.image_parts(paths)
+    except ValueError:  # 그 사이 읽을 수 없게 된 사진은 받아쓴 글만 씁니다.
+        return messages
+    if not parts:
+        return messages
+    last = next((i for i in range(len(messages) - 1, -1, -1)
+                 if isinstance(messages[i], HumanMessage)), None)  # fmt: skip
+    if last is None:
+        return messages
+    patched = HumanMessage([{"type": "text", "text": str(messages[last].content)}, *parts])
+    return [*messages[:last], patched, *messages[last + 1 :]]
+
+
+def call_model(state: AgentState, config: RunnableConfig) -> dict[str, Any]:
+    model = gateway.get_chat_model("agent").bind_tools(tool_schemas(state["panel"]))
+    messages = _with_images(
+        [SystemMessage(system_prompt(state)), *state["messages"]],
+        state.get("vision_files") or [],
+        config,
+    )
+    reply: AIMessageChunk | None = None
+    # 문장이 끝날 때마다 걸러서 보냅니다(agent/output.py). 다른 언어가 섞인 문장부터 버리고,
+    # 근거에 없는 숫자나 근거를 넘는 단정이 든 문장은 뺍니다(agent/grounding.py).
+    check = None
+    # 서류 패널(이력서·신청서)의 숫자는 사용자가 말한 값이라 근거 검사를 하지 않습니다.
+    # 검사는 규칙 숫자가 나오는 안내·회차 패널에서만 합니다.
+    if get_settings().answer_check and state["panel"] not in FORM_PANELS:
+        check = SentenceChecker(Evidence.of_turn(state.get("facts", {}), state["messages"]))
+    sentences = SentenceStream(check=check)
+    # 도구를 부르기 전에 이미 말한 글이 있으면 이어지는 글과 붙지 않게 빈 줄을 둡니다.
+    gap = PARAGRAPH_GAP if _said_this_turn(state["messages"]) else ""
+    for chunk in model.stream(messages):
+        for piece in sentences.feed(chunk.text):
+            emit(TokenEvent(text=gap + piece))
+            gap = ""
+        reply = chunk if reply is None else reply + chunk
+    for piece in sentences.close():
+        emit(TokenEvent(text=piece))
+    message = AIMessage(content=sentences.text, tool_calls=reply.tool_calls if reply else [])
+    return {"messages": [message], "loop_calls": state.get("loop_calls", 0) + 1}
+
+
+def _said_this_turn(messages: list[Any]) -> bool:
+    """이번 턴(마지막 사용자 말 뒤)에 모델이 이미 글을 냈는지."""
+    for message in reversed(messages):
+        if isinstance(message, HumanMessage):
+            return False
+        if isinstance(message, AIMessage) and message.text:
+            return True
+    return False
+
+
+def _last_ai(state: AgentState) -> AIMessage:
+    message = state["messages"][-1]
+    assert isinstance(message, AIMessage)
+    return message
+
+
+def after_model(state: AgentState) -> str:
+    return "run_tools" if _last_ai(state).tool_calls else "finish"
+
+
+def _failure(exc: Exception) -> str:
+    # 서비스 오류(AppError)의 message는 사용자에게 보여도 되는 문구라 모델에 그대로 넘깁니다.
+    if isinstance(exc, AppError):
+        return f"도구를 쓰지 못했어요: {exc.message}"
+    if isinstance(exc, ToolError):
+        return f"도구를 쓰지 못했어요: {exc}"
+    return "도구를 쓰지 못했어요: 인자가 맞지 않아요"
+
+
+def _rule_ids(result: dict[str, Any]) -> list[str]:
+    """도구 결과에서 근거로 쓸 규칙 ID(규칙 카드 id, 규칙 함수의 rule_refs)를 모읍니다."""
+    ids = [r["id"] for r in result.get("rules", [])]
+    return ids + list(result.get("rule_refs", []))
+
+
+def _run_one(
+    state: AgentState, config: RunnableConfig, name: str, args: dict[str, Any]
+) -> tuple[str, list[str], list[Obligation]]:
+    """(모델에 돌려줄 결과 글, 근거 규칙 ID, 답에 꼭 넣을 사실).
+
+    실패도 예외로 턴을 끝내지 않고 사유로 돌려줍니다.
+    """
+    ctx = tool_context_of(config)
+    if name not in tool_names(state["panel"]):
+        return "이 단계에서 쓸 수 없는 도구예요.", [], []
+    if ctx is None:
+        return "지금은 도구를 쓸 수 없어요.", [], []
+    emit(ToolCallEvent(name=name, status="started"))
+    try:
+        result = run_tool(ctx, name, args)
+    except (ToolError, ValidationError, AppError) as exc:
+        return _failure(exc), [], []
+    finally:
+        emit(ToolCallEvent(name=name, status="finished"))
+    for update in result.get("updates", []):
+        emit(FormUpdate.model_validate(update))
+    content = json.dumps(result, ensure_ascii=False, default=str)
+    return content, _rule_ids(result), from_tool_result(name, result)
+
+
+def run_tools(state: AgentState, config: RunnableConfig) -> dict[str, Any]:
+    """ask_user가 아닌 도구를 실행합니다. ask_user가 있으면 질문 이벤트만 내고 ask로 넘깁니다."""
+    calls = _last_ai(state).tool_calls
+    used = state.get("tool_calls", 0)
+    cited = list(state.get("cited", []))
+    duties: list[Obligation] = []
+    results = []
+    for call in calls:
+        if call["name"] == ASK_USER:
+            continue
+        used += 1
+        if used > MAX_TOOL_CALLS:
+            content = "이번 턴 도구 호출 상한에 걸려 실행하지 않았어요."
+        else:
+            content, rule_ids, found = _run_one(state, config, call["name"], call["args"])
+            cited.extend(i for i in rule_ids if i not in cited)
+            duties += found
+        results.append(ToolMessage(content=content, tool_call_id=call["id"]))
+    asks = [c for c in calls if c["name"] == ASK_USER]
+    duties_now = merge(state.get("obligations", []), duties)
+    if asks:
+        # 되묻기로 멈추는 턴은 finish를 거치지 않으므로, 빠진 사실을 카드 앞에 먼저 내보냅니다.
+        # 대화 기록에는 넣지 않고(도구 호출·결과 순서 유지) 보낸 것만 상태에서 뺍니다.
+        sent, cited = deliver_missing({**state, "cited": cited}, duties_now)
+        duties_now = [raw for raw in duties_now if raw["key"] not in {d.key for d in sent}]
+        ask = AskUserInput.model_validate(asks[0]["args"])
+        emit(AskUserEvent(question_id=asks[0]["id"], text=ask.question, choices=ask.choices))
+        # 두 번째 질문부터는 한 번에 하나만 묻도록 돌려보냅니다.
+        results.extend(
+            ToolMessage(content="한 번에 하나만 물어요.", tool_call_id=c["id"]) for c in asks[1:]
+        )
+    update: dict[str, Any] = {
+        "messages": results,
+        "tool_calls": used,
+        "cited": cited,
+        "obligations": duties_now,
+    }
+    if (ctx := tool_context_of(config)) is not None:
+        # 질문에서 멈췄다 재개해도 아직 붙이지 않은 증빙만 되살리도록 남은 것을 저장합니다.
+        update["pending_evidence"] = list(ctx.evidence_file_ids)
+    return update
+
+
+def after_tools(state: AgentState) -> str:
+    if any(c["name"] == ASK_USER for c in _last_ai_with_calls(state).tool_calls):
+        return "ask"
+    return "call_model" if state.get("loop_calls", 0) < MAX_LOOP_CALLS else "finish"
+
+
+def _last_ai_with_calls(state: AgentState) -> AIMessage:
+    return next(m for m in reversed(state["messages"]) if isinstance(m, AIMessage))
+
+
+def ask(state: AgentState) -> dict[str, Any]:
+    """그래프를 멈춥니다. 응답기가 `Command(resume=가린 답)`으로 재개하면 그 답을 모델에 넘깁니다.
+
+    답이 질문과 관계없는 말(딴소리)이면 모델이 그렇게 판단해 새 주제로 넘어갑니다(패널 프롬프트).
+    """
+    call = next(c for c in _last_ai_with_calls(state).tool_calls if c["name"] == ASK_USER)
+    answer = interrupt({"question_id": call["id"]})
+    return {"messages": [ToolMessage(content=f"사용자 답: {answer}", tool_call_id=call["id"])]}

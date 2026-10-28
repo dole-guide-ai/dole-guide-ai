@@ -1,11 +1,12 @@
 'use client';
 
-import { type ChangeEvent, type KeyboardEvent, useRef, useState } from 'react';
+import { type ChangeEvent, type KeyboardEvent, type RefObject, useRef, useState } from 'react';
 
-import { ArrowUp, Maximize2, Mic, Paperclip } from 'lucide-react';
+import { ArrowUp, Maximize2, Mic, Paperclip, Square } from 'lucide-react';
 
 import { LargeInputDialog } from '@/features/chat/LargeInputDialog';
 import { ACCEPTED_FILE_TYPES } from '@/features/chat/useFileUpload';
+import { VOICE_STATUS, type VoiceStatus } from '@/features/chat/useVoiceInput';
 
 import { ICON_SIZE, ICON_STROKE, ICON_STROKE_BOLD } from '@/lib/iconSize';
 
@@ -19,10 +20,19 @@ const TOOL_CLASS =
 const TOOL_NORMAL =
   'text-ink hover:bg-neutral-soft disabled:text-muted disabled:hover:bg-transparent';
 const TOOL_HIGHLIGHT = 'bg-brand-soft text-brand ring-brand/30 ring-1 hover:bg-brand-soft';
+const TOOL_RECORDING = 'bg-danger-soft text-danger ring-danger/40 ring-1 animate-pulse';
+const VOICE_NOTE_ID = 'chat-voice-note';
+
+const VOICE_LABEL: Record<VoiceStatus, string> = {
+  [VOICE_STATUS.IDLE]: '말하기',
+  [VOICE_STATUS.RECORDING]: '다 말했어요',
+  [VOICE_STATUS.TRANSCRIBING]: '받아쓰는 중…',
+};
 
 /**
  * 입력창 (2-0.4·2-0.5): 글을 쓰는 칸 아래에 도구(파일·말하기·크게 쓰기)와 보내기를 한 상자 안에 둡니다.
- * 파일 올리기는 AI가 서류를 요청한 질문(`accepts_file`)에서만 켜지고 강조됩니다 (시연 개선 2번).
+ * 파일 올리기는 AI가 서류를 요청한 질문(`accepts_file`)에서 켜지고 강조됩니다 (시연 개선 2번).
+ * 실업인정 단계처럼 증빙을 언제든 올리는 단계(`canAttachEvidence`)에서는 강조 없이 늘 켜집니다.
  * 포커스가 들어오면 상자 테두리가 AI 그라데이션으로 바뀝니다. 개인정보 안내는 상자 아래에 늘 보입니다.
  */
 interface ChatInputProps {
@@ -32,8 +42,17 @@ interface ChatInputProps {
   onFileSelect?: (file: File) => void;
   /** 지금 질문이 서류·사진을 요청했는지 */
   isFileRequested?: boolean;
+  /** 구직활동 증빙을 언제든 올릴 수 있는 단계인지 (실업인정) */
+  canAttachEvidence?: boolean;
   isDisabled?: boolean;
   isUploading?: boolean;
+  /** 말하기 버튼을 누를 때. 없으면 버튼이 꺼집니다 */
+  onVoiceToggle?: () => void;
+  voiceStatus?: VoiceStatus;
+  /** 말하기 실패 안내 (마이크 거부·인식 실패) */
+  voiceError?: string | null;
+  /** 질문 카드의 파일 선택지가 같은 파일 선택창을 열 수 있게 부모가 넘기는 ref */
+  fileInputRef?: RefObject<HTMLInputElement | null>;
 }
 
 export const ChatInput = ({
@@ -42,13 +61,24 @@ export const ChatInput = ({
   onSend,
   onFileSelect,
   isFileRequested = false,
+  canAttachEvidence = false,
   isDisabled = false,
   isUploading = false,
+  onVoiceToggle,
+  voiceStatus = VOICE_STATUS.IDLE,
+  voiceError = null,
+  fileInputRef: sharedFileInputRef,
 }: ChatInputProps) => {
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const ownFileInputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = sharedFileInputRef ?? ownFileInputRef;
+  const isRecording = voiceStatus === VOICE_STATUS.RECORDING;
+  const isTranscribing = voiceStatus === VOICE_STATUS.TRANSCRIBING;
   const [isLargeOpen, setIsLargeOpen] = useState(false);
   const canSend = !isDisabled && value.trim().length > 0;
-  const canUpload = !!onFileSelect && isFileRequested && !isDisabled && !isUploading;
+  const canUpload =
+    !!onFileSelect && (isFileRequested || canAttachEvidence) && !isDisabled && !isUploading;
+  // 강조와 안내 문구는 AI가 서류를 요청했을 때만 (늘 켜진 증빙 버튼은 조용히)
+  const isHighlighted = canUpload && isFileRequested;
 
   const handleSend = () => {
     if (canSend) onSend(value);
@@ -69,7 +99,7 @@ export const ChatInput = ({
 
   return (
     <div className="flex flex-col gap-2 px-4 pt-2 pb-3 lg:px-6">
-      {canUpload && (
+      {isHighlighted && (
         <p id={FILE_HINT_ID} className="text-brand text-sm font-semibold">
           서류를 올릴 수 있어요. 사진이나 문서(pdf·hwp·docx) 모두 돼요.
         </p>
@@ -81,7 +111,9 @@ export const ChatInput = ({
           onKeyDown={handleKeyDown}
           disabled={isDisabled}
           rows={2}
-          placeholder={isDisabled ? '답을 만드는 중이에요…' : '여기에 말씀하듯 적어 주세요'}
+          placeholder={
+            isDisabled ? '답을 만드는 중이에요…' : '실업급여에 대해 궁금한 점을 적어 주세요'
+          }
           aria-label="메시지 입력"
           aria-describedby={PRIVACY_NOTE_ID}
           className="placeholder:text-muted w-full resize-none bg-transparent px-3 pt-2 text-base leading-relaxed focus-visible:outline-hidden disabled:cursor-not-allowed"
@@ -100,26 +132,33 @@ export const ChatInput = ({
             disabled={!canUpload}
             onClick={() => fileInputRef.current?.click()}
             title={
-              canUpload
-                ? '경력증명서·자격증·예전 이력서·지원 완료 화면 등 사진이나 문서(pdf·hwp·docx)'
-                : 'AI가 서류를 요청하면 올릴 수 있어요'
+              canAttachEvidence
+                ? '입사지원 완료 화면·면접확인서 같은 구직활동 증빙 사진이나 문서'
+                : isFileRequested
+                  ? '경력증명서·자격증·예전 이력서·지원 완료 화면 등 사진이나 문서(pdf·hwp·docx)'
+                  : 'AI가 서류를 요청하면 올릴 수 있어요'
             }
             aria-label="파일 올리기"
-            aria-describedby={canUpload ? FILE_HINT_ID : undefined}
-            className={`${TOOL_CLASS} ${canUpload ? TOOL_HIGHLIGHT : TOOL_NORMAL}`}
+            aria-describedby={isHighlighted ? FILE_HINT_ID : undefined}
+            className={`${TOOL_CLASS} ${isHighlighted ? TOOL_HIGHLIGHT : TOOL_NORMAL}`}
           >
             <Paperclip aria-hidden size={ICON_SIZE.md} strokeWidth={ICON_STROKE} />
             {isUploading ? '올리는 중…' : '파일'}
           </button>
           <button
             type="button"
-            disabled
-            title="음성 입력은 서버 음성 인식 경로를 정한 뒤 연결돼요"
-            aria-label="눌러서 말하기"
-            className={`${TOOL_CLASS} ${TOOL_NORMAL}`}
+            disabled={!onVoiceToggle || isTranscribing || (isDisabled && !isRecording)}
+            onClick={onVoiceToggle}
+            aria-label={isRecording ? '말하기 끝내기' : '눌러서 말하기'}
+            aria-pressed={isRecording}
+            className={`${TOOL_CLASS} ${isRecording ? TOOL_RECORDING : TOOL_NORMAL}`}
           >
-            <Mic aria-hidden size={ICON_SIZE.md} strokeWidth={ICON_STROKE} />
-            말하기
+            {isRecording ? (
+              <Square aria-hidden size={ICON_SIZE.md} strokeWidth={ICON_STROKE} />
+            ) : (
+              <Mic aria-hidden size={ICON_SIZE.md} strokeWidth={ICON_STROKE} />
+            )}
+            {VOICE_LABEL[voiceStatus]}
           </button>
           <button
             type="button"
@@ -142,9 +181,21 @@ export const ChatInput = ({
           </button>
         </div>
       </div>
+      {(isRecording || isTranscribing || voiceError) && (
+        <p
+          id={VOICE_NOTE_ID}
+          role={voiceError ? 'alert' : 'status'}
+          className={`text-center text-sm font-semibold ${voiceError ? 'text-danger' : 'text-brand'}`}
+        >
+          {voiceError ??
+            (isRecording
+              ? "듣고 있어요. 말씀을 마치면 '다 말했어요'를 눌러 주세요."
+              : '말씀을 글로 바꾸고 있어요. 잠시만 기다려 주세요.')}
+        </p>
+      )}
       <p id={PRIVACY_NOTE_ID} className="text-muted text-center text-sm">
-        개인정보를 입력하지 마세요(데모). 이름·전화번호·주민등록번호는 받지 않아요. 올린 파일은 읽은
-        뒤 바로 지워요.
+        이름·전화번호·주민등록번호는 적지 마세요. 이력서용 서류는 읽은 뒤 바로 지우고, 구직활동
+        증빙은 신청에 쓰도록 보관해요.
       </p>
       {isLargeOpen && (
         <LargeInputDialog

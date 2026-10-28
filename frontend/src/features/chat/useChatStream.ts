@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 
+import { useQueryClient } from '@tanstack/react-query';
+
 import { applyFormUpdateEvent } from '@/features/chat/applyFormUpdateEvent';
 import type { ChatAttachment } from '@/features/chat/chat.types';
 import { CHAT_ACTIONS } from '@/features/chat/chatActions';
@@ -11,6 +13,10 @@ import { useChatHistory } from '@/features/chat/useChatHistory';
 import { ApiError } from '@/lib/api';
 import { streamChat } from '@/lib/chatStream';
 import { ERROR_CODES } from '@/lib/errorCodes';
+import { resetForms } from '@/lib/formStore';
+import { queryKeys } from '@/lib/queryKeys';
+import { refreshAccount } from '@/lib/refreshAccount';
+import { setSession } from '@/lib/sessionStore';
 import { SSE_EVENTS } from '@/lib/sseEvents';
 import { type ChatInputKind, INPUT_KIND } from '@/types/chat.types';
 import type { SessionRead } from '@/types/demo.types';
@@ -34,6 +40,7 @@ export const useChatStream = (session: SessionRead) => {
   const [activeTool, setActiveTool] = useState<string | null>(null);
   const [inputText, setInputText] = useState('');
   const abortRef = useRef<AbortController | null>(null);
+  const queryClient = useQueryClient();
   const sessionId = session.session_id;
   const personaId = session.persona_id;
 
@@ -53,11 +60,15 @@ export const useChatStream = (session: SessionRead) => {
 
   // F-03: 새로고침 뒤에는 서버에 저장된 대화로 말풍선을 되살립니다. 저장된 대화가 없으면 진입 안내를 둡니다.
   const history = useChatHistory(session);
-  const pendingAsk = session.entry.pending_ask;
   useEffect(() => {
-    if (history.data?.length)
-      dispatch({ type: CHAT_ACTIONS.RESTORE, messages: history.data, pendingAsk });
-  }, [history.data, pendingAsk]);
+    // 답을 기다리던 질문은 기록의 마지막 말풍선으로 정합니다(로그인 때 세션 값은 그 뒤 대화를 모름).
+    if (history.data?.messages.length)
+      dispatch({
+        type: CHAT_ACTIONS.RESTORE,
+        messages: history.data.messages,
+        pendingAsk: history.data.pendingAsk,
+      });
+  }, [history.data]);
   // 이전 대화를 못 받으면 대화가 없던 것처럼 보이지 않게 서버 문구를 말풍선으로 알립니다.
   useEffect(() => {
     if (!history.error) return;
@@ -86,6 +97,11 @@ export const useChatStream = (session: SessionRead) => {
 
       const controller = new AbortController();
       abortRef.current = controller;
+      // 대화가 이력서를 고치면 서버 버전(lock_version)이 오릅니다. 턴이 끝나면 이력서를 다시 받아
+      // 패널 직접 고치기의 If-Match가 옛 버전으로 409를 받지 않게 합니다.
+      let resumeChanged = false;
+      // 절차(단계·회차)가 바뀌면 턴이 끝난 뒤 계정을 다시 받아 서버 판정(알림·마감)을 맞춥니다.
+      let procedureChanged = false;
       dispatch({ type: CHAT_ACTIONS.USER_SENT, text: message, inputKind, attachments });
       setInputText('');
       setIsStreaming(true);
@@ -112,13 +128,25 @@ export const useChatStream = (session: SessionRead) => {
           if (controller.signal.aborted) break;
           if (isBubbleEvent(event)) dispatch(chatActionFor(event));
           else if (event.event === SSE_EVENTS.TOOL_CALL) setActiveTool(activeToolAfter(event.data));
-          else if (event.event === SSE_EVENTS.FORM_UPDATE) applyFormUpdateEvent(event.data);
-          else if (event.event === SSE_EVENTS.ERROR) showError(event.data.code);
+          else if (event.event === SSE_EVENTS.FORM_UPDATE) {
+            applyFormUpdateEvent(event.data);
+            resumeChanged ||= event.data.form === 'resume';
+            procedureChanged ||= event.data.form === 'procedure';
+          } else if (event.event === SSE_EVENTS.ERROR) showError(event.data.code);
         }
       } catch (error) {
         // 턴 시작 전 실패(409 턴 진행 중 등)는 보낸 말풍선을 지우고 글을 입력창에 되돌립니다.
         // 그 밖(연결 끊김 등)은 답을 못 만든 것으로 봅니다.
         if (!controller.signal.aborted) {
+          if (error instanceof ApiError && error.code === ERROR_CODES.ACCOUNT_NOT_FOUND) {
+            // 계정이 지워진 뒤(초기화 도중 끊김 등) 남은 화면: 세션을 비우고 첫 화면에서 다시 들어옵니다.
+            resetForms();
+            setSession(null);
+            // 계정이 사라진 뒤라 화면 상태를 모두 버리고 새로 시작해야 하므로 일부러 전체 이동합니다.
+            // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+            window.location.assign('/');
+            return;
+          }
           if (error instanceof ApiError) {
             dispatch({ type: CHAT_ACTIONS.SEND_REJECTED });
             showError(error.code, true);
@@ -126,18 +154,24 @@ export const useChatStream = (session: SessionRead) => {
         }
       } finally {
         if (abortRef.current === controller) abortRef.current = null;
+        if (resumeChanged) {
+          void queryClient.invalidateQueries({ queryKey: queryKeys.resumeForm(sessionId) });
+        }
+        if (procedureChanged) void refreshAccount(personaId);
         setActiveTool(null);
         setIsStreaming(false);
       }
     },
-    [personaId],
+    [personaId, queryClient, sessionId],
   );
 
   return {
     messages: state.messages,
     choices: state.choices,
+    question: state.question,
     importKind: state.importKind,
     acceptsFile: state.acceptsFile,
+    fileChoice: state.fileChoice,
     isStreaming,
     activeTool,
     inputText,

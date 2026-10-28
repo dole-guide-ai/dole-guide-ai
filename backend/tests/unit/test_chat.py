@@ -50,3 +50,25 @@ def test_question_and_error_follow_the_answer() -> None:
 
 def test_no_events_means_no_bubbles() -> None:
     assert assistant_bubbles([]) == []
+
+
+def test_finish_rolls_back_when_saving_fails_so_the_turn_lock_is_released() -> None:
+    """말풍선 저장이 실패해도 트랜잭션을 끝내야 계정 잠금이 풀립니다."""
+    import uuid
+    from datetime import date
+    from unittest.mock import MagicMock
+
+    import pytest
+
+    from app.services import chat as chat_service
+    from app.services.accounts import AccountContext
+
+    db = MagicMock()
+    db.commit.side_effect = RuntimeError("db down")
+    account = AccountContext(uuid.uuid4(), "park", date(2026, 10, 1))
+    turn = chat_service.Turn(db, account, MagicMock())
+
+    with pytest.raises(RuntimeError):
+        turn.finish()
+
+    db.rollback.assert_called_once()

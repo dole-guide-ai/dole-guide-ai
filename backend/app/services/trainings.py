@@ -17,6 +17,8 @@ from sqlalchemy.orm import Session
 
 from app.core.errors import ExternalUnavailableError
 from app.repositories import accounts as repo
+from app.rules import work24_codes
+from app.rules.work24_codes import said_name
 from app.schemas.trainings import ExternalSource, Program, ProgramList, Training, TrainingList
 from app.services import work24_api
 from app.services.accounts import AccountContext
@@ -32,12 +34,13 @@ def _snapshot(name: str) -> dict[str, Any] | None:
 
 
 def desired_occupation(db: Session, user_id: uuid.UUID) -> str | None:
-    """이력서 희망 직종 중 이름이 있는 첫 번째."""
+    """이력서 희망 직종 중 이름이 있는 첫 번째. 검색어라서 고용24 공식 이름보다 사용자가
+    말한 이름을 씁니다(예: "총무 및 일반 사무원"이 아니라 "일반 사무")."""
     resume = repo.get_resume(db, user_id)
     occupations = ((resume.data if resume else {}).get("job_preferences") or {}).get(
         "desired_occupations"
     ) or []
-    names = (((o.get("occupation") or {}).get("value") or {}).get("name") for o in occupations)
+    names = (said_name((o.get("occupation") or {}).get("value")) for o in occupations)
     return next((n for n in names if n), None)
 
 
@@ -83,12 +86,19 @@ def search_trainings(
     """
     start = date_from or today
     end = date_to or start + timedelta(days=work24_api.TRAINING_SEARCH_DAYS)
-    live = work24_api.fetch_trainings(keyword, start, end, page)
+    # 지역은 고용24 지역 코드로 바꿔 검색 조건으로 넘깁니다(전체 건수·페이지가 그 지역 기준).
+    area = work24_codes.region_code(region) if region else None
+    live = work24_api.fetch_trainings(keyword, start, end, page, region=area)
     if live is not None:
-        items = [t for t in live.items if not region or region in (t.region or "")]
-        # 지역은 받은 페이지에서 거르므로 전체 건수를 알 수 없어 이 페이지 건수로 둡니다.
-        total = len(items) if region else live.total
-        return TrainingList(items=items, total=total, source=ExternalSource.LIVE, fetched_at=now)
+        if region and area is None:
+            # 코드로 정할 수 없는 지역("중구"처럼 여러 곳)은 받은 페이지에서 이름으로만 거릅니다.
+            items = [t for t in live.items if region in (t.region or "")]
+            return TrainingList(
+                items=items, total=len(items), source=ExternalSource.LIVE, fetched_at=now
+            )
+        return TrainingList(
+            items=live.items, total=live.total, source=ExternalSource.LIVE, fetched_at=now
+        )
     snapshot = _snapshot("trainings")
     if snapshot is None:
         raise ExternalUnavailableError()

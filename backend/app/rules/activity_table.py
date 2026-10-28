@@ -5,6 +5,7 @@
 처음 쓸 때 한 번 읽고, 형식이 틀리면 ValidationError로 바로 실패합니다.
 """
 
+import re
 from datetime import date
 from functools import lru_cache
 from pathlib import Path
@@ -32,6 +33,8 @@ class KindRule(_Row):
     only_round: int | None = None
     # 직업훈련처럼 날짜 묶기 대신 시간 합으로 인정
     by_hours: bool = False
+    # 사용자가 이 활동을 부르는 말(이름 label 말고). 말에 나오면 인정 여부·한도를 안내합니다.
+    mentions: tuple[str, ...] = ()
 
 
 class LimitRule(_Row):
@@ -68,6 +71,8 @@ class RequiredRow(_Row):
     job_search: int = 0
     first_education: bool = False
     weekly_job_search: bool = False
+    # N일마다 재취업활동 1건 (반복수급자 2주에 1회). 회차 대상기간을 N일씩 나눠 셉니다.
+    every_days: int | None = None
 
     def matches(self, group: str, round_no: int) -> bool:
         first, last = self.rounds
@@ -92,7 +97,8 @@ class ActivityRules(_Row):
     kinds: tuple[KindRule, ...]
     limits: tuple[LimitRule, ...]
     training_hours: TrainingRule
-    job_search_only_from_round: JobSearchOnlyRule
+    # 이 회차부터 구직활동만 인정 (일반 8차, 반복수급자 3차)
+    job_search_only_from_round: tuple[JobSearchOnlyRule, ...]
     routes: tuple[RouteRule, ...]
     required: RequiredRule
     same_day_rule_refs: tuple[str, ...]
@@ -110,6 +116,15 @@ class ActivityRules(_Row):
 
     def required_row(self, group: str, round_no: int) -> RequiredRow | None:
         return next((row for row in self.required.rows if row.matches(group, round_no)), None)
+
+    def kinds_mentioned(self, text: str) -> list[KindRule]:
+        """말에 이름(label)이나 부르는 말(mentions)이 나온 활동 종류. 띄어쓰기는 무시합니다."""
+        compact = re.sub(r"\s+", "", text)
+        return [
+            row
+            for row in self.kinds
+            if any(re.sub(r"\s+", "", w) in compact for w in (row.label, *row.mentions))
+        ]
 
 
 @lru_cache(maxsize=1)

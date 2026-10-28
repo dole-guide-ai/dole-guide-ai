@@ -8,6 +8,8 @@ export const API_PATHS = {
   messages: (personaId: string) => `${account(personaId)}/messages`,
   activities: (personaId: string) => `${account(personaId)}/activities`,
   files: (personaId: string) => `${account(personaId)}/files`,
+  /** 말하기 녹음 → 글 */
+  transcriptions: (personaId: string) => `${account(personaId)}/transcriptions`,
   imports: (personaId: string, path: string) => `${account(personaId)}/imports/${path}`,
   activity: (personaId: string, activityId: string) =>
     `${account(personaId)}/activities/${activityId}`,
@@ -16,6 +18,11 @@ export const API_PATHS = {
   /** 회차 신청서. round가 없으면 지금 회차(`current`) */
   application: (personaId: string, round: number | null) =>
     `${account(personaId)}/rounds/${round ?? 'current'}/application`,
+  /** 고용24 공통코드: 지역 전체(시·도 → 시·군·구) · 세부 직종 이름 검색 (F-12) */
+  codeRegions: '/codes/regions',
+  /** 이름 검색: 세부 직종 · 자격면허 · 전공 */
+  codeSearch: (kind: 'occupations' | 'licenses' | 'majors', q: string, limit: number) =>
+    `/codes/${kind}?${new URLSearchParams({ q, limit: String(limit) })}`,
   /** 내 정보 (F-31). factId가 있으면 그 한 줄 */
   facts: (personaId: string, factId?: string) =>
     `${account(personaId)}/facts${factId ? `/${encodeURIComponent(factId)}` : ''}`,

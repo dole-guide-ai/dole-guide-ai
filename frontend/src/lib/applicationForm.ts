@@ -224,10 +224,8 @@ export const recognitionFromApplication = (app: ApplicationRead): RecognitionFor
     },
     reemployment_activity: {
       required: { activities: app.required_activities, job_search: app.required_job_search },
-      counted: {
-        activities: jobSearch.length + app.other_rows.length,
-        job_search: jobSearch.length,
-      },
+      counted: { activities: app.counted_activities, job_search: app.counted_job_search },
+      remaining: { activities: app.remaining_activities, job_search: app.remaining_job_search },
       has_job_search_activity: jobSearch.length > 0,
       job_search_activities: jobSearch,
       excluded: app.excluded_rows.map((row) => ({

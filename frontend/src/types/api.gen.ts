@@ -85,6 +85,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/codes/licenses": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 자격면허 이름 검색
+         * @description 고용24 자격면허코드(dtlGb=3) 검색. 코드표를 받기 전에는 빈 목록입니다.
+         */
+        get: operations["search_licenses"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/codes/majors": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 전공 이름 검색
+         * @description 고용24 전공코드(dtlGb=6) 검색. 코드표를 받기 전에는 빈 목록입니다.
+         */
+        get: operations["search_majors"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/personas": {
         parameters: {
             query?: never;
@@ -612,6 +652,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/accounts/{persona_id}/transcriptions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 말하기 녹음을 글로 바꾸기
+         * @description 녹음(webm·ogg·m4a·mp3·wav, 4MB까지)을 받아 글로 돌려줍니다. 녹음은 저장하지 않습니다.
+         *
+         *     대화로 바로 보내지 않습니다. 화면이 글을 입력창에 넣고, 사용자가 확인·수정한 뒤
+         *     `input_kind=voice`로 메시지를 보냅니다.
+         *     형식이 아니면 415 UNSUPPORTED_FILE, 너무 크면 413 FILE_TOO_LARGE,
+         *     음성 인식 모델이 없거나 실패하면 503 LLM_UNAVAILABLE입니다.
+         */
+        post: operations["create_transcription"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/accounts/{persona_id}/trainings": {
         parameters: {
             query?: never;
@@ -678,6 +743,12 @@ export interface components {
             today: string;
             procedure: components["schemas"]["ProcedureRead"];
             current_round?: components["schemas"]["RoundSummary"] | null;
+            deadline?: components["schemas"]["RoundDeadline"] | null;
+            /**
+             * Notices
+             * @default []
+             */
+            notices: components["schemas"]["Notice"][];
             entry: components["schemas"]["Entry"];
             pending_ask?: components["schemas"]["AskUserEvent"] | null;
         };
@@ -841,6 +912,14 @@ export interface components {
             required_activities: number | null;
             /** Required Job Search */
             required_job_search: number | null;
+            /** Counted Activities */
+            counted_activities: number;
+            /** Counted Job Search */
+            counted_job_search: number;
+            /** Remaining Activities */
+            remaining_activities: number;
+            /** Remaining Job Search */
+            remaining_job_search: number;
             data: components["schemas"]["RecognitionData"];
             /**
              * Job Search Rows
@@ -887,6 +966,13 @@ export interface components {
              * @default false
              */
             accepts_file: boolean;
+            /** File Choice */
+            file_choice?: string | null;
+        };
+        /** Body_create_transcription */
+        Body_create_transcription: {
+            /** File */
+            file: string;
         };
         /** Body_upload_file */
         Body_upload_file: {
@@ -973,6 +1059,13 @@ export interface components {
              *     }
              */
             certificate_name: components["schemas"]["FormField"];
+            /**
+             * @default {
+             *       "status": "missing",
+             *       "transformed": false
+             *     }
+             */
+            certificate_code: components["schemas"]["FormField"];
             /**
              * @default {
              *       "status": "missing",
@@ -1096,6 +1189,10 @@ export interface components {
              * @default 5
              */
             total: number;
+            /** Sections */
+            sections?: {
+                [key: string]: boolean;
+            };
         };
         /** CreditAnswers */
         CreditAnswers: {
@@ -1213,13 +1310,6 @@ export interface components {
              *       "transformed": false
              *     }
              */
-            gpa: components["schemas"]["FormField"];
-            /**
-             * @default {
-             *       "status": "missing",
-             *       "transformed": false
-             *     }
-             */
             gpa_scale: components["schemas"]["FormField"];
             /**
              * @default {
@@ -1227,7 +1317,21 @@ export interface components {
              *       "transformed": false
              *     }
              */
+            gpa: components["schemas"]["FormField"];
+            /**
+             * @default {
+             *       "status": "missing",
+             *       "transformed": false
+             *     }
+             */
             major: components["schemas"]["FormField"];
+            /**
+             * @default {
+             *       "status": "missing",
+             *       "transformed": false
+             *     }
+             */
+            major_code: components["schemas"]["FormField"];
             /**
              * @default {
              *       "status": "missing",
@@ -1308,6 +1412,8 @@ export interface components {
              * @default false
              */
             accepts_file: boolean;
+            /** File Choice */
+            file_choice?: string | null;
             /**
              * @default {
              *       "big_text": false
@@ -1512,10 +1618,7 @@ export interface components {
              */
             transformed: boolean;
             evidence?: components["schemas"]["FieldEvidence"] | null;
-            /** Completeness */
-            completeness?: {
-                [key: string]: number;
-            } | null;
+            completeness?: components["schemas"]["Completeness"] | null;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -1758,6 +1861,29 @@ export interface components {
             created_at: string;
         };
         /**
+         * Notice
+         * @description 대시보드 알림 하나. 문구는 템플릿(data/templates/notices.json), 근거는 rule_refs.
+         */
+        Notice: {
+            kind: components["schemas"]["NoticeKind"];
+            /** Key */
+            key: string;
+            /** Title */
+            title: string;
+            /** Text */
+            text: string;
+            /**
+             * Rule Refs
+             * @default []
+             */
+            rule_refs: string[];
+        };
+        /**
+         * NoticeKind
+         * @enum {string}
+         */
+        NoticeKind: "visit" | "overdue" | "attend";
+        /**
          * OtherActivityRow
          * @description 구직활동 외 활동사항 한 줄 (취업특강·직업훈련 등). 인정 활동에서 만듭니다.
          */
@@ -1858,6 +1984,11 @@ export interface components {
             remaining_rounds?: number | null;
             /** Last Round */
             last_round?: number | null;
+            /**
+             * Online Presubmit
+             * @default true
+             */
+            online_presubmit: boolean;
         };
         /** ProfileDisplay */
         ProfileDisplay: {
@@ -2178,6 +2309,8 @@ export interface components {
             lock_version: number;
             data: components["schemas"]["ResumeData"];
             completeness: components["schemas"]["Completeness"];
+            /** Required Paths */
+            required_paths?: string[];
             /** Next Question */
             next_question?: string | null;
             /** Can Save */
@@ -2271,6 +2404,17 @@ export interface components {
             rule_refs: string[];
         };
         /**
+         * RoundDeadline
+         * @description 지금 회차의 인정일까지 남은 날과 지금 시각의 제출 방식. 판정은 서버(rules/application)만.
+         */
+        RoundDeadline: {
+            /** D Day */
+            d_day: number;
+            submit_mode: components["schemas"]["SubmitMode"];
+            /** Overdue */
+            overdue: boolean;
+        };
+        /**
          * RoundStatus
          * @enum {string}
          */
@@ -2357,6 +2501,14 @@ export interface components {
              * Format: date-time
              */
             fetched_at: string;
+        };
+        /**
+         * TranscriptionRead
+         * @description 녹음을 받아쓴 글. 화면은 이 글을 입력창에 넣고, 사용자가 고친 뒤 보냅니다.
+         */
+        TranscriptionRead: {
+            /** Text */
+            text: string;
         };
         /**
          * UpdatesRead
@@ -2551,7 +2703,109 @@ export interface operations {
     search_occupations: {
         parameters: {
             query: {
-                /** @description 직종 이름 일부. 띄어쓰기 무시 */
+                /** @description 이름 일부. 띄어쓰기 무시 */
+                q: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_CodeRead_"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    search_licenses: {
+        parameters: {
+            query: {
+                /** @description 이름 일부. 띄어쓰기 무시 */
+                q: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_CodeRead_"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    search_majors: {
+        parameters: {
+            query: {
+                /** @description 이름 일부. 띄어쓰기 무시 */
                 q: string;
                 limit?: number;
             };
@@ -2794,6 +3048,15 @@ export interface operations {
             };
             /** @description Not Found */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -4277,6 +4540,105 @@ export interface operations {
             };
             /** @description Internal Server Error */
             500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    create_transcription: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 시연 계정 ID */
+                persona_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_create_transcription"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TranscriptionRead"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Content Too Large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unsupported Media Type */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };

@@ -33,6 +33,7 @@ export const fieldChip = (meta?: FieldMeta, options: FieldChipOptions = {}): Chi
   if (meta.status === 'extracted') {
     if (meta.source === 'seed') return { label: '예전 이력서', tone: 'info' };
     if (meta.source === 'work24_import') return { label: '고용24 불러오기', tone: 'info' };
+    if (meta.source === 'user_answer') return { label: '대화로 추가', tone: 'ok' };
     return { label: '문서에서 확인', tone: 'info' };
   }
 

@@ -24,9 +24,35 @@ describe('ResumePanel (실제 이력서 API 응답)', () => {
 
     expect(await screen.findByLabelText('완성도')).toHaveTextContent('3 / 5');
     expect(screen.getAllByText('예전 이력서').length).toBeGreaterThan(0);
-    expect(screen.getByText('OO아파트 관리사무소')).toBeInTheDocument();
-    expect(screen.getByText('전기기능사')).toBeInTheDocument();
+    expect(screen.getByText('OO웹솔루션')).toBeInTheDocument();
+    expect(screen.getByText('정보처리기사')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '확인하고 이력서 최신화' })).toBeDisabled();
+  });
+
+  it('전공·학점 칸은 서버가 꼭 넣을 칸으로 줄 때만 보인다(대학 이상 판정은 서버)', async () => {
+    mockResumeApi('choi');
+
+    renderWithProviders(<ResumePanel session={sessionFor('choi')} />);
+
+    expect(await screen.findByText('전공')).toBeInTheDocument();
+    // 전공은 고용24 전공코드로 고른 공식 이름(전자계산학과)으로 보입니다.
+    expect(screen.getByText('전자계산학과')).toBeInTheDocument();
+    expect(screen.getByText('빈칸 (고용24 입력 때 필요)')).toBeInTheDocument();
+  });
+
+  it('서버가 전공을 꼭 넣을 칸으로 주지 않으면(고등학교 학력) 전공 칸이 없다', async () => {
+    const choi = RESUMES.choi;
+    const item = choi.data.education?.[0]?.item_id ?? 'edu_001';
+    const college = [`/education/${item}/major`, `/education/${item}/gpa`];
+    mockResumeApi('choi', {
+      ...choi,
+      required_paths: (choi.required_paths ?? []).filter((path) => !college.includes(path)),
+    });
+
+    renderWithProviders(<ResumePanel session={sessionFor('choi')} />);
+
+    await screen.findByLabelText('완성도');
+    expect(screen.queryByText('전공')).not.toBeInTheDocument();
   });
 
   it('박진수(E7a): 빈 양식은 필수 칸이 남고 저장할 수 없다', async () => {

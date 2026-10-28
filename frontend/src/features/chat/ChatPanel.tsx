@@ -1,13 +1,14 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { Sparkles } from 'lucide-react';
 
-import { ChoiceButtons } from '@/components/ChoiceButtons';
 import type { ChatMessage } from '@/features/chat/chat.types';
 import { ChatInput } from '@/features/chat/ChatInput';
 import { MessageBubble } from '@/features/chat/MessageBubble';
+import { QuestionCard } from '@/features/chat/QuestionCard';
+import type { VoiceStatus } from '@/features/chat/useVoiceInput';
 import { ImportPicker } from '@/features/imports/ImportPicker';
 
 import { ICON_SIZE, ICON_STROKE } from '@/lib/iconSize';
@@ -16,8 +17,12 @@ import type { ImportKind } from '@/types/imports.types';
 interface ChatPanelProps {
   messages: ChatMessage[];
   choices: string[];
+  /** 답을 기다리는 질문 문장. 선택지가 없어도 있으면 질문 카드를 띄웁니다. */
+  question?: string | null;
   /** 마지막 질문이 연 고용24 불러오기 목록 (2-0.4) */
   importKind?: ImportKind | null;
+  /** 누르면 파일 선택창을 여는 질문 선택지 (서버 `file_choice`) */
+  fileChoice?: string | null;
   sessionId?: string;
   /** 불러오기 목록을 받을 계정 */
   personaId?: string;
@@ -29,15 +34,22 @@ interface ChatPanelProps {
   onFileSelect?: (file: File) => void;
   /** 지금 질문이 서류·사진을 요청했는지 (2-0.4 accepts_file) */
   isFileRequested?: boolean;
+  /** 구직활동 증빙을 언제든 올릴 수 있는 단계인지 (실업인정) */
+  canAttachEvidence?: boolean;
   isStreaming?: boolean;
   isUploading?: boolean;
   statusText?: string | null;
+  onVoiceToggle?: () => void;
+  voiceStatus?: VoiceStatus;
+  voiceError?: string | null;
 }
 
 export const ChatPanel = ({
   messages,
   choices,
+  question = null,
   importKind,
+  fileChoice = null,
   sessionId,
   personaId,
   onImport,
@@ -47,12 +59,22 @@ export const ChatPanel = ({
   onSend,
   onFileSelect,
   isFileRequested = false,
+  canAttachEvidence = false,
   isStreaming = false,
   isUploading = false,
   statusText,
+  onVoiceToggle,
+  voiceStatus,
+  voiceError,
 }: ChatPanelProps) => {
   const logRef = useRef<HTMLDivElement>(null);
+  // 질문 카드의 파일 선택지가 입력창과 같은 파일 선택창을 엽니다(올리기 처리도 한 곳).
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const lastText = messages[messages.length - 1]?.text;
+  // 질문 카드는 건너뛰면 닫히고, 새 질문(말풍선 수·선택지가 바뀜)이 오면 다시 뜹니다.
+  const questionKey = `${messages.length}:${question ?? ''}:${choices.join('|')}`;
+  const [dismissedKey, setDismissedKey] = useState<string | null>(null);
+  const isQuestionOpen = (choices.length > 0 || !!question) && dismissedKey !== questionKey;
 
   useEffect(() => {
     // 페이지가 아니라 대화 목록 칸만 맨 아래로 내립니다.
@@ -86,7 +108,6 @@ export const ChatPanel = ({
             <span className="text-ai-shimmer">{statusText}</span>
           </p>
         )}
-        <ChoiceButtons choices={choices} onSelect={onChoice} isDisabled={isStreaming} />
         {importKind && sessionId && personaId && onImport && (
           <ImportPicker
             key={`${importKind}-${messages.length}`}
@@ -98,14 +119,35 @@ export const ChatPanel = ({
           />
         )}
       </div>
+      {isQuestionOpen && (
+        <div className="px-4 pt-2 lg:px-6">
+          <QuestionCard
+            key={questionKey}
+            choices={choices}
+            question={question}
+            onChoice={onChoice}
+            onAnswer={onSend}
+            onDismiss={() => setDismissedKey(questionKey)}
+            // 올리는 중에 또 고르면 첫 파일의 판독 요청이 빠질 수 있어 막습니다.
+            isDisabled={isStreaming || isUploading}
+            fileChoice={fileChoice}
+            onFileChoice={() => fileInputRef.current?.click()}
+          />
+        </div>
+      )}
       <ChatInput
         value={inputText}
         onChange={onInputChange}
         onSend={onSend}
         onFileSelect={onFileSelect}
         isFileRequested={isFileRequested}
+        canAttachEvidence={canAttachEvidence}
         isDisabled={isStreaming}
         isUploading={isUploading}
+        onVoiceToggle={onVoiceToggle}
+        voiceStatus={voiceStatus}
+        voiceError={voiceError}
+        fileInputRef={fileInputRef}
       />
     </section>
   );

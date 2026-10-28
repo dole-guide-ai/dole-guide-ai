@@ -5,6 +5,8 @@ export const queryKeys = {
   messages: (sessionId: string) => ['accounts', 'messages', sessionId] as const,
   resumeForm: (sessionId: string) => ['forms', 'resume', sessionId] as const,
   procedure: ['procedure'] as const,
+  codeRegions: ['codes', 'regions'] as const,
+  codeSearch: (kind: string, q: string) => ['codes', kind, q] as const,
   imports: (kind: string, sessionId: string) => ['imports', kind, sessionId] as const,
   myData: (personaId: string) => ['me', 'data', personaId] as const,
   /** 회차가 바뀌어도 한꺼번에 무효화할 수 있게 회차 점검 키의 앞부분을 따로 둡니다. */

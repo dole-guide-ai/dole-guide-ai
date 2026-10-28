@@ -151,6 +151,7 @@ class PatchErrorType(StrEnum):
     OUT_OF_ROUND = "out_of_round"
     BAD_SHAPE = "bad_shape"
     TOO_MANY = "too_many"
+    CODE = "code"  # 고용24 공통코드 목록에 없는 직종·지역
 
 
 class JsonPatchOp(BaseModel):
@@ -171,6 +172,14 @@ class FormName(StrEnum):
     PROCEDURE = "procedure"
 
 
+class Completeness(BaseModel):
+    filled: int
+    total: int = 5
+    # 꼭 묻는 다섯 항목별 완료 여부(rules/resume/check.REQUIRED_SECTIONS). 판정은 서버만 하고
+    # 화면은 이 값을 그대로 씁니다.
+    sections: dict[str, bool] = PydanticField(default_factory=dict)
+
+
 class FormUpdate(BaseModel):
     """바뀐 칸 하나. 대화 턴의 `form_update` 이벤트와 REST 쓰기 응답이 같은 형태입니다."""
 
@@ -182,7 +191,7 @@ class FormUpdate(BaseModel):
     source: FieldSource | None = None
     transformed: bool = False
     evidence: FieldEvidence | None = None
-    completeness: dict[str, int] | None = None
+    completeness: Completeness | None = None
 
 
 class UpdatesRead(BaseModel):

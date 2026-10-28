@@ -6,14 +6,14 @@
     { "kind": "job_application", "label": "입사지원", "category": "job_search", "rule_refs": ["ACT-001", "ACT-056", "ACT-058"] },
     { "kind": "interview", "label": "면접", "category": "job_search", "rule_refs": ["ACT-002"] },
     { "kind": "job_fair_interview", "label": "채용행사 면접", "category": "job_search", "rule_refs": ["ACT-003", "ACT-059"] },
-    { "kind": "lecture", "label": "취업특강", "category": "non_job_search", "limit_group": "lecture", "rule_refs": ["ACT-004", "ACT-043", "ACT-117", "ACT-131"] },
-    { "kind": "external_lecture", "label": "외부 4시간 이상 특강·집단상담", "category": "non_job_search", "rule_refs": ["ACT-047"] },
-    { "kind": "training", "label": "직업훈련", "category": "non_job_search", "by_hours": true, "rule_refs": ["ACT-051", "ACT-052", "ACT-053"] },
-    { "kind": "aptitude_test", "label": "직업심리검사", "category": "non_job_search", "limit_group": "aptitude_test", "rule_refs": ["ACT-044", "ACT-119"] },
-    { "kind": "counseling", "label": "심리안정 프로그램", "category": "non_job_search", "limit_group": "counseling", "rule_refs": ["ACT-045", "ACT-120"] },
-    { "kind": "volunteer", "label": "자원봉사", "category": "non_job_search", "limit_group": "volunteer", "groups": ["age_60_64", "age65_or_disabled"], "rule_refs": ["ACT-046", "ACT-125", "ACT-065"] },
-    { "kind": "private_academy", "label": "어학·취미 학원", "category": "non_job_search", "allowed": false, "rule_refs": ["ACT-054"] },
-    { "kind": "first_education", "label": "1차 실업인정 교육", "category": "non_job_search", "only_round": 1, "rule_refs": ["ACT-020", "ACT-130"] }
+    { "kind": "lecture", "label": "취업특강", "category": "non_job_search", "limit_group": "lecture", "mentions": ["특강"], "rule_refs": ["ACT-004", "ACT-043", "ACT-117", "ACT-131"] },
+    { "kind": "external_lecture", "label": "외부 4시간 이상 특강·집단상담", "category": "non_job_search", "mentions": ["집단상담"], "rule_refs": ["ACT-047"] },
+    { "kind": "training", "label": "직업훈련", "category": "non_job_search", "by_hours": true, "mentions": ["직업훈련", "훈련", "국비"], "rule_refs": ["ACT-051", "ACT-052", "ACT-053"] },
+    { "kind": "aptitude_test", "label": "직업심리검사", "category": "non_job_search", "limit_group": "aptitude_test", "mentions": ["심리검사", "적성검사"], "rule_refs": ["ACT-044", "ACT-119"] },
+    { "kind": "counseling", "label": "심리안정 프로그램", "category": "non_job_search", "limit_group": "counseling", "mentions": ["심리안정"], "rule_refs": ["ACT-045", "ACT-120"] },
+    { "kind": "volunteer", "label": "자원봉사", "category": "non_job_search", "limit_group": "volunteer", "groups": ["age_60_64", "age65_or_disabled"], "mentions": ["봉사"], "rule_refs": ["ACT-046", "ACT-125", "ACT-065"] },
+    { "kind": "private_academy", "label": "어학·취미 학원", "category": "non_job_search", "allowed": false, "mentions": ["어학", "영어학원", "토익", "취미"], "rule_refs": ["ACT-054"] },
+    { "kind": "first_education", "label": "1차 실업인정 교육", "category": "non_job_search", "only_round": 1, "mentions": ["실업인정 교육", "1차 교육"], "rule_refs": ["ACT-020", "ACT-130"] }
   ],
   "limits": [
     { "group": "lecture", "label": "취업특강", "max": 2, "rule_refs": ["ACT-043", "ACT-117"] },
@@ -22,7 +22,10 @@
     { "group": "volunteer", "label": "자원봉사", "max": 1, "rule_refs": ["ACT-046", "ACT-125"] }
   ],
   "training_hours": { "min_counted": 15, "full_round": 30, "rule_refs": ["ACT-051", "ACT-052", "ACT-053"] },
-  "job_search_only_from_round": { "round": 8, "groups": ["general"], "rule_refs": ["ACT-030"] },
+  "job_search_only_from_round": [
+    { "round": 8, "groups": ["general"], "rule_refs": ["ACT-030"] },
+    { "round": 3, "groups": ["repeat"], "rule_refs": ["1350 의무 횟수(2026-10-15 답변)"] }
+  ],
   "routes": [
     { "route": "work24", "label": "고용24", "evidence": [], "rule_refs": ["ACT-132"] },
     { "route": "step_online", "label": "온라인 취업특강(STEP)", "evidence": [], "rule_refs": [] },
@@ -38,13 +41,14 @@
     { "route": "training", "label": "직업훈련", "evidence": ["수강증명서", "대상 기간 출석부"], "rule_refs": ["ACT-141", "ACT-050"] }
   ],
   "required": {
-    "rule_refs": ["ACT-020", "ACT-023", "ACT-026", "ACT-028", "ACT-030"],
+    "rule_refs": ["ACT-020", "ACT-023", "ACT-026", "ACT-028", "ACT-030", "1350 의무 횟수(2026-10-15 답변)"],
     "rows": [
-      { "rounds": [1, 1], "groups": ["general", "age_60_64", "age65_or_disabled"], "total": 1, "job_search": 0, "first_education": true },
+      { "rounds": [1, 1], "groups": ["general", "age_60_64", "age65_or_disabled", "repeat"], "total": 1, "job_search": 0, "first_education": true },
       { "rounds": [2, 3], "groups": ["general", "age_60_64", "age65_or_disabled"], "total": 1, "job_search": 0 },
       { "rounds": [4, 7], "groups": ["general"], "total": 2, "job_search": 1 },
       { "rounds": [4, null], "groups": ["age_60_64", "age65_or_disabled"], "total": 1, "job_search": 0 },
-      { "rounds": [8, null], "groups": ["general"], "weekly_job_search": true }
+      { "rounds": [8, null], "groups": ["general"], "weekly_job_search": true },
+      { "rounds": [2, null], "groups": ["repeat"], "every_days": 14 }
     ]
   },
   "same_day_rule_refs": ["ACT-055", "ACT-110"],

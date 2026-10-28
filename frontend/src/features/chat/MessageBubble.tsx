@@ -3,6 +3,7 @@ import Image from 'next/image';
 import { Paperclip } from 'lucide-react';
 
 import { EvidenceLine } from '@/components/EvidenceLine';
+import { AssistantText } from '@/features/chat/AssistantText';
 import type { ChatMessage } from '@/features/chat/chat.types';
 import { CHAT_ROLE } from '@/features/chat/chat.types';
 
@@ -56,11 +57,11 @@ export const MessageBubble = ({ message }: MessageBubbleProps) => {
   return (
     <article className="flex flex-col gap-2" aria-label="길잡이 답변">
       <div className="flex items-center gap-2">
-        <Image src="/brand/avatar.svg" alt="" width={32} height={32} unoptimized />
+        <Image src="/brand/avatar.svg" alt="" width={26} height={26} unoptimized />
         <span className="text-muted text-sm font-semibold">실업급여 길잡이</span>
       </div>
       {attachments}
-      <p className="text-ink text-base leading-relaxed whitespace-pre-line">{message.text}</p>
+      <AssistantText text={message.text} />
       {message.cite && <EvidenceLine cite={message.cite} />}
     </article>
   );

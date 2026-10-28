@@ -6,6 +6,8 @@ import { FileText } from 'lucide-react';
 
 import { Button } from '@/components/Button';
 import { EvidenceLine } from '@/components/EvidenceLine';
+import { Spinner } from '@/components/Spinner';
+import { NoticeBox } from '@/features/dashboard/NoticeBox';
 import { ActivityList } from '@/features/procedure/ActivityList';
 import { BenefitEndNote } from '@/features/procedure/BenefitEndNote';
 import { DdayCard } from '@/features/procedure/DdayCard';
@@ -17,8 +19,8 @@ import { useRoundCheck } from '@/features/procedure/useRoundCheck';
 import { useRoundDraft } from '@/features/procedure/useRoundDraft';
 
 import { ApiError } from '@/lib/api';
-import { formatKoreanDate } from '@/lib/dateFormat';
 import { ICON_SIZE, ICON_STROKE } from '@/lib/iconSize';
+import { findNotice, NOTICE_KIND } from '@/lib/notices';
 import { STICKY_FOOTER } from '@/lib/panelLayout';
 import type { SessionRead } from '@/types/demo.types';
 
@@ -46,7 +48,7 @@ export const RoundPanel = ({ session, onOpenForm }: RoundPanelProps) => {
   const [isAskingShort, setIsAskingShort] = useState(false);
   const remove = useRemoveActivity(session.persona_id);
 
-  if (query.isPending) return <p className="text-muted text-base">이번 회차 활동을 불러오는 중…</p>;
+  if (query.isPending) return <Spinner label="이번 회차 활동을 불러오는 중…" isCentered />;
   if (query.isError) {
     // 점검을 못 받아도(예: 회차 점검 API 준비 전) 신청서로는 넘어갈 수 있게 버튼을 남깁니다 (F-22).
     return (
@@ -65,7 +67,8 @@ export const RoundPanel = ({ session, onOpenForm }: RoundPanelProps) => {
 
   // 저장소가 아직 채워지기 전(첫 렌더) 에는 받은 응답을 그대로 씁니다.
   const check = { ...query.data, ...draft };
-  const isOverdue = (session.derived.d_day ?? 0) < 0;
+  // 인정일 지남(18시 이후·지난 회차 미제출)은 서버가 판정해 알림으로 보냅니다 (DUE-089, DUE-094).
+  const overdueNotice = findNotice(session.notices, NOTICE_KIND.OVERDUE);
   const plannedIds = check.activities
     .filter((activity) => activity.status === 'planned')
     .map((activity) => activity.item_id);
@@ -81,18 +84,8 @@ export const RoundPanel = ({ session, onOpenForm }: RoundPanelProps) => {
 
   return (
     <div className="flex flex-col gap-6">
-      {/* E2 (1.6): 인정일이 지났으면 변경 신청 안내를 맨 위에 둡니다 (DUE-089, DUE-094). */}
-      {isOverdue && session.state.next_recognition_date && (
-        <div role="alert" className="bg-danger-soft text-danger rounded-xl px-4 py-3">
-          <p className="text-base font-semibold">
-            {formatKoreanDate(session.state.next_recognition_date)} 실업인정일이 지났어요.
-          </p>
-          <p className="text-base">
-            날짜를 착각했거나 개인 사정이었다면 인정일부터 14일 안에 고용센터에 가서 변경 신청을 할
-            수 있어요(수급기간 중 1회). 활동 기록은 계속할 수 있어요.
-          </p>
-        </div>
-      )}
+      {/* E2 (1.6): 인정일이 지났으면 변경 신청 안내를 맨 위에 둡니다. */}
+      {overdueNotice && <NoticeBox notice={overdueNotice} tone="danger" />}
       <DdayCard state={session.state} derived={session.derived} />
       <div className={DIVIDED}>
         <RequirementCard check={check} />
@@ -129,7 +122,8 @@ export const RoundPanel = ({ session, onOpenForm }: RoundPanelProps) => {
       <div className="flex flex-col gap-1">
         {check.rule_review === 'not_verified' && (
           <p className="text-muted text-sm">
-            검수 전 규칙으로 계산했어요. 최종 인정 여부는 관할 고용센터가 판단해요.
+            적어 둔 활동을 고용24 안내의 회차별 필요 건수와 비교한 결과예요. 이 기준은 아직 전문가
+            검토 전이라, 최종 인정 여부는 관할 고용센터가 판단해요.
           </p>
         )}
         <EvidenceLine cite={check.cite} />

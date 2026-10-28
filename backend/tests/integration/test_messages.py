@@ -74,6 +74,7 @@ def test_refresh_restores_messages_and_pending_question(
         "choices": ["입사지원", "면접", "다른 활동"],
         "import_kind": None,
         "accepts_file": True,
+        "file_choice": None,
     }
 
     # 답하면 더는 멈춘 질문이 아닙니다

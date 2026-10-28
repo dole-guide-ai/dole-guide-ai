@@ -16,6 +16,11 @@ on:
         type: choice
         options: [all, procedure, form_fill, grounding, masking]
         default: all
+      case_set:
+        description: "문항 세트: dev = 개발용(고칠 때), test = 검증용(최종 확인 때만), all = 전체"
+        type: choice
+        options: [all, dev, test]
+        default: all
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -57,9 +62,10 @@ jobs:
         env:
           GOLDEN_AGENT: ${{ inputs.agent }}
           GOLDEN_AREA: ${{ inputs.area }}
+          GOLDEN_SET: ${{ inputs.case_set }}
         run: >-
           uv run pytest evals/test_golden.py -m eval
-          --golden-agent="$GOLDEN_AGENT" --golden-area="$GOLDEN_AREA"
+          --golden-agent="$GOLDEN_AGENT" --golden-area="$GOLDEN_AREA" --golden-set="$GOLDEN_SET"
       - name: 보고서 올리기
         if: always()
         uses: actions/upload-artifact@v4

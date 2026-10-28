@@ -16,7 +16,7 @@ import logging
 import time
 from collections.abc import Iterable, Iterator
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import datetime
 from http import HTTPStatus
 from typing import Any
 
@@ -110,8 +110,14 @@ class Turn:
         if self._finished:
             return
         self._finished = True
-        message_service.save_turn(self.db, self.account.user_id, assistant_bubbles(self._sent))
-        self.db.commit()
+        try:
+            message_service.save_turn(self.db, self.account.user_id, assistant_bubbles(self._sent))
+            self.db.commit()
+        except Exception:
+            # 저장이 실패해도 트랜잭션을 끝내 턴 잠금(계정 행 잠금)이 남지 않게 합니다.
+            # 잠금이 남으면 그 계정의 새 말·초기화가 모두 "답을 만드는 중"으로 막힙니다.
+            self.db.rollback()
+            raise
 
     @staticmethod
     def _guarded(source: Iterator[TurnEvent]) -> Iterator[TurnEvent]:
@@ -120,6 +126,8 @@ class Turn:
         except Exception as exc:  # noqa: BLE001 - 턴 도중 실패는 error 이벤트로 알립니다
             error = gateway.to_app_error(exc)
             logger.warning("turn failed code=%s type=%s", error.code, type(exc).__name__)
+            # 원인 추적은 DEBUG에서만(메시지는 AppError의 사용자 문구와 형 이름뿐, 입력 원문 없음)
+            logger.debug("turn failed detail", exc_info=exc)
             yield _error_event(error.code, error.message)
 
 
@@ -128,7 +136,7 @@ def start_turn(
     account: AccountContext,
     body: MessageCreate,
     idempotency_key: str | None,
-    today: date,
+    now: datetime,
 ) -> Turn:
     """스트림 전에 막을 것을 확인하고 사용자 말풍선을 남깁니다. 실패는 HTTP 오류로 끝납니다."""
     if not repo.try_lock_turn(db, account.user_id):
@@ -153,7 +161,7 @@ def start_turn(
         persona_id=account.persona_id,
         text=body.text,
         input_kind=body.input_kind,
-        today=today,
+        now=now,
         file_ids=body.file_ids,
         import_ids=body.import_ids,
         db=db,

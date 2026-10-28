@@ -10,7 +10,11 @@
 import re
 from dataclasses import dataclass
 
+from app.schemas.imports import ImportCategory
+
 SEPARATOR = " · "
+# 경력·자격 항목이 들어가는 이력서 섹션. 같은 항목인지는 제목(회사·자격증 이름)으로 가릅니다.
+RESUME_SECTIONS = {ImportCategory.CAREER: "careers", ImportCategory.LICENSE: "certifications"}
 # 연월만 뽑습니다. 일까지 있으면(2004.03.15) 일은 버립니다.
 _YM = re.compile(r"(\d{4})\.(\d{1,2})(?:\.\d{1,2})?(?!\d)")
 _YMD = re.compile(r"(\d{4})\.(\d{1,2})\.(\d{1,2})")
@@ -39,6 +43,12 @@ class ApplicationValues:
 
 def _parts(text: str) -> list[str]:
     return [part.strip() for part in text.split(SEPARATOR)]
+
+
+def resume_target(category: str, title: str) -> tuple[str, str] | None:
+    """(이력서 섹션, 같은 항목을 가르는 이름). 이력서에 들어가지 않는 범주면 None."""
+    section = RESUME_SECTIONS.get(ImportCategory(category))
+    return (section, title.strip()) if section else None
 
 
 def career_values(title: str, detail: str) -> CareerValues:

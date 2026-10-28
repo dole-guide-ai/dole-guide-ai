@@ -7,11 +7,15 @@ import json
 import re
 from typing import TYPE_CHECKING, Any
 
+from app.agent.output import FOREIGN_SCRIPT
+
 if TYPE_CHECKING:
     from evals.golden.adapter import AgentResult
 
 TOKEN = re.compile(r"([^.\[\]]+)|\[(-?\d+)\]")
 MISSING = object()
+# 꼭포함 칸에서 같은 뜻의 다른 표현을 나누는 글자("17시|17:00")
+ALTERNATIVE = "|"
 
 
 def _tokens(path: str) -> list[str | int]:
@@ -88,7 +92,8 @@ def _show(value: Any) -> str:
 
 
 def check(case: dict[str, Any], result: AgentResult) -> list[str]:
-    expected, initial = case["expected"], case["input"]["data"]
+    expected = case["expected"]
+    initial = case["input"]["data"] if result.initial_data is None else result.initial_data
     failures = []
     if expected["next_action"] and result.next_action != expected["next_action"]:
         failures.append(f"다음할일: {result.next_action!r} (기대 {expected['next_action']!r})")
@@ -103,13 +108,17 @@ def check(case: dict[str, Any], result: AgentResult) -> list[str]:
             failures.append(f"변경금지: {path}이(가) 바뀜")
     last_reply = result.replies[-1] if result.replies else ""
     all_replies = "\n".join(result.replies)
+    # 꼭포함 "A|B"는 같은 뜻의 다른 표현이라 하나만 있으면 됩니다("17시|17:00").
     failures += [f"꼭포함: '{word}'이(가) 답에 없음" for word in expected["must_include"]
-                 if word not in last_reply]  # fmt: skip
+                 if not any(alt in last_reply for alt in word.split(ALTERNATIVE))]  # fmt: skip
     failures += [f"포함금지: '{word}'이(가) 답에 있음" for word in expected["must_not_include"]
                  if word in all_replies]  # fmt: skip
     patterns = expected["forbidden_patterns"]
     failures += [f"금지패턴: /{pattern}/에 맞는 글이 답에 있음"
                  for pattern in patterns if re.search(pattern, all_replies)]  # fmt: skip
+    # 모든 문항 공통: 다른 언어 문자가 답에 섞이면 출력 관문(agent/output.py)이 놓친 것입니다.
+    if FOREIGN_SCRIPT.search(all_replies):
+        failures.append("외국문자: 답에 다른 언어 문자가 섞임")
     if expected["cite_required"] and not result.cites:
         failures.append("근거표시: 답에 근거 줄이 없음")
     stored = "\n".join([*result.stored, json.dumps(result.data, ensure_ascii=False)])

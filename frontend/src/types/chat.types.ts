@@ -4,6 +4,7 @@
  */
 
 import type { ERROR_CODES } from '@/lib/errorCodes';
+import type { RequiredSection } from '@/lib/resumeSections';
 import type { SSE_EVENTS } from '@/lib/sseEvents';
 import type { components } from '@/types/api.gen';
 import type { ImportKind } from '@/types/imports.types';
@@ -31,6 +32,7 @@ export interface ToolCallEvent {
  * 불러오기 종류만 화면이 아는 값으로 좁힙니다.
  * - `import_kind`: 고용24 불러오기 목록을 열 때 (2-0.4)
  * - `accepts_file`: 서류·사진을 요청할 때만 true. 이때만 `파일 올리기`를 켭니다 (2-0.4)
+ * - `file_choice`: 누르면 말을 보내지 않고 파일 선택창을 여는 선택지(예: 이력서 또는 경력증명서 파일 올리기)
  */
 export type AskUserEvent = Omit<
   components['schemas']['AskUserEvent'],
@@ -59,6 +61,8 @@ export interface FieldEvidence {
 export interface Completeness {
   done: number;
   total: number;
+  /** 꼭 채울 항목별 완료 여부. 판정은 서버가 하고 화면은 그대로 씁니다(`REQUIRED_SECTION`). */
+  sections: Partial<Record<RequiredSection, boolean>>;
 }
 
 /** 백엔드(JSON Patch: add·replace·remove)와 예전 화면 연산(set·append)을 함께 받습니다. */
@@ -73,13 +77,16 @@ export interface FormUpdateEvent {
   transformed?: boolean;
   source?: FieldSource;
   evidence?: FieldEvidence;
-  completeness?: Completeness;
+  /** 서버 완성도 그대로(`{filled, total, sections}`). 패널 모양으로는 formStore가 바꿉니다. */
+  completeness?: components['schemas']['Completeness'] | null;
 }
 
 /** 말풍선이 끝날 때. 근거 줄(2-0.8)은 여기에 실어 보냅니다. */
 export interface DoneEvent {
   cite?: string;
   rule_refs?: string[];
+  /** 지금 할 일 하나(서버가 절차 단계·회차 상태로 정함). 예: write_resume, add_activity */
+  next_action?: string | null;
 }
 
 /** PATCH /forms/{kind} 본문 (2-0.6 패널에서 직접 고치기) */

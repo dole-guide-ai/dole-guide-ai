@@ -16,6 +16,7 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
+from app.agent import checkpointer
 from app.core import crypto
 from app.core.clock import KST
 from app.core.config import get_settings
@@ -23,9 +24,13 @@ from app.core.db import create_or_existing
 from app.core.errors import ConflictError, NotFoundError
 from app.repositories import accounts as repo
 from app.repositories import imports as import_repo
-from app.rules import periods
+from app.repositories import messages as message_repo
+from app.rules import imports as import_rules
+from app.rules import notices as notice_rules
+from app.rules import periods, presubmit
 from app.rules import resume as resume_rules
-from app.rules.entry_text import RoundFacts
+from app.rules.entry_text import WELCOME_NEW, WELCOME_RETURNING, RoundFacts
+from app.rules.resume.items import ItemPicker
 from app.schemas.accounts import AccountRead, PersonaCard, PersonaDisplay, PersonaList
 from app.schemas.application import SubmitMode
 from app.schemas.common import ErrorCode
@@ -36,8 +41,8 @@ from app.schemas.procedure import ProcedureRead, Stage
 from app.schemas.resume import ResumeStatus
 from app.schemas.rounds import ActivityStatus, ApplicationStatus, RoundStatus, RoundSummary
 from app.services import messages as message_service
-from app.services.entry import ResumeState, build_entry
-from app.services.seed import at
+from app.services.entry import ResumeState, build_entry, situation_rule_refs
+from app.services.seed import at, resolve_seed
 
 # seed에서 이미 낸 회차는 인정일 이 시각에 낸 것으로 둡니다.
 SEED_SUBMITTED_AT = time(10)
@@ -95,9 +100,10 @@ def list_persona_cards(db: Session, visitor_id: uuid.UUID) -> PersonaList:
 
 
 def enter(
-    db: Session, visitor_id: uuid.UUID, persona_id: str, today: date
+    db: Session, visitor_id: uuid.UUID, persona_id: str, now: datetime
 ) -> tuple[AccountRead, bool]:
     """있으면 그대로, 없으면 seed로 만듭니다. 두 번째 값은 새로 만들었는지."""
+    today = now.date()
     persona = _persona_or_404(db, persona_id)
     user = repo.get_user(db, visitor_id, persona_id)
     created = False
@@ -106,7 +112,7 @@ def enter(
         def create() -> repo.User:
             new = repo.new_user(visitor_id, persona_id, today)
             repo.add_all(db, [new])
-            _materialize(db, new.user_id, persona.seed, today)
+            _materialize(db, new.user_id, resolve_seed(persona.seed, today), today)
             return new
 
         # 같은 계정 입장이 동시에 오면 먼저 만들어진 계정을 이어서 돌려줍니다(PUT은 멱등).
@@ -119,15 +125,30 @@ def enter(
         existing = user
 
         def backfill() -> repo.User:
-            repo.add_all(db, _import_rows(existing.user_id, persona.seed, existing.anchor_date))
+            anchor = existing.anchor_date
+            seed = resolve_seed(persona.seed, anchor)
+            rows = _import_rows(existing.user_id, seed, anchor)
+            _unmark_missing_from_resume(db, existing.user_id, rows)
+            repo.add_all(db, rows)
             return existing
 
         user, _ = create_or_existing(db, backfill, lambda: existing)
     account = AccountContext(user.user_id, user.persona_id, user.anchor_date)
-    return read_account(db, account, today), created
+    return read_account(db, account, now, greet=True), created
 
 
 def delete_account(db: Session, account: AccountContext) -> None:
+    """계정 행과 함께 대화 그래프 상태(체크포인트, thread_id=user_id)와 업로드 파일을 지웁니다.
+
+    체크포인트를 먼저 지웁니다. 여기서 실패하면 계정 행이 그대로 남아 DELETE를 다시 보내면 됩니다.
+    체크포인트는 별도 연결(autocommit)에서 지워지므로, 그 뒤 `db.commit()`이 실패하면 체크포인트만
+    지워지고 계정 행·업로드 폴더는 남을 수 있습니다. 이때도 계정이 남아 있어 DELETE를 다시 보내면
+    정리됩니다(없는 thread를 지워도 오류가 나지 않습니다).
+    """
+    # 답을 만드는 턴이 이 계정을 잠그고 있으면 기다리지 않고 바로 알립니다(초기화가 멈추지 않게).
+    if not message_repo.try_lock_turn(db, account.user_id):
+        raise ConflictError(code=ErrorCode.TURN_IN_PROGRESS)
+    checkpointer.get_checkpointer().delete_thread(str(account.user_id))
     user = repo.get_user_by_id(db, account.user_id)
     if user is not None:
         repo.delete_user(db, user)
@@ -135,11 +156,20 @@ def delete_account(db: Session, account: AccountContext) -> None:
     shutil.rmtree(Path(get_settings().upload_dir) / str(account.user_id), ignore_errors=True)
 
 
-def read_account(db: Session, account: AccountContext, today: date) -> AccountRead:
+def read_account(
+    db: Session, account: AccountContext, now: datetime, *, greet: bool = False
+) -> AccountRead:
+    """계정 상태. 지금 시각(KST)으로 인정일 마감(17·18시)과 알림까지 서버가 판정합니다.
+
+    `greet`: 입장·새로고침이면 첫 안내 앞에 인사를 붙입니다(처음이면 도우미 소개, 대화 기록이
+    있으면 "다시 오셨네요"). 저장 같은 동작 뒤에 다시 만드는 안내는 인사 없이 지금 상황만 줍니다.
+    """
+    today = now.date()
     procedure = read_procedure(db, account.user_id, today)
     rounds = read_rounds(db, account.user_id, today)
     current = next((r for r in rounds if r.status == RoundStatus.CURRENT), None)
-    d_day = (current.recognition_date - today).days if current else None
+    deadline = notice_rules.round_deadline(current, now) if current else None
+    d_day = deadline.d_day if deadline else None
     resume_state = _resume_status(db, account.user_id, procedure)
     entry = build_entry(
         procedure,
@@ -149,12 +179,18 @@ def read_account(db: Session, account: AccountContext, today: date) -> AccountRe
         name=_display_name(db, account.persona_id),
         old_resume_year=_old_resume_year(db, account.user_id, resume_state),
         round_facts=_round_facts(db, account.user_id, today) if current else None,
+        welcome=_welcome(db, account.user_id) if greet else None,
+        resume_filled=_resume_filled(db, account.user_id, resume_state),
     )
     return AccountRead(
         persona_id=account.persona_id,
         today=today,
         procedure=procedure,
         current_round=current,
+        deadline=deadline,
+        notices=notice_rules.account_notices(
+            procedure, current, deadline, notice_rules.missed_round(rounds, today)
+        ),
         entry=entry,
         # 새로고침하면 답을 기다리던 질문과 선택지를 다시 띄웁니다 (F-03).
         pending_ask=message_service.pending_ask(db, account.user_id),
@@ -229,6 +265,7 @@ def read_procedure(db: Session, user_id: uuid.UUID, today: date | None = None) -
             else None
         ),
         last_round=len(recognition_dates) or None,
+        online_presubmit=presubmit.online_presubmit(state.age_at_separation),
     )
 
 
@@ -294,6 +331,37 @@ def _round_facts(db: Session, user_id: uuid.UUID, today: date) -> RoundFacts | N
     )
 
 
+def situation_rules(
+    db: Session,
+    user_id: uuid.UUID,
+    procedure: ProcedureRead,
+    round_: RoundSummary | None,
+    d_day: int | None,
+) -> list[str]:
+    """지금 단계·회차의 근거 규칙 카드(첫 안내와 같은 분기). 대화에서 근거로 미리 붙입니다."""
+    return situation_rule_refs(procedure, _resume_status(db, user_id, procedure), round_, d_day)
+
+
+def resume_ready(db: Session, user_id: uuid.UUID, procedure: ProcedureRead) -> bool:
+    """이직 뒤에 저장한 이력서가 있는지. 화면 안내(entry)와 다음 할 일이 같은 기준을 씁니다."""
+    return _resume_status(db, user_id, procedure) == ResumeState.READY
+
+
+def _welcome(db: Session, user_id: uuid.UUID) -> str:
+    return WELCOME_RETURNING if message_service.has_history(db, user_id) else WELCOME_NEW
+
+
+def _resume_filled(db: Session, user_id: uuid.UUID, state: ResumeState | None) -> int | None:
+    """쓰는 중이거나 예전 이력서면 꼭 채울 5칸 중 몇 칸을 채웠는지."""
+    if state not in (ResumeState.DRAFT, ResumeState.OUTDATED):
+        return None
+    # 이력서 서비스가 이 모듈을 쓰므로 여기서 가져옵니다(순환 import 피하기).
+    from app.services.resume import read_resume_data  # noqa: PLC0415
+
+    data = read_resume_data(repo.get_resume(db, user_id))
+    return resume_rules.resume_completeness(data).filled
+
+
 def _resume_status(db: Session, user_id: uuid.UUID, procedure: ProcedureRead) -> ResumeState | None:
     """1장 1.2 resume_status: 없음(None) / outdated / draft / ready."""
     resume = repo.get_resume(db, user_id)
@@ -335,6 +403,25 @@ def _import_rows(user_id: uuid.UUID, seed: dict[str, Any], anchor: date) -> list
                 )
             )
     return rows
+
+
+def _unmark_missing_from_resume(
+    db: Session, user_id: uuid.UUID, rows: list[repo.Work24Import]
+) -> None:
+    """seed에서 '이미 넣음'인 경력·자격이라도 지금 이력서에 같은 항목이 없으면 넣을 수 있게 둡니다.
+
+    예전 seed로 만든 계정은 이력서 항목이 지금 seed와 다를 수 있습니다. 같은 항목인지는
+    불러오기를 넣을 때와 같은 이름 기준(rules/resume/items)으로 봅니다.
+    """
+    # 이력서 서비스가 이 모듈을 쓰므로 여기서 가져옵니다(순환 import 피하기).
+    from app.services.resume import read_resume_data  # noqa: PLC0415
+
+    data = read_resume_data(repo.get_resume(db, user_id))
+    for row in rows:
+        target = import_rules.resume_target(row.category, row.title)
+        if row.is_recorded and target:
+            section, name = target
+            row.is_recorded = not ItemPicker(data).pick(section, values=(name,)).is_new
 
 
 def _materialize(db: Session, user_id: uuid.UUID, seed: dict[str, Any], anchor: date) -> None:

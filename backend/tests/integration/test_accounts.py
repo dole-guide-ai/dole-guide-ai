@@ -1,9 +1,10 @@
-from datetime import date, timedelta
+import uuid
+from datetime import date, datetime, time, timedelta
 
 import pytest
 from fastapi.testclient import TestClient
 
-from app.core.clock import get_today
+from app.core.clock import KST, get_now
 from app.main import app
 
 pytestmark = pytest.mark.integration
@@ -13,9 +14,9 @@ TODAY = date(2026, 10, 21)
 
 @pytest.fixture(autouse=True)
 def fixed_today():
-    app.dependency_overrides[get_today] = lambda: TODAY
+    app.dependency_overrides[get_now] = lambda: datetime.combine(TODAY, time(10), KST)
     yield
-    app.dependency_overrides.pop(get_today, None)
+    app.dependency_overrides.pop(get_now, None)
 
 
 def new_visitor(client: TestClient) -> dict[str, str]:
@@ -72,6 +73,10 @@ def test_lee_is_in_round_four_with_relative_dates(client: TestClient) -> None:
         "draft",
     ]
     assert [r["status"] for r in rounds[:4]] == ["closed", "closed", "closed", "current"]
+    # 마감·알림은 서버가 지금 시각(10시)으로 판정해 내려 줍니다. 출석 회차라 출석 안내.
+    assert body["deadline"] == {"d_day": 6, "submit_mode": "attend", "overdue": False}
+    assert [n["key"] for n in body["notices"]] == ["attend-4"]
+    assert body["procedure"]["online_presubmit"] is True
 
 
 def test_choi_old_resume_is_outdated(client: TestClient) -> None:
@@ -79,6 +84,10 @@ def test_choi_old_resume_is_outdated(client: TestClient) -> None:
 
     assert body["entry"]["branch_id"] == "E7b"
     assert body["entry"]["ui"]["big_text"] is True
+    # 이직일 67세라 인터넷 사전제출 대상이 아니고, 신청 경로 안내가 근거와 함께 옵니다.
+    assert body["procedure"]["online_presubmit"] is False
+    assert [(n["key"], n["rule_refs"]) for n in body["notices"]] == [("visit", ["PROC-048"])]
+    assert body["deadline"] is None
 
 
 def test_other_visitor_cannot_see_account(client: TestClient) -> None:
@@ -123,3 +132,44 @@ def test_account_endpoint_needs_token_first(client: TestClient) -> None:
 
     assert client.get("/accounts/park/trainings").status_code == 401
     assert client.get("/accounts/park/trainings", headers=headers).status_code == 200
+
+
+def test_delete_also_clears_conversation_state(client: TestClient, monkeypatch) -> None:
+    """처음부터 다시(DELETE): 대화 그래프 상태(체크포인트)도 지워 지난 질문을 잇지 않습니다."""
+    from app.agent.checkpointer import get_checkpointer
+    from app.services import accounts as accounts_service
+
+    saver = get_checkpointer()
+    deleted: list[str] = []
+    monkeypatch.setattr(saver, "delete_thread", lambda tid: deleted.append(tid))
+    # 서비스가 지우려고 조회한 계정의 user_id를 기록해, 체크포인트 thread_id와 같은지 봅니다.
+    looked_up: list[uuid.UUID] = []
+    get_user_by_id = accounts_service.repo.get_user_by_id
+
+    def record_lookup(db, user_id):
+        looked_up.append(user_id)
+        return get_user_by_id(db, user_id)
+
+    token = client.post("/visitors").json()["visitor_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+    client.put("/accounts/park", headers=headers)
+    monkeypatch.setattr(accounts_service.repo, "get_user_by_id", record_lookup)
+
+    assert client.delete("/accounts/park", headers=headers).status_code == 204
+    # 스레드 ID는 persona_id("park")가 아니라 계정 user_id(UUID)입니다.
+    assert looked_up and deleted == [str(looked_up[0])]
+    assert client.get("/accounts/park", headers=headers).status_code == 404
+
+
+def test_delete_while_a_turn_is_running_is_409_not_a_hang(client: TestClient, monkeypatch) -> None:
+    """답을 만드는 턴이 계정을 잠그고 있으면 초기화는 기다리지 않고 409로 알립니다."""
+    from app.repositories import messages as message_repo
+
+    monkeypatch.setattr(message_repo, "try_lock_turn", lambda db, user_id: False)
+    token = client.post("/visitors").json()["visitor_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+    client.put("/accounts/park", headers=headers)
+
+    res = client.delete("/accounts/park", headers=headers)
+
+    assert res.status_code == 409 and res.json()["code"] == "TURN_IN_PROGRESS"

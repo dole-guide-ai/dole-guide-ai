@@ -17,19 +17,33 @@ os.environ["DATABASE_URL"] = TEST_DATABASE_URL
 # 테스트가 .env의 LangSmith 설정으로 트레이스를 보내지 않게 끕니다.
 # 실제 모델 평가는 evals/conftest.py가 .env 값으로 되돌립니다.
 os.environ["LANGSMITH_TRACING"] = "false"
+# 근거 카드 재정렬은 실제 모델(extract)을 부르므로 테스트에서는 끕니다(검색 순위 그대로).
+# 실제 모델 평가는 evals/conftest.py가 .env·기본값으로 되돌립니다.
+os.environ["RETRIEVAL_RERANK"] = "false"
 # 테스트는 고용24 OpenAPI를 실제로 부르지 않습니다. 인증키를 비워 늘 스냅샷을 씁니다.
-os.environ["WORK24_API_KEY"] = ""
+# (키는 API마다 따로라 모두 비웁니다. 코드표는 저장된 JSON이라 키와 관계없습니다.)
+for _key in (
+    "WORK24_API_KEY",
+    "WORK24_TRAINING_API_KEY",
+    "WORK24_PROGRAM_API_KEY",
+    "WORK24_CODE_API_KEY",
+):
+    os.environ[_key] = ""
 
 from alembic.config import Config  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
+from langchain_core.language_models import BaseChatModel  # noqa: E402
 from langchain_core.language_models.fake_chat_models import FakeListChatModel  # noqa: E402
+from langchain_core.messages import AIMessage  # noqa: E402
+from langchain_core.outputs import ChatGeneration, ChatResult  # noqa: E402
+from langchain_core.runnables import RunnableLambda  # noqa: E402
 from sqlalchemy import create_engine, text  # noqa: E402
 from sqlalchemy.exc import OperationalError  # noqa: E402
 from sqlalchemy.orm import Session  # noqa: E402
 
 from alembic import command  # noqa: E402
 from app.agent import gateway  # noqa: E402
-from app.core.clock import KST, get_today  # noqa: E402
+from app.core.clock import KST, get_now  # noqa: E402
 from app.core.config import get_settings  # noqa: E402
 from app.core.db import engine, get_db  # noqa: E402
 from app.main import app  # noqa: E402
@@ -107,7 +121,61 @@ def fake_llm(monkeypatch: pytest.MonkeyPatch):
     return _install
 
 
+class FakeAgentModel(BaseChatModel):
+    """도구 호출까지 흉내 내는 가짜 모델.
+
+    replies를 차례로 돌려주고, 분류(구조화 출력)에는 route를 답합니다.
+    """
+
+    replies: list[AIMessage]
+    route: str = "guide"
+    # 구조화 출력(분류 말고)에 차례로 돌려줄 값. 비면 schema의 기본값(이력서 읽기는 kind=none)
+    structured: list[dict] = []
+    calls: int = 0
+
+    @property
+    def _llm_type(self) -> str:
+        return "fake-agent"
+
+    def _generate(self, messages, stop=None, run_manager=None, **kwargs) -> ChatResult:  # noqa: ANN001
+        reply = self.replies[min(self.calls, len(self.replies) - 1)]
+        self.calls += 1
+        return ChatResult(generations=[ChatGeneration(message=reply)])
+
+    def bind_tools(self, tools, **kwargs) -> FakeAgentModel:  # noqa: ANN001
+        return self
+
+    def with_structured_output(self, schema, **kwargs) -> RunnableLambda:  # noqa: ANN001
+        if "panel" in schema.model_fields:
+            return RunnableLambda(lambda _: schema(panel=self.route))
+
+        def answer(_):  # noqa: ANN001, ANN202
+            data = self.structured.pop(0) if self.structured else {}
+            return schema.model_validate(data)
+
+        return RunnableLambda(answer)
+
+
+@pytest.fixture
+def fake_agent_llm(monkeypatch: pytest.MonkeyPatch):
+    """그래프 테스트용: 도구 호출이 담긴 AIMessage를 순서대로 돌려주는 모델을 주입합니다.
+
+    사용: fake_agent_llm([AIMessage("", tool_calls=[...]), AIMessage("답")], route="round")
+    """
+
+    def _install(
+        replies: list[AIMessage], route: str = "guide", structured: list[dict] | None = None
+    ) -> FakeAgentModel:
+        model = FakeAgentModel(replies=replies, route=route, structured=list(structured or []))
+        monkeypatch.setattr(gateway, "get_chat_model", lambda role="agent": model)
+        return model
+
+    return _install
+
+
 TEST_TODAY = date(2026, 10, 21)
+# API 테스트의 지금 시각. 인정일 마감(17·18시) 판정이 흔들리지 않게 오전으로 고정합니다.
+TEST_NOW = datetime.combine(TEST_TODAY, time(10), KST)
 
 
 @pytest.fixture
@@ -115,9 +183,9 @@ def entered_headers(client: TestClient) -> Callable[[str], dict[str, str]]:
     """API 테스트용: 새 방문자로 시연 계정에 입장하고 요청 헤더를 돌려줍니다.
 
     사용: headers = entered_headers("lee"); client.get("/accounts/lee/rounds", headers=headers)
-    오늘 날짜는 TEST_TODAY로 고정됩니다.
+    지금 시각은 TEST_NOW(TEST_TODAY 10시)로 고정됩니다.
     """
-    app.dependency_overrides[get_today] = lambda: TEST_TODAY
+    app.dependency_overrides[get_now] = lambda: TEST_NOW
 
     def _enter(persona_id: str) -> dict[str, str]:
         token = client.post("/visitors").json()["visitor_token"]
@@ -141,7 +209,7 @@ def entered_account(db_session: Session) -> Callable[[str], AccountContext]:
         now = datetime.combine(TEST_TODAY, time(9), KST)
         visitor = create_visitor(db_session, now)
         ctx = authenticate(db_session, visitor.visitor_token, now)
-        account_service.enter(db_session, ctx.visitor_id, persona_id, TEST_TODAY)
+        account_service.enter(db_session, ctx.visitor_id, persona_id, now)
         return account_service.find_account(db_session, ctx.visitor_id, persona_id)
 
     return _enter

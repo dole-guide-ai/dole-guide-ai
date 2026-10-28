@@ -61,16 +61,17 @@ describe('DashboardScreen', () => {
     expect(
       screen.getByRole('heading', { level: 1, name: '4차 실업인정 할 일' }),
     ).toBeInTheDocument();
-    expect(
-      screen.getByText('다음 기한 : 4차 실업인정일 10.27(화) · 고용센터 출석'),
-    ).toBeInTheDocument();
+    expect(screen.getByText('다음 기한')).toBeInTheDocument();
+    expect(screen.getByText('4차 실업인정일 10월 27일(화)')).toBeInTheDocument();
+    expect(screen.getByText('고용센터에 직접 가요')).toBeInTheDocument();
     expect(screen.getByLabelText('실업인정 현재 단계')).toBeInTheDocument();
     expect(screen.getByText(/3차 실업인정까지 받으셨네요/)).toBeInTheDocument();
     expect(screen.getAllByText(/실업인정 인정기준 · 2026.3.1 신청자부터/).length).toBeGreaterThan(
       0,
     );
-    expect(screen.getByRole('button', { name: '부족한 활동 추천해 주세요' })).toBeInTheDocument();
-    expect(await screen.findByText('D-6')).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: '부족한 활동 추천해 주세요' })).toBeInTheDocument();
+    // 상단 다음 기한과 패널 D-day 카드에 같이 보입니다.
+    expect(await screen.findAllByText('D-6')).toHaveLength(2);
     expect(screen.getByText(/~ 10\.27/)).toBeInTheDocument();
     expect(screen.getByText('고용센터 출석')).toBeInTheDocument();
     expect(document.documentElement.dataset.bigText).toBe('false');
@@ -85,14 +86,14 @@ describe('DashboardScreen', () => {
     expect(await screen.findByText(/2019년에 쓰신 이력서가 있네요/)).toBeInTheDocument();
     // 패널 상자와 함께 처음 한 번은 토스트로도 알립니다 (시연 개선 6번). 확인을 누르면 토스트만 닫힙니다.
     expect(screen.getAllByText('신청 경로 안내')).toHaveLength(2);
-    await userEvent.click(within(screen.getByRole('status')).getByRole('button', { name: '확인' }));
+    await userEvent.click(screen.getByRole('button', { name: '확인' }));
     expect(screen.getAllByText('신청 경로 안내')).toHaveLength(1);
     // 크게 켜져 있으면 버튼 문구가 다음 동작인 `글자 보통`으로 보입니다.
     expect(screen.getByRole('button', { name: '글자 보통' })).toBeInTheDocument();
     expect(document.documentElement.dataset.bigText).toBe('true');
   });
 
-  it('선택지를 누르면 보내고, 스트림의 token·form_update·ask_user·done이 화면과 저장소에 반영된다', async () => {
+  it('선택지를 고르고 보내기를 누르면 보내고, 스트림의 token·form_update·ask_user·done이 화면과 저장소에 반영된다', async () => {
     const fetchSpy = mockApi([
       { event: 'tool_call', data: { name: 'check_activity_rules', status: 'started' } },
       { event: 'tool_call', data: { name: 'check_activity_rules', status: 'finished' } },
@@ -118,13 +119,14 @@ describe('DashboardScreen', () => {
     renderWithProviders(<DashboardScreen />);
     // 패널 B 점검 결과가 저장소에 들어간 뒤 보내야 스트림의 append가 덮어써지지 않습니다.
     expect(await screen.findByText('OO상사')).toBeInTheDocument();
-    await userEvent.click(screen.getByRole('button', { name: '새 활동 기록할게요' }));
+    await userEvent.click(screen.getByRole('radio', { name: '새 활동 기록할게요' }));
+    await userEvent.click(screen.getByRole('button', { name: '고른 답 보내기' }));
 
     expect(await screen.findByText('12월 16일 OO물산 입사지원을 기록했어요.')).toBeInTheDocument();
-    expect(await screen.findByRole('button', { name: '신청서 볼게요' })).toBeInTheDocument();
+    expect(await screen.findByRole('radio', { name: '신청서 볼게요' })).toBeInTheDocument();
     expect(screen.getByText(/시험용 출처 자료/)).toBeInTheDocument();
     expect(
-      screen.queryByRole('button', { name: '부족한 활동 추천해 주세요' }),
+      screen.queryByRole('radio', { name: '부족한 활동 추천해 주세요' }),
     ).not.toBeInTheDocument();
     const activities = getFormDrafts().activities.values.activities as { item_id: string }[];
     expect(activities.map((activity) => activity.item_id)).toEqual(['a1', 'a2', 'a3']);
@@ -155,14 +157,33 @@ describe('DashboardScreen', () => {
     expect(screen.getByLabelText('메시지 입력')).toHaveValue('프레스 반장이었어요');
   });
 
-  it('계정 바꾸기를 누르면 세션을 지우고 로그인 화면으로 간다', async () => {
+  it('계정 바꾸기를 누르면 계정 고르기 창을 띄우고, 지금 계정은 고를 수 없다', async () => {
     mockApi();
     setSession(sessionFor('park'));
 
     renderWithProviders(<DashboardScreen />);
     await userEvent.click(await screen.findByRole('button', { name: '계정 바꾸기' }));
 
-    expect(push).toHaveBeenCalledWith('/');
+    const dialog = await screen.findByRole('dialog', { name: '계정 바꾸기' });
+    expect(within(dialog).getByRole('button', { name: '박진수 계정 (지금 계정)' })).toBeDisabled();
+    expect(
+      await within(dialog).findByRole('button', { name: '이정호 계정으로 시작' }),
+    ).toBeEnabled();
+    expect(push).not.toHaveBeenCalled();
+
+    await userEvent.click(within(dialog).getByRole('button', { name: '계정 바꾸기 닫기' }));
+    expect(screen.queryByRole('dialog', { name: '계정 바꾸기' })).not.toBeInTheDocument();
+  });
+
+  it('로고를 누르면 첫 화면으로 가는 링크다', async () => {
+    mockApi();
+    setSession(sessionFor('park'));
+
+    renderWithProviders(<DashboardScreen />);
+
+    expect(
+      await screen.findByRole('link', { name: '실업급여 길잡이 첫 화면으로' }),
+    ).toHaveAttribute('href', '/');
   });
 
   it('실제 서버 계정은 신청서 버튼이 대화 없이 바로 패널 C를 연다 (F-22)', async () => {

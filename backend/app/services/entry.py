@@ -9,6 +9,7 @@
 from enum import StrEnum
 
 from app.rules import entry_text
+from app.rules.presubmit import online_presubmit
 from app.schemas.accounts import Entry, EntryFlags, EntryMessage, EntryUi, Progress
 from app.schemas.procedure import ProcedureRead, Stage
 from app.schemas.rounds import RoundSummary
@@ -100,21 +101,17 @@ def branch_id(
     return "E7b" if resume_status == ResumeState.OUTDATED else "E7a"
 
 
-def build_entry(
+def _entry_facts(
     procedure: ProcedureRead,
-    resume_status: ResumeState | None,
     round_: RoundSummary | None,
     d_day: int | None,
-    *,
     name: str = "",
     old_resume_year: int | None = None,
     round_facts: entry_text.RoundFacts | None = None,
-) -> Entry:
-    branch = branch_id(procedure, resume_status, round_, d_day)
-    step = _STAGE_STEP[procedure.stage]
-    if branch == "E6":
-        step = 2
-    facts = entry_text.EntryFacts(
+    welcome: str | None = None,
+    resume_filled: int | None = None,
+) -> entry_text.EntryFacts:
+    return entry_text.EntryFacts(
         name=name,
         stage=procedure.stage,
         rule_group=procedure.recipient_group,
@@ -125,6 +122,45 @@ def build_entry(
         attendance=bool(round_ and round_.attendance_required),
         old_resume_year=old_resume_year,
         round_facts=round_facts,
+        welcome=welcome,
+        resume_filled=resume_filled,
+    )
+
+
+def situation_rule_refs(
+    procedure: ProcedureRead,
+    resume_status: ResumeState | None,
+    round_: RoundSummary | None,
+    d_day: int | None,
+) -> list[str]:
+    """지금 단계·회차에 맞는 안내(첫 안내와 같은 분기)의 근거 규칙 카드.
+
+    예: 교육을 마친 사람 → 인터넷 사전제출·신분증 지참 방문(PROC-048·011), 4차 → 담당 창구 출석
+    (ACT-040), 인정일 당일 → 17시·18시(DUE-092·093). 대화에서도 이 카드를 근거로 미리 붙입니다.
+    """
+    branch = branch_id(procedure, resume_status, round_, d_day)
+    return entry_text.compose(branch, _entry_facts(procedure, round_, d_day)).rule_refs
+
+
+def build_entry(
+    procedure: ProcedureRead,
+    resume_status: ResumeState | None,
+    round_: RoundSummary | None,
+    d_day: int | None,
+    *,
+    name: str = "",
+    old_resume_year: int | None = None,
+    round_facts: entry_text.RoundFacts | None = None,
+    welcome: str | None = None,
+    resume_filled: int | None = None,
+) -> Entry:
+    """`welcome`: "new"면 도우미 소개를 앞에, "returning"이면 "다시 오셨네요"로 시작합니다."""
+    branch = branch_id(procedure, resume_status, round_, d_day)
+    step = _STAGE_STEP[procedure.stage]
+    if branch == "E6":
+        step = 2
+    facts = _entry_facts(
+        procedure, round_, d_day, name, old_resume_year, round_facts, welcome, resume_filled
     )
     composed = entry_text.compose(branch, facts)
     next_text = entry_text.next_step_text(facts)
@@ -159,7 +195,8 @@ def build_entry(
         messages=messages,
         choices=composed.choices,
         accepts_file=composed.accepts_file,
+        file_choice=composed.file_choice,
         rule_refs=composed.rule_refs,
         ui=EntryUi(big_text=procedure.age_at_separation >= BIG_TEXT_AGE),
-        flags=EntryFlags(m1=procedure.age_at_separation >= 65 and step <= 3),
+        flags=EntryFlags(m1=not online_presubmit(procedure.age_at_separation) and step <= 3),
     )

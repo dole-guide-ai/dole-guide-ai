@@ -1,12 +1,13 @@
 """절차 상태 조회와 수급 종료 진단 통합 테스트 (F-33)."""
 
 from collections.abc import Callable
-from datetime import date, timedelta
+from datetime import date, datetime, time, timedelta
 
 import pytest
 from fastapi.testclient import TestClient
 
-from app.core.clock import get_today
+from app.core.clock import KST, get_now
+from app.core.config import get_settings
 from app.main import app
 
 pytestmark = pytest.mark.integration
@@ -33,6 +34,8 @@ def test_account_ends_after_expected_end_date(
     entered_headers: Callable[[str], dict[str, str]],
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    # 몇 달 뒤로 시각을 옮겨도 같은 방문자로 이어 보도록 만료를 늘립니다(인증도 지금 시각을 씀).
+    monkeypatch.setattr(get_settings(), "visitor_ttl_days", 3650)
     headers = entered_headers("lee")
     end = date.fromisoformat(
         client.get("/accounts/lee/procedure", headers=headers).json()["expected_end_date"]
@@ -42,14 +45,16 @@ def test_account_ends_after_expected_end_date(
 
     # 종료 예정일이 지나도 마지막 회차 인정일 전이면 아직 실업인정 중입니다.
     # 날짜 override는 monkeypatch로 바꿔 테스트가 끝나면 원래 값으로 돌아갑니다.
-    monkeypatch.setitem(app.dependency_overrides, get_today, lambda: end + timedelta(days=1))
+    after_end = datetime.combine(end + timedelta(days=1), time(10), KST)
+    monkeypatch.setitem(app.dependency_overrides, get_now, lambda: after_end)
     if last_recognition > end:
         assert client.get("/accounts/lee", headers=headers).json()["procedure"]["stage"] == (
             "recognition"
         )
 
     after_last = max(end, last_recognition) + timedelta(days=1)
-    monkeypatch.setitem(app.dependency_overrides, get_today, lambda: after_last)
+    after = datetime.combine(after_last, time(10), KST)
+    monkeypatch.setitem(app.dependency_overrides, get_now, lambda: after)
     # 절차 조회로 먼저 봐도 계정 조회와 같은 종료 단계가 나와야 합니다.
     procedure = client.get("/accounts/lee/procedure", headers=headers).json()
     assert procedure["stage"] == "ended"

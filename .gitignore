@@ -30,6 +30,8 @@ openapi.json
 # test
 backend/evals/scenarios/golden/
 backend/evals/reports/
+# 음성 평가가 만드는 합성 음성(wav). 용량이 커서 올리지 않고, 없으면 evals/voice/run.py가 다시 만듦
+backend/.cache/voice_eval/
 .coverage
 coverage/
 htmlcov/
@@ -44,3 +46,10 @@ backend/uploads/
 
 # Playwright MCP 스크린샷·스냅샷
 .playwright-mcp/
+
+# 설계 결정 기록(ADR). 로컬에만 둡니다.
+adr/
+# 실험 코드·결과. 로컬에만 둡니다 (.gitkeep만 추적).
+backend/experiments/*
+!backend/experiments/.gitkeep
+docs/experiments/

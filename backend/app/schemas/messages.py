@@ -11,6 +11,8 @@ from pydantic import BaseModel, Field
 
 # 메시지 하나의 최대 글자 수
 MESSAGE_MAX_CHARS = 2000
+# 메시지 하나에 붙일 수 있는 파일 수. 파일마다 판독(모델 호출)이 붙어 비용이 늘기 때문입니다.
+MESSAGE_MAX_FILES = 5
 
 
 class InputKind(StrEnum):
@@ -37,7 +39,7 @@ class MessageKind(StrEnum):
 class MessageCreate(BaseModel):
     text: str = Field(min_length=1, max_length=MESSAGE_MAX_CHARS)
     input_kind: InputKind = InputKind.TEXT
-    file_ids: list[str] = []
+    file_ids: list[str] = Field(default=[], max_length=MESSAGE_MAX_FILES)
     import_ids: list[str] = []
 
 
@@ -76,11 +78,15 @@ class AskUserEvent(BaseModel):
     choices: list[str] = []
     import_kind: str | None = None
     accepts_file: bool = False
+    # 누르면 말을 보내지 않고 파일 선택창을 여는 버튼(choices 중 하나). 없으면 None
+    file_choice: str | None = None
 
 
 class DoneEvent(BaseModel):
     cite: str | None = None
     rule_refs: list[str] = []
+    # 지금 할 일 하나(절차 단계·회차 상태로 코드가 정함). 화면은 바로가기 버튼 등에 씁니다.
+    next_action: str | None = None
 
 
 class ErrorEvent(BaseModel):

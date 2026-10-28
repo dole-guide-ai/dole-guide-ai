@@ -117,7 +117,7 @@ describe('RoundPanel', () => {
       'aria-current',
       'step',
     );
-    expect(screen.getByText(/검수 전 규칙으로 계산했어요/)).toBeInTheDocument();
+    expect(screen.getByText(/회차별 필요 건수와 비교한 결과예요/)).toBeInTheDocument();
     expect(screen.queryByRole('region', { name: '추천 활동' })).not.toBeInTheDocument();
   });
 
@@ -204,14 +204,30 @@ describe('RoundPanel', () => {
     expect(screen.queryByRole('list', { name: '경고' })).not.toBeInTheDocument();
   });
 
-  it('인정일이 지났으면 변경 신청 안내를 맨 위에 보여 준다 (E2)', async () => {
+  it('서버가 인정일 지남 알림을 주면 변경 신청 안내를 맨 위에 보여 준다 (E2)', async () => {
+    mockApi();
+    const lee = session();
+    const overdue = {
+      kind: 'overdue' as const,
+      key: 'overdue-2026-10-27',
+      title: '실업인정일이 지났어요',
+      text: '10월 27일(화) 실업인정 신청을 놓쳤다면 인정일부터 14일 안에 변경 신청을 할 수 있어요.',
+      rule_refs: ['DUE-089', 'DUE-094'],
+    };
+    renderWithProviders(<RoundPanel session={{ ...lee, notices: [overdue] }} />);
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('실업인정일이 지났어요');
+    expect(screen.getByText(/14일 안에 변경 신청/)).toBeInTheDocument();
+  });
+
+  it('알림이 없으면 날짜만 보고 지남 안내를 띄우지 않는다', async () => {
     mockApi();
     const lee = session();
     renderWithProviders(
       <RoundPanel session={{ ...lee, derived: { ...lee.derived, d_day: -2 } }} />,
     );
 
-    expect(await screen.findByText(/실업인정일이 지났어요\./)).toBeInTheDocument();
-    expect(screen.getByText(/14일 안에 고용센터에 가서 변경 신청/)).toBeInTheDocument();
+    await screen.findByLabelText('이번 회차 일정');
+    expect(screen.queryByText('실업인정일이 지났어요')).not.toBeInTheDocument();
   });
 });

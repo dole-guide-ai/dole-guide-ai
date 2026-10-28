@@ -133,24 +133,46 @@ html[data-theme='dark'] {
 }
 
 /*
- * 중장년층 대상이라 기본 글자를 조금 크게 두고, `글자 크게`(M4)는 루트 글자 크기 변수만 키웁니다.
- * 화면의 글자·여백은 rem이라 이 변수 하나로 함께 커집니다 (F-06).
+ * 화면의 글자·여백은 rem이라 루트 글자 크기 변수 하나로 함께 커지고 작아집니다 (F-06).
+ * 기본은 시안(17px)을 브라우저 80% 배율로 본 크기(13.6px)이고, `글자 크게`(M4)는 같은 비율로 20px → 16px입니다.
+ * px로 고정한 아이콘·로고(`lib/iconSize.ts`, 로고 이미지)도 같은 비율로 줄여 두었습니다.
  */
 :root {
-  --font-size-root: 17px;
+  --font-size-root: 13.6px;
 }
 
 html[data-big-text='true'] {
-  --font-size-root: 20px;
+  --font-size-root: 16px;
 }
 
 html {
   font-size: var(--font-size-root);
 }
 
+/* 한글은 낱말 중간에서 줄이 바뀌지 않게(keep-all) 하고, 긴 영문·숫자만 넘칠 때 끊습니다. 문단 끝 한 글자 줄도 피합니다. */
 body {
   background-color: var(--color-surface);
   color: var(--color-ink);
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+  text-wrap: pretty;
+}
+
+h1,
+h2,
+h3 {
+  text-wrap: balance;
+}
+
+/* Tailwind v4는 버튼 기본 커서가 default라, 누를 수 있는 요소에 손가락 커서를 다시 줍니다. 꺼진 버튼은 각자의 disabled 커서를 씁니다. */
+@layer base {
+  button:not(:disabled),
+  [role='button']:not([aria-disabled='true']),
+  summary,
+  select:not(:disabled),
+  label[for] {
+    cursor: pointer;
+  }
 }
 
 /* 스크롤바만 숨깁니다. 휠·터치·키보드 스크롤은 그대로 됩니다. */

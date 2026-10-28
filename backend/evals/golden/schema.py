@@ -4,25 +4,27 @@ import re
 from pathlib import Path
 from typing import Any
 
+from app.rules.next_action import NextAction
+
 GOLDEN_DIR = Path(__file__).parent
 CSV_PATH = GOLDEN_DIR / "golden_set.csv"
 FILES_DIR = GOLDEN_DIR / "files"
 OUT_DIR = GOLDEN_DIR.parent / "scenarios" / "golden"
 
 COLUMNS = [
-    "ID", "영역", "방법", "검수", "설명", "계정", "상태값", "활동", "입력", "첨부",
+    "ID", "영역", "방법", "검수", "세트", "설명", "계정", "상태값", "활동", "입력", "첨부",
     "다음할일", "기대값", "변경금지", "꼭포함", "포함금지", "금지패턴", "개인정보검사",
     "근거표시", "채점기준", "근거",
 ]  # fmt: skip
-REQUIRED = ["ID", "영역", "방법", "검수", "설명", "계정", "입력"]
+REQUIRED = ["ID", "영역", "방법", "검수", "세트", "설명", "계정", "입력"]
 AREAS = {"절차": "procedure", "서류": "form_fill", "근거": "grounding", "개인정보": "masking"}
 METHODS = {"기본", "경계값", "바꿔말하기", "여러턴", "공격", "범위밖", "회귀", "파일"}
 REVIEWS = {"확정", "확인필요", "보류"}
-# 다음할일 값(가칭). 에이전트 응답 형식이 정해지면 여기와 README를 같이 고칩니다.
-NEXT_ACTIONS = {
-    "write_resume", "complete_education", "prepare_eligibility", "enter_recognition_date",
-    "add_activity", "add_job_search_activity", "review_form", "submit_by_self",
-}  # fmt: skip
+# 개발용: 프롬프트·규칙을 고칠 때 보고 돌리는 문항.
+# 검증용: 최종 확인 때만 돌리고, 보고 고치지 않는 문항.
+SETS = {"개발": "dev", "검증": "test"}
+# 다음할일 값은 에이전트가 done 이벤트에 싣는 값(rules/next_action.NextAction)과 같습니다.
+NEXT_ACTIONS = {action.value for action in NextAction}
 PRIVACY_SCOPES = {"전체": "all", "답": "reply", "저장": "stored", "모델": "model"}
 ROUTES = {
     "work24", "portal", "email", "company_site", "newspaper", "mail", "fax", "visit", "referral",
@@ -116,7 +118,7 @@ def row_to_case(row: dict[str, str]) -> dict[str, Any]:
     cell = {name: (row.get(name) or "").strip() for name in COLUMNS}
     if missing := [name for name in REQUIRED if not cell[name]]:
         raise GoldenError(f"꼭 채워야 하는 칸이 비었어요: {', '.join(missing)}")
-    checks = {"영역": AREAS, "방법": METHODS, "검수": REVIEWS}
+    checks = {"영역": AREAS, "방법": METHODS, "검수": REVIEWS, "세트": SETS}
     for name, allowed in checks.items():
         if cell[name] not in allowed:
             raise GoldenError(
@@ -140,7 +142,8 @@ def row_to_case(row: dict[str, str]) -> dict[str, Any]:
         "forbidden_patterns": split_list(cell["금지패턴"]),
         "privacy": parse_privacy(cell["개인정보검사"]),
         "cite_required": cell["근거표시"] == "Y",
-        "judge": cell["채점기준"] or None,
+        # 채점기준은 ';'로 여러 기준을 적을 수 있고, 기준마다 따로 판정합니다(#261).
+        "judge": split_list(cell["채점기준"]) or None,
     }
     if not any(expected.values()):
         raise GoldenError(
@@ -151,6 +154,7 @@ def row_to_case(row: dict[str, str]) -> dict[str, Any]:
         "area": AREAS[cell["영역"]],
         "method": cell["방법"],
         "review": cell["검수"],
+        "set": SETS[cell["세트"]],
         "description": cell["설명"],
         "source": cell["근거"],
         "input": {

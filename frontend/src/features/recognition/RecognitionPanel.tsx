@@ -4,6 +4,7 @@ import { Info, ListChecks } from 'lucide-react';
 
 import { Button } from '@/components/Button';
 import { EvidenceLine } from '@/components/EvidenceLine';
+import { Spinner } from '@/components/Spinner';
 import { JobSearchCard } from '@/features/recognition/JobSearchCard';
 import { OtherActivityCard } from '@/features/recognition/OtherActivityCard';
 import {
@@ -73,7 +74,7 @@ export const RecognitionPanel = ({
     session.derived.current_round,
   );
 
-  if (query.isPending) return <p className="text-muted text-base">신청서를 정리하는 중…</p>;
+  if (query.isPending) return <Spinner label="신청서를 정리하는 중…" isCentered />;
   if (query.isError) {
     return (
       <p role="alert" className="text-danger text-base">
@@ -90,8 +91,8 @@ export const RecognitionPanel = ({
   const work = form.work_and_employment;
   const activity = form.reemployment_activity;
   const plan = form.notification_and_plan;
-  // 규칙으로 셀 수 없는 회차(필요 건수 null)는 부족 안내를 띄우지 않습니다.
-  const shortBy = (activity.required.activities ?? 0) - activity.counted.activities;
+  // 부족 건수는 서버 계산(회차 점검과 같음). 셀 수 없는 회차는 서버가 0으로 줍니다.
+  const shortBy = activity.remaining.activities;
   const prevChip = (path: string, answeredOn?: string | null) => selfChip(fields[path], answeredOn);
   const workPath = (key: string) => `work_and_employment.${key}`;
   // 한 회차에 근로내역이 여러 건이면 모두 보여 줍니다(고용24도 근로내역을 건별로 적음).

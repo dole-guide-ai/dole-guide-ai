@@ -1,0 +1,41 @@
+---
+config:
+  flowchart:
+    curve: linear
+---
+graph TD;
+	__start__([<p>__start__</p>]):::first
+	preprocess(preprocess)
+	load_context(load_context)
+	attach_knowledge(attach_knowledge)
+	route_turn(route_turn)
+	call_model(call_model)
+	run_tools(run_tools)
+	ask(ask)
+	finish(finish)
+	apply_choice(apply_choice)
+	read_answer(read_answer)
+	speak(speak)
+	__end__([<p>__end__</p>]):::last
+	__start__ --> preprocess;
+	apply_choice --> load_context;
+	ask --> call_model;
+	attach_knowledge --> call_model;
+	call_model -.-> finish;
+	call_model -.-> run_tools;
+	load_context --> route_turn;
+	preprocess -.-> apply_choice;
+	preprocess -.-> finish;
+	read_answer -.-> attach_knowledge;
+	read_answer -.-> speak;
+	route_turn -.-> attach_knowledge;
+	route_turn -.-> read_answer;
+	run_tools -.-> ask;
+	run_tools -.-> call_model;
+	run_tools -.-> finish;
+	speak --> finish;
+	finish --> __end__;
+	classDef default fill:#f2f0ff,line-height:1.2
+	classDef first fill-opacity:0
+	classDef last fill:#bfb6fc
+

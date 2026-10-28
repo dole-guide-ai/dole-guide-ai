@@ -9,7 +9,7 @@ from fastapi import APIRouter
 
 from app.api.deps import CurrentAccount
 from app.api.responses import error_responses
-from app.core.clock import Today
+from app.core.clock import Now, Today
 from app.core.db import DbSession
 from app.schemas.common import JsonPatch, UpdatesRead
 from app.schemas.procedure import ProcedureRead
@@ -35,7 +35,7 @@ def get_procedure(db: DbSession, account: CurrentAccount, today: Today) -> Proce
     responses=error_responses(401, 404, 409, 422),
 )
 def patch_procedure(
-    db: DbSession, account: CurrentAccount, patch: JsonPatch, today: Today
+    db: DbSession, account: CurrentAccount, patch: JsonPatch, now: Now
 ) -> UpdatesRead:
     """교육 이수, 수급자격 신청일, 1차 실업인정일처럼 사용자가 고용센터에서 받은 사실을 입력합니다.
 
@@ -48,4 +48,4 @@ def patch_procedure(
     순서가 틀리거나 이미 넣은 값이면 409 STAGE_ORDER, 날짜가 틀리면 422입니다. 한 번에 한 칸만
     보냅니다. 응답 entry는 바뀐 첫 화면입니다.
     """
-    return procedure_service.patch_procedure(db, account, patch, today)
+    return procedure_service.patch_procedure(db, account, patch, now)

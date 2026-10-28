@@ -4,6 +4,7 @@ import { useState } from 'react';
 
 import { Button } from '@/components/Button';
 import { Chip } from '@/components/Chip';
+import { Spinner } from '@/components/Spinner';
 import { useImportList } from '@/features/imports/useImportList';
 
 import { ApiError } from '@/lib/api';
@@ -44,7 +45,7 @@ export const ImportPicker = ({
   const query = useImportList(kind, sessionId, personaId);
   const [selected, setSelected] = useState<string[]>([]);
 
-  if (query.isPending) return <p className="text-muted text-sm">불러올 내역을 찾는 중…</p>;
+  if (query.isPending) return <Spinner label="불러올 내역을 찾는 중…" size="md" />;
   if (query.isError) {
     return (
       <p role="alert" className="text-danger text-sm">
@@ -68,7 +69,9 @@ export const ImportPicker = ({
         <p className="text-muted text-sm">{query.data.source_note}</p>
       </div>
       {query.data.items.length === 0 ? (
-        <p className="text-muted text-base">불러올 내역이 없어요. 말로 알려 주셔도 돼요.</p>
+        <p className="text-muted text-base">
+          불러올 내역이 없어요. 음성이나 채팅으로 알려 주셔도 돼요.
+        </p>
       ) : (
         <ul className="flex flex-col gap-2">
           {query.data.items.map((item) => (

@@ -6,9 +6,11 @@
 """
 
 from datetime import date, datetime
+from enum import StrEnum
 
 from pydantic import BaseModel
 
+from app.schemas.application import SubmitMode
 from app.schemas.messages import AskUserEvent
 from app.schemas.procedure import ProcedureRead
 from app.schemas.rounds import RoundSummary
@@ -69,8 +71,35 @@ class Entry(BaseModel):
     choices: list[str] = []
     # 첫 안내가 서류·사진을 요청하면 파일 올리기를 켭니다 (2-0.4 accepts_file)
     accepts_file: bool = False
+    # 누르면 말을 보내지 않고 파일 선택창을 여는 보기 (질문 이벤트의 file_choice와 같음)
+    file_choice: str | None = None
     ui: EntryUi = EntryUi()
     flags: EntryFlags = EntryFlags()
+    rule_refs: list[str] = []
+
+
+class RoundDeadline(BaseModel):
+    """지금 회차의 인정일까지 남은 날과 지금 시각의 제출 방식. 판정은 서버(rules/application)만."""
+
+    d_day: int
+    submit_mode: SubmitMode
+    # 인정일 당일 18시가 지나 변경 신청만 할 수 있음(submit_mode가 change)
+    overdue: bool
+
+
+class NoticeKind(StrEnum):
+    VISIT = "visit"  # 수급자격 신청은 센터 방문 (PROC-048)
+    OVERDUE = "overdue"  # 인정일이 지나 변경 신청 (DUE-089·094)
+    ATTEND = "attend"  # 출석 회차 (ACT-040)
+
+
+class Notice(BaseModel):
+    """대시보드 알림 하나. 문구는 템플릿(data/templates/notices.json), 근거는 rule_refs."""
+
+    kind: NoticeKind
+    key: str  # 같은 알림을 닫았는지 기억하는 키(예: overdue-2026-10-27)
+    title: str
+    text: str
     rule_refs: list[str] = []
 
 
@@ -79,6 +108,8 @@ class AccountRead(BaseModel):
     today: date
     procedure: ProcedureRead
     current_round: RoundSummary | None = None
+    deadline: RoundDeadline | None = None
+    notices: list[Notice] = []
     entry: Entry
     # 답을 기다리던 질문. 대화 턴의 ask_user 이벤트와 같은 모양입니다 (F-03).
     pending_ask: AskUserEvent | None = None

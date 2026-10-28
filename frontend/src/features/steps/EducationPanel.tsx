@@ -2,7 +2,7 @@ import { EvidenceLine } from '@/components/EvidenceLine';
 import { FieldRow } from '@/features/resume/FieldRow';
 
 import { citeOf } from '@/lib/sources';
-import type { UserState } from '@/types/demo.types';
+import type { DerivedState, UserState } from '@/types/demo.types';
 
 /**
  * 패널 E 온라인 교육 (1.6 E6 · 1.8). 대화 과정은 기획 "예정"이라 1.8 표 수준의 정적 화면입니다.
@@ -10,13 +10,15 @@ import type { UserState } from '@/types/demo.types';
  */
 interface EducationPanelProps {
   state: UserState;
+  derived: DerivedState;
   isReadOnly?: boolean;
 }
 
 const SOURCE_WORK24 = citeOf('SRC-001');
 
-export const EducationPanel = ({ state, isReadOnly = false }: EducationPanelProps) => {
-  const isVisit = state.age_at_separation >= 65;
+export const EducationPanel = ({ state, derived, isReadOnly = false }: EducationPanelProps) => {
+  // 신청 경로(PROC-048)는 서버가 판정합니다.
+  const isVisit = !derived.can_presubmit_online;
 
   return (
     <div className="flex flex-col gap-4">

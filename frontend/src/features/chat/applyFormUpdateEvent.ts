@@ -1,4 +1,5 @@
 import { applyFormUpdate, toStoreUpdate } from '@/lib/formStore';
+import { resumeUpdateFromServer } from '@/lib/resumeForm';
 import { patchSession } from '@/lib/sessionStore';
 import type { FormUpdateEvent } from '@/types/chat.types';
 
@@ -12,5 +13,5 @@ export const applyFormUpdateEvent = (event: FormUpdateEvent) => {
     patchSession(path, op === 'remove' ? null : event.value);
     return;
   }
-  applyFormUpdate(event);
+  applyFormUpdate(event.form === 'resume' ? resumeUpdateFromServer(event) : event);
 };

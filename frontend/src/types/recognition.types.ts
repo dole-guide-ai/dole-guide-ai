@@ -78,7 +78,9 @@ export interface OtherActivity {
 export interface ReemploymentActivity {
   /** 규칙으로 셀 수 없으면(대상기간 변경 등) null */
   required: { activities: number | null; job_search: number | null };
+  /** 인정된 수와 더 해야 하는 수. 회차 점검과 같은 서버 계산(행 개수로 세지 않음) */
   counted: { activities: number; job_search: number };
+  remaining: { activities: number; job_search: number };
   has_job_search_activity: boolean;
   job_search_activities: JobSearchActivity[];
   excluded: ExcludedActivity[];

@@ -1,0 +1,18 @@
+source_id,name,publisher,url,issued
+SRC-001,실업급여(상용직),고용24 / 고용노동부·한국고용정보원,https://m.work24.go.kr/cm/c/f/1100/selecSystInfo.do?currentPageNo=1&recordCountPerPage=9&upprSystClId=&systClId=SC00000254&systId=SI00000411,2026-08-25
+SRC-002,실업급여(일용직),고용24 / 고용노동부·한국고용정보원,https://m.work24.go.kr/cm/c/f/1100/selecSystInfo.do?currentPageNo=1&recordCountPerPage=9&upprSystClId=&systClId=SC00000255&systId=SI00000387,2025-07-09
+SRC-003,실업급여(노무제공자),고용24 / 고용노동부·한국고용정보원,https://m.work24.go.kr/cm/c/f/1100/selecSystInfo.do?currentPageNo=1&recordCountPerPage=9&upprSystClId=&systClId=SC00000256&systId=SI00000412,2025-07-09
+SRC-004,실업급여(예술인),고용24 / 고용노동부·한국고용정보원,https://m.work24.go.kr/cm/c/f/1100/selecSystInfo.do?currentPageNo=1&recordCountPerPage=9&upprSystClId=&systClId=SC00000257&systId=SI00000307,2025-07-09
+SRC-005,실업급여 부정수급,고용24 / 고용노동부·한국고용정보원,https://m.work24.go.kr/cm/c/f/1100/selecSystInfo.do?currentPageNo=1&recordCountPerPage=9&upprSystClId=&systClId=SC00000378&systId=SI00000454,2026-08-05
+SRC-006,실업급여(자영업자),고용24 / 고용노동부·한국고용정보원,https://m.work24.go.kr/cm/c/f/1100/selecSystInfo.do?currentPageNo=1&recordCountPerPage=9&upprSystClId=&systClId=SC00000258&systId=SI00000347,2025-08-27
+SRC-007,실업크레딧,고용24 / 고용노동부·한국고용정보원,https://m.work24.go.kr/cm/c/f/1100/selecSystInfo.do?currentPageNo=1&recordCountPerPage=9&upprSystClId=&systClId=SC00000259&systId=SI00000381,2025-07-09
+SRC-008,실업인정 인정기준,수원고용복지센터(이미지 하단 표기),첨부파일: image(1).png,
+SRC-009,"실업급여 > 실업급여 알아보기 > ""실업급여""란?",찾기쉬운 생활법령정보(법제처),https://www.easylaw.go.kr/CSP/CnpClsMain.laf?csmSeq=722&ccfNo=1&cciNo=1&cnpClsNo=1,2026-09-30
+SRC-010,실업급여 > 구직급여 수급자격,찾기쉬운 생활법령정보(법제처),https://www.easylaw.go.kr/CSP/CnpClsMain.laf?popMenu=ov&csmSeq=722&ccfNo=2&cciNo=1&cnpClsNo=1&search_put=,2026-09-30
+SRC-011,실업급여 > 구직급여 수급신청 > 실업의 신고,찾기쉬운 생활법령정보(법제처),https://www.easylaw.go.kr/CSP/CnpClsMain.laf?popMenu=ov&csmSeq=722&ccfNo=2&cciNo=2&cnpClsNo=1&search_put=,2026-09-30
+SRC-012,실업급여 > 구직급여 수급신청 > 실업의 인정,찾기쉬운 생활법령정보(법제처),https://www.easylaw.go.kr/CSP/CnpClsMain.laf?popMenu=ov&csmSeq=722&ccfNo=2&cciNo=2&cnpClsNo=2&search_put=,2026-09-30
+SRC-013,실업급여 > 구직급여 수급 > 구직급여 수급일수,찾기쉬운 생활법령정보(법제처),https://www.easylaw.go.kr/CSP/CnpClsMain.laf?popMenu=ov&csmSeq=722&ccfNo=2&cciNo=3&cnpClsNo=1&search_put=,2026-09-30
+SRC-014,실업급여 > 구직급여 수급 > 구직급여 수급액,찾기쉬운 생활법령정보(법제처),https://www.easylaw.go.kr/CSP/CnpClsMain.laf?popMenu=ov&csmSeq=722&ccfNo=2&cciNo=3&cnpClsNo=2&search_put=,2026-09-30
+SRC-015,실업급여 > 구직급여 수급 > 구직급여 수급·수급유예·수급정지,찾기쉬운 생활법령정보(법제처),https://www.easylaw.go.kr/CSP/CnpClsMain.laf?popMenu=ov&csmSeq=722&ccfNo=2&cciNo=3&cnpClsNo=3&search_put=,2026-09-30
+SRC-016,취업드림수첩(2025년판 PDF),고용노동부·고용24,https://www.work24.go.kr/ei/static/ebookVersion/20250331_empymnPktbukEbook.pdf,
+SRC-017,1350 모바일 상담 — 수급자별 실업인정 방식,고용노동부 1350,https://1350.moel.go.kr/rtmview.do?id=1000325275,2026-07-22

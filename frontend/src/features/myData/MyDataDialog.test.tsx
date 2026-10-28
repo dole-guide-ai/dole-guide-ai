@@ -35,7 +35,7 @@ describe('MyDataDialog', () => {
 
     renderWithProviders(<MyDataDialog personaId="lee" onClose={vi.fn()} />);
 
-    expect(await screen.findByText('저장 완료 (일반 사무)')).toBeInTheDocument();
+    expect(await screen.findByText('저장 완료 (앱 개발)')).toBeInTheDocument();
     const procedure = screen.getByRole('region', { name: '절차 상태' });
     expect(within(procedure).queryByRole('button', { name: /삭제/ })).not.toBeInTheDocument();
     // 실업크레딧 답·통지 방법 두 줄에 확인한 날짜가 붙습니다.

@@ -11,7 +11,8 @@ import {
 
 import { Button } from '@/components/Button';
 import { EvidenceLine } from '@/components/EvidenceLine';
-import { showsVisitNotice } from '@/features/dashboard/sessionNotices';
+import { NoticeBox } from '@/features/dashboard/NoticeBox';
+import { PanelHeading } from '@/features/dashboard/PanelHeading';
 import { BenefitEndedPanel } from '@/features/procedure/BenefitEndedPanel';
 import { RoundPanel } from '@/features/procedure/RoundPanel';
 import { RecognitionPanel } from '@/features/recognition/RecognitionPanel';
@@ -20,7 +21,7 @@ import { EducationPanel } from '@/features/steps/EducationPanel';
 import { EligibilityPanel } from '@/features/steps/EligibilityPanel';
 import { FirstDatePanel } from '@/features/steps/FirstDatePanel';
 
-import { ICON_SIZE, ICON_STROKE } from '@/lib/iconSize';
+import { findNotice, NOTICE_KIND } from '@/lib/notices';
 import { patchSession } from '@/lib/sessionStore';
 import { citeOf } from '@/lib/sources';
 import type { PanelId, ProgressStep, SessionRead } from '@/types/demo.types';
@@ -44,7 +45,7 @@ const PANEL_INFO: Record<PanelId, { name: string; description: string; icon: Luc
   B: {
     name: '이번 회차 할 일',
     icon: ListChecks,
-    description: '재취업활동을 기록하고 회차 규칙으로 점검해요.',
+    description: '재취업활동을 적어 두면, 이번 회차에 필요한 활동 건수를 채웠는지 알려 드려요.',
   },
   C: {
     name: '실업인정 신청서 검토',
@@ -86,21 +87,37 @@ export const PanelFrame = ({
   onExitReview,
 }: PanelFrameProps) => {
   const { entry, state } = session;
+  const visitNotice = findNotice(session.notices, NOTICE_KIND.VISIT);
   const panel = entry.panel;
   const reviewPanel = reviewStep ? STEP_PANEL[reviewStep] : undefined;
   const [isEditingResume, setIsEditingResume] = useState(false);
+  // 다시 보던 단계를 떠나면(돌아가기 버튼이든 진행바든) 이력서 고치는 중 상태도 풉니다.
+  const [prevReviewStep, setPrevReviewStep] = useState(reviewStep);
+  if (prevReviewStep !== reviewStep) {
+    setPrevReviewStep(reviewStep);
+    setIsEditingResume(false);
+  }
   // 수급이 끝나면(F-33) 고치던 중이었어도 읽기 전용으로 돌립니다.
   const isEnded = state.stage === 'ended';
   const isResumeEditable = isEditingResume && !isEnded;
 
-  if (reviewPanel) {
+  if (reviewStep && reviewPanel) {
     const info = PANEL_INFO[reviewPanel];
     return (
       <aside className={ASIDE_CLASS} aria-label={`${info.name} (읽기 전용)`}>
         <div className={SCROLL_CLASS}>
+          <PanelHeading
+            icon={info.icon}
+            name={info.name}
+            step={reviewStep}
+            isDoneStep
+            badge={isResumeEditable ? '고치는 중' : '읽기 전용'}
+          />
           <div className="bg-ok-soft flex flex-wrap items-center justify-between gap-2 rounded-xl px-4 py-3">
             <p className="text-ok text-base font-semibold">
-              완료한 단계 · {info.name} {isResumeEditable ? '(고치는 중)' : '(읽기 전용)'}
+              {isResumeEditable
+                ? '완료한 단계의 이력서를 고치는 중이에요.'
+                : '완료한 단계를 다시 보고 있어요. 지금 단계는 그대로예요.'}
             </p>
             <div className="flex flex-wrap gap-2">
               {/* 수급이 끝난 계정은 지난 단계도 읽기만 합니다 (F-33). */}
@@ -131,7 +148,9 @@ export const PanelFrame = ({
               onSaved={() => setIsEditingResume(false)}
             />
           )}
-          {reviewPanel === 'E' && <EducationPanel state={state} isReadOnly />}
+          {reviewPanel === 'E' && (
+            <EducationPanel state={state} derived={session.derived} isReadOnly />
+          )}
           {reviewPanel === 'Q' && (
             <EligibilityPanel state={state} derived={session.derived} isReadOnly />
           )}
@@ -155,28 +174,17 @@ export const PanelFrame = ({
   return (
     <aside className={ASIDE_CLASS} aria-label={info.name}>
       <div className={SCROLL_CLASS}>
-        <div className="flex items-start gap-3">
-          <span
-            aria-hidden
-            className="bg-neutral-soft text-ink flex size-11 shrink-0 items-center justify-center rounded-xl"
-          >
-            <info.icon size={ICON_SIZE.lg} strokeWidth={ICON_STROKE} />
-          </span>
-          <div className="flex flex-col gap-0.5">
-            <h2 className="text-xl leading-tight font-bold">{info.name}</h2>
-            <p className="text-muted text-base">{info.description}</p>
-          </div>
-        </div>
+        <PanelHeading
+          icon={info.icon}
+          name={info.name}
+          step={entry.progress.current}
+          description={info.description}
+        />
 
-        {showsVisitNotice(state) && (
-          <div className="border-warn bg-warn-soft flex flex-col gap-2 rounded-xl border px-4 py-3">
-            <p className="text-warn text-base font-semibold">신청 경로 안내</p>
-            <p className="text-base">
-              이직일 기준 만 65세 이상이라 수급자격 신청은 관할 고용센터에 방문해서 해요. 인터넷
-              사전제출은 이직일 기준 만 65세 미만일 때만 할 수 있어요.
-            </p>
+        {visitNotice && (
+          <NoticeBox notice={visitNotice}>
             <EvidenceLine cite={SOURCE_WORK24} />
-          </div>
+          </NoticeBox>
         )}
 
         {panel === 'A' && <ResumePanel session={session} onEditRequest={onEditRequest} />}
@@ -201,7 +209,7 @@ export const PanelFrame = ({
           />
         )}
 
-        {panel === 'E' && <EducationPanel state={state} />}
+        {panel === 'E' && <EducationPanel state={state} derived={session.derived} />}
 
         {panel === 'Q' && <EligibilityPanel state={state} derived={session.derived} />}
       </div>

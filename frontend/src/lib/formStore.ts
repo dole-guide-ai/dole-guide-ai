@@ -21,6 +21,8 @@ export interface FieldMeta {
   source?: FieldSource;
   transformed?: boolean;
   evidence?: FieldEvidence;
+  /** 대화·직접 입력으로 방금 바뀐 시각(ms). 패널이 그 칸으로 스크롤해 잠깐 표시하는 데 씁니다. 처음 불러온 값에는 없습니다. */
+  updatedAt?: number;
 }
 
 export interface FormDraft {
@@ -106,10 +108,21 @@ export const applyFormUpdateToDraft = (draft: FormDraft, event: FormUpdateEvent)
       source: event.source,
       transformed: event.transformed,
       evidence: event.evidence,
+      updatedAt: Date.now(),
     };
   }
 
-  return { values, fields, completeness: event.completeness ?? draft.completeness };
+  return { values, fields, completeness: completenessOf(event) ?? draft.completeness };
+};
+
+/**
+ * 이벤트의 완성도를 패널 모양(`{done, total}`)으로. 백엔드 `Completeness`는 `{filled, total}`이라
+ * 그대로 두면 `done`이 비어 진행 막대가 0으로 떨어졌다가 다시 받아올 때 채워지던 문제가 있었습니다.
+ */
+const completenessOf = (event: FormUpdateEvent): Completeness | undefined => {
+  const raw = event.completeness;
+  if (!raw) return undefined;
+  return { done: raw.filled, total: raw.total ?? 0, sections: raw.sections ?? {} };
 };
 
 /** 쓰기 응답 `{updates}`의 바뀐 칸을 모두 적용합니다. */

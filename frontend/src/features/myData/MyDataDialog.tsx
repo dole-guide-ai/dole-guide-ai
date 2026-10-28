@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 
 import { Button } from '@/components/Button';
+import { Spinner } from '@/components/Spinner';
 import { useDeleteMyData } from '@/features/myData/useDeleteMyData';
 import { useMyData } from '@/features/myData/useMyData';
 
@@ -59,7 +60,7 @@ export const MyDataDialog = ({ personaId, onClose }: MyDataDialogProps) => {
           </Button>
         </div>
 
-        {query.isPending && <p className="text-muted text-base">불러오는 중…</p>}
+        {query.isPending && <Spinner label="불러오는 중…" isCentered />}
         {query.isError && (
           <p role="alert" className="text-danger text-base">
             {errorText(query.error, '내 정보를 불러오지 못했어요.')}

@@ -1,25 +1,27 @@
 'use client';
 
 import { type CSSProperties, useEffect, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
 
 import { ProgressBar } from '@/components/ProgressBar';
+import { AccountSwitchDialog } from '@/features/auth/AccountSwitchDialog';
 import { useBigText } from '@/features/bigText/useBigText';
 import { ChatPanel } from '@/features/chat/ChatPanel';
 import { useChatStream } from '@/features/chat/useChatStream';
-import { useFileUpload } from '@/features/chat/useFileUpload';
+import { canAttachEvidenceAt, useFileUpload } from '@/features/chat/useFileUpload';
+import { useVoiceInput } from '@/features/chat/useVoiceInput';
 import { DashboardHeader } from '@/features/dashboard/DashboardHeader';
 import { NoticeToast } from '@/features/dashboard/NoticeToast';
 import { PanelFrame } from '@/features/dashboard/PanelFrame';
-import { sessionNotices } from '@/features/dashboard/sessionNotices';
+import { ResetAccountButton } from '@/features/dashboard/ResetAccountButton';
 import { SplitHandle } from '@/features/dashboard/SplitHandle';
 import { useSplitRatio } from '@/features/dashboard/useSplitRatio';
 import { MyDataDialog } from '@/features/myData/MyDataDialog';
 import { CONFIRMED_MESSAGE } from '@/features/recognition/recognitionLabels';
 
 import { ApiError } from '@/lib/api';
-import { resetForms } from '@/lib/formStore';
+import { nextStepView } from '@/lib/nextStep';
 import { setSession } from '@/lib/sessionStore';
+import { INPUT_KIND } from '@/types/chat.types';
 import type { ProgressStep, SessionRead } from '@/types/demo.types';
 
 interface DashboardViewProps {
@@ -29,21 +31,21 @@ interface DashboardViewProps {
 
 /** 도구 이름을 사람이 읽을 상태 문구로 바꿉니다 (`tool_call` 이벤트). */
 const TOOL_LABEL: Record<string, string> = {
-  check_activity_rules: '회차 규칙을 점검하는 중…',
+  check_activity_rules: '필요한 활동 건수를 채웠는지 확인하는 중…',
   parse_file: '서류를 읽는 중…',
-  lookup_code: '직종·지역 코드를 찾는 중…',
+  lookup_code: '고용24 직종·지역 이름을 맞춰 보는 중…',
   search_guide: '근거 자료를 찾는 중…',
 };
 
 /** 대시보드 본문 (1.5): 상단 한 줄(진행바 · 다음 할 일) · 대화 · 패널. */
 export const DashboardView = ({ session, personaName }: DashboardViewProps) => {
-  const router = useRouter();
   const { setIsBig } = useBigText();
   const chat = useChatStream(session);
   // 진행바에서 고른 완료 단계 (1.8 읽기 전용 다시 보기). 세션이 바뀌면 지금 단계로 돌아옵니다.
   const [review, setReview] = useState<{ sessionId: string; step: ProgressStep } | null>(null);
   const reviewStep = review?.sessionId === session.session_id ? review.step : null;
   const [isMyDataOpen, setIsMyDataOpen] = useState(false);
+  const [isSwitchOpen, setIsSwitchOpen] = useState(false);
   const split = useSplitRatio();
   const mainRef = useRef<HTMLElement>(null);
   const upload = useFileUpload(session.persona_id, session.state.stage);
@@ -57,12 +59,6 @@ export const DashboardView = ({ session, personaName }: DashboardViewProps) => {
 
   // F-22: 대화 응답을 기다리지 않고 바로 신청서(패널 C)를 엽니다.
   const handleOpenForm = () => setSession({ ...session, entry: { ...entry, panel: 'C' } });
-
-  const handleSwitchAccount = () => {
-    resetForms();
-    setSession(null);
-    router.push('/');
-  };
 
   /** 파일을 올린 뒤 `file_ids`를 붙여 대화로 보냅니다. 판독 결과는 스트림(`tool_call` parse_file)으로 옵니다. */
   const handleFileSelect = (file: File) => {
@@ -79,6 +75,22 @@ export const DashboardView = ({ session, personaName }: DashboardViewProps) => {
     });
   };
 
+  // 말하기로 받아쓴 글은 입력창에 이어 붙이고, 그 글을 보낼 때 입력 방식을 voice로 남깁니다.
+  const [isVoiceDraft, setIsVoiceDraft] = useState(false);
+  const voice = useVoiceInput(session.persona_id, (text) => {
+    chat.setInputText(chat.inputText.trim() ? `${chat.inputText.trim()} ${text}` : text);
+    setIsVoiceDraft(true);
+  });
+  // 받아쓴 글을 다 지우고 새로 적으면 직접 쓴 글이므로 음성 표시를 지웁니다.
+  const handleInputChange = (text: string) => {
+    chat.setInputText(text);
+    if (!text.trim()) setIsVoiceDraft(false);
+  };
+  const handleSend = (text: string) => {
+    void chat.send(text, isVoiceDraft ? { inputKind: INPUT_KIND.VOICE } : undefined);
+    setIsVoiceDraft(false);
+  };
+
   const statusText = chat.activeTool
     ? (TOOL_LABEL[chat.activeTool] ?? '처리하는 중…')
     : chat.isStreaming
@@ -93,19 +105,32 @@ export const DashboardView = ({ session, personaName }: DashboardViewProps) => {
       <DashboardHeader
         personaName={personaName}
         title={entry.title}
-        nextStepText={entry.next_step_text}
+        nextStep={nextStepView(session)}
         progress={
           <ProgressBar
             current={entry.progress.current}
             done={entry.progress.done}
-            onStepClick={(step) => setReview({ sessionId: session.session_id, step })}
+            viewing={reviewStep}
+            // 다시 보는 중에 현재 단계를 누르면 이번 단계로 돌아옵니다.
+            onStepClick={(step) =>
+              setReview(
+                step === entry.progress.current ? null : { sessionId: session.session_id, step },
+              )
+            }
             isCompact
           />
         }
-        onSwitchAccount={handleSwitchAccount}
+        onSwitchAccount={() => setIsSwitchOpen(true)}
+        devActions={<ResetAccountButton personaId={session.persona_id} />}
         onOpenMyData={() => setIsMyDataOpen(true)}
       />
-      <NoticeToast key={session.session_id} notices={sessionNotices(session)} />
+      <NoticeToast key={session.session_id} notices={session.notices} />
+      {isSwitchOpen && (
+        <AccountSwitchDialog
+          currentPersonaId={session.persona_id}
+          onClose={() => setIsSwitchOpen(false)}
+        />
+      )}
       {isMyDataOpen && (
         <MyDataDialog personaId={session.persona_id} onClose={() => setIsMyDataOpen(false)} />
       )}
@@ -119,7 +144,9 @@ export const DashboardView = ({ session, personaName }: DashboardViewProps) => {
         <ChatPanel
           messages={chat.messages}
           choices={chat.choices}
+          question={chat.question}
           importKind={chat.importKind}
+          fileChoice={chat.fileChoice}
           sessionId={session.session_id}
           personaId={session.persona_id}
           onImport={(importIds) =>
@@ -129,11 +156,15 @@ export const DashboardView = ({ session, personaName }: DashboardViewProps) => {
             })
           }
           inputText={chat.inputText}
-          onInputChange={chat.setInputText}
+          onInputChange={handleInputChange}
           onChoice={(choice) => chat.send(choice, { inputKind: 'choice' })}
-          onSend={(text) => chat.send(text)}
+          onSend={handleSend}
           onFileSelect={handleFileSelect}
+          onVoiceToggle={voice.toggle}
+          voiceStatus={voice.status}
+          voiceError={voice.error}
           isFileRequested={chat.acceptsFile}
+          canAttachEvidence={canAttachEvidenceAt(session.state.stage)}
           isStreaming={chat.isStreaming}
           isUploading={upload.isPending}
           statusText={statusText}

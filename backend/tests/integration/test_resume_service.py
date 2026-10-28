@@ -7,7 +7,7 @@ from app.core.errors import UnprocessableError
 from app.repositories import accounts as repo
 from app.schemas.resume import FieldWrite
 from app.services.accounts import AccountContext
-from app.services.resume import save_resume_fields
+from app.services.resume import read_resume, save_resume_fields
 from conftest import TEST_TODAY
 
 pytestmark = pytest.mark.integration
@@ -30,8 +30,10 @@ def test_writes_new_career_and_derives_values(
     paths = {u.path for u in result.updates}
     assert "/careers/c1/company_name" in paths
     assert "/careers/c1/employment_status" in paths  # 자동 값(퇴직)도 알림
-    assert result.updates[0].completeness == {"filled": 0, "total": 5}
-    assert result.next_question.id == "resume.career_duties"
+    completeness = result.updates[0].completeness
+    assert completeness is not None and completeness.filled == 0 and completeness.total == 5
+    # 직급(꼭 채울 칸)을 하던 일(더 좋게 하는 칸)보다 먼저 묻습니다.
+    assert read_resume(db_session, park).next_question == "resume.career_position"
 
 
 def test_rejects_fourth_region_and_unknown_field(
@@ -63,7 +65,8 @@ def test_old_resume_from_seed_asks_since_then(
         [FieldWrite(path="/job_preferences/military_alternative", value="해당 없음")],
         today=TEST_TODAY,
     )
-    assert result.next_question.id == "resume.career_since_old"
+    assert result.updates
+    assert read_resume(db_session, choi).next_question == "resume.career_since_old"
 
 
 def test_rejects_wrong_value_shape(
@@ -113,6 +116,7 @@ def test_upgrades_resume_saved_in_old_structure(
     assert data["careers"][0]["company_name"]["source"] == "seed"
     occ = data["job_preferences"]["desired_occupations"][0]["occupation"]["value"]
     assert occ["name"] == "시설관리"
+    # 상태가 없던 예전 지역은 코드가 없어 고를 차례(needs_confirmation)로 채워 둡니다.
     assert data["job_preferences"]["desired_regions"]["value"] == [
-        {"code": None, "name": "서울 노원구"}
+        {"code": None, "name": "서울 노원구", "status": "needs_confirmation"}
     ]

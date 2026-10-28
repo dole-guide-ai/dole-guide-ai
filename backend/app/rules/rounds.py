@@ -36,7 +36,7 @@ SAME_COMPANY_MIN = 2
 _W1 = "{day} 활동은 {count}건이지만 하루 1건만 인정돼요."
 _W2 = "{day}는 이번 회차 기간({start}~{end}) 밖이라 계산에서 뺐어요."
 _W3 = "같은 회사에만 계속 지원하면 인정되지 않을 수 있어요."
-_W4 = "{label}은 수급 기간 전체에서 {max}번까지만 인정돼요."
+_W4 = LIMIT_TEXT = "{label} 수급 기간 전체에서 {max}번까지만 인정돼요."
 _W5 = "{org} 지원은 {evidence}이 필요해요. 사진으로 올려 주세요."
 _W6 = "구직 외 활동만으로는 안 돼요. 입사지원이나 면접 1건이 꼭 필요해요."
 
@@ -73,23 +73,75 @@ class _Refs:
         self.items += [ref for ref in refs if ref not in self.items]
 
 
+def topic(word: str) -> str:
+    """받침이 있으면 "은", 없으면 "는"을 붙입니다("취업특강은", "자원봉사는")."""
+    last = word[-1] if word else ""
+    has_final = "가" <= last <= "힣" and (ord(last) - ord("가")) % 28 > 0
+    return f"{word}{'은' if has_final else '는'}"
+
+
 def _short(day: date) -> str:
     return f"{day.month}월 {day.day}일"
 
 
+def _job_search_only(rules: ActivityRules, group: str, round_no: int) -> bool:
+    """구직활동만 인정되는 회차인지 (일반 8차부터 ACT-030, 반복수급자 3차부터)."""
+    return any(
+        group in only.groups and round_no >= only.round for only in rules.job_search_only_from_round
+    )
+
+
 def is_not_allowed(rule: KindRule, rules: ActivityRules, group: str, round_no: int) -> bool:
     """종류·회차·수급자 유형에서 인정되지 않는 활동인지 (2-2.3 표, ACT-030 등)."""
-    only_job = rules.job_search_only_from_round
+    job_only = _job_search_only(rules, group, round_no)
     return (
         not rule.allowed
         or (rule.only_round is not None and rule.only_round != round_no)
         or (bool(rule.groups) and group not in rule.groups)
-        or (
-            rule.category == ActivityCategory.NON_JOB_SEARCH
-            and group in only_job.groups
-            and round_no >= only_job.round
-        )
+        or (rule.category == ActivityCategory.NON_JOB_SEARCH and job_only)
     )
+
+
+@dataclass(frozen=True)
+class Admission:
+    """기록하기 전에 본 이 활동의 인정 여부. 인정되면 status가 None입니다."""
+
+    kind: str
+    status: ActivityStatus | None
+    message: str | None = None
+    rule_refs: tuple[str, ...] = ()
+    limit_max: int | None = None
+
+
+NOT_ALLOWED_TEXT = "{label} 이 수급자 유형·회차에서 재취업활동으로 인정되지 않아요."
+_JOB_SEARCH_ONLY = " 이번 회차는 구직활동(입사지원·면접 등)만 인정돼요."
+
+
+def admission(kind: str, group: str, round_no: int, limits_used: LimitsUsed) -> Admission:
+    """활동 종류가 이번 회차에 인정되는지 기록 전에 봅니다(check_round 2·3단계와 같은 기준).
+
+    표에 없는 종류는 여기서 막지 않습니다(기록 뒤 회차 점검이 확인 필요로 둠).
+    """
+    rules = load_rules()
+    rule = rules.kind(kind)
+    if rule is None:
+        return Admission(kind, None)
+    if is_not_allowed(rule, rules, group, round_no):
+        message = NOT_ALLOWED_TEXT.format(label=topic(rule.label))
+        refs = list(rule.rule_refs)
+        if rule.category == ActivityCategory.NON_JOB_SEARCH and _job_search_only(
+            rules, group, round_no
+        ):
+            message += _JOB_SEARCH_ONLY
+            refs += [r for only in rules.job_search_only_from_round for r in only.rule_refs]
+        return Admission(kind, ActivityStatus.NOT_ALLOWED, message, tuple(dict.fromkeys(refs)))
+    limit = rules.limit(rule.limit_group) if rule.limit_group else None
+    if limit and getattr(limits_used, limit.group, 0) >= limit.max:
+        message = _W4.format(label=topic(limit.label), max=limit.max)
+        return Admission(
+            kind, ActivityStatus.LIMIT_OVER, message, tuple(limit.rule_refs), limit.max
+        )
+    return Admission(kind, None)
 
 
 def _evidence_ok(activity: ActivityInput, rules: ActivityRules) -> bool:
@@ -97,13 +149,14 @@ def _evidence_ok(activity: ActivityInput, rules: ActivityRules) -> bool:
     return activity.has_evidence or (route is not None and not route.evidence)
 
 
-def _week_slices(start: date, end: date) -> list[tuple[date, date]]:
-    weeks = []
+def period_slices(start: date, end: date, days: int = DAYS_PER_WEEK) -> list[tuple[date, date]]:
+    """대상기간을 days일씩 나눕니다(마지막 조각은 짧을 수 있음). 8차부터 7일, 반복수급자 14일."""
+    slices = []
     while start <= end:
-        week_end = min(start + timedelta(days=DAYS_PER_WEEK - 1), end)
-        weeks.append((start, week_end))
-        start = week_end + timedelta(days=1)
-    return weeks
+        slice_end = min(start + timedelta(days=days - 1), end)
+        slices.append((start, slice_end))
+        start = slice_end + timedelta(days=1)
+    return slices
 
 
 def check_round(
@@ -167,7 +220,7 @@ def check_round(
                 warnings.append(
                     RoundWarning(
                         id=WarningId.LIMIT_OVER,
-                        message=_W4.format(label=limit.label, max=limit.max),
+                        message=_W4.format(label=topic(limit.label), max=limit.max),
                         activity_ids=[a.activity_id],
                         rule_refs=list(limit.rule_refs),
                     )
@@ -242,11 +295,23 @@ def check_round(
                 end=end,
                 job_search=sum(1 for a in jobs if start <= a.activity_date <= end),
             )
-            for start, end in _week_slices(period_start, period_end)
+            for start, end in period_slices(period_start, period_end)
         ]
         required = required_job = len(weeks)
         total_job = sum(1 for week in weeks if week.job_search > 0)
         total = total_job
+    elif row.every_days:
+        # N일마다 활동 1건: 조각마다 인정 활동이 있으면 1건으로 셉니다(종류는 인정 여부에서 걸러짐).
+        slices = period_slices(period_start, period_end, row.every_days)
+        # 인정된 직업훈련(시간 기준 1건)은 마지막 훈련 날짜가 든 조각에 넣습니다.
+        days = [a.activity_date for a in counted]
+        if training_job:
+            days.append(max(a.activity_date for a in training if a.hours is not None))
+        required = len(slices)
+        total = sum(1 for s, e in slices if any(s <= day <= e for day in days))
+        # 구직활동만 인정되는 회차(반복수급자 3차부터)는 채운 조각이 모두 구직활동입니다.
+        job_only = _job_search_only(rules, group, round_no)
+        required_job, total_job = (required, total) if job_only else (0, 0)
     elif row.first_education:
         required, required_job = row.total, row.job_search
         total = min(sum(1 for a in counted if a.kind == "first_education"), row.total)
