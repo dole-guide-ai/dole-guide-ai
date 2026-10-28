@@ -102,3 +102,34 @@ def test_old_values_without_status_get_the_server_status() -> None:
     assert with_code_status(data).job_preferences.desired_regions.value == [
         {"code": None, "name": "인천", "status": "needs_confirmation"}
     ]
+
+
+def test_clearing_a_license_code_clears_its_name_and_picking_a_code_keeps_the_open_item() -> None:
+    from app.rules.resume.edits import code_edit
+    from app.schemas.forms.resume import ResumeData
+
+    data = ResumeData()
+    cleared = code_edit(data, "/certifications/q1/certificate_code", None)
+    assert cleared.writes == [
+        ("/certifications/q1/certificate_code", None),
+        ("/certifications/q1/certificate_name", None),
+    ]
+
+    # 고르기 전이던 직종(코드 없음)에 같은 이름의 코드를 고르면 그 항목을 지키고 직종만 바꿉니다.
+    said = {"code": None, "name": "택배원", "status": "needs_confirmation", "said": "택배원"}
+    data = ResumeData.model_validate(
+        {
+            "job_preferences": {
+                "desired_occupations": [
+                    {
+                        "item_id": "o1",
+                        "occupation": {"value": said},
+                        "experience_type": {"value": "경력", "status": "confirmed"},
+                    }
+                ]
+            }
+        }
+    )
+    edit = code_edit(data, "/job_preferences/desired_occupations", [{"code": "624100"}])
+    assert edit.removed == []
+    assert [p for p, _ in edit.writes] == ["/job_preferences/desired_occupations/o1/occupation"]

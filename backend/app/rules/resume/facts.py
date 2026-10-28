@@ -20,6 +20,7 @@ from app.rules.resume.check import (
     GPA_SCALE_ERROR,
     MAX_PICKS,
     current_scale,
+    gpa_pair_problem,
     gpa_scale_value,
     gpa_value,
 )
@@ -421,10 +422,15 @@ def answer_writes(
             else:
                 plan.writes.append(_dated(path, item, result, today))
         elif path.endswith(GPA_SCALE_SUFFIX):
-            if scale := gpa_scale_value(item):
-                plan.writes.append(said(path, scale))
-            else:
+            base = path.removesuffix(GPA_SCALE_SUFFIX)
+            sent_gpa = value.get("gpa") if isinstance(value, dict) else None
+            if not (scale := gpa_scale_value(item)):
                 plan.asks.append(f"{GPA_SCALE_ERROR}.")
+            elif problem := gpa_pair_problem(data, base, gpa=sent_gpa, scale=scale):
+                # 만점만 고쳐도 적힌(또는 함께 말한) 학점이 새 만점을 넘으면 저장하지 않습니다.
+                plan.asks.append(f"{problem}.")
+            else:
+                plan.writes.append(said(path, scale))
         elif path.endswith(GPA_SUFFIX):
             sent = value.get("gpa_scale") if isinstance(value, dict) else None
             if sent not in (None, "") and gpa_scale_value(sent) is None:

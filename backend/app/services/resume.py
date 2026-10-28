@@ -287,6 +287,7 @@ def patch_resume(
             ) from None
         writes += [_direct(path, value) for path, value in edit.writes]
         removed += edit.removed
+    _check_gpa_pairs(patch, current)
     result = save_resume_fields(db, account.user_id, writes, today=now.date(), removed=removed)
     return UpdatesRead(updates=result.updates)
 
@@ -294,27 +295,34 @@ def patch_resume(
 def _gpa_checked(
     index: int, op: JsonPatchOp, patch: list[JsonPatchOp], data: resume_form.ResumeData
 ) -> Any:
-    """학점 만점은 고용24 목록 값으로, 학점은 0 ~ 만점 숫자로 맞춥니다. 다른 칸은 그대로."""
+    """학점 만점은 고용24 목록 값으로, 학점은 0 이상 숫자로 맞춥니다. 다른 칸은 그대로.
+    학점이 만점 안에 드는지는 PATCH를 다 적용한 결과 쌍으로 봅니다(_check_gpa_pairs)."""
     if op.value in (None, "") or not op.path.endswith((GPA_SUFFIX, GPA_SCALE_SUFFIX)):
         return op.value
     if op.path.endswith(GPA_SCALE_SUFFIX):
         if (scale := rules.gpa_scale_value(op.value)) is None:
             raise _gpa_error(index, rules.GPA_SCALE_ERROR, PatchErrorType.CHOICE)
-        # 학점은 그대로 두고 만점만 바꾸면, 적힌 학점이 새 만점 안에 드는지도 봅니다.
-        gpa_path = op.path.removesuffix(GPA_SCALE_SUFFIX) + GPA_SUFFIX
-        if not any(o.path == gpa_path for o in patch):
-            written = dict(rules.form_fields(data)).get(gpa_path)
-            if written and written.value not in (None, ""):
-                _, problem = rules.gpa_value(written.value, scale)
-                if problem:
-                    raise _gpa_error(index, problem, PatchErrorType.NUMBER)
         return scale
-    scale_path = op.path.removesuffix(GPA_SUFFIX) + GPA_SCALE_SUFFIX
-    sent = next((o.value for o in patch if o.path == scale_path), None)
-    gpa, problem = rules.gpa_value(op.value, rules.current_scale(data, op.path, sent))
+    gpa, problem = rules.gpa_value(op.value, None)
     if problem:
         raise _gpa_error(index, problem, PatchErrorType.NUMBER)
     return gpa
+
+
+def _check_gpa_pairs(patch: list[JsonPatchOp], data: resume_form.ResumeData) -> None:
+    """학력 항목마다 마지막 학점·만점 연산(없으면 적힌 값)으로 결과 쌍이 0 ~ 만점인지 봅니다.
+    같은 칸을 여러 번 보내거나 만점만 낮춰도 넘는 학점이 저장되지 않게 합니다."""
+    last: dict[str, dict[str, tuple[int, Any]]] = {}
+    for index, op in enumerate(patch):
+        for suffix, key in ((GPA_SCALE_SUFFIX, "scale"), (GPA_SUFFIX, "gpa")):
+            if op.path.endswith(suffix):
+                value = None if op.op == PatchOpName.REMOVE else op.value
+                last.setdefault(op.path.removesuffix(suffix), {})[key] = (index, value)
+    for base, ops in last.items():
+        sent = {key: value for key, (_, value) in ops.items()}
+        problem = rules.gpa_pair_problem(data, base, gpa=sent.get("gpa"), scale=sent.get("scale"))
+        if problem:
+            raise _gpa_error(max(i for i, _ in ops.values()), problem, PatchErrorType.NUMBER)
 
 
 def _gpa_error(index: int, message: str, kind: PatchErrorType) -> UnprocessableError:

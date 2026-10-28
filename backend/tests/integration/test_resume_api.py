@@ -166,6 +166,12 @@ def test_direct_gpa_over_the_scale_is_422(
     assert _patch(client, headers, [{**over[0], "value": "4.0"}]).status_code == 200
     high = [over[0], {"op": "replace", "path": f"{base}/gpa", "value": "4.3"}]
     assert _patch(client, headers, high).status_code == 200
+    # 같은 PATCH에서 만점을 다시 낮추면 마지막 값(4.0)으로 학점 4.3을 봅니다.
+    repeated = [*high, {"op": "replace", "path": f"{base}/gpa_scale", "value": "4.0"}]
+    res = _patch(client, headers, repeated)
+    assert res.status_code == 422 and res.json()["details"] == [
+        {"field": "patch[2]", "type": "number"}
+    ]
     lower = [{"op": "replace", "path": f"{base}/gpa_scale", "value": "4.0"}]
     res = _patch(client, headers, lower)
     assert res.status_code == 422 and res.json()["message"] == "학점은 0~4.0점 사이로 적어 주세요."

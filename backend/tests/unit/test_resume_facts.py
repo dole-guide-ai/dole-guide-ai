@@ -459,3 +459,15 @@ def test_region_pick_answer_replaces_only_that_region() -> None:
     plan = answer_writes(data, (path,), ["부산 중구"], TODAY, SEPARATION, replacing_region="중구")
 
     assert [r["name"] for r in _values(plan)[path]] == ["서울 노원구", "부산 중구"]
+
+
+def test_lowering_only_the_scale_is_refused_when_the_gpa_no_longer_fits() -> None:
+    from app.rules.resume.facts import answer_writes
+
+    data = _college("4.5")
+    data.education[0].gpa.value = "4.3"
+
+    plan = answer_writes(data, ("/education/e1/gpa_scale",), "4.0", TODAY, SEPARATION)
+
+    assert _values(plan) == {}
+    assert plan.asks == ["학점은 0~4.0점 사이로 적어 주세요."]

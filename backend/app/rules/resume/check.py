@@ -174,6 +174,19 @@ def gpa_value(raw: Any, scale: Any) -> tuple[str | None, str | None]:
     return f"{number:g}", None
 
 
+def gpa_pair_problem(
+    data: ResumeData, base: str, *, gpa: Any = None, scale: Any = None
+) -> str | None:
+    """학력 항목(`base`)의 학점·만점을 이번에 바꿀 값(없으면 적힌 값)으로 맞춰 본 문제. 없으면 None.
+    둘 중 하나만 바꿔도 결과 쌍이 0 ~ 만점인지 봅니다(만점만 낮춰 학점이 넘는 경우)."""
+    written = dict(form_fields(data))
+    gpa = written.get(base + GPA_SUFFIX, FormField()).value if gpa is None else gpa
+    scale = written.get(base + GPA_SCALE_SUFFIX, FormField()).value if scale is None else scale
+    if gpa in (None, ""):
+        return None
+    return gpa_value(gpa, scale)[1]
+
+
 def current_scale(data: ResumeData, gpa_path: str, sent: Any = None) -> Any:
     """학점과 함께 보낸 만점, 없으면 이력서에 이미 적힌 만점(같은 학력 항목)."""
     if sent not in (None, ""):

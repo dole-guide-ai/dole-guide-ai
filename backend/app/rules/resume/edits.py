@@ -13,10 +13,17 @@
 from dataclasses import dataclass, field
 from typing import Any
 
-from app.rules.resume.codes import code_kind_of, name_for_code
+from app.rules.resume.codes import code_kind_of, name_for_code, name_path_of
 from app.rules.resume.fields import OCCUPATIONS_PATH, REGIONS_PATH
 from app.rules.resume.items import ItemPicker, same_name
-from app.rules.work24_codes import CodeKind, chosen_value, code_status, has_codes, with_status
+from app.rules.work24_codes import (
+    CodeKind,
+    chosen_value,
+    code_status,
+    has_codes,
+    said_name,
+    with_status,
+)
 from app.schemas.forms.resume import ResumeData
 
 OCCUPATION_FIELD = "/occupation"
@@ -66,8 +73,11 @@ def code_edit(data: ResumeData, path: str, value: Any) -> CodeEdit:
         return _occupations(data, value)
     if path == REGIONS_PATH:
         return CodeEdit(writes=[(path, [_chosen("region", v) for v in _as_list(value)])])
-    if value is None:  # 경력 직종·자격면허코드 등 비우기
-        return CodeEdit(writes=[(path, None)])
+    if (
+        value is None
+    ):  # 경력 직종·자격면허코드 등 비우기. 짝인 이름 칸(자격면허명·전공)도 같이 비웁니다.
+        name_path = name_path_of(path)
+        return CodeEdit(writes=[(path, None), *([(name_path, None)] if name_path else [])])
     kind = code_kind(path) or "occupation"
     if code_kind_of(path) and not has_codes(kind):
         # 코드표가 아직 없는 자격면허·전공은 고를 코드가 없으니 이름 칸만 씁니다.
@@ -101,12 +111,17 @@ def _occupations(data: ResumeData, values: Any) -> CodeEdit:
 
 
 def _same(current: Any, chosen: dict[str, Any]) -> bool:
-    """같은 직종인지: 둘 다 코드가 있으면 코드로, 아니면 이름으로 봅니다."""
+    """같은 직종인지: 둘 다 코드가 있으면 코드로, 아니면 이름으로 봅니다. 대화에서 고르기 전이던
+    항목(코드 없음)에 같은 이름의 코드를 고르면 같은 항목으로 봐 경력여부·희망직무내용을
+    지키게 합니다."""
     if not isinstance(current, dict):
         return False
     if current.get("code") and chosen.get("code"):
         return current["code"] == chosen["code"]
-    return not chosen.get("code") and same_name(current.get("name"), chosen.get("name"))
+    if current.get("code"):
+        return False
+    names = {current.get("name"), said_name(current)}
+    return any(same_name(n, chosen.get("name")) for n in names if n)
 
 
 def _chosen(kind: CodeKind, raw: Any) -> dict[str, Any]:
