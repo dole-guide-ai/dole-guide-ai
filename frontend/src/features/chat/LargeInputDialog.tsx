@@ -13,10 +13,18 @@ interface LargeInputDialogProps {
   onChange: (value: string) => void;
   onSend: (text: string) => void;
   onClose: () => void;
+  /** 녹음·받아쓰는 동안 글 입력과 보내기를 막습니다(받아쓴 글과 섞이지 않게, ChatInput과 같음). */
+  isLocked?: boolean;
 }
 
-export const LargeInputDialog = ({ value, onChange, onSend, onClose }: LargeInputDialogProps) => {
-  const canSend = value.trim().length > 0;
+export const LargeInputDialog = ({
+  value,
+  onChange,
+  onSend,
+  onClose,
+  isLocked = false,
+}: LargeInputDialogProps) => {
+  const canSend = !isLocked && value.trim().length > 0;
 
   useEffect(() => {
     const handleKey = (event: globalThis.KeyboardEvent) => {
@@ -59,6 +67,7 @@ export const LargeInputDialog = ({ value, onChange, onSend, onClose }: LargeInpu
           value={value}
           onChange={(event) => onChange(event.target.value)}
           onKeyDown={handleKeyDown}
+          disabled={isLocked}
           autoFocus
           placeholder="실업급여에 대해 궁금한 점을 적어 주세요"
           aria-label="크게 쓰기 입력"

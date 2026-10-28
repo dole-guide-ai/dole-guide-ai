@@ -210,6 +210,7 @@ export const ChatInput = ({
           onChange={onChange}
           onSend={onSend}
           onClose={() => setIsLargeOpen(false)}
+          isLocked={isTextLocked}
         />
       )}
     </div>
