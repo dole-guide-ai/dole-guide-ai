@@ -73,8 +73,11 @@ export const ChatInput = ({
   const fileInputRef = sharedFileInputRef ?? ownFileInputRef;
   const isRecording = voiceStatus === VOICE_STATUS.RECORDING;
   const isTranscribing = voiceStatus === VOICE_STATUS.TRANSCRIBING;
+  // 녹음·받아쓰는 동안에는 글 입력과 보내기를 막아 받아쓴 글과 섞이지 않게 합니다.
+  const isVoiceBusy = isRecording || isTranscribing;
+  const isTextLocked = isDisabled || isVoiceBusy;
   const [isLargeOpen, setIsLargeOpen] = useState(false);
-  const canSend = !isDisabled && value.trim().length > 0;
+  const canSend = !isTextLocked && value.trim().length > 0;
   const canUpload =
     !!onFileSelect && (isFileRequested || canAttachEvidence) && !isDisabled && !isUploading;
   // 강조와 안내 문구는 AI가 서류를 요청했을 때만 (늘 켜진 증빙 버튼은 조용히)
@@ -109,10 +112,14 @@ export const ChatInput = ({
           value={value}
           onChange={(event) => onChange(event.target.value)}
           onKeyDown={handleKeyDown}
-          disabled={isDisabled}
+          disabled={isTextLocked}
           rows={2}
           placeholder={
-            isDisabled ? '답을 만드는 중이에요…' : '실업급여에 대해 궁금한 점을 적어 주세요'
+            isDisabled
+              ? '답을 만드는 중이에요…'
+              : isVoiceBusy
+                ? '말씀을 듣고 있어요…'
+                : '실업급여에 대해 궁금한 점을 적어 주세요'
           }
           aria-label="메시지 입력"
           aria-describedby={PRIVACY_NOTE_ID}
@@ -162,7 +169,7 @@ export const ChatInput = ({
           </button>
           <button
             type="button"
-            disabled={isDisabled}
+            disabled={isTextLocked}
             onClick={() => setIsLargeOpen(true)}
             aria-label="크게 쓰기"
             className={`${TOOL_CLASS} ${TOOL_NORMAL}`}
