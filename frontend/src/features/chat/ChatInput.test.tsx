@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -98,6 +98,43 @@ describe('ChatInput', () => {
 
     rerender(<ChatInput {...props} voiceError="마이크를 쓸 수 없어요." />);
     expect(screen.getByRole('alert')).toHaveTextContent('마이크를 쓸 수 없어요.');
+  });
+
+  it('녹음·받아쓰는 동안에는 글 입력·크게 쓰기·보내기가 막힌다', () => {
+    const props = {
+      value: '안녕하세요',
+      onChange: vi.fn(),
+      onSend: vi.fn(),
+      onVoiceToggle: vi.fn(),
+    };
+    const { rerender } = render(<ChatInput {...props} voiceStatus="recording" />);
+    expect(screen.getByRole('textbox', { name: '메시지 입력' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '크게 쓰기' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '보내기' })).toBeDisabled();
+
+    rerender(<ChatInput {...props} voiceStatus="transcribing" />);
+    expect(screen.getByRole('textbox', { name: '메시지 입력' })).toBeDisabled();
+
+    rerender(<ChatInput {...props} />);
+    expect(screen.getByRole('textbox', { name: '메시지 입력' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: '보내기' })).toBeEnabled();
+  });
+
+  it('크게 쓰기 창을 연 뒤 녹음이 시작되면 창의 입력과 보내기도 막힌다', async () => {
+    const props = {
+      value: '안녕하세요',
+      onChange: vi.fn(),
+      onSend: vi.fn(),
+      onVoiceToggle: vi.fn(),
+    };
+    const { rerender } = render(<ChatInput {...props} />);
+    await userEvent.click(screen.getByRole('button', { name: '크게 쓰기' }));
+
+    rerender(<ChatInput {...props} voiceStatus="recording" />);
+
+    const dialog = screen.getByRole('dialog');
+    expect(within(dialog).getByRole('textbox', { name: '크게 쓰기 입력' })).toBeDisabled();
+    expect(within(dialog).getByRole('button', { name: '보내기' })).toBeDisabled();
   });
 
   it('말하기 연결이 없으면 버튼이 꺼져 있다', () => {
