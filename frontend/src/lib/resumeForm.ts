@@ -7,7 +7,7 @@
 
 import type { components } from '@/types/api.gen';
 import type { FieldStatus, FormUpdateEvent } from '@/types/chat.types';
-import type { OccupationRef, ResumeDraftRead, ResumeFieldState } from '@/types/resume.types';
+import type { CodeRef, ResumeDraftRead, ResumeFieldState } from '@/types/resume.types';
 
 type ResumeRead = components['schemas']['ResumeRead'];
 type FormField = components['schemas']['FormField'];
@@ -91,7 +91,6 @@ export const resumeFromServer = (read: ResumeRead): ResumeDraftRead => {
   keep(states, 'job_preferences.desired_duties', firstRaw?.desired_job_description as FormField);
 
   const prefValues = unwrapGroup(prefs, 'job_preferences', states);
-  const regions = (prefValues.desired_regions ?? []) as { name: string }[];
   const competencies = unwrapGroup(
     (data.competencies ?? {}) as Record<string, unknown>,
     'competencies',
@@ -111,11 +110,20 @@ export const resumeFromServer = (read: ResumeRead): ResumeDraftRead => {
     job_preferences: {
       ...prefValues,
       desired_occupations: occupations
-        .map((o) => o.occupation as OccupationRef | null)
-        .filter((o): o is OccupationRef => !!o),
+        .map((o) => o.occupation as CodeRef | null)
+        .filter((o): o is CodeRef => !!o),
+      first_occupation: first
+        ? {
+            item_id: first.item_id as string,
+            experience_type: (first.experience_type as string) ?? null,
+            experience_years: (first.experience_years as number) ?? null,
+            experience_months: (first.experience_months as number) ?? null,
+            desired_job_description: (first.desired_job_description as string) ?? null,
+          }
+        : null,
       experience_summary: experienceSummary(first),
       desired_duties: (first?.desired_job_description as string) ?? null,
-      desired_regions: regions.map((r) => r.name),
+      desired_regions: (prefValues.desired_regions ?? []) as CodeRef[],
       work_arrangements: prefValues.work_arrangements ?? [],
       search_keywords: prefValues.search_keywords ?? [],
     },
@@ -194,7 +202,6 @@ const UNDER_COMPETENCIES = new Set(['careers', 'certifications', 'other_certific
 export const resumeUpdateFromServer = (event: FormUpdateEvent): FormUpdateEvent => {
   if (!event.path.startsWith('/')) return event;
   const parts = event.path.slice(1).split('/');
-  let { value } = event;
   if (parts[0] === 'certifications_status') {
     // 패널에는 "자격증 없음" 상태 칩만 있습니다. 값을 넣으면 자격증 목록을 덮어씁니다.
     return { ...event, path: '/competencies/certifications', value: undefined };
@@ -203,8 +210,5 @@ export const resumeUpdateFromServer = (event: FormUpdateEvent): FormUpdateEvent 
   if (parts[0] === 'education' && parts.length === 3) {
     parts[2] = EDUCATION_RENAME[parts[2]] ?? parts[2];
   }
-  if (event.path === '/job_preferences/desired_regions' && Array.isArray(value)) {
-    value = value.map((r) => (typeof r === 'object' && r && 'name' in r ? r.name : r));
-  }
-  return { ...event, path: `/${parts.join('/')}`, value };
+  return { ...event, path: `/${parts.join('/')}` };
 };

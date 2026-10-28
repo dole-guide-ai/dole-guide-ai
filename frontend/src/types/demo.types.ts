@@ -69,11 +69,16 @@ export interface EntryResult {
   choices: string[];
   /** 첫 안내가 서류·사진을 요청하면 true (2-0.4 `accepts_file`과 같은 뜻) */
   accepts_file?: boolean;
+  /** 누르면 파일 선택창을 여는 보기 (질문의 `file_choice`와 같음) */
+  file_choice?: string | null;
   /**
    * 새로고침 전 답을 기다리던 질문 (F-03, `AccountRead.pending_ask`). 있으면 그 선택지·불러오기 종류를 다시 띄우고,
    * 없으면 저장된 대화를 되살릴 때 진입 선택지를 지웁니다.
    */
-  pending_ask?: Pick<AskUserEvent, 'choices' | 'import_kind' | 'accepts_file'> | null;
+  pending_ask?: Pick<
+    AskUserEvent,
+    'choices' | 'import_kind' | 'accepts_file' | 'file_choice'
+  > | null;
   ui: { big_text: boolean };
   rule_refs: string[];
 }

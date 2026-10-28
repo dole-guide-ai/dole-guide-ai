@@ -1,7 +1,7 @@
 {
   "_note": "이력서 대화의 질문 문구. ID는 rules/resume/steps.py의 단계 ID와 같고 {이름}은 문구 변수로 채웁니다. 대명사(그곳·거기·그것)는 쓰지 않습니다. 변수가 비면 unnamed 문구, 없으면 fallbacks의 이름을 씁니다. proposals는 코드가 계산한 제안이 있을 때의 문구입니다. 모델이 이번 턴에 묻지 않았을 때 이 문구로 묻습니다.",
   "questions": {
-    "resume.doc_retry": "올려 주신 서류를 읽지 못했어요. 다시 찍어 올리시겠어요, 아니면 말로 하시겠어요?",
+    "resume.doc_retry": "올려 주신 서류를 읽지 못했어요. 파일을 다시 올리시거나, 음성이나 채팅으로 알려 주셔도 돼요.",
     "resume.career_new": "가장 최근에 일하신 곳은 어디예요? 회사 이름과 다니신 기간을 말씀해 주세요.",
     "resume.career_since_old": "{year}년 이후에 일하신 곳이 있으세요?",
     "resume.career_period": "{company}에는 언제부터 언제까지 다니셨어요? 몇 년 몇 월인지 말씀해 주세요.",
@@ -16,6 +16,14 @@
     "resume.wish_job": "앞으로 어떤 일을 하고 싶으세요?",
     "resume.wish_experience": "{occupation} 일은 해 보신 경력이 있으신 거죠?",
     "resume.wish_region": "일하고 싶은 지역은 어디예요? 세 곳까지 말씀해 주셔도 돼요.",
+    "resume.wish_job_pick": "'{said}' 일과 가장 가까운 고용24 직종을 골라 주세요. 맞는 게 없으면 다른 이름으로 알려 주셔도 돼요.",
+    "resume.wish_job_unmatched": "고용24 직종 목록에서 '{said}'에 맞는 이름을 못 찾았어요. 하시려는 일을 다른 이름으로 알려 주시거나, 이름만 적어 두고 고용24에서 고르셔도 돼요.",
+    "resume.license_pick": "고용24 자격면허 목록에서 '{said}'에 맞는 것을 골라 주세요.",
+    "resume.license_unmatched": "고용24 자격면허 목록에서 '{said}'에 맞는 자격을 못 찾았어요. 민간등록자격처럼 목록에 없는 자격은 고용24의 '기타자격' 칸에 적어요. 다른 이름으로 말씀해 주시거나 이름만 적어 둘게요.",
+    "resume.major_pick": "고용24 전공 목록에서 '{said}'에 맞는 것을 골라 주세요.",
+    "resume.major_unmatched": "고용24 전공 목록에서 '{said}'에 맞는 전공을 못 찾았어요. 다른 이름으로 말씀해 주시거나 이름만 적어 두고 고용24에서 고르셔도 돼요.",
+    "resume.wish_region_pick": "'{said}'에 해당하는 고용24 근무지역을 골라 주세요.",
+    "resume.wish_region_unmatched": "고용24 근무지역 목록에서 '{said}'에 맞는 지역을 못 찾았어요. '서울'이나 '노원구'처럼 시·도나 시·군·구 이름으로 다시 말씀해 주시거나, 이름만 적어 두고 고용24에서 고르셔도 돼요.",
     "resume.wish_wage": "희망하시는 월급이 있으세요?",
     "resume.wish_employment": "기간이 정해지지 않은 일과 정해진 일 중 어떤 걸 원하세요?",
     "resume.wish_military": "군 복무 대신 회사에서 일하는 제도(산업기능요원·전문연구요원 같은 병역대체 근무)로 일자리를 찾으세요? 대부분은 해당하지 않아요.",
@@ -32,7 +40,7 @@
     "resume.optional_detail": "어떤 역량인지 말씀해 주세요. 예: 토익 800점, 엑셀 가능, 직업훈련 이수",
     "resume.education_kind": "대학교는 2/3년제였나요, 4년제였나요?",
     "resume.education_major": "{level} 전공은 무엇이었어요?",
-    "resume.education_gpa": "{level} 학점은 몇 점 만점에 몇 점이었어요? 모르시면 나중에 채워도 돼요."
+    "resume.education_gpa": "{level} 학점은 몇 점 만점에 몇 점이었어요? (예: 4.5점 만점에 3.8점) 모르시면 나중에 채워도 돼요."
   },
   "unnamed": {
     "resume.value_confirm": "확인이 필요한 칸이 있어요. 오른쪽 이력서에서 '확인 필요' 표시를 봐 주세요.",
@@ -47,7 +55,7 @@
     "resume.education_period": "마지막으로 다니신 학교의 입학 연도와 졸업 연도를 알려 주세요. 모르시면 나중에 채워도 돼요.",
     "resume.career_end_check": "실업급여 기준 이직일보다 전에 마지막 회사를 그만두신 걸로 적혀 있어요. 그 뒤에 다니신 회사가 있으세요?",
     "resume.education_major": "대학 전공은 무엇이었어요?",
-    "resume.education_gpa": "대학 학점은 몇 점 만점에 몇 점이었어요? 모르시면 나중에 채워도 돼요."
+    "resume.education_gpa": "대학 학점은 몇 점 만점에 몇 점이었어요? (예: 4.5점 만점에 3.8점) 모르시면 나중에 채워도 돼요."
   },
   "fallbacks": {
     "company": "최근에 다니신 회사",
@@ -56,6 +64,11 @@
   },
   "proposals": {
     "resume.wish_job": "{occupation} 일을 이어서 하고 싶으세요?",
+    "resume.wish_experience": "{occupation} 경력을 {years}년 {months}개월로 적을까요? 같은 직종으로 일하신 기간을 더한 값이에요.",
     "resume.wish_wage": "예전처럼 월 {wage}만 원으로 적을까요?"
+  },
+  "retry": {
+    "text": "{reason} {question}",
+    "unknown": "말씀하신 내용으로는 이 칸을 적지 못했어요."
   }
 }

@@ -151,6 +151,7 @@ class PatchErrorType(StrEnum):
     OUT_OF_ROUND = "out_of_round"
     BAD_SHAPE = "bad_shape"
     TOO_MANY = "too_many"
+    CODE = "code"  # 고용24 공통코드 목록에 없는 직종·지역
 
 
 class JsonPatchOp(BaseModel):

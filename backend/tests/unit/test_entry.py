@@ -83,3 +83,13 @@ def test_big_text_is_default_from_65_at_separation() -> None:
     assert build_entry(procedure(age_at_separation=64), "none", None, None).ui.big_text is False
     assert build_entry(procedure(age_at_separation=65), "none", None, None).ui.big_text is True
     assert build_entry(procedure(age_at_separation=67), "ready", None, None).ui.big_text is True
+
+
+def test_file_choice_is_one_of_the_entry_choices() -> None:
+    # 파일 버튼은 글자로 찾으므로 선택지와 글자가 다르면 말로 보내는 버튼이 됩니다.
+    from app.rules.entry_text import templates
+
+    with_file = {k: v for k, v in templates()["branches"].items() if v.get("file_choice")}
+    assert with_file
+    for key, spec in with_file.items():
+        assert spec["file_choice"] in spec["choices"], key

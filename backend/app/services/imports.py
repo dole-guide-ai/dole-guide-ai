@@ -15,6 +15,7 @@ from app.core.errors import ConflictError, NotFoundError, UnprocessableError
 from app.models import Work24Import
 from app.repositories import imports as import_repo
 from app.rules import imports as import_rules
+from app.rules.resume.codes import code_for_name
 from app.rules.resume.items import ItemPicker
 from app.schemas.activities import ActivityCreate, ActivityRoute
 from app.schemas.common import FieldSource, FieldStatus, FormUpdate, UpdatesRead
@@ -122,13 +123,12 @@ def _resume_writes(row: Work24Import, picker: ItemPicker) -> list[FieldWrite]:
         }
     item = picker.pick(section, values=(name,), new_id=f"{ITEM_PREFIX}{row.source_id}").item_id
     base = f"/{section}/{item}"
+    writes = [(f"{base}/{field}", value) for field, value in fields.items() if value is not None]
+    # 자격면허명은 대화와 같은 규칙으로 고용24 자격면허코드도 맞춥니다(rules/resume/codes).
+    writes += [w for path, value in writes for w in code_for_name(path, value)]
     return [
         FieldWrite(
-            path=f"{base}/{name}",
-            value=value,
-            status=FieldStatus.CONFIRMED,
-            source=FieldSource.WORK24_IMPORT,
+            path=path, value=value, status=FieldStatus.CONFIRMED, source=FieldSource.WORK24_IMPORT
         )
-        for name, value in fields.items()
-        if value is not None
+        for path, value in writes
     ]

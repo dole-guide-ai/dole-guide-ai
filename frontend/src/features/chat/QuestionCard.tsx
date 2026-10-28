@@ -2,7 +2,7 @@
 
 import { type KeyboardEvent, useId, useState } from 'react';
 
-import { CircleHelp, PencilLine, X } from 'lucide-react';
+import { CircleHelp, Paperclip, PencilLine, X } from 'lucide-react';
 
 import { Button } from '@/components/Button';
 
@@ -14,6 +14,8 @@ import { ICON_SIZE, ICON_STROKE } from '@/lib/iconSize';
  * - 고르기만 해서는 보내지 않습니다(누르기 실수 방지). 숫자키 1·2·3으로도 고를 수 있습니다(카드 안에 포커스가 있을 때).
  * - 직접 답을 적으면 고른 선택지가 풀리고, 글이 그대로 보내집니다.
  * - `건너뛰기`·닫기는 카드만 닫고, 아래 입력창에 자유롭게 적을 수 있습니다.
+ * - 파일 선택지(`fileChoice`, 예: 이력서 또는 경력증명서 파일 올리기)는 라디오 밖의 버튼이라
+ *   누를 때만 파일 선택창을 엽니다(화살표키로 라디오를 옮길 때 열리지 않게). 대화로 보내지 않습니다.
  */
 /** 질문 문장이 없을 때(진입 선택지) 카드 제목 */
 const DEFAULT_TITLE = '알맞은 답을 골라 주세요';
@@ -26,6 +28,9 @@ interface QuestionCardProps {
   onAnswer: (text: string) => void;
   onDismiss: () => void;
   isDisabled?: boolean;
+  /** 누르면 파일 선택창을 여는 선택지(서버 `file_choice`)와 그때 부를 함수 */
+  fileChoice?: string | null;
+  onFileChoice?: () => void;
 }
 
 export const QuestionCard = ({
@@ -35,12 +40,17 @@ export const QuestionCard = ({
   onAnswer,
   onDismiss,
   isDisabled = false,
+  fileChoice = null,
+  onFileChoice,
 }: QuestionCardProps) => {
   const [selected, setSelected] = useState<string | null>(null);
   const [draft, setDraft] = useState('');
   const titleId = useId();
   const answer = draft.trim();
   const canSend = !isDisabled && (selected !== null || answer.length > 0);
+  // 파일 선택지는 라디오에서 빼고 따로 버튼으로 둡니다. 번호도 라디오 선택지에만 붙입니다.
+  const fileButton = fileChoice && onFileChoice && choices.includes(fileChoice) ? fileChoice : null;
+  const answerChoices = fileButton ? choices.filter((choice) => choice !== fileButton) : choices;
 
   const handleSend = () => {
     if (!canSend) return;
@@ -59,9 +69,9 @@ export const QuestionCard = ({
       return;
     }
     const index = Number(event.key) - 1;
-    if (Number.isInteger(index) && index >= 0 && index < choices.length) {
+    if (Number.isInteger(index) && index >= 0 && index < answerChoices.length) {
       event.preventDefault();
-      select(choices[index]);
+      select(answerChoices[index]);
     }
   };
 
@@ -92,9 +102,9 @@ export const QuestionCard = ({
       </p>
 
       {/* 선택지는 실제 라디오(화살표키로 이동)이고, 화면에는 번호 상자와 글만 보입니다. */}
-      {choices.length > 0 && (
+      {answerChoices.length > 0 && (
         <div role="radiogroup" aria-labelledby={titleId} className="flex flex-col gap-1">
-          {choices.map((choice, index) => {
+          {answerChoices.map((choice, index) => {
             const isSelected = choice === selected;
             return (
               <label
@@ -129,6 +139,23 @@ export const QuestionCard = ({
         </div>
       )}
 
+      {fileButton && onFileChoice && (
+        <button
+          type="button"
+          onClick={onFileChoice}
+          disabled={isDisabled}
+          className="text-brand hover:bg-brand-soft focus-visible:ring-brand disabled:text-muted flex min-h-11 items-center gap-3 rounded-xl px-2 py-1.5 text-base font-semibold focus-visible:ring-3 focus-visible:outline-hidden disabled:cursor-not-allowed disabled:hover:bg-transparent"
+        >
+          <Paperclip
+            aria-hidden
+            size={ICON_SIZE.md}
+            strokeWidth={ICON_STROKE}
+            className="shrink-0"
+          />
+          {fileButton}
+        </button>
+      )}
+
       <div className="border-line flex flex-wrap items-center gap-2 border-t pt-3">
         <label className="has-focus-visible:ring-brand flex min-w-48 flex-1 items-center gap-2 rounded-lg px-1 has-focus-visible:ring-3">
           <PencilLine
@@ -148,7 +175,9 @@ export const QuestionCard = ({
             onKeyDown={(event) => {
               if (event.key === 'Enter' && !event.nativeEvent.isComposing) handleSend();
             }}
-            placeholder={choices.length > 0 ? '또는 직접 답변을 작성하세요' : '답변을 작성하세요'}
+            placeholder={
+              answerChoices.length > 0 ? '또는 직접 답변을 작성하세요' : '답변을 작성하세요'
+            }
             aria-label="직접 답변"
             className="placeholder:text-muted min-w-0 flex-1 bg-transparent py-2 text-base focus-visible:outline-hidden"
           />

@@ -83,17 +83,17 @@
         "data": {
           "resume_title": "웹 개발 경력 이력서",
           "education": [
-            { "item_id": "edu_001", "education_level": "대학교(4년제)", "graduation_status": "졸업", "school_name": "OO대학교", "start_date": "1978-03", "end_date": "1985-02", "major": "전자계산학", "is_highest_education": true }
+            { "item_id": "edu_001", "education_level": "대학교(4년제)", "graduation_status": "졸업", "school_name": "OO대학교", "start_date": "1978-03", "end_date": "1985-02", "major": "전자계산학과", "major_code": { "code": "04080100048", "name": "전자계산학과", "status": "confirmed", "said": "전자계산학" }, "is_highest_education": true }
           ],
           "job_preferences": {
-            "desired_occupations": [{ "item_id": "occ_001", "occupation": { "code": null, "name": "웹 개발자", "status": "needs_confirmation" } }],
-            "desired_regions": [{ "code": null, "name": "서울 노원구" }]
+            "desired_occupations": [{ "item_id": "occ_001", "occupation": { "code": "133300", "name": "웹 개발자", "status": "confirmed", "said": "웹 개발자" } }],
+            "desired_regions": [{ "code": "11350", "name": "서울 노원구", "status": "confirmed", "said": "서울 노원구" }]
           },
           "careers": [
-            { "item_id": "career_001", "company_name": "OO웹솔루션", "start_date": "2005-03", "end_date": "2019-04", "position": "과장", "main_duties": "웹사이트 개발·유지보수" }
+            { "item_id": "career_001", "company_name": "OO웹솔루션", "start_date": "2005-03", "end_date": "2019-04", "position": "과장", "occupation": { "code": "133300", "name": "웹 개발자", "status": "confirmed", "said": "웹 개발" }, "main_duties": "웹사이트 개발·유지보수" }
           ],
           "certifications": [
-            { "item_id": "cert_001", "certificate_name": "정보처리기사", "issuing_organization": "한국산업인력공단", "acquired_date": "1998-11-15" }
+            { "item_id": "cert_001", "certificate_name": "정보처리기사", "certificate_code": { "code": "5001320", "name": "정보처리기사", "status": "confirmed", "said": "정보처리기사" }, "issuing_organization": "한국산업인력공단", "acquired_date": "1998-11-15" }
           ],
           "competencies": {}
         }
@@ -149,7 +149,7 @@
         "data": {
           "resume_title": "앱 개발 경력 이력서",
           "education": [
-            { "item_id": "edu_001", "education_level": "대학교(4년제)", "graduation_status": "졸업", "school_name": "OO대학교", "start_date": "1987-03", "end_date": "1994-02", "major": "컴퓨터공학", "is_highest_education": true }
+            { "item_id": "edu_001", "education_level": "대학교(4년제)", "graduation_status": "졸업", "school_name": "OO대학교", "start_date": "1987-03", "end_date": "1994-02", "major": "컴퓨터공학과", "major_code": { "code": "04080100061", "name": "컴퓨터공학과", "status": "confirmed", "said": "컴퓨터공학" }, "is_highest_education": true }
           ],
           "job_preferences": {
             "desired_occupations": [
@@ -159,17 +159,17 @@
                 "experience_type": "경력"
               }
             ],
-            "desired_regions": [{ "code": null, "name": "서울 강서구" }],
+            "desired_regions": [{ "code": "11500", "name": "서울 강서구", "status": "confirmed", "said": "서울 강서구" }],
             "desired_salary": { "amount": null, "unit": "monthly", "currency": "KRW", "negotiable": true },
             "employment_contract_type": "기간의 정함이 없는 근로계약",
             "military_alternative": "해당 없음"
           },
           "careers": [
-            { "item_id": "career_001", "company_name": "OO모바일", "start_date": "2012-03", "end_date": "{sep:%Y-%m}", "position": "팀장", "employment_status": "퇴직", "main_duties": "모바일 앱 개발·운영" },
-            { "item_id": "career_002", "company_name": "OO시스템", "start_date": "2001-04", "end_date": "2012-02", "position": "대리", "employment_status": "퇴직", "main_duties": "웹·SI 개발" }
+            { "item_id": "career_001", "company_name": "OO모바일", "start_date": "2012-03", "end_date": "{sep:%Y-%m}", "position": "팀장", "employment_status": "퇴직", "occupation": { "code": "133207", "name": "모바일 애플리케이션 프로그래머(앱·어플 개발)", "status": "confirmed", "said": "앱 개발" }, "main_duties": "모바일 앱 개발·운영" },
+            { "item_id": "career_002", "company_name": "OO시스템", "start_date": "2001-04", "end_date": "2012-02", "position": "대리", "employment_status": "퇴직", "occupation": { "code": "133301", "name": "웹 개발자(웹 엔지니어·웹 프로그래머)", "status": "confirmed", "said": "웹·SI 개발" }, "main_duties": "웹·SI 개발" }
           ],
           "certifications": [
-            { "item_id": "cert_001", "certificate_name": "정보처리기사", "issuing_organization": "한국산업인력공단", "acquired_date": "2003-05-23" }
+            { "item_id": "cert_001", "certificate_name": "정보처리기사", "certificate_code": { "code": "5001320", "name": "정보처리기사", "status": "confirmed", "said": "정보처리기사" }, "issuing_organization": "한국산업인력공단", "acquired_date": "2003-05-23" }
           ],
           "competencies": {}
         }

@@ -10,6 +10,8 @@ logger = logging.getLogger(__name__)
 
 # LLM·임베딩 공급자. 둘 다 OpenAI 호환 API라 gateway가 주소만 바꿔 부릅니다.
 Provider = Literal["openai", "upstage"]
+# 고용24 OpenAPI 종류 (인증키가 API마다 다름)
+Work24Api = Literal["training", "program", "code"]
 ModelRole = Literal["agent", "extract", "judge"]
 
 
@@ -105,7 +107,11 @@ class Settings(BaseSettings):
     internal_api_secret: str = ""
     # 계좌 암호화 키(Fernet). local에서 비우면 개발용 키를 씁니다.
     account_encryption_key: str = ""
-    # 고용24 OpenAPI 인증키. 비우면 스냅샷만 씁니다.
+    # 고용24 OpenAPI 인증키는 API마다 따로 발급됩니다. 비우면 그 API는 스냅샷만 씁니다
+    # (코드표는 저장된 JSON). 예전 공용 키(work24_api_key)는 API별 키가 비었을 때만 씁니다.
+    work24_training_api_key: str = ""  # 국민내일배움카드 훈련과정 목록 (310L01)
+    work24_program_api_key: str = ""  # 구직자취업역량 강화프로그램 (217L01)
+    work24_code_api_key: str = ""  # 공통코드 (21L01, dtlGb 1~9 한 키) — 코드표 받는 스크립트만
     work24_api_key: str = ""
     # 고용24 OpenAPI 호출 하나의 대기 시간과 실패 시 다시 부르는 횟수 (설계 3.11: 5초·재시도 1회)
     external_api_timeout_seconds: float = 5
@@ -156,6 +162,10 @@ class Settings(BaseSettings):
         if role == "extract":
             return self.extract_provider, self.extract_model
         return self.agent_provider, self.agent_model
+
+    def work24_key(self, api: Work24Api) -> str:
+        """고용24 API별 인증키. 그 API의 키가 비었으면 예전 공용 키."""
+        return getattr(self, f"work24_{api}_api_key") or self.work24_api_key
 
     def api_key_for(self, provider: Provider) -> str:
         return getattr(self, PROVIDERS[provider].key_setting)

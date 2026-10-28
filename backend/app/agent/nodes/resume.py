@@ -40,6 +40,8 @@ from app.rules.resume.steps import (
     DONT_KNOW,
     FILL_NOW,
     FOLLOW_UPS,
+    REGION_PICK,
+    REGION_UNMATCHED,
     SAVE_AFTER_FILL,
     ResumeStep,
 )
@@ -375,6 +377,9 @@ def save_answer(
         writes += _checked(memory, plan)
     if reading.note and not writes:
         outcome["note"] = reading.note
+    if step and reading.kind == "value" and (not writes or outcome.get("questions")):
+        # 대기 질문의 답을 (일부라도) 저장하지 못했으면 다시 묻는 카드로 냅니다(speak, retry_text).
+        outcome["retry_of"] = step.key
     _save(ctx, memory, writes)
     if reading.kind in ("value", "not_known", "stop", "delegate", "correction"):
         memory["pending"] = None
@@ -387,7 +392,18 @@ def _value_writes(
 ) -> list[FieldWrite]:
     """대기 칸의 값을 칸 쓰기로(rules/resume/facts.answer_writes). 되묻기·거절은 outcome에."""
     procedure = account_service.read_procedure(ctx.db, ctx.account.user_id)
-    return _checked(memory, answer_writes(step.paths, value, ctx.today, procedure.separation_date))
+    current = resume_service.read_resume(ctx.db, ctx.account).data
+    # 지역 하나의 후보를 고르는 중이면 다른 지역은 두고 그 자리만 바꿉니다.
+    replacing = step.item if step.id in (REGION_PICK, REGION_UNMATCHED) else None
+    plan = answer_writes(
+        current,
+        step.paths,
+        value,
+        ctx.today,
+        procedure.separation_date,
+        replacing_region=replacing,
+    )
+    return _checked(memory, plan)
 
 
 def _path_writes(
@@ -395,11 +411,12 @@ def _path_writes(
 ) -> list[FieldWrite]:
     """경로로 받은 값(정정·함께 말한 칸). 스키마에 없는 경로는 버립니다(지어낸 칸 방지)."""
     procedure = account_service.read_procedure(ctx.db, ctx.account.user_id)
-    known = {p for p, _ in rules.form_fields(resume_service.read_resume(ctx.db, ctx.account).data)}
+    current = resume_service.read_resume(ctx.db, ctx.account).data
+    known = {p for p, _ in rules.form_fields(current)}
     writes: list[FieldWrite] = []
     for path, value in items:
         if path in known:
-            plan = answer_writes((path,), value, ctx.today, procedure.separation_date)
+            plan = answer_writes(current, (path,), value, ctx.today, procedure.separation_date)
             writes += _checked(memory, plan)
     return writes
 
@@ -436,8 +453,15 @@ def _speak_input(state: AgentState, memory: ResumeMemory, step: ResumeStep | Non
         next_view["bundle"] = [v for v in plan.get("steps", []) if v.get("proposal")]
     # 진행(5개 중 n개)은 바뀐 턴에만 넘겨 매 턴 되풀이하지 않게 합니다.
     progress = plan.get("progress")
+    outcome = dict(memory["outcome"])
+    if next_view and _is_retry(memory, step):
+        # 부탁 문장은 다시 묻는 카드가 보여 주므로 모델에는 넘기지 않습니다(두 번 말하지 않게).
+        # 넣지 않은 값(rejected)은 카드에 없으니 모델이 이유를 말하게 남깁니다.
+        next_view["retry"] = True
+        for key in ("questions", "note"):
+            outcome.pop(key, None)
     payload = {
-        "outcome": memory["outcome"],
+        "outcome": outcome,
         "progress": progress if progress != memory.get("told_progress") else None,
         "next": next_view,
         "user_said": _last_user_text(state),
@@ -475,12 +499,22 @@ def speak(state: AgentState, config: RunnableConfig) -> dict[str, Any]:
     if step is not None:
         # 질문 카드는 문장도 버튼도 코드(템플릿)가 정합니다.
         # (모델이 묻게 하면 다른 칸을 묻거나 범위를 바꿔 버튼과 어긋나기 때문)
-        if card := rules.question_text(step):
+        # 같은 질문을 다시 낼 때는 저장하지 못한 이유를 카드 앞에 붙입니다.
+        card = (
+            rules.retry_text(step, memory["outcome"].get("questions", []))
+            if _is_retry(memory, step)
+            else rules.question_text(step)
+        )
+        if card:
             memory = _ask(memory, step, card)
             out.append(AIMessage(card))
     else:
         memory["pending"] = None
     return {"messages": out, "resume": memory}
+
+
+def _is_retry(memory: ResumeMemory, step: ResumeStep | None) -> bool:
+    return step is not None and memory["outcome"].get("retry_of") == step.key
 
 
 def _stream(pieces: list[str]) -> list[str]:
@@ -498,6 +532,7 @@ def _ask(memory: ResumeMemory, step: ResumeStep, text: str) -> ResumeMemory:
             choices=list(step.choices),
             import_kind=kind.value if kind else None,
             accepts_file=step.accepts_file,
+            file_choice=step.file_choice,
         )
     )
     memory["asked"][step.key] = memory["asked"].get(step.key, 0) + 1

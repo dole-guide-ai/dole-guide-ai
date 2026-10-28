@@ -171,6 +171,7 @@ export const useChatStream = (session: SessionRead) => {
     question: state.question,
     importKind: state.importKind,
     acceptsFile: state.acceptsFile,
+    fileChoice: state.fileChoice,
     isStreaming,
     activeTool,
     inputText,

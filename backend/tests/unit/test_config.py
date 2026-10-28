@@ -167,3 +167,15 @@ def test_embedding_key_not_required_without_model(monkeypatch: pytest.MonkeyPatc
     monkeypatch.setenv("EMBEDDING_PROVIDER", "upstage")
 
     assert "upstage_api_key" not in Settings(_env_file=None).missing_required_keys()
+
+
+def test_each_work24_api_uses_its_own_key_then_the_old_shared_key() -> None:
+    from app.core.config import Settings
+
+    settings = Settings(
+        work24_code_api_key="code-key", work24_training_api_key="", work24_api_key="old-key"
+    )
+    assert settings.work24_key("code") == "code-key"
+    # 훈련과정 키가 비었으면 예전 공용 키를 씁니다(이미 배포된 설정이 깨지지 않게).
+    assert settings.work24_key("training") == "old-key"
+    assert Settings(work24_program_api_key="", work24_api_key="").work24_key("program") == ""

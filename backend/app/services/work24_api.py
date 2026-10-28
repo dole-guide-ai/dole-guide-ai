@@ -14,14 +14,20 @@ from datetime import date
 
 import httpx
 
-from app.core.config import get_settings
+from app.core.config import Work24Api, get_settings
+from app.schemas.codes import CodeRead
 from app.schemas.trainings import Program, Training
 
 logger = logging.getLogger(__name__)
 
 TRAINING_URL = "https://www.work24.go.kr/cm/openApi/call/hr/callOpenApiSvcInfo310L01.do"
 PROGRAM_URL = "https://www.work24.go.kr/cm/openApi/call/wk/callOpenApiSvcInfo217L01.do"
+# 고용24는 API마다 인증키가 따로라, 부르는 주소로 어느 키를 쓸지 정합니다.
+API_OF_URL: dict[str, Work24Api] = {TRAINING_URL: "training", PROGRAM_URL: "program"}
 PAGE_SIZE = 10
+# 지역 코드(시·도 11000, 시·군·구 11680)의 시·도 자리 수와 시·군·구 단계
+SIDO_DIGITS = 2
+DISTRICT_DEPTH = 2
 TRAINING_SEARCH_DAYS = 60  # 훈련 시작일 검색 구간 (오늘부터)
 # 217L01 openTimeClcd: 1 오전, 2 오후 (9.5)
 OPEN_TIME_LABELS = {"1": "오전", "2": "오후"}
@@ -44,9 +50,10 @@ def _total(root: ET.Element, tag: str, fallback: int) -> int:
 
 def _get(url: str, params: dict[str, str]) -> ET.Element | None:
     settings = get_settings()
-    if not settings.work24_api_key:
+    key = settings.work24_key(API_OF_URL[url])
+    if not key:
         return None
-    query = {"authKey": settings.work24_api_key, **params}
+    query = {"authKey": key, **params}
     for attempt in range(settings.external_api_retries + 1):
         try:
             res = httpx.get(url, params=query, timeout=settings.external_api_timeout_seconds)
@@ -121,10 +128,26 @@ def parse_programs(root: ET.Element) -> list[Program]:
     return items
 
 
+def area_params(region: CodeRead | None) -> dict[str, str]:
+    """고용24 지역 코드 → 훈련과정 지역 조건. 시·도는 앞 두 자리(srchTraArea1, 서울 11),
+    시·군·구는 다섯 자리 그대로(srchTraArea2, 서울 강남구 11680). 2026-10-27 실제 호출로 확인."""
+    if region is None:
+        return {}
+    params = {"srchTraArea1": region.code[:SIDO_DIGITS]}
+    if region.depth == DISTRICT_DEPTH:
+        params["srchTraArea2"] = region.code
+    return params
+
+
 def fetch_trainings(
-    keyword: str | None, start: date, end: date, page: int = 1, get: Callable = _get
+    keyword: str | None,
+    start: date,
+    end: date,
+    page: int = 1,
+    get: Callable = _get,
+    region: CodeRead | None = None,
 ) -> LivePage[Training] | None:
-    """훈련 시작일이 start~end인 과정. total은 응답의 전체 검색 건수(scn_cnt)."""
+    """훈련 시작일이 start~end인 과정(지역을 주면 그 지역만). total은 전체 검색 건수(scn_cnt)."""
     params = {
         **_TRAINING_FIXED,
         "pageNum": str(page),
@@ -134,6 +157,7 @@ def fetch_trainings(
     }
     if keyword:
         params["srchTraProcessNm"] = keyword
+    params |= area_params(region)
     root = get(TRAINING_URL, params)
     if root is None:
         return None

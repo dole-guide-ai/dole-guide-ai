@@ -89,4 +89,34 @@ describe('QuestionCard', () => {
     await userEvent.type(screen.getByRole('textbox', { name: '직접 답변' }), '창고 관리{Enter}');
     expect(handlers.onAnswer).toHaveBeenCalledWith('창고 관리');
   });
+
+  it('파일 선택지는 라디오 밖 버튼이라 누를 때만 파일 선택창을 열고 말로 보내지 않는다', async () => {
+    const handlers = { onChoice: vi.fn(), onAnswer: vi.fn(), onDismiss: vi.fn() };
+    const onFileChoice = vi.fn();
+    renderWithProviders(
+      <QuestionCard
+        choices={[
+          '이력서 만들기 시작할게요',
+          '이력서 또는 경력증명서 파일 올리기',
+          '전체 순서가 궁금해요',
+        ]}
+        fileChoice="이력서 또는 경력증명서 파일 올리기"
+        onFileChoice={onFileChoice}
+        {...handlers}
+      />,
+    );
+
+    // 화살표키로 라디오를 옮겨도 파일 선택창은 열리지 않습니다.
+    await userEvent.click(screen.getByRole('radio', { name: '이력서 만들기 시작할게요' }));
+    await userEvent.keyboard('{ArrowDown}');
+    expect(screen.queryByRole('radio', { name: '이력서 또는 경력증명서 파일 올리기' })).toBeNull();
+    expect(onFileChoice).not.toHaveBeenCalled();
+
+    await userEvent.click(
+      screen.getByRole('button', { name: '이력서 또는 경력증명서 파일 올리기' }),
+    );
+
+    expect(onFileChoice).toHaveBeenCalledOnce();
+    expect(handlers.onChoice).not.toHaveBeenCalled();
+  });
 });

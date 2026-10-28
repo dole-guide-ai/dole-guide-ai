@@ -24,12 +24,28 @@ def list_regions(_: CurrentVisitor) -> Page[CodeRead]:
     return Page(items=items, total=len(items))
 
 
-@router.get("/occupations", summary="세부 직종 이름 검색", responses=error_responses(401, 422))
-def search_occupations(
-    _: CurrentVisitor,
-    q: Annotated[str, Query(max_length=50, description="직종 이름 일부. 띄어쓰기 무시")],
-    limit: Annotated[int, Query(ge=1, le=20)] = 10,
-) -> Page[CodeRead]:
-    """이름에 q가 들어간 세부 직종을 짧은 이름부터 limit개 돌려줍니다(자동완성)."""
-    items = work24_codes.lookup_code("occupation", q, limit)
+SearchText = Annotated[str, Query(max_length=50, description="이름 일부. 띄어쓰기 무시")]
+SearchLimit = Annotated[int, Query(ge=1, le=20)]
+
+
+def _page(kind: work24_codes.CodeKind, q: str, limit: int) -> Page[CodeRead]:
+    items = work24_codes.search(kind, q, limit)
     return Page(items=items, total=len(items))
+
+
+@router.get("/occupations", summary="세부 직종 이름 검색", responses=error_responses(401, 422))
+def search_occupations(_: CurrentVisitor, q: SearchText, limit: SearchLimit = 10) -> Page[CodeRead]:
+    """이름에 q가 들어간 세부 직종을 짧은 이름부터 limit개 돌려줍니다(자동완성)."""
+    return _page("occupation", q, limit)
+
+
+@router.get("/licenses", summary="자격면허 이름 검색", responses=error_responses(401, 422))
+def search_licenses(_: CurrentVisitor, q: SearchText, limit: SearchLimit = 10) -> Page[CodeRead]:
+    """고용24 자격면허코드(dtlGb=3) 검색. 코드표를 받기 전에는 빈 목록입니다."""
+    return _page("license", q, limit)
+
+
+@router.get("/majors", summary="전공 이름 검색", responses=error_responses(401, 422))
+def search_majors(_: CurrentVisitor, q: SearchText, limit: SearchLimit = 10) -> Page[CodeRead]:
+    """고용24 전공코드(dtlGb=6) 검색. 코드표를 받기 전에는 빈 목록입니다."""
+    return _page("major", q, limit)

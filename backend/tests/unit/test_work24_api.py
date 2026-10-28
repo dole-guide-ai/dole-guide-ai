@@ -71,3 +71,40 @@ def test_snapshot_applies_range_and_page(monkeypatch) -> None:
     assert later.total < everything.total
     assert all(p.schedule[:10] >= "2026-11-13" for p in later.items)
     assert second_page.items == [] and second_page.total == everything.total
+
+
+def _capture(monkeypatch) -> list[dict]:
+    """서비스가 고용24에 넘긴 검색 조건을 모읍니다(실제 호출 없음)."""
+    sent: list[dict] = []
+
+    def fake_fetch(keyword, start, end, page=1, get=None, region=None):
+        sent.append(work24_api.area_params(region))
+        return work24_api.LivePage(items=[], total=0)
+
+    monkeypatch.setattr(work24_api, "fetch_trainings", fake_fetch)
+    return sent
+
+
+def test_region_is_sent_to_work24_as_area_codes(monkeypatch) -> None:
+    sent = _capture(monkeypatch)
+    for region in ("서울", "강남구", "경기 부천시"):
+        training_service.search_trainings("정보처리", region, NOW.date(), NOW)
+
+    # 시·도는 앞 두 자리, 시·군·구는 다섯 자리 코드 그대로(2026-10-27 실제 호출로 확인한 형식)
+    assert sent == [
+        {"srchTraArea1": "11"},
+        {"srchTraArea1": "11", "srchTraArea2": "11680"},
+        {"srchTraArea1": "41", "srchTraArea2": "41190"},
+    ]
+
+
+def test_ambiguous_region_is_not_sent_and_filters_by_name(monkeypatch) -> None:
+    def fake_fetch(keyword, start, end, page=1, get=None, region=None):
+        assert region is None  # "중구"는 여러 시·도에 있어 코드를 정하지 않습니다.
+        items = work24_api.parse_trainings(ET.fromstring(TRAINING_XML))
+        return work24_api.LivePage(items=items, total=9)
+
+    monkeypatch.setattr(work24_api, "fetch_trainings", fake_fetch)
+    result = training_service.search_trainings("엑셀", "중구", NOW.date(), NOW)
+
+    assert (result.items, result.total) == ([], 0)

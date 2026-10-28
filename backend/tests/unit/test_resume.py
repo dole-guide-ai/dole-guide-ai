@@ -10,6 +10,7 @@ from app.rules.resume import (
     required_paths,
     resume_completeness,
 )
+from app.rules.work24_codes import match_code
 from app.schemas.common import FieldSource, FieldStatus, FormField
 from app.schemas.forms.resume import (
     Career,
@@ -48,11 +49,20 @@ def complete_resume() -> ResumeData:
             desired_occupations=[
                 DesiredOccupation(
                     item_id="o1",
-                    occupation=f({"code": None, "name": "생산직", "status": "confirmed"}),
+                    occupation=f(
+                        {
+                            "code": "813207",
+                            "name": "프레스기 및 절단기 조작원",
+                            "status": "confirmed",
+                            "said": "생산직",
+                        }
+                    ),
                     experience_type=f("경력"),
                 )
             ],
-            desired_regions=f([{"code": None, "name": "경기 안성시"}]),
+            desired_regions=f(
+                [{"code": "41550", "name": "경기 안성시", "status": "confirmed", "said": "안성"}]
+            ),
             desired_salary=f({"amount": 2800000, "unit": "monthly", "negotiable": False}),
             employment_contract_type=f("기간의 정함이 없는 근로계약"),
             military_alternative=f("해당 없음"),
@@ -68,7 +78,13 @@ def complete_resume() -> ResumeData:
                 occupation=f({"code": None, "name": "생산직"}),
             )
         ],
-        certifications=[Certification(item_id="l1", certificate_name=f("지게차운전기능사"))],
+        certifications=[
+            Certification(
+                item_id="l1",
+                certificate_name=f("지게차운전기능사"),
+                certificate_code=f(match_code("license", "지게차운전기능사")),
+            )
+        ],
         competencies_status=f(None, "not_applicable"),
     )
 

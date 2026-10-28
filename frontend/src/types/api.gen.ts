@@ -85,6 +85,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/codes/licenses": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 자격면허 이름 검색
+         * @description 고용24 자격면허코드(dtlGb=3) 검색. 코드표를 받기 전에는 빈 목록입니다.
+         */
+        get: operations["search_licenses"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/codes/majors": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 전공 이름 검색
+         * @description 고용24 전공코드(dtlGb=6) 검색. 코드표를 받기 전에는 빈 목록입니다.
+         */
+        get: operations["search_majors"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/personas": {
         parameters: {
             query?: never;
@@ -926,6 +966,8 @@ export interface components {
              * @default false
              */
             accepts_file: boolean;
+            /** File Choice */
+            file_choice?: string | null;
         };
         /** Body_create_transcription */
         Body_create_transcription: {
@@ -1017,6 +1059,13 @@ export interface components {
              *     }
              */
             certificate_name: components["schemas"]["FormField"];
+            /**
+             * @default {
+             *       "status": "missing",
+             *       "transformed": false
+             *     }
+             */
+            certificate_code: components["schemas"]["FormField"];
             /**
              * @default {
              *       "status": "missing",
@@ -1261,13 +1310,6 @@ export interface components {
              *       "transformed": false
              *     }
              */
-            gpa: components["schemas"]["FormField"];
-            /**
-             * @default {
-             *       "status": "missing",
-             *       "transformed": false
-             *     }
-             */
             gpa_scale: components["schemas"]["FormField"];
             /**
              * @default {
@@ -1275,7 +1317,21 @@ export interface components {
              *       "transformed": false
              *     }
              */
+            gpa: components["schemas"]["FormField"];
+            /**
+             * @default {
+             *       "status": "missing",
+             *       "transformed": false
+             *     }
+             */
             major: components["schemas"]["FormField"];
+            /**
+             * @default {
+             *       "status": "missing",
+             *       "transformed": false
+             *     }
+             */
+            major_code: components["schemas"]["FormField"];
             /**
              * @default {
              *       "status": "missing",
@@ -1356,6 +1412,8 @@ export interface components {
              * @default false
              */
             accepts_file: boolean;
+            /** File Choice */
+            file_choice?: string | null;
             /**
              * @default {
              *       "big_text": false
@@ -2645,7 +2703,109 @@ export interface operations {
     search_occupations: {
         parameters: {
             query: {
-                /** @description 직종 이름 일부. 띄어쓰기 무시 */
+                /** @description 이름 일부. 띄어쓰기 무시 */
+                q: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_CodeRead_"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    search_licenses: {
+        parameters: {
+            query: {
+                /** @description 이름 일부. 띄어쓰기 무시 */
+                q: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_CodeRead_"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    search_majors: {
+        parameters: {
+            query: {
+                /** @description 이름 일부. 띄어쓰기 무시 */
                 q: string;
                 limit?: number;
             };

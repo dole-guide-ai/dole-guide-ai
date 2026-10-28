@@ -2,7 +2,10 @@
 
 import { Button } from '@/components/Button';
 import { Spinner } from '@/components/Spinner';
+import { CodeListEditor } from '@/features/resume/CodeListEditor';
+import { ExperienceEditor } from '@/features/resume/ExperienceEditor';
 import { FieldRow } from '@/features/resume/FieldRow';
+import { GpaEditor } from '@/features/resume/GpaEditor';
 import {
   CONTRACT_TYPES,
   EDUCATION_LEVELS,
@@ -11,10 +14,13 @@ import {
   formatYm,
   GRADUATION_STATUSES,
   MILITARY_OPTIONS,
+  namedCodeText,
   occupationText,
   OPTIONAL_SECTIONS,
   QUESTION_LABEL,
+  regionText,
   splitPeriod,
+  WORK24_MAX_PICKS,
   YES_NO,
 } from '@/features/resume/resumeLabels';
 import { ResumeSection } from '@/features/resume/ResumeSection';
@@ -22,12 +28,18 @@ import { useConfirmResume } from '@/features/resume/useConfirmResume';
 import { usePatchResumeField } from '@/features/resume/usePatchResumeField';
 import { useResumeDraft } from '@/features/resume/useResumeDraft';
 import { useResumeForm } from '@/features/resume/useResumeForm';
+import type { SearchKind } from '@/features/resume/useWork24Codes';
 
 import { ApiError } from '@/lib/api';
 import { PERCENT_SCALE, STICKY_FOOTER, STICKY_HEADER } from '@/lib/panelLayout';
 import { REQUIRED_SECTION, type RequiredSection } from '@/lib/resumeSections';
 import type { SessionRead } from '@/types/demo.types';
-import type { ResumeCompetencies, ResumeEducation } from '@/types/resume.types';
+import type {
+  CodeChoice,
+  CodeRef,
+  ResumeCompetencies,
+  ResumeEducation,
+} from '@/types/resume.types';
 
 /**
  * 패널 A: 고용24 이력서 항목을 같은 순서로 보여 주고, 완성도(꼭 묻는 5개)와 저장 버튼을 둡니다 (2-1.2 · 2-1.6).
@@ -78,6 +90,17 @@ const toMonthlyWage = (text: string) => ({
 });
 // 반올림하지 않습니다. 250만 5천 원이 251만원으로 보이거나 그대로 다시 저장되지 않게요.
 const toManwon = (amount: number) => amount / WON_PER_MANWON;
+
+// 경력·자격증이 비어 있을 때 직접 입력으로 만드는 첫 항목 id (seed·첫 학력 edu_001과 같은 모양)
+const FIRST_CAREER_ID = 'career_001';
+const FIRST_CERT_ID = 'cert_001';
+
+/** 하나만 고르는 코드 칸(경력 직종·자격면허·전공): 비우면 null */
+const firstOrNull = (choices: CodeChoice[]) => choices[0] ?? null;
+
+/** 컴퓨터 활용만 목록이 아니라 `{ selected_skills, other_skills }`입니다 (데이터 설계 3.11). */
+const toSectionValue = (key: string) => (text: string) =>
+  key === 'computer_skills' ? { selected_skills: toList(text), other_skills: null } : toList(text);
 
 const firstEducation = (level: string): ResumeEducation[] => [
   {
@@ -164,6 +187,25 @@ export const ResumePanel = ({
             { path: `${base}.end_date`, op: 'set', value: end },
           ]);
         };
+  /** 공통코드 칸 직접 입력(드롭다운). 고른 목록을 한 번에 보내고 이름·상태는 서버가 정합니다. */
+  const codeEditor = (
+    path: string,
+    kind: SearchKind | 'region',
+    current: CodeRef[],
+    max: number,
+    toValue: (choices: CodeChoice[]) => unknown = (choices) => choices,
+  ) =>
+    function renderCodeEditor(close: () => void) {
+      return (
+        <CodeListEditor
+          kind={kind}
+          current={current}
+          max={max}
+          onSave={(choices) => patch.mutateAsync({ path, op: 'set', value: toValue(choices) })}
+          onClose={close}
+        />
+      );
+    };
   const profile = values.profile_display;
   const education = values.education ?? [];
   const prefs = values.job_preferences;
@@ -194,6 +236,11 @@ export const ResumePanel = ({
   const totalCount = completeness?.total || Object.keys(REQUIRED_SECTION).length;
   const queue = questionQueue(values.next_question, values.question_queue);
   const careerYears = prefs?.experience_summary;
+  // 경력여부·희망직무내용 줄은 첫 희망 직종의 칸입니다. 직종이 없으면 직종부터 고릅니다.
+  const firstOccupation = prefs?.first_occupation;
+  const occupationBase = firstOccupation
+    ? `job_preferences.desired_occupations.${firstOccupation.item_id}`
+    : null;
 
   return (
     <div className="flex flex-col gap-4">
@@ -313,20 +360,47 @@ export const ResumePanel = ({
                 <>
                   <FieldRow
                     label="전공"
-                    value={item.major}
-                    rawValue={item.major}
+                    value={namedCodeText(item.major, item.major_code, 'major')}
                     meta={fields[`${base}.major`]}
                     isRequired
-                    onDirectSave={direct(`${base}.major`)}
+                    editor={
+                      isReadOnly
+                        ? undefined
+                        : codeEditor(
+                            `${base}.major_code`,
+                            'major',
+                            item.major_code ? [item.major_code] : [],
+                            1,
+                            firstOrNull,
+                          )
+                    }
                   />
                   <FieldRow
                     label="학점/총점"
-                    value={item.gpa ?? GPA_EMPTY_TEXT}
-                    rawValue={item.gpa}
+                    value={
+                      item.gpa
+                        ? [item.gpa, item.gpa_scale].filter(Boolean).join(' / ')
+                        : GPA_EMPTY_TEXT
+                    }
                     meta={fields[`${base}.gpa`]}
                     isRequired
-                    onDirectSave={direct(`${base}.gpa`)}
-                    placeholder="3.8/4.5"
+                    editor={
+                      isReadOnly
+                        ? undefined
+                        : (close) => (
+                            <GpaEditor
+                              gpa={item.gpa ?? null}
+                              scale={item.gpa_scale ?? null}
+                              onSave={(gpa, scale) =>
+                                patch.mutateAsync([
+                                  { path: `${base}.gpa_scale`, op: 'set', value: scale },
+                                  { path: `${base}.gpa`, op: 'set', value: gpa },
+                                ])
+                              }
+                              onClose={close}
+                            />
+                          )
+                    }
                   />
                 </>
               )}
@@ -336,7 +410,7 @@ export const ResumePanel = ({
       </ResumeSection>
 
       <ResumeSection title="희망조건" isRequired isDone={isDone(REQUIRED_SECTION.PREFERENCES)}>
-        {/* 희망직종·희망지역은 공통코드에서 골라야 해서 대화로만 고칩니다 (백엔드 lookup_code). */}
+        {/* 희망직종·희망지역은 고용24 공통코드 드롭다운으로 고릅니다(코드 확인은 서버). */}
         <FieldRow
           label="희망직종"
           value={listText(
@@ -345,6 +419,16 @@ export const ResumePanel = ({
           meta={fields['job_preferences.desired_occupations']}
           isRequired
           onEdit={edit('희망 직종')}
+          editor={
+            isReadOnly
+              ? undefined
+              : codeEditor(
+                  'job_preferences.desired_occupations',
+                  'occupation',
+                  prefs?.desired_occupations ?? [],
+                  WORK24_MAX_PICKS,
+                )
+          }
         />
         <FieldRow
           label="경력여부"
@@ -352,8 +436,24 @@ export const ResumePanel = ({
           rawValue={careerYears}
           meta={fields['job_preferences.experience_summary']}
           isRequired
-          // 경력 합계는 코드가 계산해 확인받는 값이라(2-1.4) 대화로만 고칩니다.
           onEdit={edit('희망 직종 경력')}
+          editor={
+            isReadOnly || !firstOccupation || !occupationBase
+              ? undefined
+              : (close) => (
+                  <ExperienceEditor
+                    current={firstOccupation}
+                    onSave={(type, years, months) =>
+                      patch.mutateAsync([
+                        { path: `${occupationBase}.experience_type`, op: 'set', value: type },
+                        { path: `${occupationBase}.experience_years`, op: 'set', value: years },
+                        { path: `${occupationBase}.experience_months`, op: 'set', value: months },
+                      ])
+                    }
+                    onClose={close}
+                  />
+                )
+          }
         />
         <FieldRow
           label="희망직무내용"
@@ -362,11 +462,26 @@ export const ResumePanel = ({
           meta={fields['job_preferences.desired_duties']}
           chip={prefs?.desired_duties ? undefined : OPTIONAL_CHIP}
           onEdit={edit('희망직무내용')}
+          onDirectSave={
+            occupationBase ? direct(`${occupationBase}.desired_job_description`) : undefined
+          }
         />
         <FieldRow
           label="희망근무지역"
-          value={listText(prefs?.desired_regions)}
+          value={listText(
+            prefs?.desired_regions?.map((r) => regionText(r)).filter((v) => v !== null),
+          )}
           meta={fields['job_preferences.desired_regions']}
+          editor={
+            isReadOnly
+              ? undefined
+              : codeEditor(
+                  'job_preferences.desired_regions',
+                  'region',
+                  prefs?.desired_regions ?? [],
+                  WORK24_MAX_PICKS,
+                )
+          }
           isRequired
           onEdit={edit('희망 근무지역')}
         />
@@ -444,7 +559,14 @@ export const ResumePanel = ({
         isRequired
         isDone={isDone(REQUIRED_SECTION.CAREERS)}
       >
-        {careers.length === 0 && <FieldRow label="회사명" isRequired onEdit={edit('경력')} />}
+        {careers.length === 0 && (
+          <FieldRow
+            label="회사명"
+            isRequired
+            onEdit={edit('경력')}
+            onDirectSave={direct(`competencies.careers.${FIRST_CAREER_ID}.company_name`)}
+          />
+        )}
         {careers.map((career) => {
           const base = `competencies.careers.${career.item_id}`;
           const name = career.company_name ?? '경력';
@@ -500,6 +622,17 @@ export const ResumePanel = ({
                 label="직종"
                 value={occupationText(career.occupation)}
                 meta={fields[`${base}.occupation`]}
+                editor={
+                  isReadOnly
+                    ? undefined
+                    : codeEditor(
+                        `${base}.occupation`,
+                        'occupation',
+                        career.occupation ? [career.occupation] : [],
+                        1,
+                        firstOrNull,
+                      )
+                }
               />
               <FieldRow
                 label="급여(월)"
@@ -530,7 +663,13 @@ export const ResumePanel = ({
         isDone={isDone(REQUIRED_SECTION.CERTIFICATIONS)}
       >
         {certifications.length === 0 && (
-          <FieldRow label="자격면허" meta={certMeta} isRequired onEdit={edit('자격증')} />
+          <FieldRow
+            label="자격면허"
+            meta={certMeta}
+            isRequired
+            onEdit={edit('자격증')}
+            onDirectSave={direct(`competencies.certifications.${FIRST_CERT_ID}.certificate_name`)}
+          />
         )}
         {certifications.map((cert) => {
           const base = `competencies.certifications.${cert.item_id}`;
@@ -538,12 +677,21 @@ export const ResumePanel = ({
             <div key={cert.item_id} className="py-1">
               <FieldRow
                 label="자격면허"
-                value={cert.certificate_name}
-                rawValue={cert.certificate_name}
+                value={namedCodeText(cert.certificate_name, cert.certificate_code, 'license')}
                 meta={fields[`${base}.certificate_name`]}
                 isRequired
                 onEdit={edit(`${cert.certificate_name ?? '자격증'}`)}
-                onDirectSave={direct(`${base}.certificate_name`)}
+                editor={
+                  isReadOnly
+                    ? undefined
+                    : codeEditor(
+                        `${base}.certificate_code`,
+                        'license',
+                        cert.certificate_code ? [cert.certificate_code] : [],
+                        1,
+                        firstOrNull,
+                      )
+                }
               />
               <FieldRow
                 label="발급기관"
@@ -575,15 +723,23 @@ export const ResumePanel = ({
       </ResumeSection>
 
       <ResumeSection title="그 밖의 보유역량" hint="있으면 말해 주세요">
-        {OPTIONAL_SECTIONS.map(({ key, label }) => (
-          <FieldRow
-            key={key}
-            label={label}
-            value={sectionText(values.competencies?.[key as keyof ResumeCompetencies])}
-            meta={fields[`competencies.${key}`]}
-            chip={fields[`competencies.${key}`] ? undefined : OPTIONAL_CHIP}
-          />
-        ))}
+        {OPTIONAL_SECTIONS.map(({ key, label, isImportOnly }) => {
+          const text = sectionText(values.competencies?.[key as keyof ResumeCompetencies]);
+          return (
+            <FieldRow
+              key={key}
+              label={label}
+              value={text}
+              rawValue={text}
+              meta={fields[`competencies.${key}`]}
+              chip={fields[`competencies.${key}`] ? undefined : OPTIONAL_CHIP}
+              onDirectSave={
+                isImportOnly ? undefined : direct(`competencies.${key}`, toSectionValue(key))
+              }
+              placeholder={isImportOnly ? undefined : '쉼표로 구분'}
+            />
+          );
+        })}
         <FieldRow
           label="직무능력"
           value="고용24에서 직무능력 자동 추천으로 골라요"

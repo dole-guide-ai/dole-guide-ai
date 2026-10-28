@@ -13,6 +13,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from app.rules.resume.fields import occupation_name
+from app.rules.work24_codes import said_name
 from app.schemas.forms.resume import ResumeData
 
 
@@ -36,11 +37,13 @@ SECTIONS: dict[str, Section] = {
     "certifications": Section(
         "/certifications", "q", lambda d: d.certifications, (lambda q: q.certificate_name.value,)
     ),
+    # 직종은 고른 공식 이름과 사용자가 말한 이름(said) 둘 다로 봅니다.
+    # 후보를 고른 뒤 같은 말을 다시 해도 같은 항목을 고칩니다.
     "desired_occupations": Section(
         "/job_preferences/desired_occupations",
         "o",
         lambda d: d.job_preferences.desired_occupations,
-        (lambda o: occupation_name(o.occupation),),
+        (lambda o: occupation_name(o.occupation), lambda o: said_name(o.occupation.value)),
     ),
 }
 
@@ -93,17 +96,32 @@ class ItemPicker:
         if item_id:
             known = {i.item_id for i in existing} | {pid for pid, _ in planned}
             return Pick(item_id, False) if item_id in known else Pick(None, False)
-        for item in existing:
-            if _matches(tuple(key(item) for key in spec.keys), values):
-                return Pick(item.item_id, False)
-        for pid, planned_values in planned:
-            if _matches(planned_values, values):
-                return Pick(pid, False)
+        if same := self.find(section, values):
+            return Pick(same, False)
         if limit is not None and len(existing) + len(planned) >= limit:
             return Pick(None, True, full=True)
         chosen = new_id or self._next_id(spec, existing, planned)
         planned.append((chosen, values))
         return Pick(chosen, True)
+
+    def new_id(self, section: str) -> str:
+        """새 항목 id 하나를 정합니다(쓰인 id와 이번에 정한 id를 건너뜀)."""
+        spec = SECTIONS[section]
+        planned = self.planned.setdefault(section, [])
+        chosen = self._next_id(spec, spec.items(self.data), planned)
+        planned.append((chosen, ()))
+        return chosen
+
+    def find(self, section: str, values: tuple[Any, ...]) -> str | None:
+        """같은 값의 기존 항목이나 이번에 새로 정한 항목. 없으면 None(새로 만들지 않음)."""
+        spec = SECTIONS[section]
+        for item in spec.items(self.data):
+            if _matches(tuple(key(item) for key in spec.keys), values):
+                return item.item_id
+        for pid, planned_values in self.planned.get(section, []):
+            if _matches(planned_values, values):
+                return pid
+        return None
 
     @staticmethod
     def _next_id(spec: Section, existing: list[Any], planned: list[tuple[str, Any]]) -> str:

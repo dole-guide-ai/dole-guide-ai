@@ -17,7 +17,13 @@ from app.agent.tools import guide
 from app.core.config import get_settings
 from app.core.errors import AppError
 from app.rules import obligations as obligation_rules
-from app.rules.briefing import build_briefing, interval_days, person_lines, resume_items
+from app.rules.briefing import (
+    build_briefing,
+    interval_days,
+    person_lines,
+    resume_items,
+    resume_progress_line,
+)
 from app.rules.next_action import next_action
 from app.rules.resume.fields import writable_fields
 from app.rules.rule_cards import GROUP_LABELS, Profile, cards_by_id, cards_for, search_cards
@@ -131,6 +137,7 @@ def load_context(state: AgentState, config: RunnableConfig) -> dict[str, Any]:
         education_done=procedure.education_done,
         age=procedure.age_at_separation,
         group=procedure.recipient_group,
+        resume_progress=resume_progress_line(resume.completeness, can_save=resume.can_save),
         person=person_lines(
             age=procedure.age_at_separation,
             separation_date=procedure.separation_date,

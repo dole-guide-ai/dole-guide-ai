@@ -70,6 +70,7 @@ describe('useChatHistory (F-03)', () => {
       choices: ['생산직', '창고·물류'],
       import_kind: null,
       accepts_file: false,
+      file_choice: null,
     });
     expect(pendingAskOf([ask, message(4, 'user', '생산직')])).toBeNull();
   });

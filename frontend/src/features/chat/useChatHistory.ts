@@ -37,11 +37,17 @@ export const toChatMessage = (message: MessageRead): ChatMessage => {
 export const pendingAskOf = (messages: MessageRead[]): EntryResult['pending_ask'] => {
   const last = messages.at(-1);
   if (!last || last.kind !== SSE_EVENTS.ASK_USER || !last.payload) return null;
-  const { choices, import_kind: importKind, accepts_file: acceptsFile } = last.payload;
+  const {
+    choices,
+    import_kind: importKind,
+    accepts_file: acceptsFile,
+    file_choice: fileChoice,
+  } = last.payload;
   return {
     choices: Array.isArray(choices) ? choices.filter((c) => typeof c === 'string') : [],
     import_kind: typeof importKind === 'string' ? (importKind as ImportKind) : null,
     accepts_file: acceptsFile === true,
+    file_choice: typeof fileChoice === 'string' ? fileChoice : null,
   };
 };
 

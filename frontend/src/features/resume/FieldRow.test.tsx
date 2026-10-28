@@ -75,4 +75,25 @@ describe('FieldRow', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('연-월로 적어 주세요');
     expect(screen.getByLabelText('재직기간 직접 입력')).toBeInTheDocument();
   });
+
+  it('글 한 칸으로 못 받는 칸은 편집기를 열고, 편집기가 닫으면 값 보기로 돌아온다', async () => {
+    render(
+      <dl>
+        <FieldRow
+          label="희망직종"
+          value="아파트 전기관리원"
+          editor={(close) => (
+            <button type="button" onClick={close}>
+              고르기 끝
+            </button>
+          )}
+        />
+      </dl>,
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: '직접 입력' }));
+    expect(screen.queryByText('아파트 전기관리원')).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: '고르기 끝' }));
+    expect(screen.getByText('아파트 전기관리원')).toBeInTheDocument();
+  });
 });

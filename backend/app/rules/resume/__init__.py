@@ -12,11 +12,16 @@
 """
 
 from app.rules.resume.check import (
+    GPA_SCALE_ERROR,
     REQUIRED_SECTIONS,
     ResumeIssue,
     can_save_resume,
     check_resume,
+    current_scale,
     derive_resume_values,
+    gpa_pair_problem,
+    gpa_scale_value,
+    gpa_value,
     required_paths,
     resume_completeness,
     saved_before_separation,
@@ -35,6 +40,7 @@ from app.rules.resume.steps import (
     next_resume_question,
     question_text,
     resume_steps,
+    retry_text,
     suggest_resume_title,
 )
 
@@ -46,9 +52,14 @@ __all__ = [
     "can_save_resume",
     "career_months",
     "check_resume",
+    "current_scale",
     "date_field",
     "derive_resume_values",
     "form_fields",
+    "GPA_SCALE_ERROR",
+    "gpa_pair_problem",
+    "gpa_scale_value",
+    "gpa_value",
     "is_filled",
     "needs_check",
     "next_resume_question",
@@ -59,6 +70,7 @@ __all__ = [
     "required_paths",
     "resume_completeness",
     "resume_steps",
+    "retry_text",
     "saved_before_separation",
     "section_done",
     "suggest_resume_title",

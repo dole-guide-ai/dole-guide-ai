@@ -77,7 +77,11 @@ def test_value_for_a_choice_field_outside_schema_is_rejected(park: ToolContext) 
     out = node.save_answer(park, mem, step, Reading(kind="value", value="정규직"))
 
     assert "saved" not in out["outcome"]
-    assert "/job_preferences/employment_contract_type" in out["outcome"]["rejected"][0]
+    # 저장하지 못한 이유는 사람이 읽을 부탁 문장(questions)으로 남기고, 같은 질문을 다시 냅니다.
+    assert out["outcome"]["questions"] == [
+        "'정규직'은(는) 이 칸에 고를 수 있는 값이 아니에요. 버튼에서 골라 주세요."
+    ]
+    assert out["outcome"]["retry_of"] == step.key
     ok = node.save_answer(
         park, memory("resume.wish_employment"), step, Reading(kind="value", value="관계없음")
     )
@@ -96,6 +100,7 @@ def test_spoken_period_is_turned_into_year_month_or_asked_again(park: ToolContex
         Reading(kind="value", value={"start": "재작년 겨울", "end": "지금까지"}),
     )
     assert vague["outcome"]["questions"]  # 다시 물을 문장(사용자에게 그대로 보임)
+    assert vague["outcome"]["retry_of"] == step.key  # 같은 질문을 그 문장과 함께 다시 냄
     assert _saved(vague["outcome"]) == {"/careers/c1/end_date": "2026-09"}  # 확실한 쪽만 저장
 
     clear = node.save_answer(
@@ -214,7 +219,8 @@ def test_correction_goes_through_the_same_checks_as_answers(park: ToolContext) -
             correction=Correction(path="/job_preferences/employment_contract_type", value="정규직"),
         ),
     )
-    assert "saved" not in bad["outcome"] and bad["outcome"]["rejected"]
+    assert "saved" not in bad["outcome"] and bad["outcome"]["questions"]
+    assert "retry_of" not in bad["outcome"]  # 정정은 대기 질문의 답이 아니라 다시 묻지 않습니다
 
     dated = node.save_answer(
         park,

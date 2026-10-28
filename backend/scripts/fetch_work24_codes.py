@@ -1,9 +1,11 @@
-"""고용24 공통코드 API에서 지역(dtlGb=1)·직종(dtlGb=2)을 받아 data/reference/work24_codes.json을
-다시 만듭니다. 서버는 이 스크립트를 쓰지 않고, 고용24 코드가 바뀌었을 때 사람이 돌립니다.
+"""고용24 공통코드 API에서 지역(dtlGb=1)·직종(2)·자격면허(3)·전공(6)을 받아
+data/reference/work24_codes.json을 다시 만듭니다. 서버는 이 스크립트를 쓰지 않고, 고용24 코드가
+바뀌었을 때 사람이 돌립니다.
 
 사용: backend/에서 `uv run python scripts/fetch_work24_codes.py`
-(backend/.env에 WORK24_API_KEY 필요). 인증키는 출력·저장하지 않습니다.
-원본 필드명(regionCd·jobsNm·superCd)은 여기서만 쓰고 JSON은 code·name·parent·depth로 둡니다.
+(backend/.env에 공통코드 API 인증키 WORK24_CODE_API_KEY 필요). 인증키는 출력·저장하지 않습니다.
+원본 필드명(regionCd·jobsNm·certCd·majorNm·superCd)은 여기서만 쓰고 JSON은 code·name·parent·depth로
+둡니다. 응답이 코드 목록이 아니거나 코드·이름이 빈 행이 있으면 저장하지 않고 멈춥니다.
 """
 
 import json
@@ -18,23 +20,25 @@ import httpx
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from app.core.config import get_settings  # noqa: E402
-from app.services.work24_codes import CODES_JSON  # noqa: E402
+from app.rules.work24_codes import CODES_JSON  # noqa: E402
 
 URL = "https://www.work24.go.kr/cm/openApi/call/wk/callOpenApiSvcInfo21L01.do"
-LEVELS = ("oneDepth", "twoDepth", "threeDepth")
+# 단계 태그. 전공코드는 4단계(계열 → 중계열 → 소계열 → 학과)까지 있습니다.
+LEVELS = ("oneDepth", "twoDepth", "threeDepth", "fourDepth")
 
 
 def fetch(dtl_gb: str, root_tag: str) -> ET.Element:
-    key = get_settings().work24_api_key
+    key = get_settings().work24_key("code")
     if not key:
-        sys.exit("backend/.env에 WORK24_API_KEY를 넣어 주세요.")
+        sys.exit("backend/.env에 공통코드 인증키 WORK24_CODE_API_KEY를 넣어 주세요.")
     params = {"authKey": key, "returnType": "XML", "target": "CMCD", "dtlGb": dtl_gb}
-    res = httpx.get(URL, params=params, timeout=30)
+    res = httpx.get(URL, params=params, timeout=60)
     if res.is_error:  # raise_for_status 예외 메시지에는 키가 든 URL이 찍혀서 직접 처리
         sys.exit(f"고용24 API 오류: HTTP {res.status_code} (dtlGb={dtl_gb})")
     root = ET.fromstring(res.content)
-    if root.tag != root_tag:  # 인증 실패도 200으로 오므로 루트 태그로 확인
-        sys.exit(f"dtlGb={dtl_gb} 응답이 {root_tag}가 아니에요. 인증키·사용 승인을 확인해 주세요.")
+    # 인증 실패도 200으로 오므로(<GO24><error>) 루트 태그로 확인
+    if root.findtext("error") or root.tag != root_tag:
+        sys.exit(f"dtlGb={dtl_gb} 응답이 코드 목록이 아니에요. 인증키·사용 승인을 확인해 주세요.")
     return root
 
 
@@ -71,10 +75,12 @@ if __name__ == "__main__":
     codes = {
         "regions": flatten(fetch("1", "cmcdRegion"), "regionCd", "regionNm"),
         "occupations": flatten(fetch("2", "cmcdJobs"), "jobsCd", "jobsNm"),
+        "licenses": flatten(fetch("3", "cmcdCert"), "certCd", "certNm"),
+        "majors": flatten(fetch("6", "cmcdMajor"), "majorCd", "majorNm"),
     }
     for key, rows in codes.items():  # 빈 응답으로 기존 기준표를 덮어쓰지 않게
         if not rows or not all(r["code"] and r["name"] for r in rows):
             sys.exit(f"{key} 응답이 비었거나 코드·이름 없는 행이 있어 저장하지 않았어요.")
     CODES_JSON.parent.mkdir(parents=True, exist_ok=True)
     CODES_JSON.write_text(dump(codes), encoding="utf-8", newline="\n")
-    print(f"지역 {len(codes['regions'])}건, 직종 {len(codes['occupations'])}건 → {CODES_JSON.name}")
+    print(", ".join(f"{key} {len(rows)}건" for key, rows in codes.items()), "→", CODES_JSON.name)

@@ -50,7 +50,7 @@ describe('resumeFromServer', () => {
     expect(draft.education[0].level).toBe('고등학교');
     expect(draft.field_states['education.e1.level'].status).toBe('confirmed');
     expect(draft.field_states['education.e1.school_name']).toBeUndefined();
-    expect(draft.job_preferences.desired_regions).toEqual(['경기 안성시']);
+    expect(draft.job_preferences.desired_regions).toEqual([{ code: null, name: '경기 안성시' }]);
     expect(draft.job_preferences.desired_occupations[0].name).toBe('프레스 반장');
     expect(draft.job_preferences.experience_summary).toBe('경력 22년 7개월');
     expect(draft.competencies.careers[0].company_name).toBe('OO산업');
@@ -130,7 +130,7 @@ describe('resumeUpdateFromServer', () => {
     expect(next.fields['competencies.careers.c1.company_name']?.status).toBe('extracted');
   });
 
-  it('학력 칸 이름과 희망 지역 값을 패널 모양으로 바꿉니다', () => {
+  it('학력 칸 이름은 패널 이름으로 바꾸고 희망 지역 값은 그대로 둡니다', () => {
     const education = resumeUpdateFromServer({
       form: 'resume',
       path: '/education/e1/education_level',
@@ -145,7 +145,7 @@ describe('resumeUpdateFromServer', () => {
     });
 
     expect(education.path).toBe('/education/e1/level');
-    expect(regions.value).toEqual(['인천']);
+    expect(regions.value).toEqual([{ name: '인천' }]);
   });
 
   it('자격증 없음 상태는 목록을 덮어쓰지 않고 칩만 바꿉니다', () => {

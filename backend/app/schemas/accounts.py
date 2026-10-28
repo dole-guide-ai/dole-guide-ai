@@ -71,6 +71,8 @@ class Entry(BaseModel):
     choices: list[str] = []
     # 첫 안내가 서류·사진을 요청하면 파일 올리기를 켭니다 (2-0.4 accepts_file)
     accepts_file: bool = False
+    # 누르면 말을 보내지 않고 파일 선택창을 여는 보기 (질문 이벤트의 file_choice와 같음)
+    file_choice: str | None = None
     ui: EntryUi = EntryUi()
     flags: EntryFlags = EntryFlags()
     rule_refs: list[str] = []

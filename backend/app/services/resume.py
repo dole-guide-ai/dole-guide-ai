@@ -8,6 +8,7 @@ REST의 조회·직접 고치기·저장(상세기획 2-1.6)도 여기서 합니
 
 import re
 import uuid
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import date, datetime
 from typing import Any
@@ -21,6 +22,10 @@ from app.core.errors import ConflictError, NotFoundError, UnprocessableError
 from app.core.etag import check_if_match
 from app.repositories import accounts as repo
 from app.rules import resume as rules
+from app.rules.resume import edits as edit_rules
+from app.rules.resume.codes import code_for_name
+from app.rules.resume.fields import GPA_SCALE_SUFFIX, GPA_SUFFIX, REGIONS_PATH, as_list
+from app.rules.work24_codes import code_status
 from app.schemas.accounts import EntryMessage
 from app.schemas.common import (
     ErrorCode,
@@ -52,6 +57,12 @@ HINT_HEAD = "고용24에 옮겨 적으실 때 참고하세요."
 HINT_JOB_SKILLS = "· 직무능력은 고용24에서 '직무능력 자동 추천'으로 골라 주세요."
 HINT_SALARY = "· 희망임금은 금액 앞 선택 상자에서 월급 단위를 고르세요."
 HINT_NAME_ONLY = "· 희망 직종 '{name}'은 고용24 직종 검색에서 가장 가까운 것을 골라 주세요."
+HINT_LICENSE_NAME_ONLY = (
+    "· 자격 '{name}'은 고용24 자격면허 목록에 없어 '기타자격' 칸에 적어 주세요."
+)
+HINT_REGION_NAME_ONLY = (
+    "· 희망 근무지역 '{name}'은 고용24 지역 목록에서 시·도나 시·군·구를 골라 주세요."
+)
 HINT_PERIOD = "· 총 근무기간은 경력을 다 넣으면 고용24가 자동으로 계산해요."
 HINT_GPA = "· 학점은 만점 기준(4.5 등)을 먼저 고르고 넣어 주세요."
 
@@ -63,8 +74,15 @@ class ResumeWriteResult:
 
 
 def save_resume_fields(
-    db: Session, user_id: uuid.UUID, writes: list[FieldWrite], *, today: date
+    db: Session,
+    user_id: uuid.UUID,
+    writes: list[FieldWrite],
+    *,
+    today: date,
+    removed: Sequence[str] = (),
 ) -> ResumeWriteResult:
+    """칸을 쓰고 자동 값을 다시 계산합니다. `removed`는 먼저 지울 반복 항목 경로입니다
+    (희망 직종 목록에서 뺀 직종, rules/resume/edits)."""
     procedure = repo.get_procedure(db, user_id)
     if procedure is None:
         raise NotFoundError(code=ErrorCode.ACCOUNT_NOT_FOUND)
@@ -78,8 +96,10 @@ def save_resume_fields(
         )
         repo.add_all(db, [resume])
 
-    before = resume_form.ResumeData.model_validate(_upgrade_legacy(resume.data))
+    before = read_resume_data(resume)
     raw = before.model_dump(mode="json")
+    for path in removed:
+        json_patch.remove_item(raw, path)
     for index, w in enumerate(writes):
         if not _shape_ok(w):
             raise UnprocessableError(
@@ -132,6 +152,19 @@ def save_resume_fields(
         )
         for path, f in rules.form_fields(data)
         if old.get(path) != f
+    ]
+    # 지운 항목(희망 직종 목록에서 뺀 직종 등)의 칸은 remove로 알립니다(reset_resume과 같은 모양).
+    now_paths = {path for path, _ in rules.form_fields(data)}
+    updates += [
+        FormUpdate(
+            form=FormName.RESUME,
+            path=path,
+            op="remove",
+            status=FieldStatus.MISSING,
+            completeness=completeness,
+        )
+        for path in old
+        if path not in now_paths
     ]
     return ResumeWriteResult(updates, issues)
 
@@ -232,17 +265,72 @@ def patch_resume(
                 details=[{"field": f"patch[{index}]", "type": PatchErrorType.DATE_FORMAT}],
             )
     # shortcut: 항목 통째로 지우기(remove /careers/c1)는 칸 쓰기로 표현할 수 없어 아직 422입니다.
-    writes = [
-        FieldWrite(
-            path=op.path,
-            value=None if op.op == "remove" else op.value,
-            status=FieldStatus.MISSING if op.op == "remove" else FieldStatus.CONFIRMED,
-            source=FieldSource.DIRECT,
-        )
-        for op in patch
-    ]
-    result = save_resume_fields(db, account.user_id, writes, today=now.date())
+    current = read_resume_data(resume)
+    writes: list[FieldWrite] = []
+    removed: list[str] = []
+    for index, op in enumerate(patch):
+        if op.op == PatchOpName.REMOVE:
+            writes.append(_direct(op.path, None, FieldStatus.MISSING))
+            continue
+        if edit_rules.code_kind(op.path) is None:
+            value = _gpa_checked(index, op, patch, current)
+            writes.append(_direct(op.path, value))
+            # 자격면허명·전공을 글로 고치면 대화와 같은 규칙으로 코드 칸도 맞춥니다(resume/codes).
+            writes += [_direct(p, v) for p, v in code_for_name(op.path, value, current)]
+            continue
+        # 공통코드 칸은 고른 코드가 코드표에 있는지 보고 칸 값 모양을 서버가 정합니다.
+        try:
+            edit = edit_rules.code_edit(current, op.path, op.value)
+        except edit_rules.InvalidCodeError:
+            raise UnprocessableError(
+                CODE_MESSAGE, details=[{"field": f"patch[{index}]", "type": PatchErrorType.CODE}]
+            ) from None
+        writes += [_direct(path, value) for path, value in edit.writes]
+        removed += edit.removed
+    _check_gpa_pairs(patch, current)
+    result = save_resume_fields(db, account.user_id, writes, today=now.date(), removed=removed)
     return UpdatesRead(updates=result.updates)
+
+
+def _gpa_checked(
+    index: int, op: JsonPatchOp, patch: list[JsonPatchOp], data: resume_form.ResumeData
+) -> Any:
+    """학점 만점은 고용24 목록 값으로, 학점은 0 이상 숫자로 맞춥니다. 다른 칸은 그대로.
+    학점이 만점 안에 드는지는 PATCH를 다 적용한 결과 쌍으로 봅니다(_check_gpa_pairs)."""
+    if op.value in (None, "") or not op.path.endswith((GPA_SUFFIX, GPA_SCALE_SUFFIX)):
+        return op.value
+    if op.path.endswith(GPA_SCALE_SUFFIX):
+        if (scale := rules.gpa_scale_value(op.value)) is None:
+            raise _gpa_error(index, rules.GPA_SCALE_ERROR, PatchErrorType.CHOICE)
+        return scale
+    gpa, problem = rules.gpa_value(op.value, None)
+    if problem:
+        raise _gpa_error(index, problem, PatchErrorType.NUMBER)
+    return gpa
+
+
+def _check_gpa_pairs(patch: list[JsonPatchOp], data: resume_form.ResumeData) -> None:
+    """학력 항목마다 마지막 학점·만점 연산(없으면 적힌 값)으로 결과 쌍이 0 ~ 만점인지 봅니다.
+    같은 칸을 여러 번 보내거나 만점만 낮춰도 넘는 학점이 저장되지 않게 합니다."""
+    last: dict[str, dict[str, tuple[int, Any]]] = {}
+    for index, op in enumerate(patch):
+        for suffix, key in ((GPA_SCALE_SUFFIX, "scale"), (GPA_SUFFIX, "gpa")):
+            if op.path.endswith(suffix):
+                value = None if op.op == PatchOpName.REMOVE else op.value
+                last.setdefault(op.path.removesuffix(suffix), {})[key] = (index, value)
+    for base, ops in last.items():
+        sent = {key: value for key, (_, value) in ops.items()}
+        problem = rules.gpa_pair_problem(data, base, gpa=sent.get("gpa"), scale=sent.get("scale"))
+        if problem:
+            raise _gpa_error(max(i for i, _ in ops.values()), problem, PatchErrorType.NUMBER)
+
+
+def _gpa_error(index: int, message: str, kind: PatchErrorType) -> UnprocessableError:
+    return UnprocessableError(f"{message}.", details=[{"field": f"patch[{index}]", "type": kind}])
+
+
+def _direct(path: str, value: Any, status: FieldStatus = FieldStatus.CONFIRMED) -> FieldWrite:
+    return FieldWrite(path=path, value=value, status=status, source=FieldSource.DIRECT)
 
 
 def _save(db: Session, account: AccountContext, now: datetime) -> UpdatesRead:
@@ -281,8 +369,14 @@ def work24_hint(data: resume_form.ResumeData) -> str:
         lines.append(HINT_SALARY)
     for o in prefs.desired_occupations:
         occ = rules.occupation_value(o.occupation)
-        if occ.get("status") == resume_form.OccupationStatus.NAME_ONLY:
+        if code_status(occ) == resume_form.CodeStatus.NAME_ONLY:
             lines.append(HINT_NAME_ONLY.format(name=occ.get("name")))
+    for c in data.certifications:
+        if code_status(c.certificate_code.value) == resume_form.CodeStatus.NAME_ONLY:
+            lines.append(HINT_LICENSE_NAME_ONLY.format(name=c.certificate_name.value))
+    for region in as_list(prefs.desired_regions):
+        if code_status(region) == resume_form.CodeStatus.NAME_ONLY:
+            lines.append(HINT_REGION_NAME_ONLY.format(name=region.get("name")))
     if data.careers:
         lines.append(HINT_PERIOD)
     if any(rules.is_filled(e.gpa) for e in data.education):
@@ -290,6 +384,7 @@ def work24_hint(data: resume_form.ResumeData) -> str:
     return "\n".join(lines)
 
 
+CODE_MESSAGE = "고용24 목록에 없는 값이에요. 목록에서 골라 주세요."
 # 직접 입력한 날짜는 고용24 칸 형식(연-월, 자격 취득일만 연-월-일도)이어야 저장합니다 (F-12).
 DATE_FORMAT_MESSAGE = "날짜는 2004-03처럼 연-월로 넣어 주세요."
 _YM = re.compile(r"\d{4}-(0[1-9]|1[0-2])", re.ASCII)
@@ -330,7 +425,8 @@ def current_data(db: Session, user_id: uuid.UUID) -> resume_form.ResumeData:
 def read_resume_data(resume: repo.Resume | None) -> resume_form.ResumeData:
     if resume is None:
         return resume_form.ResumeData()
-    return resume_form.ResumeData.model_validate(_upgrade_legacy(resume.data))
+    data = resume_form.ResumeData.model_validate(_upgrade_legacy(resume.data))
+    return edit_rules.with_code_status(data)
 
 
 def _outdated(resume: repo.Resume | None, separation_date: date) -> bool:
@@ -358,7 +454,7 @@ def _shape_ok(w: FieldWrite) -> bool:
         return True
     if w.path.endswith("/occupation"):
         return isinstance(w.value, dict) and isinstance(w.value.get("name"), str)
-    if w.path == "/job_preferences/desired_regions":
+    if w.path == REGIONS_PATH:
         return isinstance(w.value, list) and all(
             isinstance(r, dict) and isinstance(r.get("name"), str) for r in w.value
         )

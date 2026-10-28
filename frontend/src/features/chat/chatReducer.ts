@@ -21,10 +21,15 @@ export interface ChatState {
   importKind: ImportKind | null;
   /** 마지막 질문이 서류·사진을 요청했는지 (2-0.4 `accepts_file`). 이때만 파일 올리기를 켭니다. */
   acceptsFile: boolean;
+  /** 누르면 말을 보내지 않고 파일 선택창을 여는 선택지 (`file_choice`) */
+  fileChoice: string | null;
   streamingId: string | null;
   nextId: number;
   /** 마지막으로 보낸 말풍선과 보내기 전 선택지. 턴 시작 전에 거절되면 이 상태로 되돌립니다. */
-  lastSent?: Pick<ChatState, 'choices' | 'question' | 'importKind' | 'acceptsFile'> & {
+  lastSent?: Pick<
+    ChatState,
+    'choices' | 'question' | 'importKind' | 'acceptsFile' | 'fileChoice'
+  > & {
     messageId: string;
   };
 }
@@ -62,6 +67,7 @@ export type ChatAction =
       choices: string[];
       importKind?: ImportKind;
       acceptsFile?: boolean;
+      fileChoice?: string | null;
     }
   | { type: typeof CHAT_ACTIONS.DONE; cite?: string }
   | { type: typeof CHAT_ACTIONS.SYSTEM; text: string }
@@ -80,6 +86,7 @@ export const initChatState = (session: SessionRead): ChatState => ({
   question: null,
   importKind: session.entry.pending_ask?.import_kind ?? null,
   acceptsFile: session.entry.pending_ask?.accepts_file ?? session.entry.accepts_file ?? false,
+  fileChoice: session.entry.pending_ask?.file_choice ?? session.entry.file_choice ?? null,
   streamingId: null,
   nextId: 1,
 });
@@ -126,8 +133,14 @@ export const chatReducer = (state: ChatState, action: ChatAction): ChatState => 
         choices: action.pendingAsk?.choices ?? state.choices,
         // 멈춘 질문이 있으면 마지막 말풍선이 그 질문입니다.
         question: action.pendingAsk ? (action.messages.at(-1)?.text ?? null) : null,
-        importKind: action.pendingAsk?.import_kind ?? null,
-        acceptsFile: action.pendingAsk?.accepts_file ?? false,
+        // 멈춘 질문이 없으면 선택지와 함께 첫 안내의 파일 받기·파일 버튼도 그대로 둡니다.
+        ...(action.pendingAsk
+          ? {
+              importKind: action.pendingAsk.import_kind ?? null,
+              acceptsFile: action.pendingAsk.accepts_file ?? false,
+              fileChoice: action.pendingAsk.file_choice ?? null,
+            }
+          : { importKind: null }),
       };
 
     case CHAT_ACTIONS.USER_SENT: {
@@ -143,12 +156,14 @@ export const chatReducer = (state: ChatState, action: ChatAction): ChatState => 
         question: null,
         importKind: null,
         acceptsFile: false,
+        fileChoice: null,
         lastSent: {
           messageId: `m-${closed.nextId}`,
           choices: state.choices,
           question: state.question,
           importKind: state.importKind,
           acceptsFile: state.acceptsFile,
+          fileChoice: state.fileChoice,
         },
       };
     }
@@ -186,6 +201,7 @@ export const chatReducer = (state: ChatState, action: ChatAction): ChatState => 
         question: action.text,
         importKind: action.importKind ?? null,
         acceptsFile: action.acceptsFile ?? false,
+        fileChoice: action.fileChoice ?? null,
       };
 
     case CHAT_ACTIONS.DONE: {
@@ -209,7 +225,14 @@ export const chatReducer = (state: ChatState, action: ChatAction): ChatState => 
           push(acc, { role: CHAT_ROLE.ASSISTANT, text: message.text, cite: message.cite }),
         closeStreaming(state),
       );
-      return { ...next, choices: action.entry.choices, question: null };
+      return {
+        ...next,
+        choices: action.entry.choices,
+        question: null,
+        importKind: null,
+        acceptsFile: action.entry.accepts_file ?? false,
+        fileChoice: action.entry.file_choice ?? null,
+      };
     }
 
     case CHAT_ACTIONS.SYSTEM:

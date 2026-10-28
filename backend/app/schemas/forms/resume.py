@@ -16,12 +16,12 @@ from app.schemas.common import FormField
 SCHEMA_VERSION = "work24_resume_v2"
 
 
-class OccupationStatus(StrEnum):
-    """직종 값의 공통코드 확정 상태 (상세기획 2-1.4)."""
+class CodeStatus(StrEnum):
+    """희망 직종·지역 값의 고용24 공통코드 확정 상태 (상세기획 2-1.4)."""
 
-    CONFIRMED = "confirmed"
-    NEEDS_CONFIRMATION = "needs_confirmation"  # 후보를 아직 고르지 않음
-    NAME_ONLY = "name_only"  # 세 번 안 맞아 말한 이름만 저장
+    CONFIRMED = "confirmed"  # 공통코드 후보 중에서 고름(code 있음)
+    NEEDS_CONFIRMATION = "needs_confirmation"  # 말한 이름만 있고 후보를 아직 고르지 않음
+    NAME_ONLY = "name_only"  # 후보가 맞지 않아 말한 이름만 저장(고용24 입력 때 목록에서 고름)
 
 
 class EducationLevel(StrEnum):
@@ -69,6 +69,16 @@ class MilitaryAlternative(StrEnum):
     INDUSTRIAL = "산업기능요원"
 
 
+class GpaScale(StrEnum):
+    """학점 총점(만점). 고용24 학력사항에서 드롭다운으로 고릅니다."""
+
+    FOUR = "4.0"
+    FOUR_THREE = "4.3"
+    FOUR_FIVE = "4.5"
+    FIVE = "5.0"
+    HUNDRED = "100"
+
+
 # 칸 이름 → 고를 수 있는 값(고용24 선택지). 저장 검증과 대화 진행표가 이 목록 하나를 씁니다.
 CHOICE_FIELDS: dict[str, type[StrEnum]] = {
     "education_level": EducationLevel,
@@ -77,6 +87,7 @@ CHOICE_FIELDS: dict[str, type[StrEnum]] = {
     "employment_status": EmploymentStatus,
     "employment_contract_type": ContractType,
     "military_alternative": MilitaryAlternative,
+    "gpa_scale": GpaScale,
 }
 
 
@@ -127,9 +138,11 @@ class Education(_Form):
     school_name: FormField = asked("resume.education_school")
     start_date: FormField = asked("resume.education_period")  # YYYY-MM
     end_date: FormField = asked("resume.education_period")  # YYYY-MM
-    gpa: FormField = asked("resume.education_gpa", required=False)  # 대학 이상만 묻는 선택 칸
-    gpa_scale: FormField = asked("resume.education_gpa", required=False)
+    # 대학 이상만 "몇 점 만점에 몇 점"으로 한 번에 묻습니다(사람들이 보통 같이 말함).
+    gpa_scale: FormField = asked("resume.education_gpa", required=False)  # GpaScale
+    gpa: FormField = asked("resume.education_gpa", required=False)  # 숫자, 0 ~ 총점
     major: FormField = asked("resume.education_major", required=False)  # 대학 이상만 필수
+    major_code: FormField = FormField()  # 고용24 전공코드 {code, name, status, said}
     double_major: FormField = FormField()
     minor: FormField = FormField()
     dual_major: FormField = FormField()
@@ -138,7 +151,7 @@ class Education(_Form):
 
 class DesiredOccupation(_Form):
     item_id: str
-    occupation: FormField = asked("resume.wish_job")  # {code, name, status: OccupationStatus}
+    occupation: FormField = asked("resume.wish_job")  # {code, name, status: CodeStatus, said}
     experience_type: FormField = asked("resume.wish_experience")  # ExperienceType
     experience_years: FormField = FormField()
     experience_months: FormField = FormField()
@@ -147,7 +160,8 @@ class DesiredOccupation(_Form):
 
 class JobPreferences(_Form):
     desired_occupations: list[DesiredOccupation] = []
-    desired_regions: FormField = asked("resume.wish_region")  # [{code, name}] 최대 3곳
+    # [{code, name, status, said}] 최대 3곳
+    desired_regions: FormField = asked("resume.wish_region")
     desired_salary: FormField = asked("resume.wish_wage")  # {amount, unit, currency, negotiable}
     employment_contract_type: FormField = asked("resume.wish_employment")  # ContractType
     work_arrangements: FormField = FormField()
@@ -173,6 +187,7 @@ class Career(_Form):
 class Certification(_Form):
     item_id: str
     certificate_name: FormField = asked("resume.license")
+    certificate_code: FormField = FormField()  # 고용24 자격면허코드 {code, name, status, said}
     issuing_organization: FormField = FormField()
     acquired_date: FormField = FormField()  # YYYY-MM-DD
 

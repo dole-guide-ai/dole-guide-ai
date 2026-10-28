@@ -2,9 +2,11 @@
 
 모델은 이력서 스키마에 맞춘 값을 넘깁니다. 선택 칸(학력·졸업 여부)은 스키마의 선택지 중 하나로,
 기존 항목을 고치면 그 항목의 item_id로 넘깁니다(말을 알아듣는 일은 모델이 합니다).
-여기서는 날짜 계산(오늘 기준 "작년 3월" → YYYY-MM), 새 항목 id 만들기, 맞지 않는 값 거절만 합니다.
-다시 물을 것은 사용자에게 그대로 보여도 되는 문장(asks)으로, 코드 사정(없는 item_id 등)은
-diagnostics로 따로 둡니다. diagnostics는 로그에만 남기고 모델·사용자에게 보내지 않습니다.
+여기서는 날짜 계산(오늘 기준 "작년 3월" → YYYY-MM), 새 항목 id 만들기, 맞지 않는 값 거절,
+희망 직종·지역·자격면허·전공의 고용24 공통코드 맞추기(rules/work24_codes)만 합니다. 코드는 모델이
+고르지 않습니다. 다시 물을 것은 사용자에게 그대로 보여도 되는 문장(asks)으로, 코드 사정(없는
+item_id 등)은 diagnostics로 따로 둡니다. diagnostics는 로그에만 남기고 모델·사용자에게 보내지
+않습니다.
 """
 
 import re
@@ -14,10 +16,28 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from app.rules.resume.check import MAX_PICKS
+from app.rules.resume.check import (
+    GPA_SCALE_ERROR,
+    MAX_PICKS,
+    current_scale,
+    gpa_pair_problem,
+    gpa_scale_value,
+    gpa_value,
+)
+from app.rules.resume.codes import code_for_name, name_path_of
 from app.rules.resume.dates import DateResult, date_field, normalize_date
-from app.rules.resume.fields import CERTIFICATIONS_STATUS, not_applicable, occupation, said
+from app.rules.resume.fields import (
+    CERTIFICATIONS_STATUS,
+    GPA_SCALE_SUFFIX,
+    GPA_SUFFIX,
+    OCCUPATIONS_PATH,
+    REGIONS_PATH,
+    as_list,
+    not_applicable,
+    said,
+)
 from app.rules.resume.items import ItemPicker
+from app.rules.work24_codes import code_done, match_code, name_only, said_name
 from app.schemas.forms.resume import EducationLevel, GraduationStatus, ResumeData, choices_of
 from app.schemas.resume import FieldWrite
 
@@ -30,6 +50,7 @@ DUTY_MIN_CHARS = 8
 ITEM_ID_HINT = "기존 항목을 고치면 진행표·resume_items의 item_id. 새 항목이면 비움"
 # 사용자에게 다시 물을 때 쓰는 문장(말하기 모델이 그대로 옮김)
 ASK_DATE = "'{expr}'이(가) 몇 년 몇 월인지 알려 주세요."
+ASK_CHOICE = "'{item}'은(는) 이 칸에 고를 수 있는 값이 아니에요. 버튼에서 골라 주세요."
 ASK_WHICH_CAREER = "어느 회사에서 일한 내용인지 회사 이름을 알려 주세요."
 ASK_WHICH_SCHOOL = "어느 학교 학력인지 학교 이름을 알려 주세요."
 ASK_DUTIES = "{company}에서 하신 일을 다룬 물건·장비나 맡은 범위로 조금 더 알려 주세요."
@@ -117,14 +138,39 @@ def plan_writes(
         _education(plan, picker, fact, today, separation_date, targets.get("education"))
     for fact in facts.certifications:
         _certification(plan, picker, fact, today, separation_date)
+    # 아직 후보를 고르지 않은 희망 직종 자리. 새로 말한 직종이 이 자리를 대신합니다
+    # (다른 말로 다시 말하면 항목을 늘리지 않고 그 직종을 바꿈).
+    open_ids = [
+        d.item_id
+        for d in data.job_preferences.desired_occupations
+        if not code_done(d.occupation.value)
+    ]
     for name in facts.desired_occupations:
-        _desired_occupation(plan, picker, name)
+        _desired_occupation(plan, picker, data, open_ids, name)
     if facts.no_certifications and not data.certifications:
         plan.writes.append(not_applicable(CERTIFICATIONS_STATUS))
     if facts.desired_regions:
-        regions = [{"code": None, "name": n} for n in facts.desired_regions[:MAX_PICKS]]
-        plan.writes.append(said("/job_preferences/desired_regions", regions))
+        plan.writes.append(said(REGIONS_PATH, regions_value(data, facts.desired_regions)))
     return plan
+
+
+def regions_value(
+    data: ResumeData, names: list[Any], *, replacing: str | None = None
+) -> list[dict[str, Any]]:
+    """말한 지역(3곳까지) → 칸 값. 이미 코드를 고른 같은 지역은 다시 고르게 하지 않습니다.
+
+    `replacing`(후보를 고르던 지역의 말한 이름)이 있으면 목록 전체가 아니라 그 자리만 바꿉니다.
+    """
+    current = as_list(data.job_preferences.desired_regions)
+    said_names = [str(said_name(r)) for r in current]
+    if replacing is not None and replacing in said_names:
+        i = said_names.index(replacing)
+        names = [*said_names[:i], *names, *said_names[i + 1 :]]
+    kept: dict[str, dict[str, Any]] = {}
+    for region in current:
+        if code_done(region):
+            kept |= {str(said_name(region)): region, str(region.get("name")): region}
+    return [kept.get(str(n)) or match_code("region", str(n)) for n in names[:MAX_PICKS]]
 
 
 def _asked_items(paths: tuple[str, ...]) -> dict[str, str]:
@@ -169,7 +215,8 @@ def _career(
         if value := getattr(fact, key):
             writes.append(said(f"{base}/{key}", value))
     if fact.occupation:
-        writes.append(said(f"{base}/occupation", occupation(fact.occupation)))
+        # 경력의 직종은 고용24에서 꼭 넣는 칸(★)이 아니라 말한 이름만 둡니다.
+        writes.append(said(f"{base}/occupation", name_only(fact.occupation)))
     for key, expr in (("start_date", fact.start), ("end_date", fact.end)):
         if not expr:
             continue
@@ -264,7 +311,11 @@ def _certification(
     if item_id is None:
         return
     base = f"/certifications/{item_id}"
-    plan.writes.append(said(f"{base}/certificate_name", fact.certificate_name))
+    name_path = f"{base}/certificate_name"
+    plan.writes.append(said(name_path, fact.certificate_name))
+    plan.writes += [
+        said(p, v) for p, v in code_for_name(name_path, fact.certificate_name, picker.data)
+    ]
     if fact.issuing_organization:
         plan.writes.append(said(f"{base}/issuing_organization", fact.issuing_organization))
     if fact.acquired:
@@ -287,13 +338,33 @@ def _acquired(plan: FactPlan, path: str, expr: str, today: date, separation_date
         plan.writes.append(_dated(path, expr, result, today))
 
 
-def _desired_occupation(plan: FactPlan, picker: ItemPicker, name: str) -> None:
-    pick = picker.pick("desired_occupations", values=(name,), limit=MAX_PICKS)
-    if pick.full:
-        plan.rejected.append(f"희망 직종 '{name}': 고용24는 {MAX_PICKS}개까지라 넣지 않음")
-    elif pick.is_new:  # 이미 적은 직종을 다시 말했으면 쓸 것이 없습니다.
-        path = f"/job_preferences/desired_occupations/{pick.item_id}/occupation"
-        plan.writes.append(said(path, occupation(name)))
+def _desired_occupation(
+    plan: FactPlan, picker: ItemPicker, data: ResumeData, open_ids: list[str], name: str
+) -> None:
+    """같은 직종이면 그 항목, 아직 고르지 않은 직종이 있으면 그 자리, 아니면 새 항목에 씁니다."""
+    item_id = picker.find("desired_occupations", (name, name))
+    if item_id is not None:
+        if item_id in open_ids:
+            open_ids.remove(item_id)
+        elif _occupation_done(data, item_id):
+            return  # 이미 고른 직종을 다시 말했으면 쓸 것이 없습니다.
+    elif open_ids:
+        item_id = open_ids.pop(0)
+    else:
+        pick = picker.pick("desired_occupations", values=(name, name), limit=MAX_PICKS)
+        if pick.full:
+            plan.rejected.append(f"희망 직종 '{name}': 고용24는 {MAX_PICKS}개까지라 넣지 않음")
+            return
+        item_id = pick.item_id
+    path = f"/job_preferences/desired_occupations/{item_id}/occupation"
+    plan.writes.append(said(path, match_code("occupation", name)))
+
+
+def _occupation_done(data: ResumeData, item_id: str) -> bool:
+    return any(
+        d.item_id == item_id and code_done(d.occupation.value)
+        for d in data.job_preferences.desired_occupations
+    )
 
 
 def _picked(
@@ -318,12 +389,22 @@ ACQUIRED_SUFFIX = "/acquired_date"
 
 
 def answer_writes(
-    paths: tuple[str, ...], value: Any, today: date, separation_date: date
+    data: ResumeData,
+    paths: tuple[str, ...],
+    value: Any,
+    today: date,
+    separation_date: date,
+    *,
+    replacing_region: str | None = None,
 ) -> FactPlan:
     """읽기 모델이 돌려준 대기 칸의 값을 칸 쓰기로 바꿉니다.
 
     - 경로가 하나면 값 그대로, 기간(시작·끝)이면 {"start", "end"}, 여러 칸이면 {칸 이름: 값}.
-    - 날짜는 연·월로 바꾸고 못 바꾸면 asks에, 선택 칸의 선택지 밖 값은 rejected에 둡니다.
+    - 날짜는 연·월로, 학점 만점은 고용24 목록 값으로, 학점은 0 ~ 만점 숫자로 맞춥니다.
+    - 맞출 수 없으면 저장하지 않고 사용자에게 보일 문장을 asks에 둡니다.
+    - 자격면허·전공 코드 칸에 온 글은 이름 칸에 쓰고 코드는 이름으로 다시 찾습니다(코드 칸에
+      글자를 그대로 두지 않음).
+    - `replacing_region`(지역 하나의 후보를 고르는 중)이면 그 지역 자리만 말한 지역으로 바꿉니다.
     """
     plan = FactPlan()
     # 섹션 경로(/careers 같은 반복 항목 묶음)와 *_status는 값 하나를 쓰는 칸이 아닙니다.
@@ -340,12 +421,45 @@ def answer_writes(
                 plan.asks.append(ASK_DATE.format(expr=item))
             else:
                 plan.writes.append(_dated(path, item, result, today))
+        elif path.endswith(GPA_SCALE_SUFFIX):
+            base = path.removesuffix(GPA_SCALE_SUFFIX)
+            sent_gpa = value.get("gpa") if isinstance(value, dict) else None
+            if not (scale := gpa_scale_value(item)):
+                plan.asks.append(f"{GPA_SCALE_ERROR}.")
+            elif problem := gpa_pair_problem(data, base, gpa=sent_gpa, scale=scale):
+                # 만점만 고쳐도 적힌(또는 함께 말한) 학점이 새 만점을 넘으면 저장하지 않습니다.
+                plan.asks.append(f"{problem}.")
+            else:
+                plan.writes.append(said(path, scale))
+        elif path.endswith(GPA_SUFFIX):
+            sent = value.get("gpa_scale") if isinstance(value, dict) else None
+            if sent not in (None, "") and gpa_scale_value(sent) is None:
+                continue  # 함께 말한 만점이 틀렸으면 만점을 다시 받은 뒤 학점을 봅니다.
+            gpa, problem = gpa_value(item, _scale(data, path, value))
+            if problem:
+                plan.asks.append(f"{problem}.")
+            else:
+                plan.writes.append(said(path, gpa))
         elif choices_of(path) and item not in choices_of(path):
             # 고를 값은 질문 카드 버튼에 있으므로 목록을 되풀이하지 않습니다.
-            plan.rejected.append(f"{path}: 정해진 선택지 밖의 값이라 저장하지 않음")
+            plan.asks.append(ASK_CHOICE.format(item=item))
+        elif name_path := name_path_of(path):
+            if isinstance(item, str):
+                plan.writes.append(said(name_path, item))
+                plan.writes += [said(p, v) for p, v in code_for_name(name_path, item, data)]
+        elif path == REGIONS_PATH and replacing_region is not None:
+            names = item if isinstance(item, list) else [item]
+            plan.writes.append(said(path, regions_value(data, names, replacing=replacing_region)))
         else:
-            plan.writes.append(said(path, _shaped(path, item)))
+            plan.writes.append(said(path, _shaped(data, path, item)))
+            plan.writes += [said(p, v) for p, v in code_for_name(path, item, data)]
     return plan
+
+
+def _scale(data: ResumeData, gpa_path: str, value: Any) -> Any:
+    """학점과 함께 말한 만점({"gpa_scale": …}), 없으면 이미 적힌 만점."""
+    sent = value.get("gpa_scale") if isinstance(value, dict) else None
+    return current_scale(data, gpa_path, sent)
 
 
 def _pair_values(paths: tuple[str, ...], value: Any) -> list[tuple[str, Any]]:
@@ -367,10 +481,12 @@ def _pair_values(paths: tuple[str, ...], value: Any) -> list[tuple[str, Any]]:
     ]
 
 
-def _shaped(path: str, item: Any) -> Any:
-    """직종·희망 지역은 스키마 모양({name}·[{name}])으로 맞춥니다."""
+def _shaped(data: ResumeData, path: str, item: Any) -> Any:
+    """직종·희망 지역은 스키마 모양으로 맞춥니다. 희망 직종·지역은 고용24 공통코드로 맞춥니다."""
     if path.endswith("/occupation") and isinstance(item, str):
-        return occupation(item)
-    if path.endswith("/desired_regions") and isinstance(item, list):
-        return [{"code": None, "name": str(n)} for n in item][:MAX_PICKS]
+        return (
+            match_code("occupation", item) if path.startswith(OCCUPATIONS_PATH) else name_only(item)
+        )
+    if path == REGIONS_PATH and isinstance(item, list):
+        return regions_value(data, item)
     return item

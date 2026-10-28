@@ -146,6 +146,7 @@ export const DashboardView = ({ session, personaName }: DashboardViewProps) => {
           choices={chat.choices}
           question={chat.question}
           importKind={chat.importKind}
+          fileChoice={chat.fileChoice}
           sessionId={session.session_id}
           personaId={session.persona_id}
           onImport={(importIds) =>

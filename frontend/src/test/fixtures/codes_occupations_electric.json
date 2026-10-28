@@ -1,0 +1,8 @@
+{
+  "items": [
+    { "code": "834002", "name": "빌딩 전기관리원", "parent": "103", "depth": 3 },
+    { "code": "834003", "name": "공장 전기관리원", "parent": "103", "depth": 3 },
+    { "code": "834001", "name": "아파트 전기관리원", "parent": "103", "depth": 3 }
+  ],
+  "total": 3
+}

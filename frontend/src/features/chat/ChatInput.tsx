@@ -1,6 +1,6 @@
 'use client';
 
-import { type ChangeEvent, type KeyboardEvent, useRef, useState } from 'react';
+import { type ChangeEvent, type KeyboardEvent, type RefObject, useRef, useState } from 'react';
 
 import { ArrowUp, Maximize2, Mic, Paperclip, Square } from 'lucide-react';
 
@@ -51,6 +51,8 @@ interface ChatInputProps {
   voiceStatus?: VoiceStatus;
   /** 말하기 실패 안내 (마이크 거부·인식 실패) */
   voiceError?: string | null;
+  /** 질문 카드의 파일 선택지가 같은 파일 선택창을 열 수 있게 부모가 넘기는 ref */
+  fileInputRef?: RefObject<HTMLInputElement | null>;
 }
 
 export const ChatInput = ({
@@ -65,8 +67,10 @@ export const ChatInput = ({
   onVoiceToggle,
   voiceStatus = VOICE_STATUS.IDLE,
   voiceError = null,
+  fileInputRef: sharedFileInputRef,
 }: ChatInputProps) => {
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const ownFileInputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = sharedFileInputRef ?? ownFileInputRef;
   const isRecording = voiceStatus === VOICE_STATUS.RECORDING;
   const isTranscribing = voiceStatus === VOICE_STATUS.TRANSCRIBING;
   const [isLargeOpen, setIsLargeOpen] = useState(false);

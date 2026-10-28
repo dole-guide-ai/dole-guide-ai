@@ -35,7 +35,8 @@ describe('ResumePanel (실제 이력서 API 응답)', () => {
     renderWithProviders(<ResumePanel session={sessionFor('choi')} />);
 
     expect(await screen.findByText('전공')).toBeInTheDocument();
-    expect(screen.getByText('전자계산학')).toBeInTheDocument();
+    // 전공은 고용24 전공코드로 고른 공식 이름(전자계산학과)으로 보입니다.
+    expect(screen.getByText('전자계산학과')).toBeInTheDocument();
     expect(screen.getByText('빈칸 (고용24 입력 때 필요)')).toBeInTheDocument();
   });
 
